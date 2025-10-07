@@ -1,0 +1,100 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+ios/Pods/
+ios/DerivedData/
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+# Flutter web builds
+web/
+app.*.symbols # Android symbols
+app.*.map.json # KSM map
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+
+# Rider files
+.idea/
+*.sln
+*.suo
+*.user
+*.rider.*
+
+# VS Code specific
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+*.code-workspace
+
+# Output files
+coverage/
+# Ignore files specific to RubyMotion
+.repl_history
+
+# Windows builds
+windows/flutter/generated_plugins.cmake
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/runner/Debug/
+windows/runner/Profile/
+windows/runner/Release/
+windows/runner/flutter_window.h
+windows/runner/flutter_window.cpp
+windows/runner/main.cpp
+windows/runner/utils.h
+windows/runner/utils.cpp
+windows/runner/win3.1_resource.rc
+windows/plugins/
+
+# Linux builds
+linux/flutter/generated_plugins.cmake
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/ephemeral/
+linux/flutter/ephemeral.stamp
+
+# macOS builds
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/Generated.xcconfig
+macos/Flutter/ephemeral_dir_path
+macos/Flutter/ephemeral.app
+macos/Flutter/Flutter- আরো একবার.h

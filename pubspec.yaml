@@ -1,0 +1,89 @@
+name: arcane
+description: "A Flutter version of the Task Dominion application."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.3+3 # Incremented version
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.13.1
+  firebase_core_platform_interface: ^5.4.0
+  firebase_auth: ^5.5.4
+  cloud_firestore: ^5.6.8
+
+  # State Management
+  provider: ^6.1.2
+
+  # AI
+  google_generative_ai: ^0.4.0 
+
+  # UI & Utilities
+  cupertino_icons: ^1.0.6
+  intl: ^0.20.2 # For date formatting
+  fl_chart: ^1.0.0 # For charts
+  material_design_icons_flutter: ^7.0.7296 # For extra icons
+  collection: ^1.18.0 
+  flutter_colorpicker: ^1.1.0 # For task color selection
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  mockito: ^5.4.4 
+  change_app_package_name: ^1.1.0 
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/fonts/icons/new_ic.png" # Path to your single PNG icon
+  adaptive_icon_background: "#000000" # Or "assets/icon/background.png"
+  adaptive_icon_foreground: "assets/fonts/icons/icon.png"
+  min_sdk_android: 21 # Minimum Android SDK version supported (usually default is fine)
+  web:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+    background_color: "#000000"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+    icon_size: 48 # Or other supported sizes (48 to 256)
+  macos:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+
+
+
+flutter:
+  uses-material-design: true
+
+  assets: []
+  #   - assets/images/valorant-bg-example.png # Example if adding a background image
+
+  fonts:
+    - family: RobotoCondensed
+      fonts:
+        - asset: assets/fonts/RobotoCondensed-Regular.ttf
+        - asset: assets/fonts/RobotoCondensed-Bold.ttf
+          weight: 700
+    - family: OpenSans
+      fonts:
+        - asset: assets/fonts/OpenSans-Regular.ttf
+        - asset: assets/fonts/OpenSans-SemiBold.ttf
+          weight: 600
+    # Note: For true Valorant fonts like "Tungsten" or "DIN Next LT Pro",
+    # you would need to acquire the font files (ensure licensing) and declare them here.
+    # Example:
+    # - family: Tungsten
+    #   fonts:
+    #     - asset: assets/fonts/Tungsten-Bold.ttf # (if you had this file)
+    #       weight: 700

@@ -1,0 +1,3 @@
+Make the following changes:
+
+Now, recreate project_snapshot.txt only for the files that are changed in the original format
