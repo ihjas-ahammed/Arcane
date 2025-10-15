@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart'; // Your API keys file
 import 'package:flutter/foundation.dart'; // For kDebugMode
-import 'package:arcane/src/models/game_models.dart'; // For ChatbotMessage
+import 'package:arcane/src/models/chatbot_models.dart';
 
 class AIService {
   Future<Map<String, dynamic>> makeAICall({
@@ -28,19 +28,18 @@ class AIService {
         geminiApiKeys.every((key) => key.startsWith('YOUR_GEMINI_API_KEY'))) {
       const errorMsg =
           "No valid Gemini API keys found. Cannot generate content.";
-      onLog(// Ensure string is passed
+      onLog(
           "<span style=\"color:var(--fh-accent-red);\">Error: AI content generation failed (No API Key or invalid key).</span>");
       throw Exception(errorMsg);
     }
     if (geminiModelName.isEmpty) {
       const errorMsg =
           "GEMINI_MODEL_NAME not configured. Cannot generate content.";
-      onLog(// Ensure string is passed
+      onLog(
           "<span style=\"color:var(--fh-accent-red);\">Error: AI content generation failed (GEMINI_MODEL_NAME not configured).</span>");
       throw Exception(errorMsg);
     }
 
-    // Log the full prompt in debug mode
     if (kDebugMode) {
       print("[AIService] AI Prompt:\n$prompt");
     }
@@ -51,13 +50,13 @@ class AIService {
       final String apiKey = geminiApiKeys[keyAttemptIndex];
 
       if (apiKey.startsWith('YOUR_GEMINI_API_KEY')) {
-        onLog(// Ensure string is passed
+        onLog(
             "<span style=\"color:var(--fh-accent-orange);\">Skipping invalid API key at index $keyAttemptIndex.</span>");
         continue;
       }
 
       try {
-        onLog(// Ensure string is passed
+        onLog(
             "Trying API key index $keyAttemptIndex for model $geminiModelName...");
         final model =
             genai.GenerativeModel(model: geminiModelName, apiKey: apiKey);
@@ -69,14 +68,12 @@ class AIService {
           throw Exception("AI response was empty or null.");
         }
 
-        // Log the raw response in debug mode
         if (kDebugMode) {
           print(
               "[AIService] Raw AI Response (Key Index $keyAttemptIndex):\n$rawResponseText");
         }
-        onLog("Raw AI Response received. Attempting to parse JSON..."); // Ensure string is passed
+        onLog("Raw AI Response received. Attempting to parse JSON...");
 
-        // More robust JSON extraction
         String jsonString = rawResponseText.trim();
         int jsonStart = jsonString.indexOf('{');
         int jsonEnd = jsonString.lastIndexOf('}');
@@ -84,7 +81,7 @@ class AIService {
         if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
           jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
         } else {
-          onLog(// Ensure string is passed
+          onLog(
               "<span style=\"color:var(--fh-accent-red);\">Error: Could not find valid JSON object delimiters {{ ... }} in AI response.</span>");
           if (kDebugMode) {
             print(
@@ -93,8 +90,6 @@ class AIService {
           throw Exception("Could not extract JSON object from AI response.");
         }
 
-        // Attempt to remove common non-JSON prefixes/suffixes if any (like markdown code blocks)
-        // This is a secondary check if the above { } extraction wasn't perfect
         if (jsonString.startsWith("```json") && jsonString.endsWith("```")) {
           jsonString = jsonString.substring(7, jsonString.length - 3).trim();
         } else if (jsonString.startsWith("```") && jsonString.endsWith("```")) {
@@ -103,7 +98,7 @@ class AIService {
 
         final Map<String, dynamic> generatedData = jsonDecode(jsonString);
         onNewApiKeyIndex(keyAttemptIndex);
-        onLog(// Ensure string is passed
+        onLog(
             "<span style=\"color:var(--fh-accent-green);\">Successfully processed AI response with API key index $keyAttemptIndex.</span>");
         return generatedData;
       } catch (e) {
@@ -124,7 +119,7 @@ class AIService {
           errorDetail =
               "AI response blocked due to safety settings. Try a different prompt or adjust safety settings if possible.";
         }
-        onLog(// Ensure string is passed
+        onLog(
             "<span style=\"color:var(--fh-accent-red);\">Error with API key index $keyAttemptIndex: $errorDetail</span>");
         if (i == geminiApiKeys.length - 1) {
           throw Exception("All API keys failed. Last error: $errorDetail");
@@ -132,170 +127,8 @@ class AIService {
       }
     }
     const finalErrorMsg = "All API keys failed or were invalid.";
-    onLog("<span style=\"color:var(--fh-accent-red);\">$finalErrorMsg</span>"); // Ensure string is passed
+    onLog("<span style=\"color:var(--fh-accent-red);\">$finalErrorMsg</span>");
     throw Exception(finalErrorMsg);
-  }
-
-  Future<Map<String, List<Map<String, dynamic>>>> generateSpecificGameContent({
-    required int levelForContent,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required List<String?>
-        themes, // Themes for this specific batch, can include null for general
-    required Function(String) onLog,
-    String? playerStatsString, // New parameter
-    String? existingEnemyIdsString,
-    String? existingArtifactIdsString,
-    String? existingLocationIdsString,
-    int numEnemiesToGenerate = 0,
-    int numArtifactsPerTheme = 0,
-    int numPowerupsPerTheme = 0,
-    int numLocationsToGenerate = 0,
-    String? specificLocationKeyForEnemies,
-  }) async {
-    onLog(// Ensure string is passed
-        "Attempting to generate specific game content for themes: ${themes.map((t) => t ?? 'General').join(', ')}...");
-
-    String enemyInstructions = "";
-    if (numEnemiesToGenerate > 0) {
-      enemyInstructions = """
-"newEnemies" should be an array of $numEnemiesToGenerate enemy objects.
-- Consider these player stats for balancing: ${playerStatsString ?? "Player stats not provided, use general balancing for level $levelForContent."}. Enemies should be challenging but fair.
-- Distribute these enemies among the themes [${themes.map((t) => t == null ? "null (general)" : "'$t'").join(', ')}] or focus on "$specificLocationKeyForEnemies" if provided.
-Each enemy object must have:
-- id: string, unique (e.g., "gen_enemy_lvl${levelForContent}_a2f5")
-- name: string (e.g., "Shadow Lurker", "Arcane Golem")
-- theme: string or null (one of [${themes.map((t) => t == null ? "null" : "'$t'").join(', ')}])
-- locationKey: string (MUST match one of the 'id's from "newGameLocations" if generated, or "$specificLocationKeyForEnemies" if provided, or an existing one if appropriate for theme)
-- minPlayerLevel: number (should be $levelForContent or slightly higher, e.g., up to ${levelForContent + 2})
-- health: number (range: ${50 + levelForContent * 12} to ${80 + levelForContent * 18})
-- attack: number (range: ${8 + (levelForContent * 1.8).floor()} to ${12 + (levelForContent * 2.2).floor()})
-- defense: number (range: ${3 + (levelForContent * 0.6).floor()} to ${5 + (levelForContent * 1.1).floor()})
-- coinReward: number (range: ${20 + levelForContent * 5} to ${50 + levelForContent * 10})
-- xpReward: number (range: ${30 + levelForContent * 8} to ${70 + levelForContent * 15})
-- description: string (max 100 chars)
-""";
-    }
-
-    String artifactInstructions = "";
-    if (numArtifactsPerTheme > 0 || numPowerupsPerTheme > 0) {
-      artifactInstructions =
-          "\"newArtifacts\" should be an array of artifact objects.\n";
-      for (String? themeName in themes) {
-        String currentThemeNameForPrompt = themeName ?? "general (null theme)";
-        if (numArtifactsPerTheme > 0) {
-          artifactInstructions += """
-  - For the theme "$currentThemeNameForPrompt", generate $numArtifactsPerTheme of 'weapon', $numArtifactsPerTheme of 'armor', and $numArtifactsPerTheme of 'talisman' artifacts.
-""";
-        }
-        if (numPowerupsPerTheme > 0) {
-          artifactInstructions += """
-  - For the theme "$currentThemeNameForPrompt", generate $numPowerupsPerTheme 'powerup' artifacts.
-""";
-        }
-      }
-      artifactInstructions += """
-Each artifact object must have:
-- id: string, unique (e.g., "gen_art_lvl${levelForContent}_tech_wpn_b3c8")
-- name: string
-- type: string ['weapon', 'armor', 'talisman', 'powerup']
-- theme: string or null (MUST be the theme it was generated for, use null for general items)
-- description: string (max 100 chars)
-- cost: number (range: ${50 + levelForContent * 10} to ${300 + levelForContent * 25})
-- icon: string (a single, relevant emoji)
-- For 'weapon', 'armor', 'talisman':
-    - baseAtt: number (0 if not applicable)
-    - baseRunic: number (0 if not applicable)
-    - baseDef: number (0 if not applicable)
-    - baseHealth: number (0 if not applicable)
-    - baseLuck: number (0-10, integer percentage)
-    - baseCooldown: number (0-15, integer percentage)
-    - bonusXPMod: number (0.0 to 0.15, decimal for percentage)
-    - upgradeBonus: object (e.g., {"att": 2, "luck": 1}). Modest values.
-    - maxLevel: number (3, 5, or 7)
-- For 'powerup':
-    - effectType: string ['direct_damage', 'heal_player']
-    - effectValue: number
-    - uses: number (typically 1)
-    (omit baseStats, upgradeBonus, maxLevel for powerups or set to 0/null)
-""";
-    }
-
-    String locationInstructions = "";
-    if (numLocationsToGenerate > 0) {
-      locationInstructions = """
-"newGameLocations" should be an array of $numLocationsToGenerate game location objects.
-Each location object must have:
-- id: string, unique (e.g., "loc_dark_forest", "loc_crystal_caves_$levelForContent")
-- name: string (e.g., "Whispering Woods", "Sunken Temple of Eldoria")
-- description: string (short, evocative description, max 150 chars)
-- minPlayerLevelToUnlock: number (Based on current level. E.g., $levelForContent, ${levelForContent + 2}, etc.)
-- iconEmoji: string (a single emoji representing the location, e.g., "🌲", "🏛️", "💎")
-- associatedTheme: string or null (e.g., "knowledge", "tech", or null for general, matching one of [${themes.map((t) => t == null ? "null" : "'$t'").join(', ')}])
-- bossEnemyIdToUnlockNextLocation: string or null (ID of an enemy generated in "newEnemies" that, when defeated, could unlock another location. Can be null.)
-""";
-    }
-
-    final String prompt = """
-Generate new game content suitable for a player at level $levelForContent in a fantasy RPG.
-Focus on generating content ONLY for the following themes (if applicable, or general content if a theme is null/not provided in the list): [${themes.map((t) => t == null ? "null (general)" : "'$t'").join(', ')}].
-Provide the output as a single, valid JSON object.
-The top-level keys should ONLY be those for which content is requested (e.g., "newEnemies", "newArtifacts", "newGameLocations").
-If no enemies are requested for this batch/theme, do not include the "newEnemies" key, and so on.
-Ensure there are NO trailing commas in lists or objects. All strings must be properly escaped.
-
-IMPORTANT:
-${existingEnemyIdsString != null && existingEnemyIdsString.isNotEmpty ? "- Do NOT generate enemies with IDs from this list: [$existingEnemyIdsString]." : ""}
-${existingArtifactIdsString != null && existingArtifactIdsString.isNotEmpty ? "- Do NOT generate artifacts with IDs from this list: [$existingArtifactIdsString]." : ""}
-${existingLocationIdsString != null && existingLocationIdsString.isNotEmpty ? "- Do NOT generate locations with IDs from this list: [$existingLocationIdsString]." : ""}
-- All generated IDs and names MUST be new and unique.
-
-$locationInstructions
-$enemyInstructions
-$artifactInstructions
-
-Return ONLY the JSON object.
-""";
-    try {
-      final Map<String, dynamic> rawData = await _makeAICall(
-        prompt: prompt,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog,
-      );
-
-      final List<Map<String, dynamic>> newEnemies =
-          (rawData['newEnemies'] as List?)
-                  ?.map((e) => e as Map<String, dynamic>)
-                  .toList() ??
-              [];
-      final List<Map<String, dynamic>> newArtifacts =
-          (rawData['newArtifacts'] as List?)
-                  ?.map((a) => a as Map<String, dynamic>)
-                  .toList() ??
-              [];
-      final List<Map<String, dynamic>> newGameLocations =
-          (rawData['newGameLocations'] as List?)
-                  ?.map((loc) => loc as Map<String, dynamic>)
-                  .toList() ??
-              [];
-
-      onLog(// Ensure string is passed
-          "AI content generation successful for this batch. Parsed ${newEnemies.length} enemies, ${newArtifacts.length} artifacts, ${newGameLocations.length} locations.");
-
-      return {
-        'newEnemies': newEnemies,
-        'newArtifacts': newArtifacts,
-        'newGameLocations': newGameLocations
-      };
-    } catch (e) {
-      onLog(// Ensure string is passed
-          "<span style=\"color:var(--fh-accent-red);\">AI Call failed for generateSpecificGameContent: ${e.toString()}</span>");
-      if (kDebugMode) {
-        print("[AIService] generateSpecificGameContent caught error: $e");
-      }
-      rethrow;
-    }
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
@@ -309,7 +142,7 @@ Return ONLY the JSON object.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    onLog(// Ensure string is passed
+    onLog(
         "Attempting to generate sub-quests for \"$mainTaskName\"... Mode: $generationMode");
 
     String modeSpecificInstructions = "";
@@ -389,7 +222,6 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
                   .toList() ??
               [];
 
-      // Basic validation
       bool isValid = newSubquests.every((sq) =>
           sq['name'] is String &&
           sq['isCountable'] is bool &&
@@ -401,18 +233,18 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
               sss['targetCount'] is num));
 
       if (!isValid) {
-        onLog(// Ensure string is passed
+        onLog(
             "<span style=\"color:var(--fh-accent-orange);\">AI subquest response malformed.</span>");
         if (kDebugMode) {
           print("[AIService] Malformed subquest data: $newSubquests");
         }
         throw Exception("AI subquest response malformed.");
       }
-      onLog(// Ensure string is passed
+      onLog(
           "AI subquest generation successful. Parsed ${newSubquests.length} subquests.");
       return newSubquests;
     } catch (e) {
-      onLog(// Ensure string is passed
+      onLog(
           "<span style=\"color:var(--fh-accent-red);\">AI Call failed for generateAISubquests: ${e.toString()}</span>");
       if (kDebugMode) {
         print("[AIService] generateAISubquests caught error: $e");
@@ -421,7 +253,7 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
     }
   }
 
-  Future<String> getChatbotResponse({ // Return String for now, UI generation will be embedded or a separate call
+  Future<String> getChatbotResponse({
     required ChatbotMemory memory,
     required String userMessage,
     required int currentApiKeyIndex,
@@ -431,31 +263,27 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
     onLog("Attempting to get chatbot response...");
 
     final conversationHistoryString = memory.conversationHistory
-        .map((msg) => "${msg.sender == MessageSender.user ? 'User' : 'Bot'}: ${msg.text}")
+        .map((msg) =>
+            "${msg.sender == MessageSender.user ? 'User' : 'Bot'}: ${msg.text}")
         .join('\n');
 
-    // Prepare emotion log summary for the prompt
     String emotionLogSummary = "No emotion logs available for the past week.";
-    if (memory.dailyCompletedGoals.any((goal) => goal.contains("Emotion logged:"))) { // Crude check if emotion logs are present via daily goals
-        emotionLogSummary = "Emotion logs from the past week are available. Ask for a summary if interested.";
-    } else { // Attempt to build a simple summary if GameProvider has direct access or passes it
-        // This part is tricky as AIService doesn't directly access GameProvider's completedByDay.
-        // For now, we'll rely on dailyCompletedGoals if they indirectly reflect emotion logs.
-        // A more robust solution would involve passing a summary of emotion logs to ChatbotMemory.
-        // For this iteration, we'll keep it simple.
+    if (memory.dailyCompletedGoals
+        .any((goal) => goal.contains("Emotion logged:"))) {
+      emotionLogSummary =
+          "Emotion logs from the past week are available. Ask for a summary if interested.";
     }
 
-
-    // Prepare checkpoint log summary
-    String checkpointLogSummary = "No checkpoint logs available for the past week.";
+    String checkpointLogSummary =
+        "No checkpoint logs available for the past week.";
     List<String> recentCheckpoints = memory.dailyCompletedGoals
         .where((goal) => goal.toLowerCase().contains("completed checkpoint"))
-        .take(5) // Take last 5 for brevity
+        .take(5)
         .toList();
     if (recentCheckpoints.isNotEmpty) {
-        checkpointLogSummary = "Recently completed checkpoints:\n${recentCheckpoints.join('\n')}";
+      checkpointLogSummary =
+          "Recently completed checkpoints:\n${recentCheckpoints.join('\n')}";
     }
-
 
     final String prompt = """
 You are Arcane Advisor, a helpful AI assistant integrated into a gamified task management app.
@@ -503,15 +331,18 @@ Only request UI if it makes sense for the conversation and the data is likely av
 """
         .trim();
 
-    // For chatbot, we don't expect JSON back, just text.
-    if (geminiApiKeys.isEmpty || geminiApiKeys.every((key) => key.startsWith('YOUR_GEMINI_API_KEY'))) {
-        const errorMsg = "No valid Gemini API keys found. Chatbot cannot respond.";
-        onLog("<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (No API Key).</span>");
-        return "I'm currently unable to process requests due to a configuration issue. Please check the API keys.";
+    if (geminiApiKeys.isEmpty ||
+        geminiApiKeys.every((key) => key.startsWith('YOUR_GEMINI_API_KEY'))) {
+      const errorMsg = "No valid Gemini API keys found. Chatbot cannot respond.";
+      onLog(
+          "<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (No API Key).</span>");
+      return "I'm currently unable to process requests due to a configuration issue. Please check the API keys.";
     }
-     if (geminiModelName.isEmpty) {
-      const errorMsg ="GEMINI_MODEL_NAME not configured. Chatbot cannot respond.";
-      onLog("<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (Model Name not configured).</span>");
+    if (geminiModelName.isEmpty) {
+      const errorMsg =
+          "GEMINI_MODEL_NAME not configured. Chatbot cannot respond.";
+      onLog(
+          "<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (Model Name not configured).</span>");
       return "I'm currently unable to process requests due to a model configuration issue.";
     }
 
@@ -520,18 +351,23 @@ Only request UI if it makes sense for the conversation and the data is likely av
     }
 
     for (int i = 0; i < geminiApiKeys.length; i++) {
-      final int keyAttemptIndex = (currentApiKeyIndex + i) % geminiApiKeys.length;
+      final int keyAttemptIndex =
+          (currentApiKeyIndex + i) % geminiApiKeys.length;
       final String apiKey = geminiApiKeys[keyAttemptIndex];
 
       if (apiKey.startsWith('YOUR_GEMINI_API_KEY')) {
-        onLog("<span style=\"color:var(--fh-accent-orange);\">Skipping invalid API key for chatbot at index $keyAttemptIndex.</span>");
+        onLog(
+            "<span style=\"color:var(--fh-accent-orange);\">Skipping invalid API key for chatbot at index $keyAttemptIndex.</span>");
         continue;
       }
 
       try {
-        onLog("Chatbot trying API key index $keyAttemptIndex for model $geminiModelName...");
-        final model = genai.GenerativeModel(model: geminiModelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
+        onLog(
+            "Chatbot trying API key index $keyAttemptIndex for model $geminiModelName...");
+        final model =
+            genai.GenerativeModel(model: geminiModelName, apiKey: apiKey);
+        final response =
+            await model.generateContent([genai.Content.text(prompt)]);
 
         String? rawResponseText = response.text;
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
@@ -539,24 +375,29 @@ Only request UI if it makes sense for the conversation and the data is likely av
         }
 
         if (kDebugMode) {
-          print("[AIService - Chatbot] Raw AI Response (Key Index $keyAttemptIndex):\n$rawResponseText");
+          print(
+              "[AIService - Chatbot] Raw AI Response (Key Index $keyAttemptIndex):\n$rawResponseText");
         }
-        onLog("<span style=\"color:var(--fh-accent-green);\">Chatbot successfully processed response with API key index $keyAttemptIndex.</span>");
+        onLog(
+            "<span style=\"color:var(--fh-accent-green);\">Chatbot successfully processed response with API key index $keyAttemptIndex.</span>");
         onNewApiKeyIndex(keyAttemptIndex);
-        return rawResponseText.trim(); // The parsing of UI_REQUEST will happen in GameProvider
-
+        return rawResponseText.trim();
       } catch (e) {
         String errorDetail = e.toString();
-         if (e is genai.GenerativeAIException && e.message.contains("USER_LOCATION_INVALID")) {
-          errorDetail = "Geographic location restriction. This API key may not be usable in your current region.";
+        if (e is genai.GenerativeAIException &&
+            e.message.contains("USER_LOCATION_INVALID")) {
+          errorDetail =
+              "Geographic location restriction. This API key may not be usable in your current region.";
         } else if (errorDetail.contains("API key not valid")) {
           errorDetail = "API key not valid. Please check your configuration.";
         } else if (errorDetail.contains("quota")) {
           errorDetail = "API quota exceeded for this key.";
-        } else if (errorDetail.contains("Candidate was blocked due to SAFETY")) {
+        } else if (errorDetail
+            .contains("Candidate was blocked due to SAFETY")) {
           errorDetail = "AI response blocked due to safety settings. Try rephrasing.";
         }
-        onLog("<span style=\"color:var(--fh-accent-red);\">Chatbot Error with API key index $keyAttemptIndex: $errorDetail</span>");
+        onLog(
+            "<span style=\"color:var(--fh-accent-red);\">Chatbot Error with API key index $keyAttemptIndex: $errorDetail</span>");
         if (i == geminiApiKeys.length - 1) {
           return "I'm having trouble connecting to my core functions right now. Please try again later. (Error: $errorDetail)";
         }
@@ -564,5 +405,4 @@ Only request UI if it makes sense for the conversation and the data is likely av
     }
     return "I seem to be experiencing technical difficulties. Please check back soon.";
   }
-
 }

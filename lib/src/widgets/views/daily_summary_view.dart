@@ -1,8 +1,9 @@
 // lib/src/widgets/views/daily_summary_view.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/game_models.dart';
+import 'package:arcane/src/models/emotion_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -18,25 +19,24 @@ class DailySummaryView extends StatefulWidget {
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   int _touchedPieIndex = -1;
-  int _hoveredEmotionRating = 0; // For emotion logging UI
+  int _hoveredEmotionRating = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final gameProvider = Provider.of<GameProvider>(context, listen: false);
-    final availableDates = gameProvider.completedByDay.keys.toList();
-    availableDates.sort((a, b) => b.compareTo(a)); // Sort descending
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
     if (_selectedDate == null && availableDates.isNotEmpty) {
       _selectedDate = availableDates.first;
     } else if (_selectedDate != null &&
         !availableDates.contains(_selectedDate)) {
-      // If current selection is no longer valid (e.g. data cleared)
       _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
     }
   }
 
   Widget _buildEmotionLoggingRow(
-      GameProvider gameProvider, String date, ThemeData theme) {
+      AppProvider appProvider, String date, ThemeData theme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: List.generate(5, (index) {
@@ -46,7 +46,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           onExit: (_) => setState(() => _hoveredEmotionRating = 0),
           child: GestureDetector(
             onTap: () {
-              gameProvider.logEmotion(date, rating);
+              appProvider.logEmotion(date, rating);
               setState(() => _hoveredEmotionRating = 0);
             },
             child: AnimatedScale(
@@ -115,7 +115,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   }
 
   Color _getEmotionColor(int rating, ThemeData theme) {
-    // Use theme accents for consistency where appropriate
     switch (rating) {
       case 1:
         return AppTheme.fhAccentRed;
@@ -126,8 +125,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       case 4:
         return AppTheme.fhAccentGreen;
       case 5:
-        return theme
-            .colorScheme.primary; // Use dynamic primary accent for best rating
+        return theme.colorScheme.primary;
       default:
         return AppTheme.fhTextDisabled;
     }
@@ -148,61 +146,40 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       );
     }
 
-    // Calculate FlSpot data. X-value is hours from midnight of the log's day.
     List<FlSpot> spots = logs.map((log) {
       final DateTime logDayMidnight =
           DateTime(log.timestamp.year, log.timestamp.month, log.timestamp.day);
       final Duration timeSinceMidnight =
           log.timestamp.difference(logDayMidnight);
-      double xValue =
-          timeSinceMidnight.inMinutes / 60.0; // e.g., 10.5 for 10:30 AM
+      double xValue = timeSinceMidnight.inMinutes / 60.0;
       return FlSpot(xValue, log.rating.toDouble());
     }).toList();
 
-    double minX, maxX;
-
-    // Determine the actual min/max X values from the data points.
-    // Note: logs.length is guaranteed to be >= 2 here, so spots will not be empty.
     double dataMinX = spots.map((s) => s.x).reduce((a, b) => a < b ? a : b);
     double dataMaxX = spots.map((s) => s.x).reduce((a, b) => a > b ? a : b);
+    double minX, maxX;
 
     if (dataMaxX == dataMinX) {
-      // If all points have the same x-coordinate, create a default window (e.g., +/- 1 hour).
       minX = dataMinX - 1.0;
       maxX = dataMaxX + 1.0;
     } else {
-      // Add padding (e.g., 5% of the data range) to each side.
       double range = dataMaxX - dataMinX;
       minX = dataMinX - range * 0.05;
       maxX = dataMaxX + range * 0.05;
     }
 
-    // Clamp the calculated min/max X to the valid 24-hour range [0.0, 23.99].
-    // Ensure minX doesn't go too high, allowing some space for maxX.
-    minX = minX.clamp(0.0,
-        23.49); // Max value for minX, allowing at least ~30min for maxX (0.5h).
-    // Ensure maxX is greater than minX and within the upper boundary.
-    maxX = maxX.clamp(
-        minX + 0.1, 23.99); // Ensure at least a 6-minute (0.1 hour) range.
+    minX = minX.clamp(0.0, 23.49);
+    maxX = maxX.clamp(minX + 0.1, 23.99);
 
-    // Fallback for very small or invalid ranges after clamping.
     if (maxX - minX < 0.2) {
-      // If range is less than 12 minutes (0.2 hours).
-      // Try to center a 1-hour window around the original data midpoint.
       double midDataX = (dataMinX + dataMaxX) / 2.0;
-      minX = (midDataX - 0.5).clamp(0.0,
-          23.0); // Clamp minX to allow a 1-hour window up to 23.99 for maxX.
-      maxX = (midDataX + 0.5).clamp(minX + 0.1, 23.99); // Ensure minX < maxX.
-
-      // If still problematic (e.g., data was at extreme edges or 1-hour window failed),
-      // use the full day as a last resort.
+      minX = (midDataX - 0.5).clamp(0.0, 23.0);
+      maxX = (midDataX + 0.5).clamp(minX + 0.1, 23.99);
       if (maxX <= minX) {
         minX = 0.0;
         maxX = 23.99;
       }
     }
-
-    // --- The rest of the method uses the calculated minX and maxX ---
 
     return SizedBox(
       height: 200,
@@ -216,9 +193,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             show: true,
             drawVerticalLine: true,
             horizontalInterval: 1,
-            // Dynamic vertical grid based on the calculated time range
-            verticalInterval: ((maxX - minX) / 5)
-                .clamp(0.2, 6.0), // Allow smaller intervals for zoomed views
+            verticalInterval: ((maxX - minX) / 5).clamp(0.2, 6.0),
             getDrawingHorizontalLine: (value) => FlLine(
                 color: AppTheme.fhBorderColor.withOpacity(0.1),
                 strokeWidth: 0.8),
@@ -245,10 +220,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 30,
-                // Dynamic bottom titles based on the calculated time range
-                interval: ((maxX - minX) / 4)
-                    .ceilToDouble()
-                    .clamp(0.5, 6.0), // Allow smaller intervals
+                interval: ((maxX - minX) / 4).ceilToDouble().clamp(0.5, 6.0),
                 getTitlesWidget: (value, meta) {
                   final hour = value.truncate().clamp(0, 23);
                   final minute = ((value - hour) * 60).round().clamp(0, 59);
@@ -301,8 +273,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 return touchedSpots
                     .map((LineBarSpot touchedSpot) {
                       final spotIndex = touchedSpot.spotIndex;
-                      if (spotIndex < 0 || spotIndex >= logs.length)
-                        return null; // Safety check
+                      if (spotIndex < 0 || spotIndex >= logs.length) return null;
                       final logEntry = logs[spotIndex];
                       final DateTime time = logEntry.timestamp;
 
@@ -327,10 +298,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
   @override
   Widget build(BuildContext context) {
-    final gameProvider = Provider.of<GameProvider>(context);
+    final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    final availableDates = gameProvider.completedByDay.keys.toList();
+    final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
 
     if (_selectedDate == null && availableDates.isNotEmpty) {
@@ -349,18 +320,16 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       });
     }
 
-    final summaryData = _selectedDate != null
-        ? gameProvider.completedByDay[_selectedDate!]
-        : null;
+    final summaryData =
+        _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
     final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
     final subtasksCompleted =
         summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted =
         summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
-    final List<EmotionLog> emotionLogsForSelectedDate = _selectedDate != null
-        ? gameProvider.getEmotionLogsForDate(_selectedDate!)
-        : [];
+    final List<EmotionLog> emotionLogsForSelectedDate =
+        _selectedDate != null ? appProvider.getEmotionLogsForDate(_selectedDate!) : [];
 
     final double totalMinutesToday = taskTimes.values
         .fold(0.0, (sum, time) => sum + (time as num).toDouble());
@@ -369,7 +338,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final List<Widget> legendItems = [];
     if (taskTimes.isNotEmpty) {
       taskTimes.forEach((taskId, time) {
-        final task = gameProvider.mainTasks.firstWhere((t) => t.id == taskId,
+        final task = appProvider.mainTasks.firstWhere((t) => t.id == taskId,
             orElse: () => MainTask(
                 id: '',
                 name: 'Unknown Quest',
@@ -433,7 +402,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     for (int i = 6; i >= 0; i--) {
       final d = today.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
-      final dayData = gameProvider.completedByDay[dateStr];
+      final dayData = appProvider.completedByDay[dateStr];
       final Map<String, dynamic> dailyTaskTimes =
           dayData != null && dayData['taskTimes'] != null
               ? dayData['taskTimes'] as Map<String, dynamic>
@@ -452,17 +421,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         }
       });
 
-      Color barColor = (gameProvider.getSelectedTask()?.taskColor ??
+      Color barColor = (appProvider.getSelectedTask()?.taskColor ??
           AppTheme.fhAccentTealFixed);
       if (dominantTaskId != null) {
-        final dominantTask = gameProvider.mainTasks.firstWhere(
+        final dominantTask = appProvider.mainTasks.firstWhere(
             (t) => t.id == dominantTaskId,
             orElse: () => MainTask(
                 id: '',
                 name: '',
                 description: '',
                 theme: '',
-                colorHex: (gameProvider.getSelectedTask()?.taskColor ??
+                colorHex: (appProvider.getSelectedTask()?.taskColor ??
                         AppTheme.fhAccentTealFixed)
                     .value
                     .toRadixString(16)
@@ -532,7 +501,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   child: Text("How are you feeling?",
                       style: theme.textTheme.headlineSmall)),
               const SizedBox(height: 10),
-              _buildEmotionLoggingRow(gameProvider, _selectedDate!, theme),
+              _buildEmotionLoggingRow(appProvider, _selectedDate!, theme),
               const SizedBox(height: 8),
               if (emotionLogsForSelectedDate.isNotEmpty)
                 Align(
@@ -545,7 +514,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             color: AppTheme.fhAccentRed.withOpacity(0.7),
                             fontSize: 12)),
                     onPressed: () {
-                      gameProvider.deleteLatestEmotionLog(_selectedDate!);
+                      appProvider.deleteLatestEmotionLog(_selectedDate!);
                     },
                   ),
                 ),
@@ -556,7 +525,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 _buildEmotionCurveChart(
                     emotionLogsForSelectedDate,
                     theme,
-                    gameProvider.getSelectedTask()?.taskColor ??
+                    appProvider.getSelectedTask()?.taskColor ??
                         AppTheme.fhAccentTealFixed),
                 const SizedBox(height: 30),
               ],
@@ -641,9 +610,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                               text: '${rod.toY.toStringAsFixed(0)} min',
                               style: TextStyle(
                                   color: rod.color ??
-                                      (gameProvider
-                                              .getSelectedTask()
-                                              ?.taskColor ??
+                                      (appProvider.getSelectedTask()?.taskColor ??
                                           AppTheme.fhAccentTealFixed),
                                   fontWeight: FontWeight.w500,
                                   fontFamily: AppTheme.fontBody),
@@ -741,8 +708,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       if (taskTimes.isEmpty &&
                           subtasksCompleted.isEmpty &&
                           checkpointsCompleted.isEmpty &&
-                          emotionLogsForSelectedDate
-                              .isEmpty) // Check emotion logs too
+                          emotionLogsForSelectedDate.isEmpty)
                         Text("No specific activity recorded for this day.",
                             style: theme.textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.fhTextSecondary,
@@ -764,7 +730,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                           const SizedBox(height: 10),
                         ],
                         ...taskTimes.entries.map((entry) {
-                          final task = gameProvider.mainTasks.firstWhere(
+                          final task = appProvider.mainTasks.firstWhere(
                               (t) => t.id == entry.key,
                               orElse: () => MainTask(
                                   id: '',
@@ -789,7 +755,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                           ...subtasksCompleted.map((subEntryMap) {
                             final subEntry =
                                 subEntryMap as Map<String, dynamic>;
-                            final parentTask = gameProvider.mainTasks
+                            final parentTask = appProvider.mainTasks
                                 .firstWhere(
                                     (t) => t.id == subEntry['parentTaskId'],
                                     orElse: () => MainTask(
@@ -820,20 +786,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             final String parentSubtaskName =
                                 cpEntry['parentSubtaskName'] as String? ??
                                     'N/A';
-                            final String countableInfo = (cpEntry['isCountable']
-                                        as bool? ??
-                                    false)
-                                ? " (${cpEntry['currentCount']}/${cpEntry['targetCount']})"
-                                : "";
+                            final String countableInfo =
+                                (cpEntry['isCountable'] as bool? ?? false)
+                                    ? " (${cpEntry['currentCount']}/${cpEntry['targetCount']})"
+                                    : "";
                             return Padding(
                               padding:
                                   const EdgeInsets.only(left: 16.0, top: 3.0),
                               child: Text(
                                 '- ${cpEntry['name']}$countableInfo (Sub-Mission: "$parentSubtaskName" in "$mainTaskName")',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                    color: (gameProvider
-                                                .getSelectedTask()
-                                                ?.taskColor ??
+                                    color: (appProvider.getSelectedTask()?.taskColor ??
                                             AppTheme.fhAccentTealFixed)
                                         .withOpacity(0.85)),
                               ),

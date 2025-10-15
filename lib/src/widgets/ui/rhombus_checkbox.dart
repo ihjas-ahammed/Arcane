@@ -1,6 +1,6 @@
 // lib/src/widgets/ui/rhombus_checkbox.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -29,25 +29,25 @@ class RhombusCheckbox extends StatelessWidget {
     final double iconSize = size == CheckboxSize.small ? 12.0 : 14.0;
     final double visualDimension =
         size == CheckboxSize.small ? 15.0 : 18.0; // Visual size of rhombus
-    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
 
     Color bgColor = checked
-        ? (gameProvider.getSelectedTask()?.taskColor ??
+        ? (appProvider.getSelectedTask()?.taskColor ??
             AppTheme.fhAccentTealFixed)
         : AppTheme.fhBgMedium;
     Color borderColor = disabled
         ? (checked
-            ? (gameProvider.getSelectedTask()?.taskColor ??
+            ? (appProvider.getSelectedTask()?.taskColor ??
                     AppTheme.fhAccentTealFixed)
                 .withOpacity(0.5)
             : AppTheme.fhBorderColor.withOpacity(0.5))
         : (checked
-            ? (gameProvider.getSelectedTask()?.taskColor ??
+            ? (appProvider.getSelectedTask()?.taskColor ??
                 AppTheme.fhAccentTealFixed)
             : AppTheme.fhBorderColor);
 
     if (disabled && checked) {
-      bgColor = (gameProvider.getSelectedTask()?.taskColor ??
+      bgColor = (appProvider.getSelectedTask()?.taskColor ??
               AppTheme.fhAccentTealFixed)
           .withOpacity(0.6);
     } else if (disabled && !checked) {
@@ -77,18 +77,16 @@ class RhombusCheckbox extends StatelessWidget {
                     color: borderColor,
                     width: 1.5, // Slightly thicker border
                   ),
-                  // No boxShadow for flatter screenshot-like style
-                  // borderRadius: BorderRadius.circular(2), // Optional: slight rounding of corners
                 ),
               ),
             ),
             if (checked)
               Icon(
-                MdiIcons.checkBold, // Using MDI check for a bolder look
+                MdiIcons.checkBold,
                 size: iconSize,
                 color: disabled
                     ? AppTheme.fhTextSecondary.withOpacity(0.7)
-                    : AppTheme.fhBgDark, // Dark check on light teal
+                    : AppTheme.fhBgDark,
               ),
           ],
         ),

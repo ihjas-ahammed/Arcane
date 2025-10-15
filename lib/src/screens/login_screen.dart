@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -44,15 +44,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final gameProvider = Provider.of<GameProvider>(context, listen: false);
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (_isLogin) {
-        await gameProvider.loginUser(_email, _password);
+        await appProvider.loginUser(_email, _password);
       } else {
-        await gameProvider.signupUser(_email, _password, _username);
+        await appProvider.signupUser(_email, _password, _username);
       }
-      // Auth state change will handle navigation in MyApp or GameProvider listener
     } catch (e) {
-      // print("[LoginScreen] Auth Error: $e"); // DEBUG
       setState(() {
         if (e is FirebaseAuthException) {
           _error =
@@ -74,22 +72,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDark, // Use the new dark background
+      backgroundColor: AppTheme.fhBgDark,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
-          child:
-              // Add a ConstrainedBox to limit the width for desktop
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: 400), // Max width of 400 pixels
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
             child: Card(
-              color: AppTheme.fhBgMedium, // Slightly lighter card background
-              elevation: 0, // Flatter design
+              color: AppTheme.fhBgMedium,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8.0),
                 side: const BorderSide(
-                    color: AppTheme.fhBorderColor, width: 1.5), // Themed border
+                    color: AppTheme.fhBorderColor, width: 1.5),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -100,22 +95,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Icon(MdiIcons.shieldCrownOutline,
-                          size: 56,
-                          color: AppTheme.fhAccentTealFixed), // Themed Icon
+                          size: 56, color: AppTheme.fhAccentTealFixed),
                       const SizedBox(height: 16),
                       Text(
                         'ARCANE',
                         style: theme.textTheme.displaySmall?.copyWith(
-                          // Use displaySmall for prominent title
                           color: AppTheme.fhAccentTealFixed,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _isLogin
-                            ? 'Secure Login'
-                            : 'Create Account', // Updated subtitle
+                        _isLogin ? 'Secure Login' : 'Create Account',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: AppTheme.fhTextSecondary,
                         ),
