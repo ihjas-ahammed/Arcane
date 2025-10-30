@@ -9,8 +9,10 @@ class MainTask {
   String theme;
   String colorHex;
   int streak;
+  int weeklyStreak;
   int dailyTimeSpent;
   String? lastWorkedDate;
+  Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
 
   MainTask({
@@ -20,10 +22,13 @@ class MainTask {
     required this.theme,
     this.colorHex = "FF00F8F8",
     this.streak = 0,
+    this.weeklyStreak = 0,
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
+    Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-  }) : subTasks = subTasks ?? [];
+  })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
+        subTasks = subTasks ?? [];
 
   factory MainTask.fromTemplate(MainTaskTemplate template) {
     return MainTask(
@@ -36,6 +41,13 @@ class MainTask {
   }
 
   factory MainTask.fromJson(Map<String, dynamic> json) {
+    var weeklyStatusFromJson = (json['weeklyCompletionStatus'] as Map?)?.map(
+        (key, value) => MapEntry(
+            key as String,
+            (value as List<dynamic>)
+                .map((item) => item as bool)
+                .toList()));
+
     return MainTask(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -43,8 +55,11 @@ class MainTask {
       theme: json['theme'] as String,
       colorHex: json['colorHex'] as String? ?? "FF00F8F8",
       streak: json['streak'] as int? ?? 0,
+      weeklyStreak: json['weeklyStreak'] as int? ?? 0,
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
+      weeklyCompletionStatus:
+          weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
       subTasks: (json['subTasks'] as List<dynamic>?)
               ?.map(
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
@@ -61,8 +76,10 @@ class MainTask {
       'theme': theme,
       'colorHex': colorHex,
       'streak': streak,
+      'weeklyStreak': weeklyStreak,
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
+      'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
     };
   }
@@ -86,6 +103,7 @@ class SubTask {
   int targetCount;
   int currentCount;
   List<SubSubTask> subSubTasks;
+  int priority; // 1: Low, 2: Medium, 3: High
 
   SubTask({
     required this.id,
@@ -97,6 +115,7 @@ class SubTask {
     this.targetCount = 0,
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
+    this.priority = 2, // Default to Medium
   }) : subSubTasks = subSubTasks ?? [];
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
@@ -114,6 +133,7 @@ class SubTask {
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
               .toList() ??
           [],
+      priority: json['priority'] as int? ?? 2,
     );
   }
 
@@ -128,6 +148,7 @@ class SubTask {
       'targetCount': targetCount,
       'currentCount': currentCount,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
+      'priority': priority,
     };
   }
 }

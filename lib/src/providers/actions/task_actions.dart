@@ -40,9 +40,11 @@ class TaskActions {
           theme: theme,
           colorHex: colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks,
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -59,7 +61,8 @@ class TaskActions {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
-          'emotionLogs': <Map<String, dynamic>>[]
+          'emotionLogs': <Map<String, dynamic>>[],
+          'energyLogs': <Map<String, dynamic>>[]
         });
 
     if (type == 'taskTime') {
@@ -96,6 +99,7 @@ class TaskActions {
       targetCount: subtaskData['isCountable'] as bool? ?? false
           ? (subtaskData['targetCount'] as int? ?? 1)
           : 0,
+      priority: subtaskData['priority'] as int? ?? 2,
       subSubTasks:
           (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
                   ?.map((sssData) => SubSubTask(
@@ -120,9 +124,11 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: [...task.subTasks, newSubtask],
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -145,6 +151,8 @@ class TaskActions {
 
     if (updates.containsKey('name'))
       subtaskToUpdate.name = updates['name'] as String;
+    if (updates.containsKey('priority'))
+      subtaskToUpdate.priority = updates['priority'] as int;
     if (updates.containsKey('isCountable'))
       subtaskToUpdate.isCountable = updates['isCountable'] as bool;
     if (updates.containsKey('targetCount'))
@@ -173,6 +181,7 @@ class TaskActions {
     if (oldDailyTotalBeforeThisChange < dailyTaskGoalMinutes &&
         taskToUpdate.dailyTimeSpent >= dailyTaskGoalMinutes) {
       taskToUpdate.streak = taskToUpdate.streak + 1;
+      _provider.markDailyTaskGoalMet(taskToUpdate.id);
     }
 
     final newMainTasks = _provider.mainTasks
@@ -215,6 +224,7 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -228,10 +238,12 @@ class TaskActions {
                   isCountable: st.isCountable,
                   targetCount: st.targetCount,
                   currentCount: st.currentCount,
+                  priority: st.priority,
                   subSubTasks: st.subSubTasks);
             }
             return st;
           }).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -260,9 +272,11 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -294,6 +308,7 @@ class TaskActions {
       isCountable: subTaskToDuplicate.isCountable,
       targetCount: subTaskToDuplicate.targetCount,
       currentCount: 0,
+      priority: subTaskToDuplicate.priority,
       subSubTasks: subTaskToDuplicate.subSubTasks
           .map((sss) => SubSubTask(
                 id:
@@ -317,9 +332,11 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: [...task.subTasks, newSubtask],
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -349,6 +366,7 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -362,11 +380,13 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
+                priority: st.priority,
                 subSubTasks: [...st.subSubTasks, newSubSubtask],
               );
             }
             return st;
           }).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -385,6 +405,7 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -398,6 +419,7 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
+                priority: st.priority,
                 subSubTasks: st.subSubTasks.map((sss) {
                   if (sss.id == subSubtaskId) {
                     final updatedSss = SubSubTask(
@@ -426,6 +448,7 @@ class TaskActions {
             }
             return st;
           }).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -447,6 +470,7 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -460,6 +484,7 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
+                priority: st.priority,
                 subSubTasks: st.subSubTasks.map((sss) {
                   if (sss.id == subSubtaskId && !sss.completed) {
                     if (sss.isCountable && sss.currentCount < sss.targetCount) {
@@ -494,6 +519,7 @@ class TaskActions {
             }
             return st;
           }).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -537,6 +563,7 @@ class TaskActions {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: task.streak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -550,6 +577,7 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
+                priority: st.priority,
                 subSubTasks: st.subSubTasks
                     .where((sss) => sss.id != subSubtaskId)
                     .toList(),
@@ -557,6 +585,7 @@ class TaskActions {
             }
             return st;
           }).toList(),
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;

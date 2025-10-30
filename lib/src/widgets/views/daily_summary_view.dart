@@ -20,6 +20,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   int _touchedPieIndex = -1;
   int _hoveredEmotionRating = 0;
+  double _currentEnergyLevel = 50.0;
 
   @override
   void didChangeDependencies() {
@@ -33,6 +34,51 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         !availableDates.contains(_selectedDate)) {
       _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
     }
+  }
+
+  Widget _buildEnergyLoggingRow(
+      AppProvider appProvider, String date, ThemeData theme) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("What's your energy level?",
+                style: theme.textTheme.headlineSmall),
+            Text("${_currentEnergyLevel.toInt()}%",
+                style: theme.textTheme.headlineSmall?.copyWith(
+                    color: (appProvider.getSelectedTask()?.taskColor ??
+                        AppTheme.fhAccentTealFixed))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Slider.adaptive(
+          value: _currentEnergyLevel,
+          min: 0,
+          max: 100,
+          divisions: 10,
+          label: "${_currentEnergyLevel.round()}%",
+          onChanged: (double value) {
+            setState(() {
+              _currentEnergyLevel = value;
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            ElevatedButton.icon(
+              icon: Icon(MdiIcons.lightningBoltOutline, size: 18),
+              label: const Text('LOG ENERGY'),
+              onPressed: () {
+                appProvider.logEnergy(date, _currentEnergyLevel.toInt());
+              },
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildEmotionLoggingRow(
@@ -131,14 +177,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  Widget _buildEmotionCurveChart(
-      List<EmotionLog> logs, ThemeData theme, Color dynamicAccent) {
+  Widget _buildTrendCurveChart<T>(
+      {required List<T> logs,
+      required ThemeData theme,
+      required Color dynamicAccent,
+      required double Function(T) getX,
+      required double Function(T) getY,
+      required String Function(T) getTooltipLabel,
+      required double minY,
+      required double maxY,
+      String? yAxisSuffix}) {
     if (logs.length < 2) {
       return SizedBox(
         height: 200,
         child: Center(
             child: Text(
-          "Not enough emotion data for a trend line yet (need at least 2 logs for the day).",
+          "Not enough data for a trend line yet (need at least 2 logs for the day).",
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
               color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
@@ -146,14 +200,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       );
     }
 
-    List<FlSpot> spots = logs.map((log) {
-      final DateTime logDayMidnight =
-          DateTime(log.timestamp.year, log.timestamp.month, log.timestamp.day);
-      final Duration timeSinceMidnight =
-          log.timestamp.difference(logDayMidnight);
-      double xValue = timeSinceMidnight.inMinutes / 60.0;
-      return FlSpot(xValue, log.rating.toDouble());
-    }).toList();
+    List<FlSpot> spots =
+        logs.map((log) => FlSpot(getX(log), getY(log))).toList();
 
     double dataMinX = spots.map((s) => s.x).reduce((a, b) => a < b ? a : b);
     double dataMaxX = spots.map((s) => s.x).reduce((a, b) => a > b ? a : b);
@@ -187,12 +235,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         LineChartData(
           minX: minX,
           maxX: maxX,
-          minY: 0.5,
-          maxY: 5.5,
+          minY: minY,
+          maxY: maxY,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: true,
-            horizontalInterval: 1,
+            horizontalInterval: (maxY - minY) / 5,
             verticalInterval: ((maxX - minX) / 5).clamp(0.2, 6.0),
             getDrawingHorizontalLine: (value) => FlLine(
                 color: AppTheme.fhBorderColor.withOpacity(0.1),
@@ -205,14 +253,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: 1,
-                reservedSize: 30,
+                interval: (maxY - minY) / 5,
+                reservedSize: 35,
                 getTitlesWidget: (value, meta) {
-                  if (value >= 1 && value <= 5)
-                    return Text(value.toInt().toString(),
-                        style: TextStyle(
-                            color: AppTheme.fhTextSecondary, fontSize: 10));
-                  return const Text('');
+                  return Text(
+                      '${value.toInt()}${yAxisSuffix ?? ''}',
+                      style: TextStyle(
+                          color: AppTheme.fhTextSecondary, fontSize: 10));
                 },
               ),
             ),
@@ -274,11 +321,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     .map((LineBarSpot touchedSpot) {
                       final spotIndex = touchedSpot.spotIndex;
                       if (spotIndex < 0 || spotIndex >= logs.length) return null;
-                      final logEntry = logs[spotIndex];
-                      final DateTime time = logEntry.timestamp;
-
                       return LineTooltipItem(
-                        '${_getEmotionLabel(touchedSpot.y.toInt())} (${touchedSpot.y.toInt()}/5) at ${DateFormat('HH:mm').format(time)}',
+                        getTooltipLabel(logs[spotIndex]),
                         TextStyle(
                             color: dynamicAccent,
                             fontWeight: FontWeight.bold,
@@ -328,8 +372,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final checkpointsCompleted =
         summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
-    final List<EmotionLog> emotionLogsForSelectedDate =
-        _selectedDate != null ? appProvider.getEmotionLogsForDate(_selectedDate!) : [];
+    final List<EmotionLog> emotionLogsForSelectedDate = _selectedDate != null
+        ? appProvider.getEmotionLogsForDate(_selectedDate!)
+        : [];
+    final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
+        ? appProvider.getEnergyLogsForDate(_selectedDate!)
+        : [];
 
     final double totalMinutesToday = taskTimes.values
         .fold(0.0, (sum, time) => sum + (time as num).toDouble());
@@ -495,7 +543,48 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
+              _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+              if (energyLogsForSelectedDate.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: Icon(MdiIcons.deleteSweepOutline,
+                        size: 16, color: AppTheme.fhAccentRed.withOpacity(0.7)),
+                    label: Text("Delete Latest",
+                        style: TextStyle(
+                            color: AppTheme.fhAccentRed.withOpacity(0.7),
+                            fontSize: 12)),
+                    onPressed: () {
+                      appProvider.deleteLatestEnergyLog(_selectedDate!);
+                    },
+                  ),
+                ),
+              const SizedBox(height: 16),
+              if (energyLogsForSelectedDate.isNotEmpty) ...[
+                Text("Energy Trend:", style: theme.textTheme.headlineSmall),
+                const SizedBox(height: 16),
+                _buildTrendCurveChart<EnergyLog>(
+                  logs: energyLogsForSelectedDate,
+                  theme: theme,
+                  dynamicAccent: AppTheme.fhAccentGold,
+                  getX: (log) {
+                    final logDayMidnight = DateTime(log.timestamp.year,
+                        log.timestamp.month, log.timestamp.day);
+                    return log.timestamp
+                            .difference(logDayMidnight)
+                            .inMinutes /
+                        60.0;
+                  },
+                  getY: (log) => log.level.toDouble(),
+                  getTooltipLabel: (log) =>
+                      '${log.level}% at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
+                  minY: -5,
+                  maxY: 105,
+                  yAxisSuffix: "%",
+                ),
+                const SizedBox(height: 30),
+              ],
               Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text("How are you feeling?",
@@ -522,11 +611,25 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               if (emotionLogsForSelectedDate.isNotEmpty) ...[
                 Text("Emotion Trend:", style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 16),
-                _buildEmotionCurveChart(
-                    emotionLogsForSelectedDate,
-                    theme,
-                    appProvider.getSelectedTask()?.taskColor ??
-                        AppTheme.fhAccentTealFixed),
+                _buildTrendCurveChart<EmotionLog>(
+                  logs: emotionLogsForSelectedDate,
+                  theme: theme,
+                  dynamicAccent: (appProvider.getSelectedTask()?.taskColor ??
+                      AppTheme.fhAccentTealFixed),
+                  getX: (log) {
+                    final logDayMidnight = DateTime(log.timestamp.year,
+                        log.timestamp.month, log.timestamp.day);
+                    return log.timestamp
+                            .difference(logDayMidnight)
+                            .inMinutes /
+                        60.0;
+                  },
+                  getY: (log) => log.rating.toDouble(),
+                  getTooltipLabel: (log) =>
+                      '${_getEmotionLabel(log.rating)} (${log.rating}/5) at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
+                  minY: 0.5,
+                  maxY: 5.5,
+                ),
                 const SizedBox(height: 30),
               ],
             ],

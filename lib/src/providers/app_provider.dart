@@ -194,6 +194,8 @@ class AppProvider with ChangeNotifier {
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'emotionLogs', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'energyLogs', () => <Map<String, dynamic>>[]);
       }
     });
 
@@ -373,6 +375,38 @@ class AppProvider with ChangeNotifier {
         _mainTasks.firstOrNull;
   }
 
+  String _getWeekKey(DateTime date, int startOfWeek) {
+    int day = date.weekday;
+    DateTime adjustedDate =
+        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
+    int weekOfYear =
+        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
+                .ceil() +
+            1;
+    return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
+  }
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    final weekKey = _getWeekKey(DateTime.now(), _settings.startOfWeek);
+    return task.weeklyCompletionStatus[weekKey] ?? List.filled(7, false);
+  }
+
+  void markDailyTaskGoalMet(String taskId) {
+    final task = _mainTasks.firstWhereOrNull((t) => t.id == taskId);
+    if (task == null) return;
+
+    final today = DateTime.now();
+    final weekKey = _getWeekKey(today, _settings.startOfWeek);
+    final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
+
+    task.weeklyCompletionStatus.putIfAbsent(weekKey, () => List.filled(7, false));
+    if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
+      task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
   Future<void> _handleDailyReset() async {
     if (_currentUser == null) return;
     final today = helper.getTodayDateString();
@@ -380,6 +414,26 @@ class AppProvider with ChangeNotifier {
 
     if (_lastLoginDate != today) {
       hasResetRun = true;
+      final lastLoginDateTime = _lastLoginDate != null
+          ? DateTime.parse(_lastLoginDate!)
+          : DateTime.now().subtract(const Duration(days: 1));
+      final todayDateTime = DateTime.now();
+
+      final lastWeekKey = _getWeekKey(lastLoginDateTime, _settings.startOfWeek);
+      final currentWeekKey = _getWeekKey(todayDateTime, _settings.startOfWeek);
+
+      if (lastWeekKey != currentWeekKey) {
+        for (var task in _mainTasks) {
+          final completions = task.weeklyCompletionStatus[lastWeekKey] ?? [];
+          final daysCompleted = completions.where((c) => c).length;
+          if (daysCompleted >= weeklyStreakThreshold) {
+            task.weeklyStreak += 1;
+          } else {
+            task.weeklyStreak = 0;
+          }
+        }
+      }
+
       _mainTasks = _mainTasks.map((task) {
         int newStreak = task.streak;
         if (_lastLoginDate != null) {
@@ -399,9 +453,11 @@ class AppProvider with ChangeNotifier {
           theme: task.theme,
           colorHex: task.colorHex,
           streak: newStreak,
+          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: 0,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks,
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }).toList();
 
@@ -428,7 +484,8 @@ class AppProvider with ChangeNotifier {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
-          'emotionLogs': <Map<String, dynamic>>[]
+          'emotionLogs': <Map<String, dynamic>>[],
+          'energyLogs': <Map<String, dynamic>>[]
         });
     final emotionLogsList =
         List<Map<String, dynamic>>.from(dayData['emotionLogs'] as List? ?? []);
@@ -458,6 +515,50 @@ class AppProvider with ChangeNotifier {
         List<Map<String, dynamic>>.from(dayData['emotionLogs'] as List? ?? []);
     if (emotionLogsList.isNotEmpty) emotionLogsList.removeLast();
     dayData['emotionLogs'] = emotionLogsList;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  void logEnergy(String date, int level, [DateTime? customTimestamp]) {
+    final timestamp = customTimestamp ?? DateTime.now();
+    final energyLog = EnergyLog(timestamp: timestamp, level: level);
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ??
+        {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+          'emotionLogs': <Map<String, dynamic>>[],
+          'energyLogs': <Map<String, dynamic>>[]
+        });
+    final energyLogsList =
+        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
+    if (energyLogsList.length >= 10) energyLogsList.removeAt(0);
+    energyLogsList.add(energyLog.toJson());
+    energyLogsList.sort(
+        (a, b) => (a['timestamp'] as String).compareTo(b['timestamp'] as String));
+    dayData['energyLogs'] = energyLogsList;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  List<EnergyLog> getEnergyLogsForDate(String date) {
+    final dayData = _completedByDay[date] as Map<String, dynamic>?;
+    if (dayData == null || dayData['energyLogs'] == null) return [];
+    return (dayData['energyLogs'] as List<dynamic>)
+        .map((logJson) => EnergyLog.fromJson(logJson as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  void deleteLatestEnergyLog(String date) {
+    if (getEnergyLogsForDate(date).isEmpty) return;
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    final energyLogsList =
+        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
+    if (energyLogsList.isNotEmpty) energyLogsList.removeLast();
+    dayData['energyLogs'] = energyLogsList;
     newCompletedByDay[date] = dayData;
     setProviderState(completedByDay: newCompletedByDay);
   }
@@ -588,6 +689,7 @@ class AppProvider with ChangeNotifier {
 
     try {
       final botResponseText = await _aiService.getChatbotResponse(
+        modelName: settings.aiModelName,
         memory: _chatbotMemory,
         userMessage: userMessageText,
         currentApiKeyIndex: _apiKeyIndex,

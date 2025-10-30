@@ -29,6 +29,7 @@ class AIGenerationActions {
 
     try {
       final generatedSubquestsRaw = await _aiService.generateAISubquests(
+        modelName: _provider.settings.aiModelName,
         mainTaskName: mainTaskForSubquests.name,
         mainTaskDescription: mainTaskForSubquests.description,
         mainTaskTheme: mainTaskForSubquests.theme,
@@ -91,9 +92,11 @@ class AIGenerationActions {
             theme: task.theme,
             colorHex: task.colorHex,
             streak: task.streak,
+            weeklyStreak: task.weeklyStreak,
             dailyTimeSpent: task.dailyTimeSpent,
             lastWorkedDate: task.lastWorkedDate,
             subTasks: [...task.subTasks, ...newSubTasksForParent],
+            weeklyCompletionStatus: task.weeklyCompletionStatus,
           );
         }
         return task;

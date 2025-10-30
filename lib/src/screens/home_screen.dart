@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
+import 'package:arcane/src/screens/settings_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,6 +19,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late AppProvider _appProvider;
   bool _isUsernameDialogShowing = false;
+  int _selectedIndex = 0;
+
+  static const List<String> _viewTitles = <String>[
+    'MISSIONS',
+    'LOGBOOK',
+    'SETTINGS',
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   void initState() {
@@ -131,10 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
+    final List<Widget> widgetOptions = <Widget>[
+      const TaskDetailsView(),
+      const LogbookScreen(),
+      const SettingsScreen(),
+    ];
+
     return Theme(
       data: dynamicTheme,
       child: Scaffold(
-        appBar: const HeaderWidget(currentViewLabel: "MISSIONS"),
+        appBar: HeaderWidget(currentViewLabel: _viewTitles[_selectedIndex]),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
         body: SafeArea(
           child: Row(
@@ -152,16 +174,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: const TaskNavigationDrawer(),
                 ),
-               Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 800),
-                    child: TaskDetailsView(),
-                  ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: widgetOptions,
                 ),
               ),
             ],
           ),
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items:  <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.targetAccount),
+              label: 'Missions',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.bookOpenVariant),
+              label: 'Logbook',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.cogOutline),
+              label: 'Settings',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
         ),
       ),
     );

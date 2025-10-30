@@ -18,6 +18,7 @@ class _SettingsViewState extends State<SettingsView> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
+  final _aiModelNameController = TextEditingController();
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
@@ -31,6 +32,7 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
+    _aiModelNameController.text = appProvider.settings.aiModelName;
   }
 
   @override
@@ -38,6 +40,7 @@ class _SettingsViewState extends State<SettingsView> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _newUsernameController.dispose();
+    _aiModelNameController.dispose();
     super.dispose();
   }
 
@@ -270,6 +273,51 @@ class _SettingsViewState extends State<SettingsView> {
                   style: theme.textTheme.bodySmall?.copyWith(
                       color: AppTheme.fhTextSecondary.withOpacity(0.8),
                       fontSize: 10),
+                ),
+              ]),
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.robotHappyOutline,
+              title: 'AI Configuration',
+              children: [
+                TextFormField(
+                  controller: _aiModelNameController,
+                  decoration:  InputDecoration(
+                    labelText: 'AI Model Name',
+                    hintText: 'e.g., gemini-1.5-flash-latest',
+                    prefixIcon:  Icon(MdiIcons.brain, size: 20),
+                  ),
+                  onChanged: (value) {
+                    appProvider
+                        .setSettings(appProvider.settings..aiModelName = value);
+                  },
+                ),
+              ]),
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.calendarWeek,
+              title: 'Weekly Progress',
+              children: [
+                DropdownButtonFormField<int>(
+                  decoration:  InputDecoration(
+                    labelText: 'Start Day of the Week',
+                    prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgLight,
+                  value: appProvider.settings.startOfWeek,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Monday')),
+                    DropdownMenuItem(value: 2, child: Text('Tuesday')),
+                    DropdownMenuItem(value: 3, child: Text('Wednesday')),
+                    DropdownMenuItem(value: 4, child: Text('Thursday')),
+                    DropdownMenuItem(value: 5, child: Text('Friday')),
+                    DropdownMenuItem(value: 6, child: Text('Saturday')),
+                    DropdownMenuItem(value: 7, child: Text('Sunday')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      appProvider.setSettings(
+                          appProvider.settings..startOfWeek = value);
+                    }
+                  },
                 ),
               ]),
           _buildSettingsSection(appProvider, theme,

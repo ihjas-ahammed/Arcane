@@ -11,3 +11,4 @@ List<MainTaskTemplate> initialMainTaskTemplates = [
 ];
 
 const int dailyTaskGoalMinutes = 15;
+const int weeklyStreakThreshold = 5; // Days per week to earn a streak point

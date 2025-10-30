@@ -1,5 +1,7 @@
 Make the following changes:
 
-
+    * Give a progress bar above how are you feeling, to track energy level of user like in percantage and also plot this too in graph
+    * Make it possible that user can set priority to each sub missions (sort by priority)
+    * Update the time and streak panel like in image but time limit 1 hour 
 
 Now, recreate project_snapshot.txt only for the files that are changed in the original format

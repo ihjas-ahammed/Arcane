@@ -3,7 +3,7 @@ import fnmatch
 import argparse
 
 # --- Configuration ---
-DEFAULT_OUTPUT_FILENAME = "project_snapshot.txt"
+DEFAULT_OUTPUT_FILENAME = "project_snapshot_out.txt"
 # Common binary file extensions to skip by default (can be overridden)
 DEFAULT_BINARY_EXTENSIONS = {
     # General

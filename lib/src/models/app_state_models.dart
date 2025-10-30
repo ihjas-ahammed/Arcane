@@ -6,12 +6,16 @@ class AppSettings {
   bool dailyAutoGenerateContent;
   int wakeupTimeHour;
   int wakeupTimeMinute;
+  String aiModelName;
+  int startOfWeek; // 1 for Monday, 7 for Sunday
 
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
+    this.aiModelName = 'gemini-1.5-flash-latest',
+    this.startOfWeek = 1, // Default to Monday
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -22,6 +26,9 @@ class AppSettings {
           true,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
+      aiModelName:
+          json['aiModelName'] as String? ?? 'gemini-1.5-flash-latest',
+      startOfWeek: json['startOfWeek'] as int? ?? 1,
     );
   }
   Map<String, dynamic> toJson() {
@@ -30,6 +37,8 @@ class AppSettings {
       'dailyAutoGenerateContent': dailyAutoGenerateContent,
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,
+      'aiModelName': aiModelName,
+      'startOfWeek': startOfWeek,
     };
   }
 }

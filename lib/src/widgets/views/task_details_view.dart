@@ -20,6 +20,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   final _newSubtaskNameController = TextEditingController();
   bool _newSubtaskIsCountable = false;
   final _newSubtaskTargetCountController = TextEditingController(text: '10');
+  int _newSubtaskPriority = 2; // 1: Low, 2: Medium, 3: High
+  bool _sortByPriority = false;
 
   String _aiGenerationMode = 'text_list';
   final _aiUserInputController = TextEditingController();
@@ -116,6 +118,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         'targetCount': _newSubtaskIsCountable
             ? (int.tryParse(_newSubtaskTargetCountController.text) ?? 1)
             : 0,
+        'priority': _newSubtaskPriority,
       };
       final newSubtaskId = appProvider.addSubtask(task.id, subtaskData);
 
@@ -133,6 +136,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         setState(() {
           _newSubtaskIsCountable = false;
           _newSubtaskTargetCountController.text = '10';
+          _newSubtaskPriority = 2;
         });
       }
     }
@@ -252,6 +256,38 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     _aiUserInputController.clear();
   }
 
+  String _formatMinutesToHHMM(int totalMinutes) {
+    final hours = (totalMinutes / 60).floor();
+    final minutes = totalMinutes % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+  }
+
+  IconData _getPriorityIcon(int priority) {
+    switch (priority) {
+      case 3:
+        return MdiIcons.chevronDoubleUp; // High
+      case 2:
+        return MdiIcons.equal; // Medium
+      case 1:
+        return MdiIcons.chevronDoubleDown; // Low
+      default:
+        return MdiIcons.help;
+    }
+  }
+
+  Color _getPriorityColor(int priority) {
+    switch (priority) {
+      case 3:
+        return AppTheme.fhAccentRed; // High
+      case 2:
+        return AppTheme.fhAccentOrange; // Medium
+      case 1:
+        return AppTheme.fhAccentGreen; // Low
+      default:
+        return AppTheme.fhTextDisabled;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -294,6 +330,11 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           });
         }
 
+        final sortedSubTasks = List<SubTask>.from(task.subTasks);
+        if (_sortByPriority) {
+          sortedSubTasks.sort((a, b) => b.priority.compareTo(a.priority));
+        }
+
         for (var st in task.subTasks) {
           _localTimeControllers.putIfAbsent(st.id,
               () => TextEditingController(text: st.currentTimeSpent.toString()));
@@ -315,6 +356,16 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             }
           }
         }
+
+        const double dailyGoalMinutes = 60.0;
+        final double progress = task.dailyTimeSpent / dailyGoalMinutes;
+        final timeSpentFormatted = _formatMinutesToHHMM(task.dailyTimeSpent);
+        final weeklyCompletion =
+            appProviderConsumer.getCompletionStatusForCurrentWeek(task);
+        final int daysCompleted = weeklyCompletion.where((c) => c).length;
+        final String streakText = daysCompleted >= 7
+            ? "SEVEN DAY STREAK ACHIEVED!"
+            : "WEEKLY PROGRESS";
 
         return SingleChildScrollView(
           padding: const EdgeInsets.only(
@@ -358,22 +409,108 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                               fontSize: 13,
                               height: 1.5)),
                       const SizedBox(height: 16),
-                      Card(
-                        color: AppTheme.fhBgDark.withOpacity(0.7),
-                        elevation: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              Icon(MdiIcons.clockOutline,
-                                  size: 20, color: AppTheme.fhTextSecondary),
-                              const SizedBox(width: 12),
-                              Text(
-                                  'TIME LOGGED TODAY: ${task.dailyTimeSpent}m',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppTheme.fhTextSecondary)),
-                            ],
+                      // TIME PROGRESS BAR
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: AppTheme.fhAccentTeal.withOpacity(0.5),
+                            width: 1,
                           ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4.0),
+                              child: Text(
+                                  "TIME PROGRESS: $timeSpentFormatted / 01:00 HOURS",
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      color: AppTheme.fhTextPrimary,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              clipBehavior: Clip.antiAlias,
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                    const BorderRadius.all(Radius.circular(10)),
+                              ),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          AppTheme.fhBgDark.withOpacity(0.5),
+                                      borderRadius: const BorderRadius.all(
+                                          Radius.circular(10)),
+                                    ),
+                                  ),
+                                  FractionallySizedBox(
+                                    widthFactor: progress.clamp(0.0, 2.0),
+                                    child: Container(
+                                      height: 12,
+                                      decoration: const BoxDecoration(
+                                        borderRadius: BorderRadius.all(
+                                            Radius.circular(10)),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Color(0xFF00F8F8),
+                                            Color(0xFF32CD32),
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // STREAK PANEL
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: AppTheme.fhAccentGreen.withOpacity(0.5),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(7, (index) {
+                                final isComplete =
+                                    weeklyCompletion.length > index &&
+                                        weeklyCompletion[index];
+                                return Icon(
+                                  isComplete
+                                      ? MdiIcons.checkCircle
+                                      : MdiIcons.checkboxBlankCircleOutline,
+                                  color: isComplete
+                                      ? AppTheme.fhAccentGreen
+                                      : AppTheme.fhTextDisabled.withOpacity(0.5),
+                                  size: 24,
+                                );
+                              }),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(streakText,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                    color: AppTheme.fhTextPrimary,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                          ],
                         ),
                       ),
                     ],
@@ -383,11 +520,29 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                child: Text('Sub-Missions Log',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                        fontFamily: AppTheme.fontDisplay,
-                        color: AppTheme.fhTextPrimary,
-                        fontWeight: FontWeight.w600)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Sub-Missions Log',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                            fontFamily: AppTheme.fontDisplay,
+                            color: AppTheme.fhTextPrimary,
+                            fontWeight: FontWeight.w600)),
+                    TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _sortByPriority = !_sortByPriority),
+                      icon: Icon(
+                          _sortByPriority
+                              ? MdiIcons.sortBoolAscendingVariant
+                              : MdiIcons.sortVariant,
+                          size: 16),
+                      label: Text('Priority', style: theme.textTheme.labelSmall),
+                      style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4)),
+                    ),
+                  ],
+                ),
               ),
               if (task.subTasks.isEmpty)
                 Padding(
@@ -404,9 +559,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: task.subTasks.length,
+                  itemCount: sortedSubTasks.length,
                   itemBuilder: (ctx, index) {
-                    final st = task.subTasks[index];
+                    final st = sortedSubTasks[index];
                     final timerState = appProviderConsumer.activeTimers[st.id];
                     final displayTimeSeconds = timerState != null
                         ? (timerState.isRunning
@@ -466,6 +621,26 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                                 fontWeight: st.completed
                                                     ? FontWeight.normal
                                                     : FontWeight.w600))),
+                                if (!st.completed)
+                                  IconButton(
+                                    icon: Icon(
+                                      _getPriorityIcon(st.priority),
+                                      color: _getPriorityColor(st.priority),
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      int newPriority = (st.priority % 3) + 1;
+                                      appProviderConsumer.updateSubtask(
+                                          task.id,
+                                          st.id,
+                                          {'priority': newPriority});
+                                    },
+                                    tooltip: 'Cycle Priority',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                const SizedBox(width: 8),
                                 if (!st.completed)
                                   IconButton(
                                     icon: Icon(MdiIcons.deleteForeverOutline,
@@ -960,6 +1135,41 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                           color: AppTheme.fhTextPrimary),
                     ),
                   ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Priority:',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.fhTextSecondary)),
+            const SizedBox(height: 8),
+            ToggleButtons(
+              isSelected: [
+                _newSubtaskPriority == 1,
+                _newSubtaskPriority == 2,
+                _newSubtaskPriority == 3
+              ],
+              onPressed: (int index) {
+                setState(() {
+                  _newSubtaskPriority = index + 1;
+                });
+              },
+              borderRadius: BorderRadius.circular(4),
+              selectedColor: AppTheme.fhTextPrimary,
+              color: AppTheme.fhTextSecondary,
+              fillColor: AppTheme.fhBgDark,
+              selectedBorderColor: (appProvider.getSelectedTask()?.taskColor ??
+                  AppTheme.fhAccentTealFixed),
+              borderColor: AppTheme.fhBorderColor,
+              children: const <Widget>[
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Low')),
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Medium')),
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('High')),
               ],
             ),
             const SizedBox(height: 16),

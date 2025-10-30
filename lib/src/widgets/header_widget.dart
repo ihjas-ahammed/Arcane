@@ -1,8 +1,7 @@
 // lib/src/widgets/header_widget.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/settings_screen.dart';
+import 'package:arcane/src/screens/chatbot_screen.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -38,23 +37,15 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: <Widget>[
         IconButton(
-          icon: Icon(MdiIcons.bookOpenVariant, color: AppTheme.fhTextSecondary),
+          icon: Icon(MdiIcons.robotHappyOutline,
+              color: AppTheme.fhTextSecondary),
           onPressed: () {
             Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const LogbookScreen()));
+                MaterialPageRoute(builder: (context) => const ChatbotScreen()));
           },
-          tooltip: 'Logbook',
+          tooltip: 'Arcane Advisor',
         ),
-        IconButton(
-          icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
-          onPressed: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const SettingsScreen()));
-          },
-          tooltip: 'Settings',
-        ),
+        const SizedBox(width: 8),
       ],
     );
   }

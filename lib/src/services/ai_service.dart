@@ -7,12 +7,14 @@ import 'package:arcane/src/models/chatbot_models.dart';
 class AIService {
   Future<Map<String, dynamic>> makeAICall({
     required String prompt,
+    required String modelName,
     required int currentApiKeyIndex,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
     return await _makeAICall(
         prompt: prompt,
+        modelName: modelName,
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
@@ -20,6 +22,7 @@ class AIService {
 
   Future<Map<String, dynamic>> _makeAICall({
     required String prompt,
+    required String modelName,
     required int currentApiKeyIndex,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
@@ -32,11 +35,10 @@ class AIService {
           "<span style=\"color:var(--fh-accent-red);\">Error: AI content generation failed (No API Key or invalid key).</span>");
       throw Exception(errorMsg);
     }
-    if (geminiModelName.isEmpty) {
-      const errorMsg =
-          "GEMINI_MODEL_NAME not configured. Cannot generate content.";
+    if (modelName.isEmpty) {
+      const errorMsg = "AI model name not configured. Cannot generate content.";
       onLog(
-          "<span style=\"color:var(--fh-accent-red);\">Error: AI content generation failed (GEMINI_MODEL_NAME not configured).</span>");
+          "<span style=\"color:var(--fh-accent-red);\">Error: AI content generation failed (AI model name not configured).</span>");
       throw Exception(errorMsg);
     }
 
@@ -56,10 +58,8 @@ class AIService {
       }
 
       try {
-        onLog(
-            "Trying API key index $keyAttemptIndex for model $geminiModelName...");
-        final model =
-            genai.GenerativeModel(model: geminiModelName, apiKey: apiKey);
+        onLog("Trying API key index $keyAttemptIndex for model $modelName...");
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
         final response =
             await model.generateContent([genai.Content.text(prompt)]);
 
@@ -132,6 +132,7 @@ class AIService {
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
+    required String modelName,
     required String mainTaskName,
     required String mainTaskDescription,
     String? mainTaskTheme,
@@ -212,6 +213,7 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
     try {
       final Map<String, dynamic> rawData = await _makeAICall(
         prompt: prompt,
+        modelName: modelName,
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
@@ -254,6 +256,7 @@ Return ONLY the JSON object, no markdown or comments. NO TRAILING COMMAS.
   }
 
   Future<String> getChatbotResponse({
+    required String modelName,
     required ChatbotMemory memory,
     required String userMessage,
     required int currentApiKeyIndex,
@@ -338,9 +341,8 @@ Only request UI if it makes sense for the conversation and the data is likely av
           "<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (No API Key).</span>");
       return "I'm currently unable to process requests due to a configuration issue. Please check the API keys.";
     }
-    if (geminiModelName.isEmpty) {
-      const errorMsg =
-          "GEMINI_MODEL_NAME not configured. Chatbot cannot respond.";
+    if (modelName.isEmpty) {
+      const errorMsg = "AI model name not configured. Chatbot cannot respond.";
       onLog(
           "<span style=\"color:var(--fh-accent-red);\">Error: Chatbot failed (Model Name not configured).</span>");
       return "I'm currently unable to process requests due to a model configuration issue.";
@@ -363,9 +365,8 @@ Only request UI if it makes sense for the conversation and the data is likely av
 
       try {
         onLog(
-            "Chatbot trying API key index $keyAttemptIndex for model $geminiModelName...");
-        final model =
-            genai.GenerativeModel(model: geminiModelName, apiKey: apiKey);
+            "Chatbot trying API key index $keyAttemptIndex for model $modelName...");
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
         final response =
             await model.generateContent([genai.Content.text(prompt)]);
 
