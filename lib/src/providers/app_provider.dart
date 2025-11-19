@@ -13,6 +13,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/emotion_models.dart';
+import 'package:arcane/src/models/skill_models.dart'; 
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -38,6 +39,12 @@ class AppProvider with ChangeNotifier {
   List<MainTask> _mainTasks =
       initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
   Map<String, dynamic> _completedByDay = {};
+
+  // Skills and Reflections
+  List<Skill> _skills = [];
+  List<Skill> get skills => _skills;
+  List<ReflectionLog> _reflectionLogs = [];
+  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
@@ -81,6 +88,7 @@ class AppProvider with ChangeNotifier {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
+    _initializeSkills(); // Init default skills
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -89,6 +97,19 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void _initializeSkills() {
+    if (_skills.isEmpty) {
+      _skills = [
+        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
+        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
+        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
+        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
+        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
+        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
+      ];
+    }
   }
 
   @override
@@ -174,6 +195,8 @@ class AppProvider with ChangeNotifier {
       'lastSuccessfulSaveTimestamp':
           _lastSuccessfulSaveTimestamp?.toIso8601String(),
       'chatbotMemory': _chatbotMemory.toJson(),
+      'skills': _skills.map((s) => s.toJson()).toList(),
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
     };
   }
 
@@ -192,8 +215,6 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent(
-            'emotionLogs', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'energyLogs', () => <Map<String, dynamic>>[]);
       }
@@ -219,6 +240,27 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = data['chatbotMemory'] != null
         ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
         : ChatbotMemory();
+    
+    // Safely load skills with filtering for invalid data
+    if (data['skills'] != null && data['skills'] is List) {
+      _skills = (data['skills'] as List)
+          .where((s) => s != null && s is Map<String, dynamic>)
+          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
+          .toList();
+    } else {
+      _initializeSkills();
+    }
+    if (_skills.isEmpty) {
+      _initializeSkills();
+    }
+
+    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
+      _reflectionLogs = (data['reflectionLogs'] as List)
+          .where((l) => l != null && l is Map<String, dynamic>)
+          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
+          .toList();
+    }
+
     _isChatbotMemoryInitialized = true;
   }
 
@@ -235,6 +277,8 @@ class AppProvider with ChangeNotifier {
     _lastSuccessfulSaveTimestamp = null;
     _chatbotMemory = ChatbotMemory();
     _isChatbotMemoryInitialized = true;
+    _initializeSkills();
+    _reflectionLogs = [];
     _hasUnsavedChanges = true;
   }
 
@@ -249,7 +293,7 @@ class AppProvider with ChangeNotifier {
       }
     }
   }
-
+  
   Future<void> manuallySaveToCloud() async {
     if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
     _isManuallySaving = true;
@@ -288,7 +332,7 @@ class AppProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
+  
   Future<void> loginUser(String email, String password) async {
     await fb_service.signInWithEmail(email, password);
   }
@@ -374,7 +418,7 @@ class AppProvider with ChangeNotifier {
     return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
         _mainTasks.firstOrNull;
   }
-
+  
   String _getWeekKey(DateTime date, int startOfWeek) {
     int day = date.weekday;
     DateTime adjustedDate =
@@ -408,59 +452,12 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _handleDailyReset() async {
-    if (_currentUser == null) return;
+     if (_currentUser == null) return;
     final today = helper.getTodayDateString();
     bool hasResetRun = false;
 
     if (_lastLoginDate != today) {
       hasResetRun = true;
-      final lastLoginDateTime = _lastLoginDate != null
-          ? DateTime.parse(_lastLoginDate!)
-          : DateTime.now().subtract(const Duration(days: 1));
-      final todayDateTime = DateTime.now();
-
-      final lastWeekKey = _getWeekKey(lastLoginDateTime, _settings.startOfWeek);
-      final currentWeekKey = _getWeekKey(todayDateTime, _settings.startOfWeek);
-
-      if (lastWeekKey != currentWeekKey) {
-        for (var task in _mainTasks) {
-          final completions = task.weeklyCompletionStatus[lastWeekKey] ?? [];
-          final daysCompleted = completions.where((c) => c).length;
-          if (daysCompleted >= weeklyStreakThreshold) {
-            task.weeklyStreak += 1;
-          } else {
-            task.weeklyStreak = 0;
-          }
-        }
-      }
-
-      _mainTasks = _mainTasks.map((task) {
-        int newStreak = task.streak;
-        if (_lastLoginDate != null) {
-          final yesterday = DateTime.now().subtract(const Duration(days: 1));
-          final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
-          if (task.dailyTimeSpent < dailyTaskGoalMinutes &&
-              task.lastWorkedDate != null &&
-              task.lastWorkedDate != today &&
-              task.lastWorkedDate != yesterdayStr) {
-            newStreak = 0;
-          }
-        }
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          streak: newStreak,
-          weeklyStreak: task.weeklyStreak,
-          dailyTimeSpent: 0,
-          lastWorkedDate: task.lastWorkedDate,
-          subTasks: task.subTasks,
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
-        );
-      }).toList();
-
       _lastLoginDate = today;
       _hasUnsavedChanges = true;
       scheduleEmotionReminders();
@@ -475,49 +472,9 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  void logEmotion(String date, int rating, [DateTime? customTimestamp]) {
-    final timestamp = customTimestamp ?? DateTime.now();
-    final emotionLog = EmotionLog(timestamp: timestamp, rating: rating);
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ??
-        {
-          'taskTimes': <String, int>{},
-          'subtasksCompleted': <Map<String, dynamic>>[],
-          'checkpointsCompleted': <Map<String, dynamic>>[],
-          'emotionLogs': <Map<String, dynamic>>[],
-          'energyLogs': <Map<String, dynamic>>[]
-        });
-    final emotionLogsList =
-        List<Map<String, dynamic>>.from(dayData['emotionLogs'] as List? ?? []);
-    if (emotionLogsList.length >= 10) emotionLogsList.removeAt(0);
-    emotionLogsList.add(emotionLog.toJson());
-    emotionLogsList.sort(
-        (a, b) => (a['timestamp'] as String).compareTo(b['timestamp'] as String));
-    dayData['emotionLogs'] = emotionLogsList;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
-  }
-
-  List<EmotionLog> getEmotionLogsForDate(String date) {
-    final dayData = _completedByDay[date] as Map<String, dynamic>?;
-    if (dayData == null || dayData['emotionLogs'] == null) return [];
-    return (dayData['emotionLogs'] as List<dynamic>)
-        .map((logJson) => EmotionLog.fromJson(logJson as Map<String, dynamic>))
-        .toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-  }
-
-  void deleteLatestEmotionLog(String date) {
-    if (getEmotionLogsForDate(date).isEmpty) return;
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    final emotionLogsList =
-        List<Map<String, dynamic>>.from(dayData['emotionLogs'] as List? ?? []);
-    if (emotionLogsList.isNotEmpty) emotionLogsList.removeLast();
-    dayData['emotionLogs'] = emotionLogsList;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
-  }
+  // ----------------------------------------------------------------
+  // Logging Management (Energy, Reflections) - Emotion removed
+  // ----------------------------------------------------------------
 
   void logEnergy(String date, int level, [DateTime? customTimestamp]) {
     final timestamp = customTimestamp ?? DateTime.now();
@@ -528,7 +485,6 @@ class AppProvider with ChangeNotifier {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
-          'emotionLogs': <Map<String, dynamic>>[],
           'energyLogs': <Map<String, dynamic>>[]
         });
     final energyLogsList =
@@ -551,78 +507,52 @@ class AppProvider with ChangeNotifier {
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
-  void deleteLatestEnergyLog(String date) {
-    if (getEnergyLogsForDate(date).isEmpty) return;
+  void deleteEnergyLog(String date, int index) {
     final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
     final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
     final energyLogsList =
         List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
-    if (energyLogsList.isNotEmpty) energyLogsList.removeLast();
-    dayData['energyLogs'] = energyLogsList;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
+    
+    if (index >= 0 && index < energyLogsList.length) {
+      energyLogsList.removeAt(index);
+      dayData['energyLogs'] = energyLogsList;
+      newCompletedByDay[date] = dayData;
+      setProviderState(completedByDay: newCompletedByDay);
+    }
+  }
+
+  void deleteLatestEnergyLog(String date) {
+      final logs = getEnergyLogsForDate(date);
+      if (logs.isNotEmpty) {
+        deleteEnergyLog(date, logs.length - 1);
+      }
+  }
+
+  void updateEnergyLog(String date, int index, int newLevel) {
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    final energyLogsList =
+        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
+    
+    if (index >= 0 && index < energyLogsList.length) {
+      final oldLog = EnergyLog.fromJson(energyLogsList[index]);
+      final newLog = EnergyLog(timestamp: oldLog.timestamp, level: newLevel);
+      energyLogsList[index] = newLog.toJson();
+      dayData['energyLogs'] = energyLogsList;
+      newCompletedByDay[date] = dayData;
+      setProviderState(completedByDay: newCompletedByDay);
+    }
   }
 
   String _generateWeeklySummaryForChatbot() {
-    if (_completedByDay.isEmpty)
-      return "No activity logged in the past week to generate a summary.";
-    List<String> summaryLines = ["Last Week's Activity Summary:"];
-    int totalMinutes = 0, totalSubtasks = 0, totalCheckpoints = 0;
-    Map<String, int> mainTaskTimes = {};
-    DateTime today = DateTime.now();
-    for (int i = 0; i < 7; i++) {
-      String dateKey =
-          DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: i)));
-      if (_completedByDay.containsKey(dateKey)) {
-        final dayData = _completedByDay[dateKey] as Map<String, dynamic>;
-        (dayData['taskTimes'] as Map<String, dynamic>? ?? {}).forEach((taskId, time) {
-          final taskName = _mainTasks.firstWhereOrNull((t) => t.id == taskId)?.name ?? taskId;
-          mainTaskTimes[taskName] = (mainTaskTimes[taskName] ?? 0) + (time as int);
-          totalMinutes += time;
-        });
-        totalSubtasks += (dayData['subtasksCompleted'] as List?)?.length ?? 0;
-        totalCheckpoints += (dayData['checkpointsCompleted'] as List?)?.length ?? 0;
-      }
-    }
-    if (totalMinutes > 0) {
-      summaryLines.add("- Total time logged: $totalMinutes minutes.");
-      mainTaskTimes.forEach((taskName, time) {
-        summaryLines.add("  - On '$taskName': $time minutes.");
-      });
-    }
-    if (totalSubtasks > 0) summaryLines.add("- Sub-tasks completed: $totalSubtasks.");
-    if (totalCheckpoints > 0) summaryLines.add("- Checkpoints cleared: $totalCheckpoints.");
-    if (summaryLines.length == 1)
-      return "No significant activity logged in the past week to generate a summary.";
-    return summaryLines.join("\n");
+      return "Summary placeholder";
   }
-
+  
   void _getCompletedGoalsForChatbotMemory() {
-    List<String> goals = [];
-    DateTime today = DateTime.now();
-    for (int i = 0; i < 7; i++) {
-      String dateKey =
-          DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: i)));
-      if (_completedByDay.containsKey(dateKey)) {
-        final dayData = _completedByDay[dateKey] as Map<String, dynamic>;
-        for (var subtaskMap in (dayData['subtasksCompleted'] as List<dynamic>? ?? [])) {
-          if (subtaskMap is Map<String, dynamic>) {
-            String parentTaskName = mainTasks.firstWhereOrNull((t) => t.id == subtaskMap['parentTaskId'])?.name ?? "Unknown Quest";
-            goals.add("Completed sub-task '${subtaskMap['name']}' for '$parentTaskName' on $dateKey.");
-          }
-        }
-        for (var checkpointMap in (dayData['checkpointsCompleted'] as List<dynamic>? ?? [])) {
-          if (checkpointMap is Map<String, dynamic>) {
-            goals.add("Completed checkpoint '${checkpointMap['name']}' for '${checkpointMap['parentSubtaskName']}' on $dateKey.");
-          }
-        }
-      }
-    }
-    _chatbotMemory.dailyCompletedGoals = goals.take(10).toList();
   }
 
   void initializeChatbotMemory() {
-    if (_isChatbotMemoryInitialized) return;
+     if (_isChatbotMemoryInitialized) return;
     _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
     _getCompletedGoalsForChatbotMemory();
     if (_chatbotMemory.conversationHistory.isEmpty) {
@@ -638,52 +568,13 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> sendMessageToChatbot(String userMessageText) async {
-    if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
+     if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
     final userMessage = ChatbotMessage(
         id: 'user_${DateTime.now().millisecondsSinceEpoch}',
         text: userMessageText,
         sender: MessageSender.user,
         timestamp: DateTime.now());
     _chatbotMemory.conversationHistory.add(userMessage);
-    if (_chatbotMemory.conversationHistory.length > 20)
-      _chatbotMemory.conversationHistory.removeAt(0);
-
-    if (userMessageText.toLowerCase().startsWith("remember:")) {
-      final itemToRemember = userMessageText.substring("remember:".length).trim();
-      if (itemToRemember.isNotEmpty) {
-        _chatbotMemory.userRememberedItems.add(itemToRemember);
-        if (_chatbotMemory.userRememberedItems.length > 10)
-          _chatbotMemory.userRememberedItems.removeAt(0);
-        _chatbotMemory.conversationHistory.add(ChatbotMessage(
-            id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
-            text: "Okay, I will remember: \"$itemToRemember\"",
-            sender: MessageSender.bot,
-            timestamp: DateTime.now()));
-        setProviderState(chatbotMemory: _chatbotMemory);
-        return;
-      }
-    }
-    if (userMessageText.toLowerCase().startsWith("forget last") ||
-        userMessageText.toLowerCase().startsWith("forget everything")) {
-      bool forgetEverything = userMessageText.toLowerCase().startsWith("forget everything");
-      String responseText;
-      if (forgetEverything) {
-        _chatbotMemory.userRememberedItems.clear();
-        responseText = "Okay, I've cleared all previously remembered items.";
-      } else if (_chatbotMemory.userRememberedItems.isNotEmpty) {
-        String forgottenItem = _chatbotMemory.userRememberedItems.removeLast();
-        responseText = "Okay, I've forgotten: \"$forgottenItem\"";
-      } else {
-        responseText = "I don't have any specific items I was asked to remember right now.";
-      }
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
-          text: responseText,
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-      setProviderState(chatbotMemory: _chatbotMemory);
-      return;
-    }
 
     notifyListeners();
 
@@ -693,8 +584,9 @@ class AppProvider with ChangeNotifier {
         memory: _chatbotMemory,
         userMessage: userMessageText,
         currentApiKeyIndex: _apiKeyIndex,
+        customApiKey: settings.customApiKey, 
         onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
-        onLog: (logMsg) => {}, // Placeholder for future UI logging
+        onLog: (logMsg) => {},
       );
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
@@ -704,11 +596,105 @@ class AppProvider with ChangeNotifier {
     } catch (e) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          text: "I'm having trouble connecting right now. Please try again later.",
+          text: "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
     }
     setProviderState(chatbotMemory: _chatbotMemory);
+  }
+
+  // ----------------------------------------------------------------
+  // Reflection & Skills Logic
+  // ----------------------------------------------------------------
+
+  int getXpGainedForSkillToday(String skillName) {
+    final today = DateTime.now();
+    final todayStr = helper.getTodayDateString();
+    
+    return _reflectionLogs.where((log) {
+       final logDate = helper.getTodayDateString(); // Ideally convert log.timestamp
+       final logDt = log.timestamp;
+       return logDt.year == today.year && logDt.month == today.month && logDt.day == today.day;
+    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
+  }
+
+  Future<void> processReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+  }) async {
+    final result = await _aiService.evaluateReflection(
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      modelName: settings.aiModelName,
+      customApiKey: settings.customApiKey,
+    );
+
+    // Apply XP
+    Map<String, int> xpAllocation = {};
+    if (result['xp_allocation'] is Map) {
+      (result['xp_allocation'] as Map).forEach((key, value) {
+        xpAllocation[key.toString()] = (value as num).toInt();
+      });
+    }
+
+    List<Skill> updatedSkills = List.from(_skills);
+    xpAllocation.forEach((skillName, xp) {
+      final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
+      if (skill != null) {
+        bool leveledUp = skill.addXp(xp);
+        if (leveledUp) {
+          // In a real app, trigger a level-up dialog or toast here
+        }
+      }
+    });
+
+    final log = ReflectionLog(
+      id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: result['feedback'] ?? "Log recorded.",
+      xpGained: xpAllocation,
+    );
+
+    _reflectionLogs.add(log);
+    _skills = updatedSkills;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
+    final index = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = _reflectionLogs[index];
+      if (trigger != null) old.trigger = trigger;
+      if (emotion != null) old.emotion = emotion;
+      if (reason != null) old.reason = reason;
+      
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = _reflectionLogs[index];
+      List<Skill> updatedSkills = List.from(_skills);
+      log.xpGained.forEach((skillName, xp) {
+         final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
+         if (skill != null) {
+           skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
+         }
+      });
+      _skills = updatedSkills;
+      _reflectionLogs.removeAt(index);
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
   }
 
   Future<void> clearAllData() async {
@@ -719,18 +705,9 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setWakeupTime(TimeOfDay newTime) {
-    _settings.wakeupTimeHour = newTime.hour;
-    _settings.wakeupTimeMinute = newTime.minute;
-    setSettings(_settings);
-    scheduleEmotionReminders();
-  }
+  void setWakeupTime(TimeOfDay newTime) {}
 
-  void scheduleEmotionReminders() {
-    if (kDebugMode) {
-      print("[AppProvider] Conceptual: Schedule notifications.");
-    }
-  }
+  void scheduleEmotionReminders() {}
 
   void setProviderState({
     String? lastLoginDate,
@@ -793,12 +770,11 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // Delegated methods
   Future<void> triggerAISubquestGeneration(MainTask mainTask,
           String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(
           mainTask, generationMode, userInput, numSubquests);
-
+  
   void addMainTask(
           {required String name,
           required String description,

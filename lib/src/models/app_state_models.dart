@@ -7,6 +7,7 @@ class AppSettings {
   int wakeupTimeHour;
   int wakeupTimeMinute;
   String aiModelName;
+  String? customApiKey; // Added custom API Key support
   int startOfWeek; // 1 for Monday, 7 for Sunday
 
   AppSettings({
@@ -14,7 +15,8 @@ class AppSettings {
     this.dailyAutoGenerateContent = true,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
-    this.aiModelName = 'gemini-1.5-flash-latest',
+    this.aiModelName = 'gemini-2.0-flash', // Updated default
+    this.customApiKey,
     this.startOfWeek = 1, // Default to Monday
   });
 
@@ -22,12 +24,13 @@ class AppSettings {
     return AppSettings(
       descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
-          json['autoGenerateContent'] as bool? ?? // Handle legacy name
+          json['autoGenerateContent'] as bool? ?? 
           true,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
       aiModelName:
-          json['aiModelName'] as String? ?? 'gemini-1.5-flash-latest',
+          json['aiModelName'] as String? ?? 'gemini-2.0-flash',
+      customApiKey: json['customApiKey'] as String?,
       startOfWeek: json['startOfWeek'] as int? ?? 1,
     );
   }
@@ -38,6 +41,7 @@ class AppSettings {
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,
       'aiModelName': aiModelName,
+      'customApiKey': customApiKey,
       'startOfWeek': startOfWeek,
     };
   }

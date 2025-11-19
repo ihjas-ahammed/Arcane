@@ -15,10 +15,13 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
+  // ... (existing controllers)
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
   final _aiModelNameController = TextEditingController();
+  final _apiKeyController = TextEditingController(); // New controller
+  
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
@@ -27,12 +30,20 @@ class _SettingsViewState extends State<SettingsView> {
   String _usernameChangeSuccess = '';
   bool _logoutLoading = false;
 
+  final List<String> _availableModels = [
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+  ];
+
   @override
   void initState() {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _aiModelNameController.text = appProvider.settings.aiModelName;
+    _apiKeyController.text = appProvider.settings.customApiKey ?? '';
   }
 
   @override
@@ -41,10 +52,12 @@ class _SettingsViewState extends State<SettingsView> {
     _confirmPasswordController.dispose();
     _newUsernameController.dispose();
     _aiModelNameController.dispose();
+    _apiKeyController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleChangePassword(AppProvider appProvider) async {
+  // ... (Change password and username methods same as before)
+   Future<void> _handleChangePassword(AppProvider appProvider) async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
       setState(() => _passwordChangeError = "Passwords do not match.");
       return;
@@ -136,7 +149,8 @@ class _SettingsViewState extends State<SettingsView> {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    String lastSavedString = "Not synced yet.";
+    // ... (Manual save section same as before)
+     String lastSavedString = "Not synced yet.";
     if (appProvider.lastSuccessfulSaveTimestamp != null) {
       lastSavedString =
           "Last synced: ${DateFormat('MMM d, yyyy, hh:mm:ss a').format(appProvider.lastSuccessfulSaveTimestamp!.toLocal())}";
@@ -147,11 +161,12 @@ class _SettingsViewState extends State<SettingsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSettingsSection(appProvider, theme,
+           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.cloudSyncOutline,
               title: 'Cloud Synchronization',
               children: [
-                ElevatedButton.icon(
+                  // ... (Save/Load buttons same)
+                  ElevatedButton.icon(
                   icon: appProvider.isManuallySaving
                       ? const SizedBox(
                           width: 18,
@@ -202,7 +217,8 @@ class _SettingsViewState extends State<SettingsView> {
                           appProvider.isManuallyLoading
                       ? null
                       : () async {
-                          final confirm = await showDialog<bool>(
+                           // ... confirm dialog
+                            final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: Row(children: [
@@ -250,7 +266,7 @@ class _SettingsViewState extends State<SettingsView> {
                               }
                             }
                           }
-                        },
+                      },
                   style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 44),
                       backgroundColor: (appProvider.getSelectedTask()?.taskColor ??
@@ -267,31 +283,72 @@ class _SettingsViewState extends State<SettingsView> {
                         fontStyle: FontStyle.italic),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Note: App progress is auto-saved to the cloud periodically (approx. every minute if changes are detected).",
-                  style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTheme.fhTextSecondary.withOpacity(0.8),
-                      fontSize: 10),
-                ),
               ]),
+          
+          // AI CONFIGURATION
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.robotHappyOutline,
               title: 'AI Configuration',
               children: [
+                DropdownButtonFormField<String>(
+                  value: _availableModels.contains(appProvider.settings.aiModelName) 
+                      ? appProvider.settings.aiModelName 
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: 'AI Model Selection',
+                    prefixIcon: Icon(MdiIcons.brain, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgLight,
+                  items: _availableModels.map((m) => DropdownMenuItem(
+                    value: m,
+                    child: Text(m),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                       appProvider.setSettings(appProvider.settings..aiModelName = val);
+                       _aiModelNameController.text = val;
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _aiModelNameController,
                   decoration:  InputDecoration(
-                    labelText: 'AI Model Name',
-                    hintText: 'e.g., gemini-1.5-flash-latest',
-                    prefixIcon:  Icon(MdiIcons.brain, size: 20),
+                    labelText: 'Custom Model Name (Override)',
+                    hintText: 'e.g., gemini-1.5-pro-latest',
+                    prefixIcon:  Icon(MdiIcons.pencilOutline, size: 20),
                   ),
                   onChanged: (value) {
                     appProvider
                         .setSettings(appProvider.settings..aiModelName = value);
                   },
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _apiKeyController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Custom Gemini API Key (Optional)',
+                    hintText: 'Paste your API Key here',
+                    prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(MdiIcons.contentSave, size: 20),
+                      onPressed: () {
+                         appProvider.setSettings(appProvider.settings..customApiKey = _apiKeyController.text.trim());
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("API Key saved locally.")));
+                      },
+                    )
+                  ),
+                  onChanged: (val) {
+                    // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text("Leave blank to use built-in shared keys (if available).", 
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]),
+              
+          // ... (Rest of the sections: Weekly Progress, User Profile, Interface, Credentials, Reset)
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
@@ -324,7 +381,8 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.accountEditOutline,
               title: 'User Profile',
               children: [
-                TextFormField(
+                  // ... same
+                  TextFormField(
                   controller: _newUsernameController,
                   decoration: InputDecoration(
                       labelText: 'Display Name',
@@ -374,7 +432,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.eyeSettingsOutline,
               title: 'User Interface Config',
               children: [
-                SwitchListTile.adaptive(
+                 SwitchListTile.adaptive(
                   title: const Text('Verbose Data Display'),
                   subtitle: const Text(
                       'Show detailed descriptions for stats and items throughout the interface.'),
@@ -386,12 +444,14 @@ class _SettingsViewState extends State<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ]),
-          if (appProvider.currentUser != null)
+          // ... Credentials & Reset sections
+           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
                 title: 'Access Credentials',
                 children: [
-                  TextFormField(
+                    // ... same
+                     TextFormField(
                     controller: _newPasswordController,
                     decoration: InputDecoration(
                         labelText: 'New Passcode Sequence',
@@ -468,7 +528,8 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
               children: [
-                Text(
+                 // ... same
+                 Text(
                   'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
@@ -524,7 +585,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
   }
-
+  
   Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
       {required IconData icon,
       required String title,

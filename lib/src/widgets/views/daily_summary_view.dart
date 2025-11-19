@@ -1,9 +1,11 @@
 // lib/src/widgets/views/daily_summary_view.dart
+import 'package:arcane/src/models/skill_models.dart';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/emotion_models.dart';
+import 'package:arcane/src/models/emotion_models.dart'; // Only EnergyLog is used now
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -19,7 +21,6 @@ class DailySummaryView extends StatefulWidget {
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   int _touchedPieIndex = -1;
-  int _hoveredEmotionRating = 0;
   double _currentEnergyLevel = 50.0;
 
   @override
@@ -34,6 +35,34 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         !availableDates.contains(_selectedDate)) {
       _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
     }
+  }
+  
+  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
+    showDialog(
+      context: context,
+      builder: (ctx) => EditLogDialog(
+        title: "Edit ${type.capitalize()}",
+        logType: type.toLowerCase(),
+        initialValue: currentValue,
+        onDelete: () {
+          if (_selectedDate == null) return;
+          if (type == 'Energy') provider.deleteEnergyLog(_selectedDate!, index);
+          if (type == 'Reflection') provider.deleteReflectionLog(currentValue['id']);
+        },
+        onSave: (val) {
+          if (_selectedDate == null) return;
+          if (type == 'Energy') provider.updateEnergyLog(_selectedDate!, index, val);
+          if (type == 'Reflection') {
+             provider.updateReflectionLog(
+               currentValue['id'], 
+               trigger: val['trigger'], 
+               emotion: val['emotion'], 
+               reason: val['reason']
+             );
+          }
+        },
+      )
+    );
   }
 
   Widget _buildEnergyLoggingRow(
@@ -80,103 +109,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       ],
     );
   }
-
-  Widget _buildEmotionLoggingRow(
-      AppProvider appProvider, String date, ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(5, (index) {
-        final rating = index + 1;
-        return MouseRegion(
-          onEnter: (_) => setState(() => _hoveredEmotionRating = rating),
-          onExit: (_) => setState(() => _hoveredEmotionRating = 0),
-          child: GestureDetector(
-            onTap: () {
-              appProvider.logEmotion(date, rating);
-              setState(() => _hoveredEmotionRating = 0);
-            },
-            child: AnimatedScale(
-              scale: _hoveredEmotionRating == rating ? 1.2 : 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _getEmotionIcon(rating),
-                    size: 32,
-                    color: _hoveredEmotionRating >= rating
-                        ? _getEmotionColor(rating, theme)
-                        : AppTheme.fhTextDisabled,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(_getEmotionLabel(rating),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          color: _hoveredEmotionRating >= rating
-                              ? _getEmotionColor(rating, theme)
-                              : AppTheme.fhTextDisabled,
-                          fontWeight: _hoveredEmotionRating == rating
-                              ? FontWeight.bold
-                              : FontWeight.normal))
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  IconData _getEmotionIcon(int rating) {
-    switch (rating) {
-      case 1:
-        return MdiIcons.emoticonSadOutline;
-      case 2:
-        return MdiIcons.emoticonConfusedOutline;
-      case 3:
-        return MdiIcons.emoticonNeutralOutline;
-      case 4:
-        return MdiIcons.emoticonHappyOutline;
-      case 5:
-        return MdiIcons.emoticonExcitedOutline;
-      default:
-        return MdiIcons.emoticonOutline;
-    }
-  }
-
-  String _getEmotionLabel(int rating) {
-    switch (rating) {
-      case 1:
-        return "Awful";
-      case 2:
-        return "Bad";
-      case 3:
-        return "Okay";
-      case 4:
-        return "Good";
-      case 5:
-        return "Great";
-      default:
-        return "";
-    }
-  }
-
-  Color _getEmotionColor(int rating, ThemeData theme) {
-    switch (rating) {
-      case 1:
-        return AppTheme.fhAccentRed;
-      case 2:
-        return AppTheme.fhAccentOrange;
-      case 3:
-        return AppTheme.fhAccentGold;
-      case 4:
-        return AppTheme.fhAccentGreen;
-      case 5:
-        return theme.colorScheme.primary;
-      default:
-        return AppTheme.fhTextDisabled;
-    }
-  }
-
+  
   Widget _buildTrendCurveChart<T>(
       {required List<T> logs,
       required ThemeData theme,
@@ -340,6 +273,88 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     );
   }
 
+  // --- Virtue Graph Widget ---
+  Widget _buildVirtueGraph(AppProvider appProvider, ThemeData theme) {
+    // Filter logs for selected date
+    if (_selectedDate == null) return SizedBox.shrink();
+    
+    final dateStart = DateTime.parse(_selectedDate!);
+    final dateEnd = dateStart.add(Duration(days: 1));
+
+    final relevantLogs = appProvider.reflectionLogs.where((log) => 
+      log.timestamp.isAfter(dateStart) && log.timestamp.isBefore(dateEnd)
+    ).toList();
+
+    if (relevantLogs.isEmpty) {
+      return Center(child: Text("No reflections logged today.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)));
+    }
+    
+    relevantLogs.sort((a,b) => a.timestamp.compareTo(b.timestamp));
+
+    // Build accumulation map
+    Map<String, List<FlSpot>> spots = {
+      'Wisdom': [FlSpot(0, 0)],
+      'Courage': [FlSpot(0, 0)],
+      'Humanity': [FlSpot(0, 0)],
+      'Justice': [FlSpot(0, 0)],
+      'Temperance': [FlSpot(0, 0)],
+      'Transcendence': [FlSpot(0, 0)],
+    };
+
+    Map<String, double> currentTotals = {
+      'Wisdom': 0, 'Courage': 0, 'Humanity': 0, 'Justice': 0, 'Temperance': 0, 'Transcendence': 0
+    };
+
+    for (var log in relevantLogs) {
+      double timeOfDay = log.timestamp.hour + (log.timestamp.minute / 60.0);
+      log.xpGained.forEach((virtue, xp) {
+         if (currentTotals.containsKey(virtue)) {
+           currentTotals[virtue] = currentTotals[virtue]! + xp;
+           spots[virtue]!.add(FlSpot(timeOfDay, currentTotals[virtue]!));
+         }
+      });
+    }
+
+    return SizedBox(
+      height: 220,
+      child: LineChart(
+        LineChartData(
+          minX: 0, maxX: 24,
+          minY: 0,
+          lineBarsData: spots.entries.map((entry) {
+             return LineChartBarData(
+               spots: entry.value,
+               isCurved: true,
+               color: _getVirtueColor(entry.key),
+               barWidth: 2,
+               dotData: FlDotData(show: false),
+             );
+          }).toList(),
+          titlesData: FlTitlesData(
+             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: 4, getTitlesWidget: (val, meta) => Text("${val.toInt()}:00", style: TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary)))),
+             leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (val, meta) => Text(val.toInt().toString(), style: TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary)))),
+             rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+             topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 20),
+          borderData: FlBorderData(show: true, border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2))),
+        )
+      ),
+    );
+  }
+  
+  Color _getVirtueColor(String name) {
+    switch (name) {
+      case 'Wisdom': return Colors.blueAccent;
+      case 'Courage': return Colors.redAccent;
+      case 'Humanity': return Colors.pinkAccent;
+      case 'Justice': return Colors.amber;
+      case 'Temperance': return Colors.tealAccent;
+      case 'Transcendence': return Colors.purpleAccent;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -349,34 +364,33 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     availableDates.sort((a, b) => b.compareTo(a));
 
     if (_selectedDate == null && availableDates.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _selectedDate = availableDates.first);
       });
-    } else if (_selectedDate != null &&
-        !availableDates.contains(_selectedDate) &&
-        availableDates.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = availableDates.first);
+    } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
       });
-    } else if (availableDates.isEmpty && _selectedDate != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = null);
+    } else if (availableDates.isEmpty) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
       });
     }
 
-    final summaryData =
-        _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
+    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
     final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
-    final subtasksCompleted =
-        summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final checkpointsCompleted =
-        summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
-    final List<EmotionLog> emotionLogsForSelectedDate = _selectedDate != null
-        ? appProvider.getEmotionLogsForDate(_selectedDate!)
-        : [];
     final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
         ? appProvider.getEnergyLogsForDate(_selectedDate!)
+        : [];
+    
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+             final d = DateTime.parse(_selectedDate!);
+             return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
+          }).toList()
         : [];
 
     final double totalMinutesToday = taskTimes.values
@@ -529,42 +543,73 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               }).toList(),
               onChanged: (value) => setState(() => _selectedDate = value),
             ),
+            
             const SizedBox(height: 24),
-            if (_selectedDate != null) ...[
-              Card(
-                color: AppTheme.fhBgMedium,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Total Time Logged on ${DateFormat('MMMM d, yyyy').format(DateTime.parse(_selectedDate!))}: ${totalMinutesToday.toStringAsFixed(0)}m',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                        color: AppTheme.fhAccentGreen,
-                        fontWeight: FontWeight.bold),
-                  ),
+            
+            // --- VIRTUE GRAPH SECTION ---
+            Text("Daily Virtue Growth:", style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            Card(
+              color: AppTheme.fhBgMedium.withOpacity(0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    _buildVirtueGraph(appProvider, theme),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: ["Wisdom", "Courage", "Humanity", "Justice", "Temperance", "Transcendence"].map((v) => 
+                         Row(
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             Container(width: 8, height: 8, color: _getVirtueColor(v)),
+                             const SizedBox(width: 4),
+                             Text(v, style: TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary))
+                           ],
+                         )
+                      ).toList(),
+                    )
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
-              if (energyLogsForSelectedDate.isNotEmpty)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    icon: Icon(MdiIcons.deleteSweepOutline,
-                        size: 16, color: AppTheme.fhAccentRed.withOpacity(0.7)),
-                    label: Text("Delete Latest",
-                        style: TextStyle(
-                            color: AppTheme.fhAccentRed.withOpacity(0.7),
-                            fontSize: 12)),
-                    onPressed: () {
-                      appProvider.deleteLatestEnergyLog(_selectedDate!);
-                    },
+            ),
+            const SizedBox(height: 30),
+
+            // --- ENERGY SECTION ---
+            _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+            const SizedBox(height: 16),
+            if (energyLogsForSelectedDate.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Energy Logs (Tap to Edit):", style: theme.textTheme.titleMedium),
+                  TextButton.icon(
+                    icon: Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed.withOpacity(0.7)),
+                    label: Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed.withOpacity(0.7), fontSize: 12)),
+                    onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
                   ),
-                ),
+                ],
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: energyLogsForSelectedDate.length,
+                itemBuilder: (ctx, i) {
+                  final log = energyLogsForSelectedDate[i];
+                  return ListTile(
+                    title: Text("${log.level}% Energy"),
+                    subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
+                    leading: Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold),
+                    trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                    onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
+                  );
+                }
+              ),
               const SizedBox(height: 16),
-              if (energyLogsForSelectedDate.isNotEmpty) ...[
-                Text("Energy Trend:", style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 16),
-                _buildTrendCurveChart<EnergyLog>(
+              Text("Energy Trend:", style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 12),
+               _buildTrendCurveChart<EnergyLog>(
                   logs: energyLogsForSelectedDate,
                   theme: theme,
                   dynamicAccent: AppTheme.fhAccentGold,
@@ -583,56 +628,38 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   maxY: 105,
                   yAxisSuffix: "%",
                 ),
-                const SizedBox(height: 30),
-              ],
-              Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text("How are you feeling?",
-                      style: theme.textTheme.headlineSmall)),
-              const SizedBox(height: 10),
-              _buildEmotionLoggingRow(appProvider, _selectedDate!, theme),
-              const SizedBox(height: 8),
-              if (emotionLogsForSelectedDate.isNotEmpty)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    icon: Icon(MdiIcons.deleteSweepOutline,
-                        size: 16, color: AppTheme.fhAccentRed.withOpacity(0.7)),
-                    label: Text("Delete Latest",
-                        style: TextStyle(
-                            color: AppTheme.fhAccentRed.withOpacity(0.7),
-                            fontSize: 12)),
-                    onPressed: () {
-                      appProvider.deleteLatestEmotionLog(_selectedDate!);
-                    },
-                  ),
-                ),
-              const SizedBox(height: 16),
-              if (emotionLogsForSelectedDate.isNotEmpty) ...[
-                Text("Emotion Trend:", style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 16),
-                _buildTrendCurveChart<EmotionLog>(
-                  logs: emotionLogsForSelectedDate,
-                  theme: theme,
-                  dynamicAccent: (appProvider.getSelectedTask()?.taskColor ??
-                      AppTheme.fhAccentTealFixed),
-                  getX: (log) {
-                    final logDayMidnight = DateTime(log.timestamp.year,
-                        log.timestamp.month, log.timestamp.day);
-                    return log.timestamp
-                            .difference(logDayMidnight)
-                            .inMinutes /
-                        60.0;
-                  },
-                  getY: (log) => log.rating.toDouble(),
-                  getTooltipLabel: (log) =>
-                      '${_getEmotionLabel(log.rating)} (${log.rating}/5) at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
-                  minY: 0.5,
-                  maxY: 5.5,
-                ),
-                const SizedBox(height: 30),
-              ],
+              const SizedBox(height: 30),
             ],
+            
+            // --- REFLECTIONS SECTION ---
+             if (reflectionsForDate.isNotEmpty) ...[
+               Text("Reflections (Tap to Edit):", style: theme.textTheme.titleMedium),
+               ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: reflectionsForDate.length,
+                itemBuilder: (ctx, i) {
+                  final log = reflectionsForDate[i];
+                  return Card(
+                    margin: EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection"),
+                      subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
+                      leading: Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
+                      trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                      onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
+                        'id': log.id,
+                        'trigger': log.trigger,
+                        'emotion': log.emotion,
+                        'reason': log.reason
+                      }),
+                    ),
+                  );
+                }
+              ),
+              const SizedBox(height: 30),
+             ],
+
             if (pieChartSections.isNotEmpty) ...[
               Text("Time Distribution by Mission:",
                   style: theme.textTheme.headlineSmall),
@@ -684,6 +711,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
               const SizedBox(height: 30),
             ],
+
             Text("Last 7 Days Activity (Total Minutes):",
                 style: theme.textTheme.headlineSmall),
             const SizedBox(height: 20),
@@ -692,11 +720,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: weeklyBarGroups
-                              .map((g) => g.barRods.first.toY)
-                              .reduce((a, b) => a > b ? a : b) *
-                          1.2 +
-                      15,
+                  maxY: weeklyBarGroups.isEmpty 
+                      ? 10 
+                      : weeklyBarGroups.map((g) => g.barRods.first.toY).reduce((a, b) => a > b ? a : b) * 1.2 + 15,
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (BarChartGroupData group) =>
@@ -733,6 +759,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (double value, TitleMeta meta) {
+                          if (value < 0 || value >= last7DaysFormatted.length) return SizedBox.shrink();
                           return SideTitleWidget(
                             meta: meta,
                             space: 10.0,
@@ -780,11 +807,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     show: true,
                     drawVerticalLine: true,
                     verticalInterval: 1,
-                    horizontalInterval: (weeklyBarGroups
-                                .map((g) => g.barRods.first.toY)
-                                .reduce((a, b) => a > b ? a : b) /
-                            5)
-                        .clamp(10, 1000),
+                    horizontalInterval: weeklyBarGroups.isEmpty 
+                        ? 1 
+                        : (weeklyBarGroups.map((g) => g.barRods.first.toY).reduce((a, b) => a > b ? a : b) / 5).clamp(10, 1000),
                     getDrawingHorizontalLine: (value) => FlLine(
                         color: AppTheme.fhBorderColor.withOpacity(0.1),
                         strokeWidth: 0.8),
@@ -796,7 +821,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
             ),
             const SizedBox(height: 30),
-            if (_selectedDate != null) ...[
+
+             if (_selectedDate != null) ...[
               Text(
                   'Activity Details for ${DateFormat('MMMM d').format(DateTime.parse(_selectedDate!))}:',
                   style: theme.textTheme.headlineSmall),
@@ -810,28 +836,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     children: [
                       if (taskTimes.isEmpty &&
                           subtasksCompleted.isEmpty &&
-                          checkpointsCompleted.isEmpty &&
-                          emotionLogsForSelectedDate.isEmpty)
-                        Text("No specific activity recorded for this day.",
+                          checkpointsCompleted.isEmpty)
+                        Text("No specific task activity recorded for this day.",
                             style: theme.textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.fhTextSecondary,
                                 fontStyle: FontStyle.italic))
                       else ...[
-                        if (emotionLogsForSelectedDate.isNotEmpty) ...[
-                          Text('Emotion Logs:',
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          ...emotionLogsForSelectedDate.map((log) => Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 16.0, top: 3.0),
-                                child: Text(
-                                    '- Rated ${_getEmotionLabel(log.rating)} (${log.rating}/5) at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                        color: _getEmotionColor(
-                                            log.rating, theme))),
-                              )),
-                          const SizedBox(height: 10),
-                        ],
                         ...taskTimes.entries.map((entry) {
                           final task = appProvider.mainTasks.firstWhere(
                               (t) => t.id == entry.key,
@@ -877,35 +887,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             );
                           }),
                         ],
-                        if (checkpointsCompleted.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text('Checkpoints Completed:',
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          ...checkpointsCompleted.map((cpEntryMap) {
-                            final cpEntry = cpEntryMap as Map<String, dynamic>;
-                            final String mainTaskName =
-                                cpEntry['mainTaskName'] as String? ?? 'N/A';
-                            final String parentSubtaskName =
-                                cpEntry['parentSubtaskName'] as String? ??
-                                    'N/A';
-                            final String countableInfo =
-                                (cpEntry['isCountable'] as bool? ?? false)
-                                    ? " (${cpEntry['currentCount']}/${cpEntry['targetCount']})"
-                                    : "";
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 16.0, top: 3.0),
-                              child: Text(
-                                '- ${cpEntry['name']}$countableInfo (Sub-Mission: "$parentSubtaskName" in "$mainTaskName")',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                    color: (appProvider.getSelectedTask()?.taskColor ??
-                                            AppTheme.fhAccentTealFixed)
-                                        .withOpacity(0.85)),
-                              ),
-                            );
-                          }),
-                        ]
                       ],
                     ],
                   ),
@@ -917,4 +898,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       ),
     );
   }
+}
+
+extension StringExtension on String {
+    String capitalize() {
+      return "${this[0].toUpperCase()}${this.substring(1)}";
+    }
 }

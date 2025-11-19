@@ -34,6 +34,13 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: primaryAccent, // Dynamic primary accent
       scaffoldBackgroundColor: fhBgDeepDark,
+      
+      // Improved Page Transitions for smoother feel
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+      }),
 
       colorScheme: ColorScheme.dark(
         primary: primaryAccent, // Dynamic primary accent
@@ -189,9 +196,9 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         color: fhBgDark, 
-        elevation: 0, 
+        elevation: 2, // Slight elevation for better separation
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(2.0), 
+          borderRadius: BorderRadius.circular(4.0), 
           side: BorderSide(color: fhBorderColor.withOpacity(0.4), width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
