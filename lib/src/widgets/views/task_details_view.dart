@@ -20,7 +20,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   final _newSubtaskNameController = TextEditingController();
   bool _newSubtaskIsCountable = false;
   final _newSubtaskTargetCountController = TextEditingController(text: '10');
-  // Priority removed
 
   String _aiGenerationMode = 'text_list';
   final _aiUserInputController = TextEditingController();
@@ -205,9 +204,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               subTask.currentCount;
       if (currentCount < subTask.targetCount) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               content: Text(
-                  'Please complete the target count (${subTask.targetCount}) before marking as done.'),
+                  'Please complete the target count before marking as done.'),
               backgroundColor: AppTheme.fhAccentRed),
         );
         return;
@@ -224,9 +223,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           subSubTask.currentCount;
       if (currentCount < subSubTask.targetCount) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               content: Text(
-                  'Please complete the target count (${subSubTask.targetCount}) for this step before marking as done.'),
+                  'Please complete the target count for this step before marking as done.'),
               backgroundColor: AppTheme.fhAccentRed),
         );
         return;
@@ -273,7 +272,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(MdiIcons.textBoxSearchOutline,
+                 Icon(MdiIcons.textBoxSearchOutline,
                     size: 56, color: AppTheme.fhAccentTealFixed),
                 const SizedBox(height: 16),
                 Text('Select a Mission',
@@ -302,7 +301,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         }
 
         final sortedSubTasks = List<SubTask>.from(task.subTasks);
-        // Priority sort removed
 
         for (var st in task.subTasks) {
           _localTimeControllers.putIfAbsent(st.id,
@@ -333,7 +331,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             appProviderConsumer.getCompletionStatusForCurrentWeek(task);
         final int daysCompleted = weeklyCompletion.where((c) => c).length;
         final String streakText = daysCompleted >= 7
-            ? "SEVEN DAY STREAK ACHIEVED!"
+            ? "WEEKLY STREAK ACHIEVED"
             : "WEEKLY PROGRESS";
 
         return SingleChildScrollView(
@@ -346,97 +344,98 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               Card(
                 color: AppTheme.fhBgMedium,
                 margin: const EdgeInsets.only(bottom: 16, left: 0, right: 0),
-                elevation: 0,
+                elevation: 4,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6.0),
+                  borderRadius: BorderRadius.circular(8.0),
                   side: BorderSide(
                       color: AppTheme.fhBorderColor.withOpacity(0.5), width: 1),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${task.theme.toUpperCase()} MISSION PROTOCOL',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                            color:
-                                (appProvider.getSelectedTask()?.taskColor ??
+                      Row(
+                        children: [
+                          Icon(MdiIcons.shieldOutline, color: task.taskColor, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${task.theme.toUpperCase()} PROTOCOL',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                                color: (appProvider.getSelectedTask()?.taskColor ??
                                     AppTheme.fhAccentTealFixed),
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 12),
                       Text(task.name,
                           style: theme.textTheme.headlineSmall?.copyWith(
                               color: AppTheme.fhTextPrimary,
-                              fontWeight: FontWeight.w600)),
+                              fontSize: 24,
+                              fontFamily: AppTheme.fontDisplay,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Text(task.description,
                           style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppTheme.fhTextSecondary,
-                              fontSize: 13,
+                              fontSize: 14,
                               height: 1.5)),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       // TIME PROGRESS BAR
                       Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppTheme.fhBgDeepDark,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: AppTheme.fhAccentTeal.withOpacity(0.5),
+                            color: AppTheme.fhBorderColor.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4.0),
-                              child: Text(
-                                  "TIME PROGRESS: $timeSpentFormatted / 01:00 HOURS",
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "TIME ELAPSED",
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      color: AppTheme.fhTextSecondary,
+                                      fontWeight: FontWeight.bold)),
+                                Text(
+                                  "$timeSpentFormatted / 01:00",
                                   style: theme.textTheme.labelSmall?.copyWith(
                                       color: AppTheme.fhTextPrimary,
                                       fontWeight: FontWeight.bold)),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             Container(
                               clipBehavior: Clip.antiAlias,
+                              height: 8,
                               decoration: BoxDecoration(
                                 borderRadius:
-                                    const BorderRadius.all(Radius.circular(10)),
+                                    const BorderRadius.all(Radius.circular(4)),
+                                color: AppTheme.fhBgMedium,
                               ),
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          AppTheme.fhBgDark.withOpacity(0.5),
-                                      borderRadius: const BorderRadius.all(
-                                          Radius.circular(10)),
+                              child: FractionallySizedBox(
+                                widthFactor: progress.clamp(0.0, 1.0),
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppTheme.fhAccentTeal.withOpacity(0.7),
+                                        AppTheme.fhAccentTeal,
+                                      ],
                                     ),
+                                    boxShadow: [BoxShadow(color: AppTheme.fhAccentTeal.withOpacity(0.5), blurRadius: 6, spreadRadius: 1)]
                                   ),
-                                  FractionallySizedBox(
-                                    widthFactor: progress.clamp(0.0, 2.0),
-                                    child: Container(
-                                      height: 12,
-                                      decoration: const BoxDecoration(
-                                        borderRadius: BorderRadius.all(
-                                            Radius.circular(10)),
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Color(0xFF00F8F8),
-                                            Color(0xFF32CD32),
-                                          ],
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ],
@@ -445,40 +444,41 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       const SizedBox(height: 12),
                       // STREAK PANEL
                       Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppTheme.fhBgDeepDark,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: AppTheme.fhAccentGreen.withOpacity(0.5),
+                            color: AppTheme.fhBorderColor.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 4),
+                            Text(streakText,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: List.generate(7, (index) {
                                 final isComplete =
                                     weeklyCompletion.length > index &&
                                         weeklyCompletion[index];
-                                return Icon(
-                                  isComplete
-                                      ? MdiIcons.checkCircle
-                                      : MdiIcons.checkboxBlankCircleOutline,
-                                  color: isComplete
-                                      ? AppTheme.fhAccentGreen
-                                      : AppTheme.fhTextDisabled.withOpacity(0.5),
-                                  size: 24,
+                                return Container(
+                                  width: 24, height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isComplete ? AppTheme.fhAccentGold.withOpacity(0.2) : Colors.transparent,
+                                    border: Border.all(color: isComplete ? AppTheme.fhAccentGold : AppTheme.fhTextDisabled.withOpacity(0.3))
+                                  ),
+                                  child: isComplete ?  Icon(MdiIcons.check, size: 16, color: AppTheme.fhAccentGold) : null,
                                 );
                               }),
                             ),
-                            const SizedBox(height: 8),
-                            Text(streakText,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                    color: AppTheme.fhTextPrimary,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
                           ],
                         ),
                       ),
@@ -488,18 +488,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               ),
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Sub-Missions Log',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                            fontFamily: AppTheme.fontDisplay,
-                            color: AppTheme.fhTextPrimary,
-                            fontWeight: FontWeight.w600)),
-                    // Priority sort button removed
-                  ],
-                ),
+                    const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+                child: Text('Sub-Missions',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary,
+                        fontWeight: FontWeight.w600)),
               ),
               if (task.subTasks.isEmpty)
                 Padding(
@@ -540,16 +534,16 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       key: ValueKey(st.id),
                       margin:
                           const EdgeInsets.only(bottom: 12, left: 0, right: 0),
-                      color: AppTheme.fhBgLight,
-                      elevation: 0,
+                      color: AppTheme.fhBgDark,
+                      elevation: 2,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4.0),
+                        borderRadius: BorderRadius.circular(8.0),
                         side: BorderSide(
-                            color: AppTheme.fhBorderColor.withOpacity(0.5),
-                            width: 0.5),
+                            color: st.completed ? AppTheme.fhAccentGreen.withOpacity(0.3) : AppTheme.fhBorderColor.withOpacity(0.5),
+                            width: 1),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(12.0),
+                        padding: const EdgeInsets.all(16.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -563,7 +557,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                           appProviderConsumer, task, st),
                                   disabled: st.completed,
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 12),
                                 Expanded(
                                     child: Text(st.name,
                                         style: theme.textTheme.titleMedium
@@ -575,14 +569,14 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                                     ? AppTheme.fhTextSecondary
                                                         .withOpacity(0.7)
                                                     : AppTheme.fhTextPrimary,
+                                                fontSize: 16,
                                                 fontWeight: st.completed
                                                     ? FontWeight.normal
                                                     : FontWeight.w600))),
-                                // Priority icon removed
                                 const SizedBox(width: 8),
                                 if (!st.completed)
                                   IconButton(
-                                    icon: Icon(MdiIcons.deleteForeverOutline,
+                                    icon: Icon(MdiIcons.deleteOutline,
                                         color: AppTheme.fhAccentRed
                                             .withOpacity(0.8),
                                         size: 20),
@@ -596,13 +590,13 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                               ],
                             ),
                             if (!st.completed) ...[
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               Divider(
                                   color:
                                       AppTheme.fhBorderColor.withOpacity(0.3)),
                               Padding(
                                 padding: const EdgeInsets.only(
-                                    left: 30.0, top: 8.0),
+                                    left: 34.0, top: 8.0),
                                 child: Column(
                                   children: [
                                     if (st.isCountable)
@@ -622,7 +616,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                             st,
                                             'count'),
                                       ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 10),
                                     _buildTimerRow(
                                       theme,
                                       label: 'Time (m):',
@@ -646,7 +640,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                           st,
                                           'time'),
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 16),
                                     if (st.subSubTasks.isNotEmpty) ...[
                                       _buildSubSubTaskList(
                                           theme,
@@ -665,7 +659,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                             if (st.completed)
                               Padding(
                                 padding:
-                                    const EdgeInsets.only(left: 30.0, top: 8.0),
+                                    const EdgeInsets.only(left: 34.0, top: 8.0),
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -676,7 +670,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                             ?.copyWith(
                                                 color: AppTheme.fhAccentGreen
                                                     .withOpacity(0.8),
-                                                fontSize: 10)),
+                                                fontSize: 11)),
                                     Wrap(
                                       spacing: 10,
                                       children: [
@@ -697,7 +691,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                             constraints: const BoxConstraints(
                                                 maxWidth: 30, maxHeight: 24)),
                                         IconButton(
-                                            icon: Icon(MdiIcons.deleteOutline,
+                                            icon:  Icon(MdiIcons.deleteOutline,
                                                 size: 18,
                                                 color: AppTheme.fhAccentRed),
                                             onPressed: () =>
@@ -744,36 +738,40 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             width: 70,
             child: Text(label,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(fontSize: 11, color: AppTheme.fhTextSecondary))),
+                    ?.copyWith(fontSize: 12, color: AppTheme.fhTextSecondary))),
         SizedBox(
-          width: 40,
-          height: 28,
+          width: 45,
+          height: 32,
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium
-                ?.copyWith(fontSize: 12, color: AppTheme.fhTextPrimary),
-            decoration: const InputDecoration(
-                contentPadding: EdgeInsets.symmetric(vertical: 2),
-                border: InputBorder.none,
-                filled: false),
+                ?.copyWith(fontSize: 13, color: AppTheme.fhTextPrimary),
+            decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                ),
+                filled: true,
+                fillColor: AppTheme.fhBgDeepDark),
             onEditingComplete: onBlur,
             onTapOutside: (_) => onBlur(),
           ),
         ),
         Text(' / $targetValue',
             style: theme.textTheme.bodySmall
-                ?.copyWith(fontSize: 11, color: AppTheme.fhTextSecondary)),
-        const SizedBox(width: 10),
+                ?.copyWith(fontSize: 12, color: AppTheme.fhTextSecondary)),
+        const SizedBox(width: 12),
         Expanded(
           child: SizedBox(
-            height: 6,
+            height: 8,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: targetValue > 0 ? (currentValue / targetValue) : 0,
-                backgroundColor: AppTheme.fhBorderColor.withOpacity(0.3),
+                backgroundColor: AppTheme.fhBgDeepDark,
                 valueColor: AlwaysStoppedAnimation<Color>(progressColor),
               ),
             ),
@@ -799,20 +797,24 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             width: 70,
             child: Text(label,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(fontSize: 11, color: AppTheme.fhTextSecondary))),
+                    ?.copyWith(fontSize: 12, color: AppTheme.fhTextSecondary))),
         SizedBox(
-          width: 40,
-          height: 28,
+          width: 45,
+          height: 32,
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium
-                ?.copyWith(fontSize: 12, color: AppTheme.fhTextPrimary),
-            decoration: const InputDecoration(
-                contentPadding: EdgeInsets.symmetric(vertical: 2),
-                border: InputBorder.none,
-                filled: false),
+                ?.copyWith(fontSize: 13, color: AppTheme.fhTextPrimary),
+            decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                ),
+                filled: true,
+                fillColor: AppTheme.fhBgDeepDark),
             onEditingComplete: onBlur,
             onTapOutside: (_) => onBlur(),
           ),
@@ -821,29 +823,42 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         Text('Logged: ${loggedTime}m',
             style: theme.textTheme.labelSmall?.copyWith(
                 color: AppTheme.fhTextSecondary.withOpacity(0.8),
-                fontSize: 10)),
-        IconButton(
-          icon: Icon(
-            timerState?.isRunning ?? false
-                ? MdiIcons.pauseCircleOutline
-                : MdiIcons.playCircleOutline,
-            color: timerState?.isRunning ?? false
-                ? AppTheme.fhAccentOrange
-                : AppTheme.fhAccentGreen,
-            size: 22,
+                fontSize: 11)),
+        const SizedBox(width: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDeepDark,
+            shape: BoxShape.circle,
+            border: Border.all(color: timerState?.isRunning ?? false ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen)
           ),
-          onPressed: onPlayPause,
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
+          child: IconButton(
+            icon: Icon(
+              timerState?.isRunning ?? false
+                  ? MdiIcons.pause
+                  : MdiIcons.play,
+              color: timerState?.isRunning ?? false
+                  ? AppTheme.fhAccentOrange
+                  : AppTheme.fhAccentGreen,
+              size: 18,
+            ),
+            onPressed: onPlayPause,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            visualDensity: VisualDensity.compact,
+          ),
         ),
-        Text(
-          helper.formatTime(displayTimeSeconds),
-          style: theme.textTheme.labelSmall?.copyWith(
-              color: (appProvider.getSelectedTask()?.taskColor ??
-                  AppTheme.fhAccentTealFixed),
-              fontSize: 11,
-              fontWeight: FontWeight.w600),
-          textAlign: TextAlign.right,
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 50,
+          child: Text(
+            helper.formatTime(displayTimeSeconds),
+            style: theme.textTheme.labelSmall?.copyWith(
+                color: (appProvider.getSelectedTask()?.taskColor ??
+                    AppTheme.fhAccentTealFixed),
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
+            textAlign: TextAlign.right,
+          ),
         ),
       ],
     );
@@ -859,7 +874,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             Text('Checkpoints:',
                 style: theme.textTheme.bodySmall?.copyWith(
                     color: AppTheme.fhTextSecondary.withOpacity(0.8),
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             Expanded(
@@ -869,7 +884,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(
                     value: subSubTaskProgress / 100,
-                    backgroundColor: AppTheme.fhBorderColor.withOpacity(0.3),
+                    backgroundColor: AppTheme.fhBgDeepDark,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                         AppTheme.fhAccentPurple),
                   ),
@@ -878,7 +893,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -886,7 +901,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             itemBuilder: (sctx, sIndex) {
               final sss = st.subSubTasks[sIndex];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
+                padding: const EdgeInsets.only(bottom: 6.0, left: 8.0),
                 child: Row(
                   children: [
                     SizedBox(
@@ -901,33 +916,37 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                           disabled: sss.completed,
                           size: CheckboxSize.small,
                         )),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                         child: Text(
                             '${sss.name}${sss.isCountable && !sss.completed ? ' (${_localSubSubtaskCountControllers[sss.id]?.text ?? sss.currentCount}/${sss.targetCount})' : (sss.isCountable && sss.completed ? ' (${sss.currentCount}/${sss.targetCount})' : '')}',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 11,
+                              fontSize: 12,
                               decoration: sss.completed
                                   ? TextDecoration.lineThrough
                                   : TextDecoration.none,
                               color: sss.completed
                                   ? AppTheme.fhTextSecondary.withOpacity(0.6)
-                                  : AppTheme.fhTextSecondary,
+                                  : AppTheme.fhTextPrimary,
                             ))),
                     if (sss.isCountable && !sss.completed)
                       SizedBox(
-                        width: 35,
-                        height: 22,
+                        width: 40,
+                        height: 26,
                         child: TextField(
                           controller: _localSubSubtaskCountControllers[sss.id],
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 10, color: AppTheme.fhTextPrimary),
-                          decoration: const InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(vertical: 1),
-                              border: InputBorder.none,
-                              filled: false),
+                              fontSize: 11, color: AppTheme.fhTextPrimary),
+                          decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 2),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                              ),
+                              filled: true,
+                              fillColor: AppTheme.fhBgDeepDark),
                           onEditingComplete: () => _handleSubSubtaskCountBlur(
                               appProviderConsumer, task, st, sss),
                           onTapOutside: (_) => _handleSubSubtaskCountBlur(
@@ -941,7 +960,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                               size: 16),
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                           onPressed: () => appProviderConsumer
                               .deleteSubSubtask(task.id, st.id, sss.id)),
                   ],
@@ -966,9 +985,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     decoration: const InputDecoration(
                         hintText: 'Add a checkpoint...',
                         contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(fontSize: 11, color: AppTheme.fhTextPrimary),
+                        ?.copyWith(fontSize: 12, color: AppTheme.fhTextPrimary),
                   ))),
           Transform.scale(
             scale: 0.7,
@@ -983,7 +1002,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           ),
           if (_newSubSubtaskIsCountableMap[st.id] ?? false)
             SizedBox(
-                width: 35,
+                width: 40,
                 height: 36,
                 child: TextField(
                   controller: _newSubSubtaskTargetCountControllers[st.id],
@@ -992,11 +1011,11 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   decoration: const InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical: 4)),
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(fontSize: 11, color: AppTheme.fhTextPrimary),
+                      ?.copyWith(fontSize: 12, color: AppTheme.fhTextPrimary),
                 )),
           IconButton(
-            icon: Icon(MdiIcons.plusCircleOutline,
-                color: AppTheme.fhAccentGreen, size: 22),
+            icon:  Icon(MdiIcons.plusCircleOutline,
+                color: AppTheme.fhAccentGreen, size: 24),
             onPressed: () =>
                 _handleAddSubSubtask(appProviderConsumer, task.id, st.id),
             visualDensity: VisualDensity.compact,
@@ -1014,9 +1033,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
       color: AppTheme.fhBgMedium,
       margin: const EdgeInsets.only(top: 20, left: 0, right: 0),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-            color: AppTheme.fhBorderColor.withOpacity(0.8), width: 1),
+            color: AppTheme.fhBorderColor.withOpacity(0.5), width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1028,7 +1047,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     fontFamily: AppTheme.fontDisplay,
                     color: AppTheme.fhTextPrimary,
                     fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _newSubtaskNameController,
               decoration:
@@ -1036,7 +1055,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Checkbox(
@@ -1058,7 +1077,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                         color: AppTheme.fhTextSecondary,
                         fontSize: 13,
                         fontFamily: AppTheme.fontBody)),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 if (_newSubtaskIsCountable)
                   Expanded(
                     child: TextField(
@@ -1066,7 +1085,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       decoration: const InputDecoration(
                           labelText: 'Target #',
                           contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                       keyboardType: TextInputType.number,
                       style: const TextStyle(
                           fontSize: 13,
@@ -1076,14 +1095,13 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   ),
               ],
             ),
-            // Priority removed from UI
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             ElevatedButton.icon(
-              icon: Icon(MdiIcons.plusBoxOutline, size: 18),
+              icon:  Icon(MdiIcons.plusBoxOutline, size: 18),
               label: const Text('ADD SUB-MISSION'),
               onPressed: () => _handleAddSubtask(appProviderConsumer, task),
               style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 40)),
+                  minimumSize: const Size(double.infinity, 48)),
             ),
           ],
         ),
@@ -1097,9 +1115,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
       color: AppTheme.fhBgMedium,
       margin: const EdgeInsets.only(top: 16, left: 0, right: 0),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
-        side: BorderSide(
-            color: AppTheme.fhAccentPurple.withOpacity(0.5), width: 1),
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(
+            color: AppTheme.fhAccentPurple, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1108,9 +1126,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           children: [
             Row(
               children: [
-                Icon(MdiIcons.robotHappyOutline,
-                    color: AppTheme.fhAccentPurple, size: 20),
-                const SizedBox(width: 8),
+                 Icon(MdiIcons.robotHappyOutline,
+                    color: AppTheme.fhAccentPurple, size: 22),
+                const SizedBox(width: 10),
                 Text('Generate Sub-Missions with AI',
                     style: theme.textTheme.titleMedium?.copyWith(
                         fontFamily: AppTheme.fontDisplay,
@@ -1118,13 +1136,13 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                         fontWeight: FontWeight.w600)),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                   labelText: 'Generation Mode',
                   labelStyle:
                       TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
-              dropdownColor: AppTheme.fhBgLight,
+              dropdownColor: AppTheme.fhBgMedium,
               value: _aiGenerationMode,
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
@@ -1145,7 +1163,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _aiUserInputController,
               decoration: const InputDecoration(
@@ -1159,7 +1177,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _aiNumSubquestsController,
               decoration: const InputDecoration(
@@ -1170,15 +1188,15 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: appProviderConsumer.isGeneratingSubquests
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppTheme.fhBgDark))
-                  : Icon(MdiIcons.creationOutline, size: 18),
+                          strokeWidth: 2, color: AppTheme.fhBgDeepDark))
+                  :  Icon(MdiIcons.creationOutline, size: 18),
               label: Text(appProviderConsumer.isGeneratingSubquests
                   ? 'GENERATING...'
                   : 'INITIATE AI PROTOCOL'),
@@ -1187,9 +1205,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   : () => _handleAiGenerateSubquests(appProviderConsumer, task),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.fhAccentPurple,
-                  foregroundColor: AppTheme.fhTextPrimary,
-                  disabledBackgroundColor: AppTheme.fhBgLight.withOpacity(0.5),
-                  minimumSize: const Size(double.infinity, 40)),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48)),
             ),
           ],
         ),

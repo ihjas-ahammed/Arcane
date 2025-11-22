@@ -5,8 +5,8 @@ import 'package:arcane/src/models/emotion_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart'; // New
-import 'package:arcane/src/widgets/ui/activity_log_list.dart'; // New
+import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart'; 
+import 'package:arcane/src/widgets/ui/activity_log_list.dart'; 
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -67,46 +67,65 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
   Widget _buildEnergyLoggingRow(
       AppProvider appProvider, String date, ThemeData theme) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Card(
+      color: AppTheme.fhBgMedium,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
           children: [
-            Text("What's your energy level?",
-                style: theme.textTheme.headlineSmall),
-            Text("${_currentEnergyLevel.toInt()}%",
-                style: theme.textTheme.headlineSmall?.copyWith(
-                    color: (appProvider.getSelectedTask()?.taskColor ??
-                        AppTheme.fhAccentTealFixed))),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Slider.adaptive(
-          value: _currentEnergyLevel,
-          min: 0,
-          max: 100,
-          divisions: 10,
-          label: "${_currentEnergyLevel.round()}%",
-          onChanged: (double value) {
-            setState(() {
-              _currentEnergyLevel = value;
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            ElevatedButton.icon(
-              icon: Icon(MdiIcons.lightningBoltOutline, size: 18),
-              label: const Text('LOG ENERGY'),
-              onPressed: () {
-                appProvider.logEnergy(date, _currentEnergyLevel.toInt());
-              },
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Soul Meter (Energy)",
+                    style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16)),
+                Text("${_currentEnergyLevel.toInt()}%",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                        fontSize: 16,
+                        color: (appProvider.getSelectedTask()?.taskColor ??
+                            AppTheme.fhAccentTealFixed))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 4,
+                activeTrackColor: AppTheme.fhAccentTeal,
+                inactiveTrackColor: AppTheme.fhBgDeepDark,
+                thumbColor: Colors.white,
+                overlayColor: AppTheme.fhAccentTeal.withOpacity(0.2),
+              ),
+              child: Slider(
+                value: _currentEnergyLevel,
+                min: 0,
+                max: 100,
+                divisions: 10,
+                label: "${_currentEnergyLevel.round()}%",
+                onChanged: (double value) {
+                  setState(() {
+                    _currentEnergyLevel = value;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                icon:  Icon(MdiIcons.lightningBoltOutline, size: 18),
+                label: const Text('LOG'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  backgroundColor: AppTheme.fhBgDeepDark,
+                  side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
+                ),
+                onPressed: () {
+                  appProvider.logEnergy(date, _currentEnergyLevel.toInt());
+                },
+              ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
   
@@ -125,7 +144,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         height: 200,
         child: Center(
             child: Text(
-          "Not enough data for a trend line yet (need at least 2 logs for the day).",
+          "Not enough data for a trend line yet.",
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
               color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
@@ -191,7 +210,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 getTitlesWidget: (value, meta) {
                   return Text(
                       '${value.toInt()}${yAxisSuffix ?? ''}',
-                      style: TextStyle(
+                      style: const TextStyle(
                           color: AppTheme.fhTextSecondary, fontSize: 10));
                 },
               ),
@@ -209,7 +228,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     child: Text(
                         DateFormat('HH:mm')
                             .format(DateTime(2000, 1, 1, hour, minute)),
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: AppTheme.fhTextSecondary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold)),
@@ -248,7 +267,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ],
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (touchedSpot) => AppTheme.fhBgMedium,
+              getTooltipColor: (touchedSpot) => AppTheme.fhBgDeepDark,
               getTooltipItems: (List<LineBarSpot> touchedSpots) {
                 return touchedSpots
                     .map((LineBarSpot touchedSpot) {
@@ -277,186 +296,260 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
-
-    final availableDates = appProvider.completedByDay.keys.toList();
-    availableDates.sort((a, b) => b.compareTo(a));
-
-    if (_selectedDate == null && availableDates.isNotEmpty) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = availableDates.first);
-      });
-    } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
-      });
-    } else if (availableDates.isEmpty) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
-      });
-    }
-
-    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
-    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
-
-    final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
-        ? appProvider.getEnergyLogsForDate(_selectedDate!)
-        : [];
     
-    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
-        ? appProvider.reflectionLogs.where((l) {
-             final d = DateTime.parse(_selectedDate!);
-             return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
-          }).toList()
-        : [];
+    // Use LayoutBuilder for responsive design
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isWideScreen = constraints.maxWidth > 800;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (availableDates.isEmpty)
-            Center(
-                child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32.0),
-              child: Text("No mission logs recorded yet.",
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                      color: AppTheme.fhTextSecondary,
-                      fontStyle: FontStyle.italic)),
-            ))
-          else ...[
-            DropdownButtonFormField<String>(
-              value: _selectedDate,
-              decoration: const InputDecoration(labelText: 'Select Date'),
-              dropdownColor: AppTheme.fhBgMedium,
-              items: availableDates.map((date) {
-                return DropdownMenuItem(
-                  value: date,
-                  child: Text(DateFormat('MMMM d, yyyy (EEEE)')
-                      .format(DateTime.parse(date))),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedDate = value),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // --- VIRTUE PIE CHART SECTION ---
-            Text("Daily Virtue Breakdown:", style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 12),
-            Card(
-              color: AppTheme.fhBgMedium.withOpacity(0.5),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: VirtuePieChart(logs: reflectionsForDate),
-              ),
-            ),
-            const SizedBox(height: 30),
+        final availableDates = appProvider.completedByDay.keys.toList();
+        availableDates.sort((a, b) => b.compareTo(a));
 
-            // --- ENERGY SECTION ---
-            _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
-            const SizedBox(height: 16),
-            if (energyLogsForSelectedDate.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Energy Logs (Tap to Edit):", style: theme.textTheme.titleMedium),
-                  TextButton.icon(
-                    icon: Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed.withOpacity(0.7)),
-                    label: Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed.withOpacity(0.7), fontSize: 12)),
-                    onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
+        if (_selectedDate == null && availableDates.isNotEmpty) {
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedDate = availableDates.first);
+          });
+        } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+          });
+        } else if (availableDates.isEmpty) {
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
+          });
+        }
+
+        final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
+        final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+        final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+        final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+
+        final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
+            ? appProvider.getEnergyLogsForDate(_selectedDate!)
+            : [];
+        
+        final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+            ? appProvider.reflectionLogs.where((l) {
+                 final d = DateTime.parse(_selectedDate!);
+                 return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
+              }).toList()
+            : [];
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (availableDates.isEmpty)
+                Center(
+                    child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32.0),
+                  child: Text("No mission logs recorded yet.",
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.fhTextSecondary,
+                          fontStyle: FontStyle.italic)),
+                ))
+              else ...[
+                DropdownButtonFormField<String>(
+                  value: _selectedDate,
+                  decoration:  InputDecoration(
+                    labelText: 'Select Date',
+                    prefixIcon: Icon(MdiIcons.calendarMonthOutline)
+                  ),
+                  dropdownColor: AppTheme.fhBgMedium,
+                  items: availableDates.map((date) {
+                    return DropdownMenuItem(
+                      value: date,
+                      child: Text(DateFormat('MMMM d, yyyy (EEEE)')
+                          .format(DateTime.parse(date))),
+                    );
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedDate = value),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Responsive Layout for Charts and Logs
+                if (isWideScreen) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            // VIRTUE PIE CHART
+                            Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
+                            const SizedBox(height: 12),
+                            Card(
+                              color: AppTheme.fhBgMedium.withOpacity(0.5),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: VirtuePieChart(logs: reflectionsForDate),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            // ENERGY SECTION
+                            _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                             // ACTIVITY LOG
+                             Text(
+                                'Activity Details',
+                                style: theme.textTheme.headlineSmall),
+                             const SizedBox(height: 12),
+                             Card(
+                               color: AppTheme.fhBgMedium,
+                               child: Padding(
+                                 padding: const EdgeInsets.all(16.0),
+                                 child: ActivityLogList(
+                                   taskTimes: taskTimes,
+                                   subtasksCompleted: subtasksCompleted,
+                                   checkpointsCompleted: checkpointsCompleted,
+                                 ),
+                               ),
+                             ),
+                          ],
+                        ),
+                      )
+                    ],
+                  )
+                ] else ...[
+                  // Mobile Layout (Vertical Stack)
+                  Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 12),
+                  Card(
+                    color: AppTheme.fhBgMedium.withOpacity(0.5),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: VirtuePieChart(logs: reflectionsForDate),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+                  const SizedBox(height: 30),
+                  Text(
+                    'Activity Details',
+                    style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 12),
+                  Card(
+                    color: AppTheme.fhBgMedium,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ActivityLogList(
+                        taskTimes: taskTimes,
+                        subtasksCompleted: subtasksCompleted,
+                        checkpointsCompleted: checkpointsCompleted,
+                      ),
+                    ),
                   ),
                 ],
-              ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: energyLogsForSelectedDate.length,
-                itemBuilder: (ctx, i) {
-                  final log = energyLogsForSelectedDate[i];
-                  return ListTile(
-                    title: Text("${log.level}% Energy"),
-                    subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
-                    leading: Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold),
-                    trailing:  Icon(MdiIcons.pencilOutline, size: 16),
-                    onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
-                  );
-                }
-              ),
-              const SizedBox(height: 16),
-              Text("Energy Trend:", style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 12),
-               _buildTrendCurveChart<EnergyLog>(
-                  logs: energyLogsForSelectedDate,
-                  theme: theme,
-                  dynamicAccent: AppTheme.fhAccentGold,
-                  getX: (log) {
-                    final logDayMidnight = DateTime(log.timestamp.year,
-                        log.timestamp.month, log.timestamp.day);
-                    return log.timestamp
-                            .difference(logDayMidnight)
-                            .inMinutes /
-                        60.0;
-                  },
-                  getY: (log) => log.level.toDouble(),
-                  getTooltipLabel: (log) =>
-                      '${log.level}% at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
-                  minY: -5,
-                  maxY: 105,
-                  yAxisSuffix: "%",
-                ),
-              const SizedBox(height: 30),
-            ],
-            
-            // --- REFLECTIONS SECTION ---
-             if (reflectionsForDate.isNotEmpty) ...[
-               Text("Reflections (Tap to Edit):", style: theme.textTheme.titleMedium),
-               ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: reflectionsForDate.length,
-                itemBuilder: (ctx, i) {
-                  final log = reflectionsForDate[i];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection"),
-                      subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
-                      leading:  Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
-                      trailing:  Icon(MdiIcons.pencilOutline, size: 16),
-                      onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
-                        'id': log.id,
-                        'trigger': log.trigger,
-                        'emotion': log.emotion,
-                        'reason': log.reason
-                      }),
-                    ),
-                  );
-                }
-              ),
-              const SizedBox(height: 30),
-             ],
 
-             // --- ACTIVITY LOG LIST SECTION ---
-             Text(
-                  'Activity Details for ${DateFormat('MMMM d').format(DateTime.parse(_selectedDate!))}:',
-                  style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 12),
-              Card(
-                color: AppTheme.fhBgMedium,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ActivityLogList(
-                    taskTimes: taskTimes,
-                    subtasksCompleted: subtasksCompleted,
-                    checkpointsCompleted: checkpointsCompleted,
+                const SizedBox(height: 30),
+
+                // ENERGY TREND GRAPH
+                if (energyLogsForSelectedDate.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Energy Trend", style: theme.textTheme.headlineSmall),
+                      TextButton.icon(
+                        icon:  Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed),
+                        label: const Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
+                        onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-          ],
-        ],
-      ),
+                  const SizedBox(height: 12),
+                   _buildTrendCurveChart<EnergyLog>(
+                      logs: energyLogsForSelectedDate,
+                      theme: theme,
+                      dynamicAccent: AppTheme.fhAccentGold,
+                      getX: (log) {
+                        final logDayMidnight = DateTime(log.timestamp.year,
+                            log.timestamp.month, log.timestamp.day);
+                        return log.timestamp
+                                .difference(logDayMidnight)
+                                .inMinutes /
+                            60.0;
+                      },
+                      getY: (log) => log.level.toDouble(),
+                      getTooltipLabel: (log) =>
+                          '${log.level}% at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
+                      minY: -5,
+                      maxY: 105,
+                      yAxisSuffix: "%",
+                    ),
+                  const SizedBox(height: 16),
+                  ExpansionTile(
+                    title: const Text("View Energy Log History", style: TextStyle(fontSize: 14)),
+                    children: [
+                        ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: energyLogsForSelectedDate.length,
+                        itemBuilder: (ctx, i) {
+                          final log = energyLogsForSelectedDate[i];
+                          return ListTile(
+                            dense: true,
+                            title: Text("${log.level}% Energy"),
+                            subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
+                            leading:  Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold, size: 18),
+                            trailing:  Icon(MdiIcons.pencilOutline, size: 16),
+                            onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
+                          );
+                        }
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                ],
+                
+                // REFLECTIONS LIST
+                 if (reflectionsForDate.isNotEmpty) ...[
+                   Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
+                   const SizedBox(height: 8),
+                   ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: reflectionsForDate.length,
+                    itemBuilder: (ctx, i) {
+                      final log = reflectionsForDate[i];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        color: AppTheme.fhBgDark,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))
+                        ),
+                        child: ListTile(
+                          title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection", style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
+                          leading:  Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
+                          trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                          onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
+                            'id': log.id,
+                            'trigger': log.trigger,
+                            'emotion': log.emotion,
+                            'reason': log.reason
+                          }),
+                        ),
+                      );
+                    }
+                  ),
+                  const SizedBox(height: 30),
+                 ],
+              ],
+            ],
+          ),
+        );
+      }
     );
   }
 }

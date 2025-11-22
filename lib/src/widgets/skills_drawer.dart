@@ -5,7 +5,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/reflection_dialog.dart';
 import 'package:arcane/src/widgets/ui/virtue_circle.dart';
 import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
-import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart'; // New
+import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart'; 
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -19,7 +19,7 @@ class SkillsDrawer extends StatelessWidget {
     final skills = appProvider.skills;
 
     return Drawer(
-      width: 350, // Slightly wider to accommodate 3 columns comfortably
+      width: 360, 
       backgroundColor: AppTheme.fhBgDeepDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -32,7 +32,7 @@ class SkillsDrawer extends StatelessWidget {
             ),
             child: Column(
               children: [
-                 Icon(MdiIcons.shieldAccount, size: 48, color: AppTheme.fhAccentGold),
+                  Icon(MdiIcons.shieldAccount, size: 48, color: AppTheme.fhAccentGold),
                 const SizedBox(height: 12),
                 Text("PERSONA & VIRTUES",
                     style: theme.textTheme.headlineSmall?.copyWith(
@@ -44,76 +44,78 @@ class SkillsDrawer extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Skills Grid
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 0.85, // Adjust for VirtueCircle height
-                  children: skills.map((skill) {
-                    // Create a temporary VirtueCircle to access static getters for color/icon
-                    // Ideally these should be util methods, but for now we instantiate or duplicate logic
-                    // Let's rely on VirtueCircle to build itself
-                    return VirtueCircle(
-                      skill: skill,
-                      onTap: () {
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Responsive grid count based on drawer width
+                int crossAxisCount = constraints.maxWidth < 300 ? 2 : 3;
+                
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Skills Grid
+                    GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.85, 
+                      children: skills.map((skill) {
+                        return VirtueCircle(
+                          skill: skill,
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => SkillDetailDialog(
+                                skill: skill,
+                                color: _getSkillColor(skill.name),
+                                icon: _getSkillIcon(skill.name),
+                                xpGainedToday: appProvider.getXpGainedForSkillToday(skill.name),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Divider(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                    const SizedBox(height: 24),
+                    
+                    ElevatedButton.icon(
+                      icon:   Icon(MdiIcons.notebookEditOutline),
+                      label: const Text("LOG REFLECTION"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        foregroundColor: AppTheme.fhAccentTeal,
+                        side: const BorderSide(color: AppTheme.fhAccentTeal),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      onPressed: () {
                         showDialog(
                           context: context,
-                          builder: (ctx) => SkillDetailDialog(
-                            skill: skill,
-                            // Since VirtueCircle is a widget, we can't access its instance getter easily here
-                            // We reconstruct the visual props or move logic to model/util. 
-                            // For simplicity, we reuse the widget's internal logic via a temporary instance or just hardcode logic in Dialog
-                            color: _getSkillColor(skill.name),
-                            icon: _getSkillIcon(skill.name),
-                            xpGainedToday: appProvider.getXpGainedForSkillToday(skill.name),
-                          ),
+                          builder: (context) => const ReflectionDialog(),
                         );
                       },
-                    );
-                  }).toList(),
-                ),
-                
-                const SizedBox(height: 24),
-                Divider(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                const SizedBox(height: 24),
-                
-                ElevatedButton.icon(
-                  icon:  Icon(MdiIcons.notebookEditOutline),
-                  label: const Text("LOG REFLECTION"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.fhAccentPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const ReflectionDialog(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                if (appProvider.reflectionLogs.isNotEmpty) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("RECENT INSIGHTS", style: theme.textTheme.labelMedium),
-                      Text("${appProvider.reflectionLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Use reversed to show newest first, take 5
-                  ...appProvider.reflectionLogs.reversed.take(5).map((log) => 
-                    ReflectionLogCard(log: log)
-                  ),
-                ]
-              ],
+                    ),
+                    const SizedBox(height: 24),
+                    if (appProvider.reflectionLogs.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("RECENT INSIGHTS", style: theme.textTheme.labelMedium),
+                          Text("${appProvider.reflectionLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Use reversed to show newest first, take 5
+                      ...appProvider.reflectionLogs.reversed.take(5).map((log) => 
+                        ReflectionLogCard(log: log)
+                      ),
+                    ]
+                  ],
+                );
+              }
             ),
           ),
         ],
@@ -121,16 +123,15 @@ class SkillsDrawer extends StatelessWidget {
     );
   }
 
-  // Duplicating helper logic here for the Dialog call, or could be static in Model
   Color _getSkillColor(String name) {
     switch (name.toLowerCase()) {
       case 'wisdom': return Colors.blueAccent;
-      case 'courage': return Colors.redAccent;
-      case 'humanity': return Colors.pinkAccent;
-      case 'justice': return Colors.amber;
-      case 'temperance': return Colors.tealAccent;
-      case 'transcendence': return Colors.purpleAccent;
-      default: return Colors.grey;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63); // Pink
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return AppTheme.fhTextSecondary;
     }
   }
   

@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   currentAccentColor) ==
                               Brightness.dark
                           ? AppTheme.fhTextPrimary
-                          : AppTheme.fhBgDark)),
+                          : AppTheme.fhBgDeepDark)),
               onPressed: () async {
                 if (dialogFormKey.currentState!.validate()) {
                   String newUsername = usernameController.text.trim();
@@ -150,7 +150,13 @@ class _HomeScreenState extends State<HomeScreen> {
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
     final List<Widget> widgetOptions = <Widget>[
-      const TaskDetailsView(),
+      // Center the content for large screens to avoid stretching
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const TaskDetailsView(),
+        ),
+      ),
       const LogbookScreen(),
       const SettingsScreen(),
     ];
@@ -194,12 +200,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.fhBgDark,
+                            color: AppTheme.fhBgMedium,
                             borderRadius: const BorderRadius.only(
                                 topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
                             border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.5)),
                           ),
-                          child:  Icon(MdiIcons.accountOutline, color: AppTheme.fhAccentGold, size: 20),
+                          child:  Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 20),
                         ),
                       ),
                     ),
