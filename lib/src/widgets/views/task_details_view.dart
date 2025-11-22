@@ -20,8 +20,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   final _newSubtaskNameController = TextEditingController();
   bool _newSubtaskIsCountable = false;
   final _newSubtaskTargetCountController = TextEditingController(text: '10');
-  int _newSubtaskPriority = 2; // 1: Low, 2: Medium, 3: High
-  bool _sortByPriority = false;
+  // Priority removed
 
   String _aiGenerationMode = 'text_list';
   final _aiUserInputController = TextEditingController();
@@ -118,7 +117,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         'targetCount': _newSubtaskIsCountable
             ? (int.tryParse(_newSubtaskTargetCountController.text) ?? 1)
             : 0,
-        'priority': _newSubtaskPriority,
       };
       final newSubtaskId = appProvider.addSubtask(task.id, subtaskData);
 
@@ -136,7 +134,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         setState(() {
           _newSubtaskIsCountable = false;
           _newSubtaskTargetCountController.text = '10';
-          _newSubtaskPriority = 2;
         });
       }
     }
@@ -262,32 +259,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
-  IconData _getPriorityIcon(int priority) {
-    switch (priority) {
-      case 3:
-        return MdiIcons.chevronDoubleUp; // High
-      case 2:
-        return MdiIcons.equal; // Medium
-      case 1:
-        return MdiIcons.chevronDoubleDown; // Low
-      default:
-        return MdiIcons.help;
-    }
-  }
-
-  Color _getPriorityColor(int priority) {
-    switch (priority) {
-      case 3:
-        return AppTheme.fhAccentRed; // High
-      case 2:
-        return AppTheme.fhAccentOrange; // Medium
-      case 1:
-        return AppTheme.fhAccentGreen; // Low
-      default:
-        return AppTheme.fhTextDisabled;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -331,9 +302,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         }
 
         final sortedSubTasks = List<SubTask>.from(task.subTasks);
-        if (_sortByPriority) {
-          sortedSubTasks.sort((a, b) => b.priority.compareTo(a.priority));
-        }
+        // Priority sort removed
 
         for (var st in task.subTasks) {
           _localTimeControllers.putIfAbsent(st.id,
@@ -528,19 +497,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                             fontFamily: AppTheme.fontDisplay,
                             color: AppTheme.fhTextPrimary,
                             fontWeight: FontWeight.w600)),
-                    TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _sortByPriority = !_sortByPriority),
-                      icon: Icon(
-                          _sortByPriority
-                              ? MdiIcons.sortBoolAscendingVariant
-                              : MdiIcons.sortVariant,
-                          size: 16),
-                      label: Text('Priority', style: theme.textTheme.labelSmall),
-                      style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4)),
-                    ),
+                    // Priority sort button removed
                   ],
                 ),
               ),
@@ -621,25 +578,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                                                 fontWeight: st.completed
                                                     ? FontWeight.normal
                                                     : FontWeight.w600))),
-                                if (!st.completed)
-                                  IconButton(
-                                    icon: Icon(
-                                      _getPriorityIcon(st.priority),
-                                      color: _getPriorityColor(st.priority),
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      int newPriority = (st.priority % 3) + 1;
-                                      appProviderConsumer.updateSubtask(
-                                          task.id,
-                                          st.id,
-                                          {'priority': newPriority});
-                                    },
-                                    tooltip: 'Cycle Priority',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
+                                // Priority icon removed
                                 const SizedBox(width: 8),
                                 if (!st.completed)
                                   IconButton(
@@ -1137,41 +1076,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text('Priority:',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppTheme.fhTextSecondary)),
-            const SizedBox(height: 8),
-            ToggleButtons(
-              isSelected: [
-                _newSubtaskPriority == 1,
-                _newSubtaskPriority == 2,
-                _newSubtaskPriority == 3
-              ],
-              onPressed: (int index) {
-                setState(() {
-                  _newSubtaskPriority = index + 1;
-                });
-              },
-              borderRadius: BorderRadius.circular(4),
-              selectedColor: AppTheme.fhTextPrimary,
-              color: AppTheme.fhTextSecondary,
-              fillColor: AppTheme.fhBgDark,
-              selectedBorderColor: (appProvider.getSelectedTask()?.taskColor ??
-                  AppTheme.fhAccentTealFixed),
-              borderColor: AppTheme.fhBorderColor,
-              children: const <Widget>[
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Low')),
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Medium')),
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('High')),
-              ],
-            ),
+            // Priority removed from UI
             const SizedBox(height: 16),
             ElevatedButton.icon(
               icon: Icon(MdiIcons.plusBoxOutline, size: 18),

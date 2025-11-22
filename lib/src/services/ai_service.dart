@@ -106,22 +106,21 @@ class AIService {
     required String reason,
     required String modelName,
     String? customApiKey,
+    String? systemInstruction,
   }) async {
+    final String baseSystemPrompt = systemInstruction ?? """
+    You are a wise stoic mentor. A user has submitted a reflection log.
+    Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
+    Distribute exactly 50 XP points among these 6 virtues based on the reflection: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
+    """;
+
     final prompt = """
-    You are a wise stoic mentor. A user has submitted a reflection log:
+    $baseSystemPrompt
+
+    REFLECTION DATA:
     1. What happened: "$trigger"
     2. Emotion felt: "$emotion"
     3. Why: "$reason"
-
-    Analyze this. 
-    1. Provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
-    2. Distribute exactly 50 XP points among these 6 virtues based on the reflection:
-       - Wisdom (Learning, understanding)
-       - Courage (Bravery, endurance)
-       - Humanity (Love, kindness, social)
-       - Justice (Fairness, leadership)
-       - Temperance (Moderation, self-control)
-       - Transcendence (Awe, gratitude, hope, spirituality)
 
     Output strictly JSON:
     {
@@ -205,31 +204,41 @@ Return ONLY the JSON object.
     required String modelName,
     required ChatbotMemory memory,
     required String userMessage,
+    required String dataContext,
     required int currentApiKeyIndex,
     String? customApiKey,
+    String? systemInstruction,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
     
     // Construct context from memory (last 10 messages)
-    String contextStr = "";
+    String historyStr = "";
     final recentHistory = memory.conversationHistory.length > 10 
         ? memory.conversationHistory.sublist(memory.conversationHistory.length - 10) 
         : memory.conversationHistory;
 
     for(var msg in recentHistory) {
-      contextStr += "${msg.sender.name.toUpperCase()}: ${msg.text}\n";
+      historyStr += "${msg.sender.name.toUpperCase()}: ${msg.text}\n";
     }
 
+    final String baseSystemPrompt = systemInstruction ?? """
+    You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app called Arcane.
+    You have access to the user's data context below. Use it to answer questions about their progress, tasks, and reflections.
+    """;
+
     final prompt = """
-    You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app.
+    $baseSystemPrompt
+    
+    USER DATA CONTEXT (LAST 7 DAYS & CURRENT STATUS):
+    $dataContext
     
     CONVERSATION HISTORY:
-    $contextStr
+    $historyStr
     
     CURRENT USER MESSAGE: "$userMessage"
     
-    Respond helpfully and concisely.
+    Respond helpfully and concisely based on the provided data context if relevant.
     """;
 
     return await _executeWithRotation(

@@ -61,7 +61,6 @@ class TaskActions {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
-          'emotionLogs': <Map<String, dynamic>>[],
           'energyLogs': <Map<String, dynamic>>[]
         });
 
@@ -99,7 +98,6 @@ class TaskActions {
       targetCount: subtaskData['isCountable'] as bool? ?? false
           ? (subtaskData['targetCount'] as int? ?? 1)
           : 0,
-      priority: subtaskData['priority'] as int? ?? 2,
       subSubTasks:
           (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
                   ?.map((sssData) => SubSubTask(
@@ -151,8 +149,6 @@ class TaskActions {
 
     if (updates.containsKey('name'))
       subtaskToUpdate.name = updates['name'] as String;
-    if (updates.containsKey('priority'))
-      subtaskToUpdate.priority = updates['priority'] as int;
     if (updates.containsKey('isCountable'))
       subtaskToUpdate.isCountable = updates['isCountable'] as bool;
     if (updates.containsKey('targetCount'))
@@ -238,7 +234,6 @@ class TaskActions {
                   isCountable: st.isCountable,
                   targetCount: st.targetCount,
                   currentCount: st.currentCount,
-                  priority: st.priority,
                   subSubTasks: st.subSubTasks);
             }
             return st;
@@ -308,7 +303,6 @@ class TaskActions {
       isCountable: subTaskToDuplicate.isCountable,
       targetCount: subTaskToDuplicate.targetCount,
       currentCount: 0,
-      priority: subTaskToDuplicate.priority,
       subSubTasks: subTaskToDuplicate.subSubTasks
           .map((sss) => SubSubTask(
                 id:
@@ -380,7 +374,6 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
-                priority: st.priority,
                 subSubTasks: [...st.subSubTasks, newSubSubtask],
               );
             }
@@ -419,7 +412,6 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
-                priority: st.priority,
                 subSubTasks: st.subSubTasks.map((sss) {
                   if (sss.id == subSubtaskId) {
                     final updatedSss = SubSubTask(
@@ -484,7 +476,6 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
-                priority: st.priority,
                 subSubTasks: st.subSubTasks.map((sss) {
                   if (sss.id == subSubtaskId && !sss.completed) {
                     if (sss.isCountable && sss.currentCount < sss.targetCount) {
@@ -577,7 +568,6 @@ class TaskActions {
                 isCountable: st.isCountable,
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
-                priority: st.priority,
                 subSubTasks: st.subSubTasks
                     .where((sss) => sss.id != subSubtaskId)
                     .toList(),

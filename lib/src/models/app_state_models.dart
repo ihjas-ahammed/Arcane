@@ -8,6 +8,8 @@ class AppSettings {
   int wakeupTimeMinute;
   String aiModelName;
   String? customApiKey; // Added custom API Key support
+  String? customChatbotPrompt; // New: Custom prompt for advisor
+  String? customReflectionPrompt; // New: Custom prompt for reflection analysis
   int startOfWeek; // 1 for Monday, 7 for Sunday
 
   AppSettings({
@@ -17,6 +19,8 @@ class AppSettings {
     this.wakeupTimeMinute = 0,
     this.aiModelName = 'gemini-2.0-flash', // Updated default
     this.customApiKey,
+    this.customChatbotPrompt,
+    this.customReflectionPrompt,
     this.startOfWeek = 1, // Default to Monday
   });
 
@@ -31,6 +35,8 @@ class AppSettings {
       aiModelName:
           json['aiModelName'] as String? ?? 'gemini-2.0-flash',
       customApiKey: json['customApiKey'] as String?,
+      customChatbotPrompt: json['customChatbotPrompt'] as String?,
+      customReflectionPrompt: json['customReflectionPrompt'] as String?,
       startOfWeek: json['startOfWeek'] as int? ?? 1,
     );
   }
@@ -42,6 +48,8 @@ class AppSettings {
       'wakeupTimeMinute': wakeupTimeMinute,
       'aiModelName': aiModelName,
       'customApiKey': customApiKey,
+      'customChatbotPrompt': customChatbotPrompt,
+      'customReflectionPrompt': customReflectionPrompt,
       'startOfWeek': startOfWeek,
     };
   }

@@ -20,7 +20,9 @@ class _SettingsViewState extends State<SettingsView> {
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
   final _aiModelNameController = TextEditingController();
-  final _apiKeyController = TextEditingController(); // New controller
+  final _apiKeyController = TextEditingController(); 
+  final _customChatbotPromptController = TextEditingController(); // New
+  final _customReflectionPromptController = TextEditingController(); // New
   
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
@@ -44,6 +46,8 @@ class _SettingsViewState extends State<SettingsView> {
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _aiModelNameController.text = appProvider.settings.aiModelName;
     _apiKeyController.text = appProvider.settings.customApiKey ?? '';
+    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
   }
 
   @override
@@ -53,6 +57,8 @@ class _SettingsViewState extends State<SettingsView> {
     _newUsernameController.dispose();
     _aiModelNameController.dispose();
     _apiKeyController.dispose();
+    _customChatbotPromptController.dispose();
+    _customReflectionPromptController.dispose();
     super.dispose();
   }
 
@@ -343,8 +349,36 @@ class _SettingsViewState extends State<SettingsView> {
                     // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
                   },
                 ),
+                const SizedBox(height: 16),
+                Text("Custom System Prompts", style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
-                Text("Leave blank to use built-in shared keys (if available).", 
+                TextFormField(
+                  controller: _customChatbotPromptController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'AI Advisor System Prompt',
+                    hintText: 'Define the persona and behavior of the chatbot.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                     appProvider.setSettings(appProvider.settings..customChatbotPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _customReflectionPromptController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Reflection Analysis System Prompt',
+                    hintText: 'Define how reflections are analyzed and XP awarded.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                     appProvider.setSettings(appProvider.settings..customReflectionPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text("Leave blank to use built-in defaults.", 
                   style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]),
               

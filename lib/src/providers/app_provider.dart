@@ -241,7 +241,6 @@ class AppProvider with ChangeNotifier {
         ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
         : ChatbotMemory();
     
-    // Safely load skills with filtering for invalid data
     if (data['skills'] != null && data['skills'] is List) {
       _skills = (data['skills'] as List)
           .where((s) => s != null && s is Map<String, dynamic>)
@@ -473,7 +472,7 @@ class AppProvider with ChangeNotifier {
   }
 
   // ----------------------------------------------------------------
-  // Logging Management (Energy, Reflections) - Emotion removed
+  // Logging Management (Energy, Reflections)
   // ----------------------------------------------------------------
 
   void logEnergy(String date, int level, [DateTime? customTimestamp]) {
@@ -567,6 +566,40 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Helper to build data context for AI
+  String _buildUserDataContext() {
+    final sb = StringBuffer();
+    sb.writeln("Active Missions:");
+    for (var t in _mainTasks) {
+      sb.writeln("- ${t.name} (${t.theme}): ${t.description} [Streak: ${t.streak}]");
+      sb.writeln("  Sub-missions:");
+      for (var st in t.subTasks) {
+        sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      }
+    }
+    
+    sb.writeln("\nLogs from Last 7 Days:");
+    final today = DateTime.now();
+    for (int i = 6; i >= 0; i--) {
+      final d = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(d);
+      if (_completedByDay.containsKey(dateStr)) {
+        final dayData = _completedByDay[dateStr];
+        sb.writeln("Date: $dateStr");
+        // Energy
+        final energy = (dayData['energyLogs'] as List?)?.map((e) => "${e['level']}%").join(", ");
+        if (energy != null && energy.isNotEmpty) sb.writeln("  Energy: $energy");
+        // Reflections
+        final reflections = _reflectionLogs.where((r) {
+           final rd = r.timestamp;
+           return rd.year == d.year && rd.month == d.month && rd.day == d.day;
+        }).map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}").join("\n");
+        if (reflections.isNotEmpty) sb.writeln(reflections);
+      }
+    }
+    return sb.toString();
+  }
+
   Future<void> sendMessageToChatbot(String userMessageText) async {
      if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
     final userMessage = ChatbotMessage(
@@ -579,12 +612,16 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final dataContext = _buildUserDataContext();
+      
       final botResponseText = await _aiService.getChatbotResponse(
         modelName: settings.aiModelName,
         memory: _chatbotMemory,
         userMessage: userMessageText,
+        dataContext: dataContext,
         currentApiKeyIndex: _apiKeyIndex,
         customApiKey: settings.customApiKey, 
+        systemInstruction: settings.customChatbotPrompt,
         onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
         onLog: (logMsg) => {},
       );
@@ -609,10 +646,8 @@ class AppProvider with ChangeNotifier {
 
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
-    final todayStr = helper.getTodayDateString();
     
     return _reflectionLogs.where((log) {
-       final logDate = helper.getTodayDateString(); // Ideally convert log.timestamp
        final logDt = log.timestamp;
        return logDt.year == today.year && logDt.month == today.month && logDt.day == today.day;
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
@@ -629,6 +664,7 @@ class AppProvider with ChangeNotifier {
       reason: reason,
       modelName: settings.aiModelName,
       customApiKey: settings.customApiKey,
+      systemInstruction: settings.customReflectionPrompt,
     );
 
     // Apply XP

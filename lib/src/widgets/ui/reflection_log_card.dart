@@ -36,8 +36,6 @@ class ReflectionLogCard extends StatelessWidget {
                       fontWeight: FontWeight.bold, 
                       fontSize: 13
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (totalXp > 0)
@@ -67,8 +65,6 @@ class ReflectionLogCard extends StatelessWidget {
                 fontSize: 11, 
                 fontStyle: FontStyle.italic
               ),
-              maxLines: 2, 
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

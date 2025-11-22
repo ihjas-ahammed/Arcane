@@ -1,7 +1,12 @@
 Make the following changes:
 
-    * Give a progress bar above how are you feeling, to track energy level of user like in percantage and also plot this too in graph
-    * Make it possible that user can set priority to each sub missions (sort by priority)
-    * Update the time and streak panel like in image but time limit 1 hour 
+    * Improve AI advisor:
+        - Feed all info about user in last week to AI advisor  (all data in logbook, and current missions, submissions, checkpoints)
+
+    * Add custom settings for AI:
+        - Give two text field in settings where I can write my custom prompt (one for ai advsior, one for ai reflection analysis)
+
+    * Remove unwanted feature:
+        - Remove priortiy feature for submission
 
 Now, recreate project_snapshot.txt only for the files that are changed in the original format

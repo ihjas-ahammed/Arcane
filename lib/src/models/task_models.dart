@@ -103,7 +103,7 @@ class SubTask {
   int targetCount;
   int currentCount;
   List<SubSubTask> subSubTasks;
-  int priority; // 1: Low, 2: Medium, 3: High
+  // Priority removed
 
   SubTask({
     required this.id,
@@ -115,7 +115,6 @@ class SubTask {
     this.targetCount = 0,
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
-    this.priority = 2, // Default to Medium
   }) : subSubTasks = subSubTasks ?? [];
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
@@ -133,7 +132,6 @@ class SubTask {
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
               .toList() ??
           [],
-      priority: json['priority'] as int? ?? 2,
     );
   }
 
@@ -148,7 +146,6 @@ class SubTask {
       'targetCount': targetCount,
       'currentCount': currentCount,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
-      'priority': priority,
     };
   }
 }
