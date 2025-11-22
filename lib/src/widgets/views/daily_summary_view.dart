@@ -7,6 +7,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
 import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart'; 
 import 'package:arcane/src/widgets/ui/activity_log_list.dart'; 
+import 'package:arcane/src/widgets/views/stats_carousel_view.dart'; 
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -92,7 +93,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 activeTrackColor: AppTheme.fhAccentTeal,
                 inactiveTrackColor: AppTheme.fhBgDeepDark,
                 thumbColor: Colors.white,
-                overlayColor: AppTheme.fhAccentTeal.withOpacity(0.2),
+                overlayColor: AppTheme.fhAccentTeal.withValues(alpha: 0.2),
               ),
               child: Slider(
                 value: _currentEnergyLevel,
@@ -111,12 +112,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
-                icon:  Icon(MdiIcons.lightningBoltOutline, size: 18),
+                icon: Icon(MdiIcons.lightningBoltOutline, size: 18),
                 label: const Text('LOG'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   backgroundColor: AppTheme.fhBgDeepDark,
-                  side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
+                  side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5))
                 ),
                 onPressed: () {
                   appProvider.logEnergy(date, _currentEnergyLevel.toInt());
@@ -195,10 +196,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             horizontalInterval: (maxY - minY) / 5,
             verticalInterval: ((maxX - minX) / 5).clamp(0.2, 6.0),
             getDrawingHorizontalLine: (value) => FlLine(
-                color: AppTheme.fhBorderColor.withOpacity(0.1),
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
                 strokeWidth: 0.8),
             getDrawingVerticalLine: (value) => FlLine(
-                color: AppTheme.fhBorderColor.withOpacity(0.1),
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
                 strokeWidth: 0.8),
           ),
           titlesData: FlTitlesData(
@@ -244,7 +245,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           borderData: FlBorderData(
               show: true,
               border:
-                  Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2))),
+                  Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2))),
           lineBarsData: [
             LineChartBarData(
               spots: spots,
@@ -257,12 +258,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 getDotPainter: (spot, percent, barData, index) =>
                     FlDotCirclePainter(
                         radius: 4,
-                        color: dynamicAccent.withOpacity(0.8),
+                        color: dynamicAccent.withValues(alpha: 0.8),
                         strokeWidth: 1.5,
                         strokeColor: AppTheme.fhBgMedium),
               ),
               belowBarData: BarAreaData(
-                  show: true, color: dynamicAccent.withOpacity(0.1)),
+                  show: true, color: dynamicAccent.withValues(alpha: 0.1)),
             ),
           ],
           lineTouchData: LineTouchData(
@@ -292,76 +293,140 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     );
   }
 
+  // Helper to prepare data for charts
+  Map<String, dynamic> _prepareWeeklyData(AppProvider provider) {
+    final today = DateTime.now();
+    final Map<int, double> activityData = {};
+    final Map<int, Color> activityColors = {};
+    final Map<int, double> virtueData = {};
+
+    for (int i = 0; i < 7; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
+      // Activity Data
+      final dayData = provider.completedByDay[dateStr];
+      double totalMins = 0;
+      Color dominantColor = AppTheme.fhBgLight;
+      double maxMinsForTask = 0;
+
+      if (dayData != null && dayData['taskTimes'] != null) {
+        final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+        taskTimes.forEach((taskId, time) {
+          final mins = (time as num).toDouble();
+          totalMins += mins;
+          if (mins > maxMinsForTask) {
+            maxMinsForTask = mins;
+            final task = provider.mainTasks.firstWhere((t) => t.id == taskId, orElse: () => MainTask(id: '', name: '', description: '', theme: ''));
+            dominantColor = task.taskColor;
+          }
+        });
+      }
+      activityData[i] = totalMins;
+      activityColors[i] = dominantColor;
+
+      // Virtue Data
+      final reflections = provider.reflectionLogs.where((l) {
+         return l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day;
+      });
+      double totalXp = 0;
+      for(var ref in reflections) {
+        totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
+      }
+      virtueData[i] = totalXp;
+    }
+
+    return {
+      'activityData': activityData,
+      'activityColors': activityColors,
+      'virtueData': virtueData,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
     
-    // Use LayoutBuilder for responsive design
+    // Prepare chart data
+    final chartData = _prepareWeeklyData(appProvider);
+
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
+
+    // Handle date selection logic safely
+    if (_selectedDate == null && availableDates.isNotEmpty) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.first);
+      });
+    } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+      });
+    } else if (availableDates.isEmpty) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
+      });
+    }
+
+    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
+    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+
+    final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
+        ? appProvider.getEnergyLogsForDate(_selectedDate!)
+        : [];
+    
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+             final d = DateTime.parse(_selectedDate!);
+             return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
+          }).toList()
+        : [];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isWideScreen = constraints.maxWidth > 800;
-
-        final availableDates = appProvider.completedByDay.keys.toList();
-        availableDates.sort((a, b) => b.compareTo(a));
-
-        if (_selectedDate == null && availableDates.isNotEmpty) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedDate = availableDates.first);
-          });
-        } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
-          });
-        } else if (availableDates.isEmpty) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
-          });
-        }
-
-        final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-        final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
-        final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-        final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
-
-        final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
-            ? appProvider.getEnergyLogsForDate(_selectedDate!)
-            : [];
-        
-        final List<ReflectionLog> reflectionsForDate = _selectedDate != null
-            ? appProvider.reflectionLogs.where((l) {
-                 final d = DateTime.parse(_selectedDate!);
-                 return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
-              }).toList()
-            : [];
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --- STATS CAROUSEL (Top Section) ---
+              StatsCarouselView(
+                activityData: chartData['activityData'],
+                activityColors: chartData['activityColors'],
+                virtueData: chartData['virtueData'],
+              ),
+              
+              const SizedBox(height: 24),
+              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              const SizedBox(height: 16),
+
               if (availableDates.isEmpty)
                 Center(
                     child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32.0),
-                  child: Text("No mission logs recorded yet.",
+                  child: Text("No detailed logs recorded yet.",
                       style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppTheme.fhTextSecondary,
                           fontStyle: FontStyle.italic)),
                 ))
               else ...[
+                // --- DAILY DETAIL SELECTOR ---
                 DropdownButtonFormField<String>(
                   value: _selectedDate,
                   decoration:  InputDecoration(
-                    labelText: 'Select Date',
-                    prefixIcon: Icon(MdiIcons.calendarMonthOutline)
+                    labelText: 'Inspect Day',
+                    prefixIcon: Icon(MdiIcons.calendarSearchOutline, color: AppTheme.fhAccentTeal)
                   ),
                   dropdownColor: AppTheme.fhBgMedium,
                   items: availableDates.map((date) {
                     return DropdownMenuItem(
                       value: date,
-                      child: Text(DateFormat('MMMM d, yyyy (EEEE)')
-                          .format(DateTime.parse(date))),
+                      child: Text(DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
                     );
                   }).toList(),
                   onChanged: (value) => setState(() => _selectedDate = value),
@@ -378,18 +443,16 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         flex: 1,
                         child: Column(
                           children: [
-                            // VIRTUE PIE CHART
                             Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
                             const SizedBox(height: 12),
                             Card(
-                              color: AppTheme.fhBgMedium.withOpacity(0.5),
+                              color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: VirtuePieChart(logs: reflectionsForDate),
                               ),
                             ),
                             const SizedBox(height: 24),
-                            // ENERGY SECTION
                             _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
                           ],
                         ),
@@ -399,21 +462,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         flex: 1,
                         child: Column(
                           children: [
-                             // ACTIVITY LOG
                              Text(
                                 'Activity Details',
                                 style: theme.textTheme.headlineSmall),
                              const SizedBox(height: 12),
-                             Card(
-                               color: AppTheme.fhBgMedium,
-                               child: Padding(
-                                 padding: const EdgeInsets.all(16.0),
-                                 child: ActivityLogList(
-                                   taskTimes: taskTimes,
-                                   subtasksCompleted: subtasksCompleted,
-                                   checkpointsCompleted: checkpointsCompleted,
-                                 ),
-                               ),
+                             // Use the ActivityLogList component directly
+                             ActivityLogList(
+                               taskTimes: taskTimes,
+                               subtasksCompleted: subtasksCompleted,
+                               checkpointsCompleted: checkpointsCompleted,
                              ),
                           ],
                         ),
@@ -425,7 +482,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 12),
                   Card(
-                    color: AppTheme.fhBgMedium.withOpacity(0.5),
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: VirtuePieChart(logs: reflectionsForDate),
@@ -438,16 +495,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     'Activity Details',
                     style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 12),
-                  Card(
-                    color: AppTheme.fhBgMedium,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ActivityLogList(
-                        taskTimes: taskTimes,
-                        subtasksCompleted: subtasksCompleted,
-                        checkpointsCompleted: checkpointsCompleted,
-                      ),
-                    ),
+                  // Use the ActivityLogList component directly
+                  ActivityLogList(
+                    taskTimes: taskTimes,
+                    subtasksCompleted: subtasksCompleted,
+                    checkpointsCompleted: checkpointsCompleted,
                   ),
                 ],
 
@@ -460,7 +512,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     children: [
                       Text("Energy Trend", style: theme.textTheme.headlineSmall),
                       TextButton.icon(
-                        icon:  Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed),
+                        icon: Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed),
                         label: const Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
                         onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
                       ),
@@ -500,8 +552,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             dense: true,
                             title: Text("${log.level}% Energy"),
                             subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
-                            leading:  Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold, size: 18),
-                            trailing:  Icon(MdiIcons.pencilOutline, size: 16),
+                            leading: Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold, size: 18),
+                            trailing: Icon(MdiIcons.pencilOutline, size: 16),
                             onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
                           );
                         }
@@ -526,12 +578,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         color: AppTheme.fhBgDark,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))
+                          side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
                         ),
                         child: ListTile(
                           title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection", style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
-                          leading:  Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
+                          leading: Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
                           trailing: Icon(MdiIcons.pencilOutline, size: 16),
                           onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
                             'id': log.id,

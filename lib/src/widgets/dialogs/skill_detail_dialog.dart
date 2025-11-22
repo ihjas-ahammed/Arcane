@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class SkillDetailDialog extends StatelessWidget {
   final Skill skill;
@@ -54,7 +53,7 @@ class SkillDetailDialog extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text("LEVEL ${skill.level}", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-                Text("${skill.currentXp} / ${skill.maxXp} XP", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+                Text("${skill.currentXp} / ${skill.maxXp} XP", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 8),
@@ -73,12 +72,12 @@ class SkillDetailDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Improved Today", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const Text("Improved Today", style: TextStyle(color: AppTheme.fhTextSecondary)),
                   Text(
                     "+$xpGainedToday XP", 
                     style: TextStyle(

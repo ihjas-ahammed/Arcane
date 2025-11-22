@@ -19,7 +19,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
   @override
   Widget build(BuildContext context) {
     if (widget.logs.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           "No virtue data logged today.",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
@@ -39,7 +39,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     totals.removeWhere((key, value) => value <= 0);
 
     if (totals.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           "No XP gained yet.",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
@@ -76,14 +76,14 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
         final double radius = isTouched ? chartRadius + 8 : chartRadius;
         
         return PieChartSectionData(
-          color: color.withOpacity(isTouched ? 1.0 : 0.8),
+          color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
           value: entry.value.toDouble(),
           title: '', // Hiding title on the chart itself for cleanliness
           radius: radius,
           // Add a border to sections for better separation
           badgeWidget: isTouched ? _buildBadge(entry.key, color) : null,
           badgePositionPercentageOffset: 1.4,
-          borderSide: BorderSide(color: AppTheme.fhBgMedium, width: 2),
+          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
       });
 
@@ -120,7 +120,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
               children: [
                 Text(
                   centerTopText,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -139,7 +139,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                     fontFamily: AppTheme.fontDisplay,
                     shadows: [
                       Shadow(
-                        color: centerColor.withOpacity(0.5),
+                        color: centerColor.withValues(alpha: 0.5),
                         blurRadius: 10,
                       )
                     ]
@@ -162,7 +162,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
         color: AppTheme.fhBgDeepDark,
         border: Border.all(color: color),
         borderRadius: BorderRadius.circular(4),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)]
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)]
       ),
       child:  Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
       // Used an icon marker instead of text to avoid clutter, 

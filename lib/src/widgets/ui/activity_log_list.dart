@@ -32,67 +32,92 @@ class ActivityLogList extends StatelessWidget {
       );
     }
 
-    List<Widget> items = [];
+    return Column(
+      children: [
+        if (taskTimes.isNotEmpty)
+          _buildExpandableSection(
+            context,
+            title: "Time Logged",
+            icon: MdiIcons.clockOutline,
+            count: taskTimes.length,
+            children: taskTimes.entries.map((entry) {
+              return _buildActivityCard(
+                icon: MdiIcons.clockTimeFourOutline,
+                title: "Task ID: ${entry.key.substring(0, 5)}...", // Simplified for now
+                subtitle: "${entry.value} minutes logged",
+                color: AppTheme.fhAccentTealFixed,
+              );
+            }).toList(),
+          ),
 
-    // 1. Time Logged Summary
-    if (taskTimes.isNotEmpty) {
-      items.add(_buildSectionHeader("Time Logged"));
-      items.addAll(taskTimes.entries.map((entry) {
-        return _buildActivityCard(
-          icon: MdiIcons.clockOutline,
-          title: "Task ID: ${entry.key}", // Ideally resolve name via provider if accessible or pass map
-          subtitle: "${entry.value} minutes logged",
-          color: AppTheme.fhAccentTealFixed,
-        );
-      }));
-    }
+        if (subtasksCompleted.isNotEmpty)
+          _buildExpandableSection(
+            context,
+            title: "Completed Missions",
+            icon: MdiIcons.checkCircleOutline,
+            count: subtasksCompleted.length,
+            children: subtasksCompleted.map((st) {
+              final map = st as Map<String, dynamic>;
+              return _buildActivityCard(
+                icon: MdiIcons.target,
+                title: map['name'] ?? 'Unknown Subtask',
+                subtitle: "Logged: ${map['timeLogged']}m | Count: ${map['currentCount']}/${map['targetCount']}",
+                color: AppTheme.fhAccentGreen,
+              );
+            }).toList(),
+          ),
 
-    // 2. Subtasks
-    if (subtasksCompleted.isNotEmpty) {
-      items.add(_buildSectionHeader("Completed Missions"));
-      items.addAll(subtasksCompleted.map((st) {
-        final map = st as Map<String, dynamic>;
-        return _buildActivityCard(
-          icon: MdiIcons.checkCircleOutline,
-          title: map['name'] ?? 'Unknown Subtask',
-          subtitle: "Logged: ${map['timeLogged']}m | Count: ${map['currentCount']}/${map['targetCount']}",
-          color: AppTheme.fhAccentGreen,
-        );
-      }));
-    }
-
-    // 3. Checkpoints
-    if (checkpointsCompleted.isNotEmpty) {
-      items.add(_buildSectionHeader("Checkpoints Reached"));
-      items.addAll(checkpointsCompleted.map((cp) {
-        final map = cp as Map<String, dynamic>;
-        final timeStr = map['completionTimestamp'] != null 
-            ? DateFormat('HH:mm').format(DateTime.parse(map['completionTimestamp']))
-            : '';
-        return _buildActivityCard(
-          icon: MdiIcons.flagCheckered,
-          title: map['name'] ?? 'Unknown Checkpoint',
-          subtitle: "In: ${map['parentSubtaskName']} ($timeStr)",
-          color: AppTheme.fhAccentPurple,
-          isSmall: true,
-        );
-      }));
-    }
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: items);
+        if (checkpointsCompleted.isNotEmpty)
+          _buildExpandableSection(
+            context,
+            title: "Checkpoints Reached",
+            icon: MdiIcons.flagCheckered,
+            count: checkpointsCompleted.length,
+            children: checkpointsCompleted.map((cp) {
+              final map = cp as Map<String, dynamic>;
+              final timeStr = map['completionTimestamp'] != null 
+                  ? DateFormat('HH:mm').format(DateTime.parse(map['completionTimestamp']))
+                  : '';
+              return _buildActivityCard(
+                icon: MdiIcons.rhombusOutline,
+                title: map['name'] ?? 'Unknown Checkpoint',
+                subtitle: "In: ${map['parentSubtaskName']} ($timeStr)",
+                color: AppTheme.fhAccentPurple,
+                isSmall: true,
+              );
+            }).toList(),
+          ),
+      ],
+    );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          color: AppTheme.fhTextSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.0,
+  Widget _buildExpandableSection(BuildContext context, {
+    required String title,
+    required IconData icon,
+    required int count,
+    required List<Widget> children
+  }) {
+    return Card(
+      color: AppTheme.fhBgDark,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Icon(icon, color: AppTheme.fhTextSecondary),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgMedium,
+            borderRadius: BorderRadius.circular(12)
+          ),
+          child: Text("$count", style: const TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary)),
         ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: children,
       ),
     );
   }
@@ -106,34 +131,43 @@ class ActivityLogList extends StatelessWidget {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withOpacity(0.5),
+        color: AppTheme.fhBgMedium.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.1)),
       ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: isSmall ? 14 : 18),
           ),
-          child: Icon(icon, color: color, size: isSmall ? 16 : 20),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: AppTheme.fhTextPrimary,
-            fontSize: isSmall ? 13 : 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-        ),
-        dense: isSmall,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.fhTextPrimary,
+                    fontSize: isSmall ? 13 : 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11),
+                ),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }

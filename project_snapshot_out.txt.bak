@@ -3281,7 +3281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
                             border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.5)),
                           ),
-                          child: const Icon(MdiIcons.accountOutline, color: AppTheme.fhAccentGold, size: 20),
+                          child: Icon(MdiIcons.accountOutline, color: AppTheme.fhAccentGold, size: 20),
                         ),
                       ),
                     ),

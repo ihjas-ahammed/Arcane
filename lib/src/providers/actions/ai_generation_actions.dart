@@ -2,9 +2,7 @@
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:flutter/foundation.dart'; // For kDebugMode
-import 'package:collection/collection.dart'; // For whereNotNull
+import 'package:flutter/foundation.dart'; 
 
 class AIGenerationActions {
   final AppProvider _provider;
@@ -13,15 +11,13 @@ class AIGenerationActions {
   AIGenerationActions(this._provider);
 
   void _logToApp(String logMessage) {
-    if (kDebugMode) print("[AIActions - _logToApp]: $logMessage");
-    // If a central app log is needed in the future, it can be added here.
-    // For now, this is a placeholder for potential future logging to UI.
+    if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
   }
 
   Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
       String generationMode, String userInput, int numSubquests) async {
     if (_provider.isGeneratingSubquests) {
-      print(
+      debugPrint(
           "[AIActions] triggerAISubquestGeneration skipped, already in progress for task '${mainTaskForSubquests.name}'.");
       return;
     }
@@ -53,7 +49,7 @@ class AIGenerationActions {
             (subquestData['subSubTasksData'] as List<dynamic>? ?? [])
                 .map((item) =>
                     item is Map<String, dynamic> ? item : null)
-                .whereNotNull()
+                .nonNulls
                 .toList();
 
         final List<SubSubTask> currentSubSubTasks = [];
@@ -105,11 +101,12 @@ class AIGenerationActions {
       _provider.setProviderState(mainTasks: newMainTasks);
     } catch (e, stackTrace) {
       final errorMessage = e.toString();
-      print(
+      debugPrint(
           "[AIActions] CRITICAL ERROR in triggerAISubquestGeneration for task '${mainTaskForSubquests.name}': $errorMessage");
-      if (kDebugMode)
-        print(
+      if (kDebugMode) {
+        debugPrint(
             "[AIActions] StackTrace for triggerAISubquestGeneration error: $stackTrace");
+      }
     } finally {
       _provider.setProviderAISubquestLoading(false);
     }

@@ -49,7 +49,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
       backgroundColor: AppTheme.fhBgMedium,
       title: Row(
         children: [
-          Icon(MdiIcons.pencilOutline, color: AppTheme.fhAccentTeal),
+         Icon(MdiIcons.pencilOutline, color: AppTheme.fhAccentTeal),
           const SizedBox(width: 10),
           Text(widget.title, style: const TextStyle(fontSize: 18)),
         ],
@@ -68,11 +68,11 @@ class _EditLogDialogState extends State<EditLogDialog> {
               ),
             ],
             if (widget.logType == 'reflection') ...[
-              TextField(controller: _triggerController, decoration: InputDecoration(labelText: 'Trigger')),
-              SizedBox(height: 8),
-              TextField(controller: _emotionController, decoration: InputDecoration(labelText: 'Emotion')),
-              SizedBox(height: 8),
-              TextField(controller: _reasonController, decoration: InputDecoration(labelText: 'Reason')),
+              TextField(controller: _triggerController, decoration: const InputDecoration(labelText: 'Trigger')),
+              const SizedBox(height: 8),
+              TextField(controller: _emotionController, decoration: const InputDecoration(labelText: 'Emotion')),
+              const SizedBox(height: 8),
+              TextField(controller: _reasonController, decoration: const InputDecoration(labelText: 'Reason')),
             ]
           ],
         ),
@@ -80,17 +80,17 @@ class _EditLogDialogState extends State<EditLogDialog> {
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton.icon(
-          icon: Icon(MdiIcons.deleteForever, size: 18),
-          label: Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
+          icon:  Icon(MdiIcons.deleteForever, size: 18),
+          label: const Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
           onPressed: () async {
              final confirm = await showDialog<bool>(
                context: context,
                builder: (ctx) => AlertDialog(
-                 title: Text("Delete Log?"),
-                 content: Text("This action cannot be undone."),
+                 title: const Text("Delete Log?"),
+                 content: const Text("This action cannot be undone."),
                  actions: [
-                   TextButton(onPressed: ()=>Navigator.pop(ctx, false), child: Text("Cancel")),
-                   ElevatedButton(onPressed: ()=>Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed), child: Text("Confirm")),
+                   TextButton(onPressed: ()=>Navigator.pop(ctx, false), child: const Text("Cancel")),
+                   ElevatedButton(onPressed: ()=>Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed), child: const Text("Confirm")),
                  ],
                )
              );
@@ -103,7 +103,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
         ),
         Row(
           children: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel")),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () {
@@ -118,7 +118,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
                 }
                 Navigator.pop(context);
               },
-              child: Text("Save"),
+              child: const Text("Save"),
             ),
           ],
         )

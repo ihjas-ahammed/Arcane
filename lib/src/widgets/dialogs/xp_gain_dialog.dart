@@ -20,9 +20,9 @@ class _XpGainDialogState extends State<XpGainDialog> with SingleTickerProviderSt
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
     );
-    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _controller.forward();
   }
 
@@ -35,83 +35,94 @@ class _XpGainDialogState extends State<XpGainDialog> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final totalXp = widget.xpGained.values.fold(0, (a, b) => a + b);
+    // Filter only virtues with XP gain
+    final entries = widget.xpGained.entries.where((e) => e.value > 0).toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16), // Less padding for small screens
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 340), // Limit width
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppTheme.fhBgDark,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.fhAccentGold, width: 2),
+            border: Border.all(color: AppTheme.fhAccentGold, width: 1.5),
             boxShadow: [
-              BoxShadow(color: AppTheme.fhAccentGold.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)
+              BoxShadow(color: AppTheme.fhAccentGold.withOpacity(0.2), blurRadius: 20, spreadRadius: 2)
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(MdiIcons.starFourPoints, size: 48, color: AppTheme.fhAccentGold),
-              const SizedBox(height: 16),
+              Icon(MdiIcons.starFourPoints, size: 40, color: AppTheme.fhAccentGold),
+              const SizedBox(height: 12),
               Text(
-                "REFLECTION COMPLETE",
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                "INSIGHT GAINED",
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppTheme.fhAccentGold,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text("+$totalXp XP GAINED", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              ...widget.xpGained.entries.where((e) => e.value > 0).map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                       
-                       width: 140,
-                       child: Text(entry.key, style: const TextStyle(color: AppTheme.fhTextSecondary)),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        child: Expanded(
-                        flex: 2,
-                        child: Stack(
+              const SizedBox(height: 4),
+              Text("+$totalXp XP", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              
+              // Flexible list that scrolls if too many items
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: entries.map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6.0),
+                        child: Row(
                           children: [
-                            Container(height: 8, decoration: BoxDecoration(color: AppTheme.fhBgLight, borderRadius: BorderRadius.circular(4))),
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0, end: 1.0), // Just simple fill animation for effect
-                              duration: const Duration(seconds: 1),
-                              builder: (ctx, val, child) {
-                                return FractionallySizedBox(
-                                  widthFactor: val,
-                                  child: Container(height: 8, decoration: BoxDecoration(color: _getVirtueColor(entry.key), borderRadius: BorderRadius.circular(4))),
-                                );
-                              },
-                            )
+                            Expanded(
+                              flex: 3,
+                              child: Text(entry.key, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: Container(
+                                height: 6,
+                                clipBehavior: Clip.hardEdge,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.fhBgLight, 
+                                  borderRadius: BorderRadius.circular(3)
+                                ),
+                                child: FractionallySizedBox(
+                                  widthFactor: 1.0, // Just full fill for visualization
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(color: _getVirtueColor(entry.key)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text("+${entry.value}", style: TextStyle(color: _getVirtueColor(entry.key), fontWeight: FontWeight.bold, fontSize: 13)),
                           ],
                         ),
-                      ),
-                      )
-                      ,
-                      SizedBox(width:10),
-                      Text("+${entry.value}", style: TextStyle(color: _getVirtueColor(entry.key), fontWeight: FontWeight.bold)),
-                    ],
+                      );
+                    }).toList(),
                   ),
-                );
-              }),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.fhAccentGold,
-                  foregroundColor: AppTheme.fhBgDeepDark,
                 ),
-                child: const Text("CONTINUE"),
+              ),
+              
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.fhAccentGold,
+                    foregroundColor: AppTheme.fhBgDeepDark,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text("CONTINUE"),
+                ),
               )
             ],
           ),

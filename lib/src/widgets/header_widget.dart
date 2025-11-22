@@ -1,14 +1,18 @@
-// lib/src/widgets/header_widget.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
-  const HeaderWidget({super.key, required this.currentViewLabel});
+  final VoidCallback? onOpenPersona; // Callback for opening end drawer
+
+  const HeaderWidget({
+    super.key, 
+    required this.currentViewLabel,
+    this.onOpenPersona
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +31,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
               child:
                   Icon(MdiIcons.shieldCrownOutline, color: currentAccentColor),
             )
-          : null, // Use default drawer icon on small screens
+          : null, 
       title: Text(
         currentViewLabel.toUpperCase(),
         style: theme.textTheme.headlineSmall?.copyWith(
@@ -35,15 +39,14 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
           letterSpacing: 1.0,
         ),
       ),
+      centerTitle: true,
       actions: <Widget>[
+        // Persona / Virtues Button replacing AI button
         IconButton(
-          icon: Icon(MdiIcons.robotHappyOutline,
+          icon: Icon(MdiIcons.shieldAccount, // Or accountDetailsOutline
               color: AppTheme.fhTextSecondary),
-          onPressed: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const ChatbotScreen()));
-          },
-          tooltip: 'Arcane Advisor',
+          onPressed: onOpenPersona,
+          tooltip: 'Persona & Virtues',
         ),
         const SizedBox(width: 8),
       ],

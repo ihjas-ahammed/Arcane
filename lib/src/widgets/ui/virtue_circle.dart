@@ -48,7 +48,7 @@ class VirtueCircle extends StatelessWidget {
         margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppTheme.fhBgMedium.withOpacity(0.3),
+          color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.transparent)
         ),

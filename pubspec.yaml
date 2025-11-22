@@ -31,6 +31,7 @@ dependencies:
   material_design_icons_flutter: ^7.0.7296 # For extra icons
   collection: ^1.18.0 
   flutter_colorpicker: ^1.1.0 # For task color selection
+  smooth_page_indicator: ^1.2.1
 
 
 dev_dependencies:

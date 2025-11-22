@@ -81,7 +81,7 @@ class _ChatbotViewState extends State<ChatbotView> {
               child: TextButton.icon(
                 icon: Icon(MdiIcons.refresh,
                     size: 16, color: AppTheme.fhTextSecondary),
-                label: Text("Restart Session",
+                label: const Text("Restart Session",
                     style:
                         TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
                 onPressed: () async {
@@ -124,7 +124,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(MdiIcons.robotHappyOutline,
-                          size: 48, color: dynamicAccent.withOpacity(0.7)),
+                          size: 48, color: dynamicAccent.withValues(alpha: 0.7)),
                       const SizedBox(height: 16),
                       Text(
                         "Arcane Advisor Online",
@@ -176,7 +176,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                       hintText: 'Send a message to Arcane Advisor...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
-                        borderSide: BorderSide(color: AppTheme.fhBorderColor),
+                        borderSide: const BorderSide(color: AppTheme.fhBorderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
@@ -188,7 +188,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                     ),
                     onSubmitted: (_) => _sendMessage(),
                     style:
-                        TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+                        const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -250,7 +250,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                         : const Radius.circular(18),
                   ),
                   border:
-                      Border.all(color: bubbleColor.withOpacity(0.5), width: 0.5)),
+                      Border.all(color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
               child: Column(
                 crossAxisAlignment: crossAxisAlignment,
                 mainAxisSize: MainAxisSize.min,
@@ -270,7 +270,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                     Text(
                       DateFormat('HH:mm').format(message.timestamp.toLocal()),
                       style: theme.textTheme.labelSmall
-                          ?.copyWith(color: textColor.withOpacity(0.7), fontSize: 9),
+                          ?.copyWith(color: textColor.withValues(alpha: 0.7), fontSize: 9),
                     ),
                   ]
                 ],
@@ -292,7 +292,7 @@ class _ChatbotViewState extends State<ChatbotView> {
         return Text(
           "[Dynamic UI Error: Unknown payload type or data error. Raw: ${jsonEncode(payload.data)}]",
           style: TextStyle(
-              color: AppTheme.fhAccentRed.withOpacity(0.8),
+              color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
               fontSize: 10,
               fontStyle: FontStyle.italic),
         );
@@ -306,14 +306,14 @@ class _ChatbotViewState extends State<ChatbotView> {
 
     // Emotion tracking removed, returning error for legacy emotion graphs.
     if (graphType == 'emotion_trend_bar' || source == 'emotion_logs') {
-        return Text("Emotion tracking is no longer supported.",
+        return const Text("Emotion tracking is no longer supported.",
             style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
     }
 
     return Text(
       "[Dynamic UI Error: Graph type '$graphType' or source '$source' not supported. Data: ${jsonEncode(data)}]",
       style: TextStyle(
-          color: AppTheme.fhAccentRed.withOpacity(0.8),
+          color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
           fontSize: 10,
           fontStyle: FontStyle.italic),
     );

@@ -29,12 +29,12 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
     {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
     {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
-    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': Color(0xFF58D68D)},
-    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': Color(0xFFF1C40F)},
-    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': Color(0xFFEC7063)},
-    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': Color(0xFF5DADE2)},
-    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': Color(0xFFE59866)},
-    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': Color(0xFF2ECC71)},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
     {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
@@ -75,7 +75,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             builder: (BuildContext context, StateSetter setStateDialog) {
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title: Text('Add New Mission',
+            title: const Text('Add New Mission',
                 style: TextStyle(color: AppTheme.fhAccentRed)),
             content: SingleChildScrollView(
               child: Column(
@@ -83,15 +83,15 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _newTaskNameController,
-                      decoration: InputDecoration(labelText: 'Mission Name')),
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _newTaskDescController,
-                      decoration: InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    decoration: InputDecoration(labelText: 'Theme'),
+                    decoration: const InputDecoration(labelText: 'Theme'),
                     dropdownColor: AppTheme.fhBgLight,
                     value: _dialogSelectedTheme,
                     items: _availableThemes
@@ -103,7 +103,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                                     _getThemeIcon(themeMap['name'] as String),
                                     size: 18,
                                     color: themeMap['color'] as Color),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(themeMap['name'] as String),
                               ],
                             )))
@@ -145,7 +145,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             border: isSelectedColor
                                 ? Border.all(color: Colors.white, width: 2)
                                 : Border.all(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     width: 1),
                           ),
                           child: isSelectedColor
@@ -166,10 +166,10 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
             actions: <Widget>[
               TextButton(
-                  child: Text('Cancel'),
+                  child: const Text('Cancel'),
                   onPressed: () => Navigator.of(dialogContext).pop()),
               ElevatedButton(
-                child: Text('Add Mission'),
+                child: const Text('Add Mission'),
                 onPressed: () {
                   if (_newTaskNameController.text.isNotEmpty) {
                     appProvider.addMainTask(
@@ -203,7 +203,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             builder: (BuildContext context, StateSetter setStateDialog) {
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title: Text('Edit Mission',
+            title: const Text('Edit Mission',
                 style: TextStyle(color: AppTheme.fhAccentRed)),
             content: SingleChildScrollView(
               child: Column(
@@ -211,15 +211,15 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _editTaskNameController,
-                      decoration: InputDecoration(labelText: 'Mission Name')),
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _editTaskDescController,
-                      decoration: InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                      decoration: InputDecoration(labelText: 'Theme'),
+                      decoration: const InputDecoration(labelText: 'Theme'),
                       dropdownColor: AppTheme.fhBgLight,
                       value: _dialogSelectedTheme,
                       items: _availableThemes
@@ -232,7 +232,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                                           themeMap['name'] as String),
                                       size: 18,
                                       color: themeMap['color'] as Color),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(themeMap['name'] as String),
                                 ],
                               )))
@@ -274,7 +274,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             border: isSelectedColor
                                 ? Border.all(color: Colors.white, width: 2)
                                 : Border.all(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     width: 1),
                           ),
                           child: isSelectedColor
@@ -295,10 +295,10 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
             actions: <Widget>[
               TextButton(
-                  child: Text('Cancel'),
+                  child: const Text('Cancel'),
                   onPressed: () => Navigator.of(dialogContext).pop()),
               ElevatedButton(
-                child: Text('Save Changes'),
+                child: const Text('Save Changes'),
                 onPressed: () {
                   if (_editTaskNameController.text.isNotEmpty) {
                     appProvider.editMainTask(
@@ -368,7 +368,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
 
                       return Material(
                         color: isSelected
-                            ? taskColor.withOpacity(0.25)
+                            ? taskColor.withValues(alpha: 0.25)
                             : Colors.transparent,
                         child: ListTile(
                           leading: Icon(
@@ -394,13 +394,13 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             icon: Icon(MdiIcons.pencilOutline,
                                 size: 18,
                                 color:
-                                    AppTheme.fhTextSecondary.withOpacity(0.7)),
+                                    AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
                             onPressed: () =>
                                 _showEditTaskDialog(context, appProvider, task),
                             tooltip: 'Edit Mission',
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 6),
-                            constraints: BoxConstraints(),
+                            constraints: const BoxConstraints(),
                           ),
                           selected: isSelected,
                           onTap: () {
@@ -409,7 +409,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                               Navigator.pop(context);
                             }
                           },
-                          selectedTileColor: taskColor.withOpacity(0.15),
+                          selectedTileColor: taskColor.withValues(alpha: 0.15),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                         ),

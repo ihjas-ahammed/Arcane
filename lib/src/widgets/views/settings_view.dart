@@ -227,11 +227,11 @@ class _SettingsViewState extends State<SettingsView> {
                             final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Row(children: [
+                              title:  Row(children: [
                                 Icon(MdiIcons.cloudQuestionOutline,
                                     color: AppTheme.fhAccentOrange),
-                                const SizedBox(width: 10),
-                                const Text('Confirm Load')
+                                SizedBox(width: 10),
+                                Text('Confirm Load')
                               ]),
                               content: const Text(
                                   'This will overwrite any local unsaved changes with data from the cloud. Are you sure?'),
@@ -284,7 +284,7 @@ class _SettingsViewState extends State<SettingsView> {
                   child: Text(
                     lastSavedString,
                     style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppTheme.fhTextSecondary.withOpacity(0.8),
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
                         fontSize: 11,
                         fontStyle: FontStyle.italic),
                   ),
@@ -300,7 +300,7 @@ class _SettingsViewState extends State<SettingsView> {
                   value: _availableModels.contains(appProvider.settings.aiModelName) 
                       ? appProvider.settings.aiModelName 
                       : null,
-                  decoration: InputDecoration(
+                  decoration:  InputDecoration(
                     labelText: 'AI Model Selection',
                     prefixIcon: Icon(MdiIcons.brain, size: 20),
                   ),
@@ -319,7 +319,7 @@ class _SettingsViewState extends State<SettingsView> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _aiModelNameController,
-                  decoration:  InputDecoration(
+                  decoration:   InputDecoration(
                     labelText: 'Custom Model Name (Override)',
                     hintText: 'e.g., gemini-1.5-pro-latest',
                     prefixIcon:  Icon(MdiIcons.pencilOutline, size: 20),
@@ -341,7 +341,7 @@ class _SettingsViewState extends State<SettingsView> {
                       icon: Icon(MdiIcons.contentSave, size: 20),
                       onPressed: () {
                          appProvider.setSettings(appProvider.settings..customApiKey = _apiKeyController.text.trim());
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("API Key saved locally.")));
+                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key saved locally.")));
                       },
                     )
                   ),
@@ -355,7 +355,7 @@ class _SettingsViewState extends State<SettingsView> {
                 TextFormField(
                   controller: _customChatbotPromptController,
                   maxLines: 3,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'AI Advisor System Prompt',
                     hintText: 'Define the persona and behavior of the chatbot.',
                     alignLabelWithHint: true,
@@ -368,7 +368,7 @@ class _SettingsViewState extends State<SettingsView> {
                 TextFormField(
                   controller: _customReflectionPromptController,
                   maxLines: 3,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Reflection Analysis System Prompt',
                     hintText: 'Define how reflections are analyzed and XP awarded.',
                     alignLabelWithHint: true,
@@ -378,7 +378,7 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
                 const SizedBox(height: 8),
-                Text("Leave blank to use built-in defaults.", 
+                const Text("Leave blank to use built-in defaults.", 
                   style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]),
               
@@ -388,7 +388,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Weekly Progress',
               children: [
                 DropdownButtonFormField<int>(
-                  decoration:  InputDecoration(
+                  decoration:   InputDecoration(
                     labelText: 'Start Day of the Week',
                     prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
                   ),
@@ -418,7 +418,7 @@ class _SettingsViewState extends State<SettingsView> {
                   // ... same
                   TextFormField(
                   controller: _newUsernameController,
-                  decoration: InputDecoration(
+                  decoration:  InputDecoration(
                       labelText: 'Display Name',
                       prefixIcon: Icon(MdiIcons.accountBadgeOutline, size: 20)),
                   validator: (value) {
@@ -473,7 +473,7 @@ class _SettingsViewState extends State<SettingsView> {
                   value: appProvider.settings.descriptionsVisible,
                   onChanged: (value) => appProvider.setSettings(
                       appProvider.settings..descriptionsVisible = value),
-                  activeColor: (appProvider.getSelectedTask()?.taskColor ??
+                  activeTrackColor: (appProvider.getSelectedTask()?.taskColor ??
                       AppTheme.fhAccentTealFixed),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -487,7 +487,7 @@ class _SettingsViewState extends State<SettingsView> {
                     // ... same
                      TextFormField(
                     controller: _newPasswordController,
-                    decoration: InputDecoration(
+                    decoration:  InputDecoration(
                         labelText: 'New Passcode Sequence',
                         prefixIcon:
                             Icon(MdiIcons.formTextboxPassword, size: 20)),
@@ -496,7 +496,7 @@ class _SettingsViewState extends State<SettingsView> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _confirmPasswordController,
-                    decoration: InputDecoration(
+                    decoration:  InputDecoration(
                         labelText: 'Confirm Passcode Sequence',
                         prefixIcon:
                             Icon(MdiIcons.formTextboxPassword, size: 20)),
@@ -576,11 +576,11 @@ class _SettingsViewState extends State<SettingsView> {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: Row(children: [
+                        title:  Row(children: [
                           Icon(MdiIcons.alertOutline,
                               color: AppTheme.fhAccentRed),
-                          const SizedBox(width: 10),
-                          const Text('Confirm System Purge',
+                          SizedBox(width: 10),
+                          Text('Confirm System Purge',
                               style: TextStyle(color: AppTheme.fhAccentRed))
                         ]),
                         content: const Text(
@@ -646,7 +646,7 @@ class _SettingsViewState extends State<SettingsView> {
             Divider(
                 height: 24,
                 thickness: 0.5,
-                color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
             ...children,
           ],
         ),

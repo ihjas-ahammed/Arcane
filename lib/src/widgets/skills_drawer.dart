@@ -79,7 +79,7 @@ class SkillsDrawer extends StatelessWidget {
                     ),
                     
                     const SizedBox(height: 24),
-                    Divider(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                    Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
                     const SizedBox(height: 24),
                     
                     ElevatedButton.icon(

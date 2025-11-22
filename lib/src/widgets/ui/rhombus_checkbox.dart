@@ -39,8 +39,8 @@ class RhombusCheckbox extends StatelessWidget {
         ? (checked
             ? (appProvider.getSelectedTask()?.taskColor ??
                     AppTheme.fhAccentTealFixed)
-                .withOpacity(0.5)
-            : AppTheme.fhBorderColor.withOpacity(0.5))
+                .withValues(alpha: 0.5)
+            : AppTheme.fhBorderColor.withValues(alpha: 0.5))
         : (checked
             ? (appProvider.getSelectedTask()?.taskColor ??
                 AppTheme.fhAccentTealFixed)
@@ -49,9 +49,9 @@ class RhombusCheckbox extends StatelessWidget {
     if (disabled && checked) {
       bgColor = (appProvider.getSelectedTask()?.taskColor ??
               AppTheme.fhAccentTealFixed)
-          .withOpacity(0.6);
+          .withValues(alpha: 0.6);
     } else if (disabled && !checked) {
-      bgColor = AppTheme.fhBgLight.withOpacity(0.4);
+      bgColor = AppTheme.fhBgLight.withValues(alpha: 0.4);
     }
 
     return InkWell(
@@ -85,7 +85,7 @@ class RhombusCheckbox extends StatelessWidget {
                 MdiIcons.checkBold,
                 size: iconSize,
                 color: disabled
-                    ? AppTheme.fhTextSecondary.withOpacity(0.7)
+                    ? AppTheme.fhTextSecondary.withValues(alpha: 0.7)
                     : AppTheme.fhBgDark,
               ),
           ],

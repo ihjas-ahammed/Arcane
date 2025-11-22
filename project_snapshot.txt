@@ -1,8 +1,4040 @@
+--- START OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:intl/intl.dart';
+
+class WeeklyActivityBarChart extends StatelessWidget {
+  final Map<int, double> weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
+  final Map<int, Color> dominantColors; // Key matches above, Value: Color of focused task
+
+  const WeeklyActivityBarChart({
+    super.key,
+    required this.weeklyData,
+    required this.dominantColors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final double maxY = weeklyData.values.isEmpty 
+        ? 60.0 
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '${rod.toY.toInt()}m',
+                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final dayIndex = value.toInt();
+                final daysAgo = 6 - dayIndex;
+                final date = today.subtract(Duration(days: daysAgo));
+                return SideTitleWidget(
+                  meta: meta,
+                  space: 4,
+                  child: Text(
+                    DateFormat('E').format(date).substring(0, 1),
+                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), 
+        ),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(show: false),
+        barGroups: List.generate(7, (index) {
+          final daysAgo = 6 - index;
+          final value = weeklyData[daysAgo] ?? 0.0;
+          final color = dominantColors[daysAgo] ?? AppTheme.fhBgLight;
+
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: value,
+                color: color,
+                width: 12,
+                borderRadius: BorderRadius.circular(4),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: maxY,
+                  color: AppTheme.fhBgDark,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class WeeklyVirtueBarChart extends StatelessWidget {
+  final Map<int, double> weeklyXp; // Key: 0 (Today) -> 6
+
+  const WeeklyVirtueBarChart({super.key, required this.weeklyXp});
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final double maxY = weeklyXp.values.isEmpty 
+        ? 50.0 
+        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(50.0, double.infinity);
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '+${rod.toY.toInt()} XP',
+                const TextStyle(color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final dayIndex = value.toInt();
+                final daysAgo = 6 - dayIndex;
+                final date = today.subtract(Duration(days: daysAgo));
+                return SideTitleWidget(
+                  meta: meta,
+                  space: 4,
+                  child: Text(
+                    DateFormat('E').format(date).substring(0, 1),
+                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(show: false),
+        barGroups: List.generate(7, (index) {
+          final daysAgo = 6 - index;
+          final value = weeklyXp[daysAgo] ?? 0.0;
+
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: value,
+                color: AppTheme.fhAccentGold,
+                width: 12,
+                borderRadius: BorderRadius.circular(4),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: maxY,
+                  color: AppTheme.fhBgDark,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
+
+--- START OF FILE lib/src/widgets/views/stats_carousel_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+
+class StatsCarouselView extends StatefulWidget {
+  final Map<int, double> activityData;
+  final Map<int, Color> activityColors;
+  final Map<int, double> virtueData;
+
+  const StatsCarouselView({
+    super.key,
+    required this.activityData,
+    required this.activityColors,
+    required this.virtueData,
+  });
+
+  @override
+  State<StatsCarouselView> createState() => _StatsCarouselViewState();
+}
+
+class _StatsCarouselViewState extends State<StatsCarouselView> {
+  final PageController _controller = PageController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 220,
+          child: PageView(
+            controller: _controller,
+            children: [
+              _buildChartCard(
+                "Last 7 Days Activity", 
+                WeeklyActivityBarChart(weeklyData: widget.activityData, dominantColors: widget.activityColors)
+              ),
+              _buildChartCard(
+                "Last 7 Days Growth", 
+                WeeklyVirtueBarChart(weeklyXp: widget.virtueData)
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SmoothPageIndicator(
+          controller: _controller,
+          count: 2,
+          effect: ExpandingDotsEffect(
+            dotHeight: 6,
+            dotWidth: 6,
+            activeDotColor: AppTheme.fhAccentTeal,
+            dotColor: AppTheme.fhBgLight,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartCard(String title, Widget chart) {
+    return Card(
+      color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(
+              color: AppTheme.fhTextSecondary, 
+              fontSize: 14, 
+              fontWeight: FontWeight.bold
+            )),
+            const SizedBox(height: 16),
+            Expanded(child: chart),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/stats_carousel_view.dart ---
+
+--- START OF FILE lib/src/widgets/cards/submission_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class SubmissionCard extends StatefulWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionCard({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  @override
+  State<SubmissionCard> createState() => _SubmissionCardState();
+}
+
+class _SubmissionCardState extends State<SubmissionCard> {
+  final TextEditingController _checkpointController = TextEditingController();
+  bool _isCheckpointCountable = false;
+  final TextEditingController _checkpointCountController = TextEditingController(text: '5');
+
+  late TextEditingController _timeController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _timeController = TextEditingController(text: widget.subTask.currentTimeSpent.toString());
+  }
+
+  @override
+  void dispose() {
+    _checkpointController.dispose();
+    _checkpointCountController.dispose();
+    _timeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant SubmissionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.subTask.currentTimeSpent != widget.subTask.currentTimeSpent) {
+        if (!_timeController.selection.isValid) {
+           _timeController.text = widget.subTask.currentTimeSpent.toString();
+        }
+    }
+  }
+
+  void _handleAddCheckpoint(AppProvider provider) {
+    if (_checkpointController.text.trim().isEmpty) return;
+
+    final subSubData = {
+      'name': _checkpointController.text.trim(),
+      'isCountable': _isCheckpointCountable,
+      'targetCount': _isCheckpointCountable 
+          ? (int.tryParse(_checkpointCountController.text) ?? 1) 
+          : 0,
+    };
+
+    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, subSubData);
+    _checkpointController.clear();
+    setState(() {
+      _isCheckpointCountable = false;
+      _checkpointCountController.text = '5';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+    final timerState = provider.activeTimers[widget.subTask.id];
+    
+    final int totalCheckpoints = widget.subTask.subSubTasks.length;
+    final int completedCheckpoints = widget.subTask.subSubTasks.where((s) => s.completed).length;
+    final double progress = totalCheckpoints > 0 ? completedCheckpoints / totalCheckpoints : 0.0;
+
+    final double displayTimeSeconds = timerState != null
+        ? (timerState.isRunning
+            ? timerState.accumulatedDisplayTime +
+                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+            : timerState.accumulatedDisplayTime)
+        : widget.subTask.currentTimeSpent * 60.0;
+
+    final String formattedTime = helper.formatTime(displayTimeSeconds);
+    final bool isRunning = timerState?.isRunning ?? false;
+
+    final cardBorderColor = isRunning ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor.withValues(alpha: 0.5);
+    final glowColor = isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.15) : Colors.transparent;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(color: glowColor, blurRadius: 12, spreadRadius: 2)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- HEADER ---
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10)
+              )
+            ),
+            child: Row(
+              children: [
+                RhombusCheckbox(
+                  checked: widget.subTask.completed,
+                  onChanged: (val) => provider.completeSubtask(widget.parentTask.id, widget.subTask.id),
+                  disabled: widget.subTask.completed,
+                  size: CheckboxSize.small,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.subTask.name.toUpperCase(),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: widget.subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!widget.subTask.completed)
+                  IconButton(
+                    icon: Icon(MdiIcons.pencilOutline, size: 16, color: AppTheme.fhTextSecondary),
+                    onPressed: () {},
+                    tooltip: "Edit Task",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                 const SizedBox(width: 8),
+                 if (!widget.subTask.completed)
+                  IconButton(
+                    icon: Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed),
+                    onPressed: () => provider.deleteSubtask(widget.parentTask.id, widget.subTask.id),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  )
+              ],
+            ),
+          ),
+
+          if (!widget.subTask.completed) ...[
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- TIMER SECTION ---
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgDeepDark,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
+                        ),
+                        child: Text(
+                          formattedTime,
+                          style: const TextStyle(
+                            fontFamily: "RobotoCondensed", 
+                            fontSize: 24,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      InkWell(
+                        onTap: () {
+                           if (isRunning) {
+                             provider.pauseTimer(widget.subTask.id);
+                             provider.logTimerAndReset(widget.subTask.id);
+                           } else {
+                             provider.startTimer(widget.subTask.id, 'subtask', widget.parentTask.id);
+                           }
+                        },
+                        borderRadius: BorderRadius.circular(30),
+                        child: Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen,
+                              width: 1.5
+                            ),
+                            color: (isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen).withValues(alpha: 0.1)
+                          ),
+                          child: Icon(
+                            isRunning ? MdiIcons.pause : MdiIcons.play,
+                            color: isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Manual Time Edit (Compact)
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Text("Manually: ", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                            SizedBox(
+                              width: 40,
+                              child: TextField(
+                                controller: _timeController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                  border: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                                ),
+                                onSubmitted: (val) {
+                                  final int? newTime = int.tryParse(val);
+                                  if (newTime != null) {
+                                    provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'currentTimeSpent': newTime});
+                                  }
+                                },
+                              ),
+                            ),
+                            const Text("m", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // --- CHECKLIST PROGRESS ---
+                  Row(
+                    children: [
+                      Text("Checklist", style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: AppTheme.fhBgMedium,
+                            color: AppTheme.fhAccentTeal,
+                            minHeight: 4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // --- CHECKLIST ITEMS ---
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: widget.subTask.subSubTasks.length,
+                    itemBuilder: (context, index) {
+                      final sss = widget.subTask.subSubTasks[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20), 
+                          border: Border.all(color: sss.completed ? AppTheme.fhAccentTeal.withValues(alpha: 0.3) : Colors.transparent)
+                        ),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => provider.completeSubSubtask(widget.parentTask.id, widget.subTask.id, sss.id),
+                              child: Icon(
+                                MdiIcons.rhombusMedium, 
+                                size: 16, 
+                                color: sss.completed ? AppTheme.fhAccentTeal : AppTheme.fhTextDisabled
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sss.name,
+                                style: TextStyle(
+                                  color: sss.completed ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
+                                  decoration: sss.completed ? TextDecoration.lineThrough : null,
+                                  fontSize: 13
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => provider.deleteSubSubtask(widget.parentTask.id, widget.subTask.id, sss.id),
+                              child: Icon(MdiIcons.trashCanOutline, size: 16, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // --- ADD CHECKPOINT INPUT ---
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhBgDeepDark,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _checkpointController,
+                            style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                            decoration: const InputDecoration(
+                              hintText: "Add a checkpoint...",
+                              hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12)
+                            ),
+                            onSubmitted: (_) => _handleAddCheckpoint(provider),
+                          ),
+                        ),
+                        // Toggle for countable
+                        Transform.scale(
+                          scale: 0.7,
+                          child: Switch(
+                            value: _isCheckpointCountable, 
+                            onChanged: (val) => setState(() => _isCheckpointCountable = val),
+                            activeColor: AppTheme.fhAccentTeal,
+                            inactiveThumbColor: AppTheme.fhTextDisabled,
+                            inactiveTrackColor: AppTheme.fhBgMedium,
+                          ),
+                        ),
+                        if (_isCheckpointCountable)
+                          SizedBox(
+                            width: 30,
+                            child: TextField(
+                              controller: _checkpointCountController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none
+                              ),
+                            ),
+                          ),
+                        IconButton(
+                          icon: Icon(MdiIcons.plusCircle, color: AppTheme.fhAccentGreen),
+                          onPressed: () => _handleAddCheckpoint(provider),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                        )
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            )
+          ] else ...[
+             Padding(
+               padding: const EdgeInsets.all(12.0),
+               child: Text(
+                 "Completed on ${widget.subTask.completedDate} • ${widget.subTask.currentTimeSpent}m logged",
+                 style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, fontStyle: FontStyle.italic),
+               ),
+             )
+          ]
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/cards/submission_card.dart ---
+
+--- START OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
+// lib/src/providers/actions/ai_generation_actions.dart
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:flutter/foundation.dart'; 
+
+class AIGenerationActions {
+  final AppProvider _provider;
+  final AIService _aiService = AIService();
+
+  AIGenerationActions(this._provider);
+
+  void _logToApp(String logMessage) {
+    if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
+  }
+
+  Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
+      String generationMode, String userInput, int numSubquests) async {
+    if (_provider.isGeneratingSubquests) {
+      debugPrint(
+          "[AIActions] triggerAISubquestGeneration skipped, already in progress for task '${mainTaskForSubquests.name}'.");
+      return;
+    }
+    _provider.setProviderAISubquestLoading(true);
+
+    try {
+      final generatedSubquestsRaw = await _aiService.generateAISubquests(
+        modelName: _provider.settings.aiModelName,
+        mainTaskName: mainTaskForSubquests.name,
+        mainTaskDescription: mainTaskForSubquests.description,
+        mainTaskTheme: mainTaskForSubquests.theme,
+        generationMode: generationMode,
+        userInput: userInput,
+        numSubquests: numSubquests,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        onNewApiKeyIndex: (newIndex) {
+          _provider.setProviderApiKeyIndex(newIndex);
+        },
+        onLog: _logToApp,
+      );
+
+      final List<SubTask> newSubTasksForParent = [];
+      for (var subquestData in generatedSubquestsRaw) {
+        if (subquestData is! Map<String, dynamic>) {
+          continue;
+        }
+
+        final List<Map<String, dynamic>> subSubTasksDataList =
+            (subquestData['subSubTasksData'] as List<dynamic>? ?? [])
+                .map((item) =>
+                    item is Map<String, dynamic> ? item : null)
+                .nonNulls
+                .toList();
+
+        final List<SubSubTask> currentSubSubTasks = [];
+        for (int i = 0; i < subSubTasksDataList.length; i++) {
+          final sssData = subSubTasksDataList[i];
+          currentSubSubTasks.add(SubSubTask(
+            id:
+                'ssub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}_$i',
+            name: sssData['name'] as String? ?? 'Unnamed Sub-Sub-Task',
+            isCountable: sssData['isCountable'] as bool? ?? false,
+            targetCount: (sssData['isCountable'] as bool? ?? false)
+                ? (sssData['targetCount'] as int? ?? 1)
+                : 0,
+          ));
+        }
+
+        final newSubTask = SubTask(
+          id:
+              'sub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}',
+          name: subquestData['name'] as String? ?? 'Unnamed Sub-Task',
+          isCountable: subquestData['isCountable'] as bool? ?? false,
+          targetCount: (subquestData['isCountable'] as bool? ?? false)
+              ? (subquestData['targetCount'] as int? ?? 1)
+              : 0,
+          subSubTasks: currentSubSubTasks,
+        );
+        newSubTasksForParent.add(newSubTask);
+      }
+
+      final newMainTasks = _provider.mainTasks.map((task) {
+        if (task.id == mainTaskForSubquests.id) {
+          return MainTask(
+            id: task.id,
+            name: task.name,
+            description: task.description,
+            theme: task.theme,
+            colorHex: task.colorHex,
+            streak: task.streak,
+            weeklyStreak: task.weeklyStreak,
+            dailyTimeSpent: task.dailyTimeSpent,
+            lastWorkedDate: task.lastWorkedDate,
+            subTasks: [...task.subTasks, ...newSubTasksForParent],
+            weeklyCompletionStatus: task.weeklyCompletionStatus,
+          );
+        }
+        return task;
+      }).toList();
+
+      _provider.setProviderState(mainTasks: newMainTasks);
+    } catch (e, stackTrace) {
+      final errorMessage = e.toString();
+      debugPrint(
+          "[AIActions] CRITICAL ERROR in triggerAISubquestGeneration for task '${mainTaskForSubquests.name}': $errorMessage");
+      if (kDebugMode) {
+        debugPrint(
+            "[AIActions] StackTrace for triggerAISubquestGeneration error: $stackTrace");
+      }
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
+
+--- START OF FILE lib/src/theme/app_theme.dart ---
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  // Valorant-inspired color palette (BASE colors)
+  static const Color fhBgDeepDark = Color(0xFF0F1923); 
+  static const Color fhBgDark = Color(0xFF1A2838); 
+  static const Color fhBgMedium = Color(0xFF203040); 
+  static const Color fhBgLight = Color(0xFF2C3E50); 
+  static const Color fhBorderColor = Color(0xFF384B5F); 
+
+  static const Color fhTextPrimary = Color(0xFFEAEAEA); 
+  static const Color fhTextSecondary = Color(0xFFB0B8C0); 
+  static const Color fhTextDisabled = Color(0xFF707880);
+
+  // Fixed accents (won't change with task theme)
+  static const Color fhAccentRed = Color(0xFFFD4556); // Valorant Red (e.g., for errors, critical actions)
+  static const Color fhAccentTealFixed = Color(0xFF00F8F8); 
+  static const Color fhAccentTeal = Color(0xFF00F8F8); // Default system teal (can be used if no task color)
+  static const Color fhAccentGold = Color(0xFFFFE075); 
+  static const Color fhAccentPurple = Color(0xFF8A2BE2); 
+  static const Color fhAccentGreen = Color(0xFF4CAF50); 
+  static const Color fhAccentOrange = Color(0xFFFF7043); 
+
+  static const String fontDisplay = 'RobotoCondensed'; 
+  static const String fontBody = 'OpenSans';
+
+  
+  // Method to generate ThemeData with a dynamic primary accent color
+  static ThemeData getThemeData({required Color primaryAccent}) {
+    final Brightness accentBrightness = ThemeData.estimateBrightnessForColor(primaryAccent);
+    final Color onPrimaryAccent = accentBrightness == Brightness.dark ? fhTextPrimary : fhBgDark;
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: primaryAccent, // Dynamic primary accent
+      scaffoldBackgroundColor: fhBgDeepDark,
+      
+      // Improved Page Transitions for smoother feel
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+      }),
+
+      colorScheme: ColorScheme.dark(
+        primary: primaryAccent, // Dynamic primary accent
+        secondary: primaryAccent, // Also use dynamic accent for secondary for consistency
+        surface: fhBgDark, 
+        error: fhAccentRed,
+        onPrimary: onPrimaryAccent, // Text on dynamic primary accent
+        onSecondary: onPrimaryAccent, // Text on dynamic secondary accent
+        onSurface: fhTextPrimary, 
+        onError: fhTextPrimary,
+      ),
+
+      fontFamily: fontBody,
+
+      appBarTheme: AppBarTheme(
+        backgroundColor: fhBgDark, 
+        elevation: 0, 
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: fhTextSecondary, size: 22),
+        titleTextStyle: TextStyle(
+          fontFamily: fontDisplay,
+          color: fhTextPrimary,
+          fontWeight: FontWeight.bold,
+          fontSize: 20, 
+          letterSpacing: 1.1,
+        ),
+      ),
+
+      textTheme: TextTheme(
+        displayLarge: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 48, letterSpacing: 1.2),
+        displayMedium: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 36, letterSpacing: 1.1),
+        displaySmall: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.w600, fontSize: 28),
+        headlineLarge: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 22),
+        headlineMedium: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.w600, fontSize: 20),
+        headlineSmall: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontWeight: FontWeight.w500, fontSize: 18),
+        titleLarge: TextStyle(fontFamily: fontBody, color: fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 16),
+        titleMedium: TextStyle(fontFamily: fontBody, color: fhTextPrimary, fontWeight: FontWeight.w500, fontSize: 14),
+        titleSmall: TextStyle(fontFamily: fontBody, color: fhTextSecondary, fontSize: 12, fontWeight: FontWeight.w400),
+        bodyLarge: TextStyle(fontFamily: fontBody, color: fhTextPrimary, fontSize: 15, height: 1.5),
+        bodyMedium: TextStyle(fontFamily: fontBody, color: fhTextSecondary, fontSize: 13, height: 1.4),
+        bodySmall: TextStyle(fontFamily: fontBody, color: fhTextSecondary, fontSize: 11, height: 1.3),
+        labelLarge: TextStyle(fontFamily: fontBody, color: onPrimaryAccent, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 14), 
+        labelMedium: TextStyle(fontFamily: fontBody, color: fhTextSecondary, letterSpacing: 0.8, fontSize: 12),
+        labelSmall: TextStyle(fontFamily: fontBody, color: fhTextSecondary, letterSpacing: 0.5, fontSize: 10),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryAccent, // Dynamic accent for buttons
+          foregroundColor: onPrimaryAccent,
+          textStyle: TextStyle(fontFamily: fontBody, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.8),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+          elevation: 2,
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: primaryAccent, width: 1.5), // Dynamic accent
+          foregroundColor: primaryAccent, // Dynamic accent
+          textStyle: TextStyle(fontFamily: fontBody, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.8),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primaryAccent, // Dynamic accent
+          textStyle: TextStyle(fontFamily: fontBody, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: fhBgMedium.withValues(alpha: 0.8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintStyle: TextStyle(color: fhTextSecondary.withValues(alpha: 0.7), fontFamily: fontBody, fontSize: 13),
+        labelStyle: TextStyle(color: fhTextSecondary, fontFamily: fontBody, fontSize: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4.0),
+          borderSide: const BorderSide(color: fhBorderColor, width: 1.0),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4.0),
+          borderSide: const BorderSide(color: fhBorderColor, width: 1.0),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4.0),
+          borderSide: BorderSide(color: primaryAccent, width: 1.5), // Dynamic accent
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4.0),
+          borderSide: BorderSide(color: fhAccentRed.withValues(alpha: 0.7), width: 1.0),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4.0),
+          borderSide: const BorderSide(color: fhAccentRed, width: 1.5),
+        ),
+        prefixIconColor: fhTextSecondary,
+        suffixIconColor: fhTextSecondary,
+      ),
+
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: primaryAccent, // Dynamic accent for progress
+        linearTrackColor: fhBgMedium,
+        circularTrackColor: fhBgMedium,
+        linearMinHeight: 5,
+      ),
+
+      chipTheme: ChipThemeData(
+        backgroundColor: fhBgMedium,
+        labelStyle: TextStyle(color: fhTextPrimary, fontFamily: fontBody, fontSize: 11),
+        selectedColor: primaryAccent, // Dynamic accent
+        secondarySelectedColor: primaryAccent.withValues(alpha: 0.7), // Dynamic accent
+        disabledColor: fhBorderColor.withValues(alpha: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        side: BorderSide(color: fhBorderColor.withValues(alpha: 0.3)),
+      ),
+
+      tabBarTheme: TabBarThemeData(
+        labelColor: primaryAccent, // Dynamic accent
+        unselectedLabelColor: fhTextSecondary,
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: primaryAccent, width: 2.0), // Dynamic accent
+        ),
+        labelStyle: TextStyle(fontFamily: fontDisplay, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
+        unselectedLabelStyle: TextStyle(fontFamily: fontDisplay, fontWeight: FontWeight.w500, fontSize: 13, letterSpacing: 0.5),
+        indicatorSize: TabBarIndicatorSize.label,
+      ),
+
+      iconTheme: const IconThemeData(
+        color: fhTextSecondary,
+        size: 20,
+      ),
+
+      tooltipTheme: TooltipThemeData(
+        preferBelow: false,
+        textStyle: TextStyle(fontSize: 11, color: fhBgDark, fontFamily: fontBody),
+        decoration: BoxDecoration(
+          color: fhAccentGold.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+
+      dividerTheme: DividerThemeData(
+        color: fhBorderColor.withValues(alpha: 0.5),
+        thickness: 1,
+        space: 1,
+      ),
+
+      cardTheme: CardThemeData(
+        color: fhBgDark, 
+        elevation: 2, // Slight elevation for better separation
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4.0), 
+          side: BorderSide(color: fhBorderColor.withValues(alpha: 0.4), width: 1),
+        ),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+      ),
+
+      listTileTheme: ListTileThemeData(
+        iconColor: fhTextSecondary,
+        textColor: fhTextPrimary,
+        tileColor: Colors.transparent, 
+        selectedTileColor: primaryAccent.withValues(alpha: 0.1), // Dynamic accent
+        titleTextStyle: TextStyle(fontFamily: fontBody, fontSize: 14, fontWeight: FontWeight.w500),
+        subtitleTextStyle: TextStyle(fontFamily: fontBody, fontSize: 12, color: fhTextSecondary),
+        minVerticalPadding: 12,
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+          if (states.contains(WidgetState.selected)) {
+            return primaryAccent; // Dynamic accent
+          }
+          return fhTextSecondary.withValues(alpha: 0.6);
+        }),
+        trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+          if (states.contains(WidgetState.selected)) {
+            return primaryAccent.withValues(alpha: 0.3); // Dynamic accent
+          }
+          return fhBorderColor.withValues(alpha: 0.3);
+        }),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+      ),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: fhBgMedium,
+        titleTextStyle: TextStyle(fontFamily: fontDisplay, color: fhTextPrimary, fontSize: 20, fontWeight: FontWeight.w600),
+        contentTextStyle: TextStyle(fontFamily: fontBody, color: fhTextPrimary, fontSize: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+        elevation: 5,
+      ),
+      
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: fhBgDeepDark,
+          selectedItemColor: primaryAccent, // Dynamic Accent
+          unselectedItemColor: fhTextSecondary.withValues(alpha: 0.8),
+          selectedLabelStyle: TextStyle(fontSize: 10, fontFamily: fontBody, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          unselectedLabelStyle: TextStyle(fontSize: 10, fontFamily: fontBody, letterSpacing: 0.5),
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/theme/app_theme.dart ---
+
+--- START OF FILE lib/src/widgets/ui/reflection_log_card.dart ---
+// lib/src/widgets/ui/reflection_log_card.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class ReflectionLogCard extends StatelessWidget {
+  final ReflectionLog log;
+
+  const ReflectionLogCard({super.key, required this.log});
+
+  @override
+  Widget build(BuildContext context) {
+    // Use fold to safely sum XP, handles empty maps gracefully
+    final totalXp = log.xpGained.values.fold(0, (sum, xp) => sum + xp);
+
+    return Card(
+      color: AppTheme.fhBgDark,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    log.trigger.isNotEmpty ? log.trigger : "Reflection Log",
+                    style: const TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 13
+                    ),
+                  ),
+                ),
+                if (totalXp > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.fhAccentGold.withValues(alpha: 0.3))
+                    ),
+                    child: Text(
+                      "+$totalXp XP", 
+                      style: const TextStyle(
+                        color: AppTheme.fhAccentGold, 
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
+                  )
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              log.aiFeedback.isNotEmpty ? log.aiFeedback : "No feedback recorded.",
+              style: const TextStyle(
+                color: AppTheme.fhTextSecondary, 
+                fontSize: 11, 
+                fontStyle: FontStyle.italic
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/reflection_log_card.dart ---
+
+--- START OF FILE lib/src/widgets/ui/rhombus_checkbox.dart ---
+// lib/src/widgets/ui/rhombus_checkbox.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'dart:math' as math;
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+enum CheckboxSize { small, medium }
+
+class RhombusCheckbox extends StatelessWidget {
+  final bool checked;
+  final ValueChanged<bool?>? onChanged;
+  final bool disabled;
+  final CheckboxSize size;
+
+  const RhombusCheckbox({
+    super.key,
+    required this.checked,
+    required this.onChanged,
+    this.disabled = false,
+    this.size = CheckboxSize.medium,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double dimension =
+        size == CheckboxSize.small ? 18.0 : 22.0; // Overall tap target
+    final double iconSize = size == CheckboxSize.small ? 12.0 : 14.0;
+    final double visualDimension =
+        size == CheckboxSize.small ? 15.0 : 18.0; // Visual size of rhombus
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+
+    Color bgColor = checked
+        ? (appProvider.getSelectedTask()?.taskColor ??
+            AppTheme.fhAccentTealFixed)
+        : AppTheme.fhBgMedium;
+    Color borderColor = disabled
+        ? (checked
+            ? (appProvider.getSelectedTask()?.taskColor ??
+                    AppTheme.fhAccentTealFixed)
+                .withValues(alpha: 0.5)
+            : AppTheme.fhBorderColor.withValues(alpha: 0.5))
+        : (checked
+            ? (appProvider.getSelectedTask()?.taskColor ??
+                AppTheme.fhAccentTealFixed)
+            : AppTheme.fhBorderColor);
+
+    if (disabled && checked) {
+      bgColor = (appProvider.getSelectedTask()?.taskColor ??
+              AppTheme.fhAccentTealFixed)
+          .withValues(alpha: 0.6);
+    } else if (disabled && !checked) {
+      bgColor = AppTheme.fhBgLight.withValues(alpha: 0.4);
+    }
+
+    return InkWell(
+      onTap: disabled ? null : () => onChanged?.call(!checked),
+      borderRadius: BorderRadius.circular(
+          dimension / 4), // Make tap effect slightly rounded
+      child: SizedBox(
+        width: dimension,
+        height: dimension,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.rotate(
+              angle: math.pi / 4, // 45 degrees
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: visualDimension *
+                    0.9, // Make it slightly smaller than container for padding
+                width: visualDimension * 0.9,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  border: Border.all(
+                    color: borderColor,
+                    width: 1.5, // Slightly thicker border
+                  ),
+                ),
+              ),
+            ),
+            if (checked)
+              Icon(
+                MdiIcons.checkBold,
+                size: iconSize,
+                color: disabled
+                    ? AppTheme.fhTextSecondary.withValues(alpha: 0.7)
+                    : AppTheme.fhBgDark,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/rhombus_checkbox.dart ---
+
+--- START OF FILE lib/src/widgets/ui/virtue_circle.dart ---
+// lib/src/widgets/ui/virtue_circle.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class VirtueCircle extends StatelessWidget {
+  final Skill skill;
+  final VoidCallback? onTap;
+
+  const VirtueCircle({super.key, required this.skill, this.onTap});
+
+  Color get color => _getSkillColor(skill.name);
+  IconData get icon => _getSkillIcon(skill.name);
+
+  static Color _getSkillColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return Colors.redAccent;
+      case 'humanity': return Colors.pinkAccent;
+      case 'justice': return Colors.amber;
+      case 'temperance': return Colors.tealAccent;
+      case 'transcendence': return Colors.purpleAccent;
+      default: return Colors.grey;
+    }
+  }
+  
+  static IconData _getSkillIcon(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circle;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = skill.currentXp / skill.maxXp;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100, // Fixed width for grid consistency
+        margin: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.transparent)
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+             SizedBox(
+               height: 60,
+               width: 60,
+               child: Stack(
+                 alignment: Alignment.center,
+                 children: [
+                   SizedBox(
+                     height: 60, width: 60,
+                     child: CircularProgressIndicator(
+                       value: progress,
+                       backgroundColor: AppTheme.fhBgDeepDark,
+                       color: color,
+                       strokeWidth: 5,
+                     ),
+                   ),
+                   Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     children: [
+                       Icon(icon, size: 20, color: color),
+                       const SizedBox(height: 2),
+                       Text(skill.level.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                     ],
+                   )
+                 ],
+               ),
+             ),
+             const SizedBox(height: 8),
+             Text(skill.name.toUpperCase(), 
+               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.fhTextSecondary, letterSpacing: 0.5),
+               textAlign: TextAlign.center,
+               maxLines: 1,
+               overflow: TextOverflow.ellipsis,
+             )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/virtue_circle.dart ---
+
+--- START OF FILE lib/src/widgets/views/chatbot_view.dart ---
+// lib/src/widgets/views/chatbot_view.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';
+
+class ChatbotView extends StatefulWidget {
+  const ChatbotView({super.key});
+
+  @override
+  State<ChatbotView> createState() => _ChatbotViewState();
+}
+
+class _ChatbotViewState extends State<ChatbotView> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AppProvider>(context, listen: false).initializeChatbotMemory();
+      _scrollToBottom();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatbotView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
+    final messageText = _messageController.text.trim();
+    _messageController.clear();
+
+    setState(() => _isSending = true);
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    await appProvider.sendMessageToChatbot(messageText);
+
+    if (mounted) {
+      setState(() => _isSending = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    final chatbotMemory = appProvider.chatbotMemory;
+    final Color dynamicAccent =
+        appProvider.getSelectedTask()?.taskColor ?? theme.colorScheme.secondary;
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: Icon(MdiIcons.refresh,
+                    size: 16, color: AppTheme.fhTextSecondary),
+                label: const Text("Restart Session",
+                    style:
+                        TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                            title: Text("Restart Chat?",
+                                style: TextStyle(color: dynamicAccent)),
+                            content: const Text(
+                                "This will clear the current conversation history, but remembered items and summaries will remain. Continue?"),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                  child: const Text("Cancel")),
+                              ElevatedButton(
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: dynamicAccent),
+                                child: Text("Restart",
+                                    style: TextStyle(
+                                        color: ThemeData.estimateBrightnessForColor(
+                                                    dynamicAccent) ==
+                                                Brightness.dark
+                                            ? AppTheme.fhTextPrimary
+                                            : AppTheme.fhBgDark)),
+                              ),
+                            ],
+                          ));
+                  if (confirm == true) {
+                    appProvider.chatbotMemory.conversationHistory.clear();
+                  }
+                },
+              ),
+            ),
+          ),
+          Expanded(
+            child: chatbotMemory.conversationHistory.isEmpty && !_isSending
+                ? Center(
+                    child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(MdiIcons.robotHappyOutline,
+                          size: 48, color: dynamicAccent.withValues(alpha: 0.7)),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Arcane Advisor Online",
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(color: dynamicAccent),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Ask about your past week's summary, completed goals, or tell me things to 'Remember'.",
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.fhTextSecondary),
+                      ),
+                    ],
+                  ))
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: chatbotMemory.conversationHistory.length +
+                        (_isSending ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (_isSending &&
+                          index == chatbotMemory.conversationHistory.length) {
+                        return _buildMessageBubble(
+                            ChatbotMessage(
+                              id: 'typing',
+                              text: '...',
+                              sender: MessageSender.bot,
+                              timestamp: DateTime.now(),
+                            ),
+                            theme,
+                            dynamicAccent,
+                            true);
+                      }
+                      final message = chatbotMemory.conversationHistory[index];
+                      return _buildMessageBubble(
+                          message, theme, dynamicAccent, false);
+                    },
+                  ),
+          ),
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Send a message to Arcane Advisor...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                        borderSide: const BorderSide(color: AppTheme.fhBorderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                        borderSide:
+                            BorderSide(color: dynamicAccent, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                    style:
+                        const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: _isSending
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: dynamicAccent))
+                      : Icon(MdiIcons.sendCircleOutline, color: dynamicAccent),
+                  onPressed: _isSending ? null : _sendMessage,
+                  iconSize: 28,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(ChatbotMessage message, ThemeData theme,
+      Color dynamicAccent, bool isTyping) {
+    final bool isUser = message.sender == MessageSender.user;
+    final Color bubbleColor = isUser ? dynamicAccent : AppTheme.fhBgMedium;
+    final Color textColor = isUser
+        ? (ThemeData.estimateBrightnessForColor(dynamicAccent) ==
+                Brightness.dark
+            ? AppTheme.fhTextPrimary
+            : AppTheme.fhBgDark)
+        : AppTheme.fhTextPrimary;
+
+    final CrossAxisAlignment crossAxisAlignment =
+        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final MainAxisAlignment mainAxisAlignment =
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: mainAxisAlignment,
+        children: [
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18),
+                    topRight: const Radius.circular(18),
+                    bottomLeft: isUser
+                        ? const Radius.circular(18)
+                        : const Radius.circular(4),
+                    bottomRight: isUser
+                        ? const Radius.circular(4)
+                        : const Radius.circular(18),
+                  ),
+                  border:
+                      Border.all(color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
+              child: Column(
+                crossAxisAlignment: crossAxisAlignment,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message.text,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                        color: textColor, fontSize: 13.5, height: 1.4),
+                  ),
+                  if (message.uiPayload != null) ...[
+                    const SizedBox(height: 8),
+                    _buildDynamicUiWidget(
+                        message.uiPayload!, theme, dynamicAccent),
+                  ],
+                  if (!isTyping) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('HH:mm').format(message.timestamp.toLocal()),
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: textColor.withValues(alpha: 0.7), fontSize: 9),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDynamicUiWidget(
+      DynamicUiPayload payload, ThemeData theme, Color dynamicAccent) {
+    switch (payload.type) {
+      case DynamicUiType.graph:
+        return _buildGraphFromPayload(payload.data, theme, dynamicAccent);
+      case DynamicUiType.unknown:
+      default:
+        return Text(
+          "[Dynamic UI Error: Unknown payload type or data error. Raw: ${jsonEncode(payload.data)}]",
+          style: TextStyle(
+              color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
+              fontSize: 10,
+              fontStyle: FontStyle.italic),
+        );
+    }
+  }
+
+  Widget _buildGraphFromPayload(
+      Map<String, dynamic> data, ThemeData theme, Color dynamicAccent) {
+    final String graphType = data['graphType'] as String? ?? '';
+    final String source = data['source'] as String? ?? '';
+
+    // Emotion tracking removed, returning error for legacy emotion graphs.
+    if (graphType == 'emotion_trend_bar' || source == 'emotion_logs') {
+        return const Text("Emotion tracking is no longer supported.",
+            style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
+    }
+
+    return Text(
+      "[Dynamic UI Error: Graph type '$graphType' or source '$source' not supported. Data: ${jsonEncode(data)}]",
+      style: TextStyle(
+          color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
+          fontSize: 10,
+          fontStyle: FontStyle.italic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+}
+--- END OF FILE lib/src/widgets/views/chatbot_view.dart ---
+
+--- START OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/emotion_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
+import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart'; 
+import 'package:arcane/src/widgets/ui/activity_log_list.dart'; 
+import 'package:arcane/src/widgets/views/stats_carousel_view.dart'; 
+import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DailySummaryView extends StatefulWidget {
+  const DailySummaryView({super.key});
+
+  @override
+  State<DailySummaryView> createState() => _DailySummaryViewState();
+}
+
+class _DailySummaryViewState extends State<DailySummaryView> {
+  String? _selectedDate;
+  double _currentEnergyLevel = 50.0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
+    if (_selectedDate == null && availableDates.isNotEmpty) {
+      _selectedDate = availableDates.first;
+    } else if (_selectedDate != null &&
+        !availableDates.contains(_selectedDate)) {
+      _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
+    }
+  }
+  
+  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
+    showDialog(
+      context: context,
+      builder: (ctx) => EditLogDialog(
+        title: "Edit ${type.capitalize()}",
+        logType: type.toLowerCase(),
+        initialValue: currentValue,
+        onDelete: () {
+          if (_selectedDate == null) return;
+          if (type == 'Energy') provider.deleteEnergyLog(_selectedDate!, index);
+          if (type == 'Reflection') provider.deleteReflectionLog(currentValue['id']);
+        },
+        onSave: (val) {
+          if (_selectedDate == null) return;
+          if (type == 'Energy') provider.updateEnergyLog(_selectedDate!, index, val);
+          if (type == 'Reflection') {
+             provider.updateReflectionLog(
+               currentValue['id'], 
+               trigger: val['trigger'], 
+               emotion: val['emotion'], 
+               reason: val['reason']
+             );
+          }
+        },
+      )
+    );
+  }
+
+  Widget _buildEnergyLoggingRow(
+      AppProvider appProvider, String date, ThemeData theme) {
+    return Card(
+      color: AppTheme.fhBgMedium,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Soul Meter (Energy)",
+                    style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16)),
+                Text("${_currentEnergyLevel.toInt()}%",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                        fontSize: 16,
+                        color: (appProvider.getSelectedTask()?.taskColor ??
+                            AppTheme.fhAccentTealFixed))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 4,
+                activeTrackColor: AppTheme.fhAccentTeal,
+                inactiveTrackColor: AppTheme.fhBgDeepDark,
+                thumbColor: Colors.white,
+                overlayColor: AppTheme.fhAccentTeal.withValues(alpha: 0.2),
+              ),
+              child: Slider(
+                value: _currentEnergyLevel,
+                min: 0,
+                max: 100,
+                divisions: 10,
+                label: "${_currentEnergyLevel.round()}%",
+                onChanged: (double value) {
+                  setState(() {
+                    _currentEnergyLevel = value;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                icon: Icon(MdiIcons.lightningBoltOutline, size: 18),
+                label: const Text('LOG'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  backgroundColor: AppTheme.fhBgDeepDark,
+                  side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5))
+                ),
+                onPressed: () {
+                  appProvider.logEnergy(date, _currentEnergyLevel.toInt());
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildTrendCurveChart<T>(
+      {required List<T> logs,
+      required ThemeData theme,
+      required Color dynamicAccent,
+      required double Function(T) getX,
+      required double Function(T) getY,
+      required String Function(T) getTooltipLabel,
+      required double minY,
+      required double maxY,
+      String? yAxisSuffix}) {
+    if (logs.length < 2) {
+      return SizedBox(
+        height: 200,
+        child: Center(
+            child: Text(
+          "Not enough data for a trend line yet.",
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
+        )),
+      );
+    }
+
+    List<FlSpot> spots =
+        logs.map((log) => FlSpot(getX(log), getY(log))).toList();
+
+    double dataMinX = spots.map((s) => s.x).reduce((a, b) => a < b ? a : b);
+    double dataMaxX = spots.map((s) => s.x).reduce((a, b) => a > b ? a : b);
+    double minX, maxX;
+
+    if (dataMaxX == dataMinX) {
+      minX = dataMinX - 1.0;
+      maxX = dataMaxX + 1.0;
+    } else {
+      double range = dataMaxX - dataMinX;
+      minX = dataMinX - range * 0.05;
+      maxX = dataMaxX + range * 0.05;
+    }
+
+    minX = minX.clamp(0.0, 23.49);
+    maxX = maxX.clamp(minX + 0.1, 23.99);
+
+    if (maxX - minX < 0.2) {
+      double midDataX = (dataMinX + dataMaxX) / 2.0;
+      minX = (midDataX - 0.5).clamp(0.0, 23.0);
+      maxX = (midDataX + 0.5).clamp(minX + 0.1, 23.99);
+      if (maxX <= minX) {
+        minX = 0.0;
+        maxX = 23.99;
+      }
+    }
+
+    return SizedBox(
+      height: 200,
+      child: LineChart(
+        LineChartData(
+          minX: minX,
+          maxX: maxX,
+          minY: minY,
+          maxY: maxY,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            horizontalInterval: (maxY - minY) / 5,
+            verticalInterval: ((maxX - minX) / 5).clamp(0.2, 6.0),
+            getDrawingHorizontalLine: (value) => FlLine(
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
+                strokeWidth: 0.8),
+            getDrawingVerticalLine: (value) => FlLine(
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
+                strokeWidth: 0.8),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: (maxY - minY) / 5,
+                reservedSize: 35,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                      '${value.toInt()}${yAxisSuffix ?? ''}',
+                      style: const TextStyle(
+                          color: AppTheme.fhTextSecondary, fontSize: 10));
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                interval: ((maxX - minX) / 4).ceilToDouble().clamp(0.5, 6.0),
+                getTitlesWidget: (value, meta) {
+                  final hour = value.truncate().clamp(0, 23);
+                  final minute = ((value - hour) * 60).round().clamp(0, 59);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                        DateFormat('HH:mm')
+                            .format(DateTime(2000, 1, 1, hour, minute)),
+                        style: const TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  );
+                },
+              ),
+            ),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(
+              show: true,
+              border:
+                  Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2))),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: dynamicAccent,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) =>
+                    FlDotCirclePainter(
+                        radius: 4,
+                        color: dynamicAccent.withValues(alpha: 0.8),
+                        strokeWidth: 1.5,
+                        strokeColor: AppTheme.fhBgMedium),
+              ),
+              belowBarData: BarAreaData(
+                  show: true, color: dynamicAccent.withValues(alpha: 0.1)),
+            ),
+          ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (touchedSpot) => AppTheme.fhBgDeepDark,
+              getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                return touchedSpots
+                    .map((LineBarSpot touchedSpot) {
+                      final spotIndex = touchedSpot.spotIndex;
+                      if (spotIndex < 0 || spotIndex >= logs.length) return null;
+                      return LineTooltipItem(
+                        getTooltipLabel(logs[spotIndex]),
+                        TextStyle(
+                            color: dynamicAccent,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay),
+                      );
+                    })
+                    .where((item) => item != null)
+                    .map((item) => item!)
+                    .toList();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper to prepare data for charts
+  Map<String, dynamic> _prepareWeeklyData(AppProvider provider) {
+    final today = DateTime.now();
+    final Map<int, double> activityData = {};
+    final Map<int, Color> activityColors = {};
+    final Map<int, double> virtueData = {};
+
+    for (int i = 0; i < 7; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
+      // Activity Data
+      final dayData = provider.completedByDay[dateStr];
+      double totalMins = 0;
+      Color dominantColor = AppTheme.fhBgLight;
+      double maxMinsForTask = 0;
+
+      if (dayData != null && dayData['taskTimes'] != null) {
+        final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+        taskTimes.forEach((taskId, time) {
+          final mins = (time as num).toDouble();
+          totalMins += mins;
+          if (mins > maxMinsForTask) {
+            maxMinsForTask = mins;
+            final task = provider.mainTasks.firstWhere((t) => t.id == taskId, orElse: () => MainTask(id: '', name: '', description: '', theme: ''));
+            dominantColor = task.taskColor;
+          }
+        });
+      }
+      activityData[i] = totalMins;
+      activityColors[i] = dominantColor;
+
+      // Virtue Data
+      final reflections = provider.reflectionLogs.where((l) {
+         return l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day;
+      });
+      double totalXp = 0;
+      for(var ref in reflections) {
+        totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
+      }
+      virtueData[i] = totalXp;
+    }
+
+    return {
+      'activityData': activityData,
+      'activityColors': activityColors,
+      'virtueData': virtueData,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    
+    // Prepare chart data
+    final chartData = _prepareWeeklyData(appProvider);
+
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
+
+    // Handle date selection logic safely
+    if (_selectedDate == null && availableDates.isNotEmpty) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.first);
+      });
+    } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+      });
+    } else if (availableDates.isEmpty) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
+      });
+    }
+
+    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
+    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+
+    final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
+        ? appProvider.getEnergyLogsForDate(_selectedDate!)
+        : [];
+    
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+             final d = DateTime.parse(_selectedDate!);
+             return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
+          }).toList()
+        : [];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isWideScreen = constraints.maxWidth > 800;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- STATS CAROUSEL (Top Section) ---
+              StatsCarouselView(
+                activityData: chartData['activityData'],
+                activityColors: chartData['activityColors'],
+                virtueData: chartData['virtueData'],
+              ),
+              
+              const SizedBox(height: 24),
+              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              const SizedBox(height: 16),
+
+              if (availableDates.isEmpty)
+                Center(
+                    child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32.0),
+                  child: Text("No detailed logs recorded yet.",
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.fhTextSecondary,
+                          fontStyle: FontStyle.italic)),
+                ))
+              else ...[
+                // --- DAILY DETAIL SELECTOR ---
+                DropdownButtonFormField<String>(
+                  value: _selectedDate,
+                  decoration: const InputDecoration(
+                    labelText: 'Inspect Day',
+                    prefixIcon: Icon(MdiIcons.calendarSearchOutline, color: AppTheme.fhAccentTeal)
+                  ),
+                  dropdownColor: AppTheme.fhBgMedium,
+                  items: availableDates.map((date) {
+                    return DropdownMenuItem(
+                      value: date,
+                      child: Text(DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
+                    );
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedDate = value),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Responsive Layout for Charts and Logs
+                if (isWideScreen) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
+                            const SizedBox(height: 12),
+                            Card(
+                              color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: VirtuePieChart(logs: reflectionsForDate),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                             Text(
+                                'Activity Details',
+                                style: theme.textTheme.headlineSmall),
+                             const SizedBox(height: 12),
+                             // Use the ActivityLogList component directly
+                             ActivityLogList(
+                               taskTimes: taskTimes,
+                               subtasksCompleted: subtasksCompleted,
+                               checkpointsCompleted: checkpointsCompleted,
+                             ),
+                          ],
+                        ),
+                      )
+                    ],
+                  )
+                ] else ...[
+                  // Mobile Layout (Vertical Stack)
+                  Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 12),
+                  Card(
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: VirtuePieChart(logs: reflectionsForDate),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
+                  const SizedBox(height: 30),
+                  Text(
+                    'Activity Details',
+                    style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 12),
+                  // Use the ActivityLogList component directly
+                  ActivityLogList(
+                    taskTimes: taskTimes,
+                    subtasksCompleted: subtasksCompleted,
+                    checkpointsCompleted: checkpointsCompleted,
+                  ),
+                ],
+
+                const SizedBox(height: 30),
+
+                // ENERGY TREND GRAPH
+                if (energyLogsForSelectedDate.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Energy Trend", style: theme.textTheme.headlineSmall),
+                      TextButton.icon(
+                        icon: Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed),
+                        label: const Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
+                        onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                   _buildTrendCurveChart<EnergyLog>(
+                      logs: energyLogsForSelectedDate,
+                      theme: theme,
+                      dynamicAccent: AppTheme.fhAccentGold,
+                      getX: (log) {
+                        final logDayMidnight = DateTime(log.timestamp.year,
+                            log.timestamp.month, log.timestamp.day);
+                        return log.timestamp
+                                .difference(logDayMidnight)
+                                .inMinutes /
+                            60.0;
+                      },
+                      getY: (log) => log.level.toDouble(),
+                      getTooltipLabel: (log) =>
+                          '${log.level}% at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
+                      minY: -5,
+                      maxY: 105,
+                      yAxisSuffix: "%",
+                    ),
+                  const SizedBox(height: 16),
+                  ExpansionTile(
+                    title: const Text("View Energy Log History", style: TextStyle(fontSize: 14)),
+                    children: [
+                        ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: energyLogsForSelectedDate.length,
+                        itemBuilder: (ctx, i) {
+                          final log = energyLogsForSelectedDate[i];
+                          return ListTile(
+                            dense: true,
+                            title: Text("${log.level}% Energy"),
+                            subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
+                            leading: Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold, size: 18),
+                            trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                            onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
+                          );
+                        }
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                ],
+                
+                // REFLECTIONS LIST
+                 if (reflectionsForDate.isNotEmpty) ...[
+                   Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
+                   const SizedBox(height: 8),
+                   ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: reflectionsForDate.length,
+                    itemBuilder: (ctx, i) {
+                      final log = reflectionsForDate[i];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        color: AppTheme.fhBgDark,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
+                        ),
+                        child: ListTile(
+                          title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection", style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
+                          leading: Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
+                          trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                          onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
+                            'id': log.id,
+                            'trigger': log.trigger,
+                            'emotion': log.emotion,
+                            'reason': log.reason
+                          }),
+                        ),
+                      );
+                    }
+                  ),
+                  const SizedBox(height: 30),
+                 ],
+              ],
+            ],
+          ),
+        );
+      }
+    );
+  }
+}
+
+extension StringExtension on String {
+    String capitalize() {
+      return "${this[0].toUpperCase()}${this.substring(1)}";
+    }
+}
+--- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+
+--- START OF FILE lib/src/widgets/views/task_details_view.dart ---
+// lib/src/widgets/views/task_details_view.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/cards/submission_card.dart'; // Use new card
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class TaskDetailsView extends StatefulWidget {
+  const TaskDetailsView({super.key});
+
+  @override
+  State<TaskDetailsView> createState() => _TaskDetailsViewState();
+}
+
+class _TaskDetailsViewState extends State<TaskDetailsView> {
+  // ... AI Controllers remain for the generation section
+  String _aiGenerationMode = 'text_list';
+  final _aiUserInputController = TextEditingController();
+  final _aiNumSubquestsController = TextEditingController(text: '3');
+
+  late AppProvider appProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    appProvider = Provider.of<AppProvider>(context, listen: false);
+  }
+
+  @override
+  void dispose() {
+    _aiUserInputController.dispose();
+    _aiNumSubquestsController.dispose();
+    super.dispose();
+  }
+
+  void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
+    if (_aiUserInputController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text("Please provide input for the AI to generate sub-quests."),
+            backgroundColor: AppTheme.fhAccentOrange),
+      );
+      return;
+    }
+    appProvider.triggerAISubquestGeneration(
+        task,
+        _aiGenerationMode,
+        _aiUserInputController.text.trim(),
+        int.tryParse(_aiNumSubquestsController.text) ?? 3);
+    _aiUserInputController.clear();
+  }
+
+  String _formatMinutesToHHMM(int totalMinutes) {
+    final hours = (totalMinutes / 60).floor();
+    final minutes = totalMinutes % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProviderConsumer, child) {
+        final task = appProviderConsumer.getSelectedTask();
+        final theme = Theme.of(context);
+
+        if (task == null) {
+          return Center(
+              child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                 Icon(MdiIcons.textBoxSearchOutline,
+                    size: 56, color: AppTheme.fhAccentTealFixed),
+                const SizedBox(height: 16),
+                Text('Select a Mission',
+                    style: theme.textTheme.displaySmall
+                        ?.copyWith(color: AppTheme.fhAccentTealFixed)),
+                const SizedBox(height: 8),
+                Text(
+                  'Details of the selected mission will appear here.',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: AppTheme.fhTextSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ));
+        }
+
+        const double dailyGoalMinutes = 60.0;
+        final double progress = task.dailyTimeSpent / dailyGoalMinutes;
+        final timeSpentFormatted = _formatMinutesToHHMM(task.dailyTimeSpent);
+        final weeklyCompletion =
+            appProviderConsumer.getCompletionStatusForCurrentWeek(task);
+        final int daysCompleted = weeklyCompletion.where((c) => c).length;
+        final String streakText = daysCompleted >= 7
+            ? "WEEKLY STREAK ACHIEVED"
+            : "WEEKLY PROGRESS";
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(
+              top: 8, bottom: 80, left: 10, right: 10), // Bottom padding for FAB if used
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- MAIN TASK HEADER CARD ---
+              Card(
+                color: AppTheme.fhBgMedium,
+                margin: const EdgeInsets.only(bottom: 16, left: 0, right: 0),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  side: BorderSide(
+                      color: AppTheme.fhBorderColor.withValues(alpha: 0.5), width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.shieldOutline, color: task.taskColor, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${task.theme.toUpperCase()} PROTOCOL',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                                color: (appProvider.getSelectedTask()?.taskColor ??
+                                    AppTheme.fhAccentTealFixed),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(task.name,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 24,
+                              fontFamily: AppTheme.fontDisplay,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(task.description,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.fhTextSecondary,
+                              fontSize: 14,
+                              height: 1.5)),
+                      const SizedBox(height: 20),
+                      // TIME PROGRESS BAR
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgDeepDark,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "TIME ELAPSED",
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      color: AppTheme.fhTextSecondary,
+                                      fontWeight: FontWeight.bold)),
+                                Text(
+                                  "$timeSpentFormatted / 01:00",
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      color: AppTheme.fhTextPrimary,
+                                      fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              clipBehavior: Clip.antiAlias,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(4)),
+                                color: AppTheme.fhBgMedium,
+                              ),
+                              child: FractionallySizedBox(
+                                widthFactor: progress.clamp(0.0, 1.0),
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppTheme.fhAccentTeal.withValues(alpha: 0.7),
+                                        AppTheme.fhAccentTeal,
+                                      ],
+                                    ),
+                                    boxShadow: [BoxShadow(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5), blurRadius: 6, spreadRadius: 1)]
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // STREAK PANEL
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgDeepDark,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(streakText,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: List.generate(7, (index) {
+                                final isComplete =
+                                    weeklyCompletion.length > index &&
+                                        weeklyCompletion[index];
+                                return Container(
+                                  width: 24, height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isComplete ? AppTheme.fhAccentGold.withValues(alpha: 0.2) : Colors.transparent,
+                                    border: Border.all(color: isComplete ? AppTheme.fhAccentGold : AppTheme.fhTextDisabled.withValues(alpha: 0.3))
+                                  ),
+                                  child: isComplete ?  Icon(MdiIcons.check, size: 16, color: AppTheme.fhAccentGold) : null,
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+                child: Text('Sub-Missions',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary,
+                        fontWeight: FontWeight.w600)),
+              ),
+
+              // --- SUB-MISSIONS LIST (USING NEW CARD) ---
+              if (task.subTasks.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                      child: Text(
+                          'No sub-missions recorded yet. Add some manually or use AI.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                              color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
+                              fontStyle: FontStyle.italic))),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: task.subTasks.length,
+                  itemBuilder: (ctx, index) {
+                    final st = task.subTasks[index];
+                    return SubmissionCard(parentTask: task, subTask: st);
+                  },
+                ),
+
+              // --- ADD / AI CARDS ---
+              _buildAddNewSubTaskButton(context, appProviderConsumer, task),
+              _buildAISubQuestCard(theme, appProviderConsumer, task),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: ElevatedButton.icon(
+        icon: Icon(MdiIcons.plusBoxOutline),
+        label: const Text("ADD NEW SUB-MISSION"),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.fhBgMedium,
+          foregroundColor: AppTheme.fhTextPrimary,
+          minimumSize: const Size(double.infinity, 48),
+          side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
+        ),
+        onPressed: () {
+           // Simple dialog to add a subtask name
+           showDialog(
+             context: context,
+             builder: (ctx) {
+               final controller = TextEditingController();
+               return AlertDialog(
+                 backgroundColor: AppTheme.fhBgMedium,
+                 title: const Text("New Sub-Mission"),
+                 content: TextField(
+                   controller: controller,
+                   autofocus: true,
+                   decoration: const InputDecoration(hintText: "Enter title..."),
+                 ),
+                 actions: [
+                   TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
+                   ElevatedButton(
+                     onPressed: () {
+                       if (controller.text.isNotEmpty) {
+                         provider.addSubtask(task.id, {'name': controller.text.trim(), 'isCountable': false});
+                         Navigator.pop(ctx);
+                       }
+                     },
+                     child: const Text("Create")
+                   )
+                 ],
+               );
+             }
+           );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAISubQuestCard(
+      ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
+    return Card(
+      color: AppTheme.fhBgMedium,
+      margin: const EdgeInsets.only(top: 16, left: 0, right: 0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(
+            color: AppTheme.fhAccentPurple, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                 Icon(MdiIcons.robotHappyOutline,
+                    color: AppTheme.fhAccentPurple, size: 22),
+                const SizedBox(width: 10),
+                Text('Generate Sub-Missions with AI',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                  labelText: 'Generation Mode',
+                  labelStyle:
+                      TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
+              dropdownColor: AppTheme.fhBgMedium,
+              value: _aiGenerationMode,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
+              items: const [
+                DropdownMenuItem(
+                    value: 'text_list',
+                    child: Text('From Text List / Outline')),
+                DropdownMenuItem(
+                    value: 'book_chapter',
+                    child: Text('From Book Chapter/Section')),
+                DropdownMenuItem(
+                    value: 'general_plan',
+                    child: Text('From General Plan/Goal')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _aiGenerationMode = value);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _aiUserInputController,
+              decoration: const InputDecoration(
+                labelText: 'Your Input for AI...',
+                alignLabelWithHint: true,
+                labelStyle:
+                    TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody),
+              ),
+              maxLines: null,
+              minLines: 2,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _aiNumSubquestsController,
+              decoration: const InputDecoration(
+                  labelText: 'Approx. # Sub-Missions',
+                  labelStyle:
+                      TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
+              keyboardType: TextInputType.number,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: appProviderConsumer.isGeneratingSubquests
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppTheme.fhBgDeepDark))
+                  :  Icon(MdiIcons.creationOutline, size: 18),
+              label: Text(appProviderConsumer.isGeneratingSubquests
+                  ? 'GENERATING...'
+                  : 'INITIATE AI PROTOCOL'),
+              onPressed: appProviderConsumer.isGeneratingSubquests
+                  ? null
+                  : () => _handleAiGenerateSubquests(appProviderConsumer, task),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.fhAccentPurple,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/task_details_view.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
+// lib/src/widgets/dialogs/edit_log_dialog.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class EditLogDialog extends StatefulWidget {
+  final String title;
+  final dynamic initialValue; // int for Energy, Map for Reflection
+  final String logType; // 'energy', 'reflection'
+  final Function(dynamic) onSave;
+  final Function() onDelete;
+
+  const EditLogDialog({
+    super.key,
+    required this.title,
+    required this.initialValue,
+    required this.logType,
+    required this.onSave,
+    required this.onDelete,
+  });
+
+  @override
+  State<EditLogDialog> createState() => _EditLogDialogState();
+}
+
+class _EditLogDialogState extends State<EditLogDialog> {
+  double _sliderValue = 0;
+  
+  final _triggerController = TextEditingController();
+  final _emotionController = TextEditingController();
+  final _reasonController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.logType == 'energy') {
+      _sliderValue = (widget.initialValue as int).toDouble();
+    } else if (widget.logType == 'reflection') {
+      final data = widget.initialValue as Map<String, String>;
+      _triggerController.text = data['trigger'] ?? '';
+      _emotionController.text = data['emotion'] ?? '';
+      _reasonController.text = data['reason'] ?? '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: Row(
+        children: [
+          Icon(MdiIcons.pencilOutline, color: AppTheme.fhAccentTeal),
+          const SizedBox(width: 10),
+          Text(widget.title, style: const TextStyle(fontSize: 18)),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.logType == 'energy') ...[
+               Text("Level: ${_sliderValue.toInt()}%"),
+               Slider(
+                value: _sliderValue,
+                min: 0, max: 100, divisions: 20,
+                activeColor: AppTheme.fhAccentGold,
+                onChanged: (val) => setState(() => _sliderValue = val),
+              ),
+            ],
+            if (widget.logType == 'reflection') ...[
+              TextField(controller: _triggerController, decoration: const InputDecoration(labelText: 'Trigger')),
+              const SizedBox(height: 8),
+              TextField(controller: _emotionController, decoration: const InputDecoration(labelText: 'Emotion')),
+              const SizedBox(height: 8),
+              TextField(controller: _reasonController, decoration: const InputDecoration(labelText: 'Reason')),
+            ]
+          ],
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        TextButton.icon(
+          icon: Icon(MdiIcons.deleteForever, size: 18),
+          label: const Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
+          onPressed: () async {
+             final confirm = await showDialog<bool>(
+               context: context,
+               builder: (ctx) => AlertDialog(
+                 title: const Text("Delete Log?"),
+                 content: const Text("This action cannot be undone."),
+                 actions: [
+                   TextButton(onPressed: ()=>Navigator.pop(ctx, false), child: const Text("Cancel")),
+                   ElevatedButton(onPressed: ()=>Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed), child: const Text("Confirm")),
+                 ],
+               )
+             );
+             if (confirm == true) {
+               widget.onDelete();
+               if (mounted) Navigator.pop(context);
+             }
+          },
+          style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentRed),
+        ),
+        Row(
+          children: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                if (widget.logType == 'reflection') {
+                  widget.onSave({
+                    'trigger': _triggerController.text,
+                    'emotion': _emotionController.text,
+                    'reason': _reasonController.text
+                  });
+                } else {
+                  widget.onSave(_sliderValue.toInt());
+                }
+                Navigator.pop(context);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
+// lib/src/widgets/dialogs/skill_detail_dialog.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class SkillDetailDialog extends StatelessWidget {
+  final Skill skill;
+  final int xpGainedToday;
+  final Color color;
+  final IconData icon;
+
+  const SkillDetailDialog({
+    super.key,
+    required this.skill,
+    required this.xpGainedToday,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = skill.currentXp / skill.maxXp;
+    
+    return Dialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: color),
+            const SizedBox(height: 16),
+            Text(
+              skill.name.toUpperCase(),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppTheme.fhTextPrimary,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              skill.description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.fhTextSecondary,
+                fontStyle: FontStyle.italic
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("LEVEL ${skill.level}", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+                Text("${skill.currentXp} / ${skill.maxXp} XP", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 12,
+                backgroundColor: AppTheme.fhBgDeepDark,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Improved Today", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  Text(
+                    "+$xpGainedToday XP", 
+                    style: TextStyle(
+                      color: xpGainedToday > 0 ? AppTheme.fhAccentGreen : AppTheme.fhTextDisabled,
+                      fontWeight: FontWeight.bold
+                    )
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.fhBgDark,
+                side: BorderSide(color: color),
+                minimumSize: const Size(double.infinity, 44)
+              ),
+              child: Text("CLOSE", style: TextStyle(color: color)),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/views/settings_view.dart ---
+// lib/src/widgets/views/settings_view.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+
+class SettingsView extends StatefulWidget {
+  const SettingsView({super.key});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  // ... (existing controllers)
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _newUsernameController = TextEditingController();
+  final _aiModelNameController = TextEditingController();
+  final _apiKeyController = TextEditingController(); 
+  final _customChatbotPromptController = TextEditingController(); // New
+  final _customReflectionPromptController = TextEditingController(); // New
+  
+  bool _passwordChangeLoading = false;
+  String _passwordChangeError = '';
+  String _passwordChangeSuccess = '';
+  bool _usernameChangeLoading = false;
+  String _usernameChangeError = '';
+  String _usernameChangeSuccess = '';
+  bool _logoutLoading = false;
+
+  final List<String> _availableModels = [
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
+    _aiModelNameController.text = appProvider.settings.aiModelName;
+    _apiKeyController.text = appProvider.settings.customApiKey ?? '';
+    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
+  }
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _newUsernameController.dispose();
+    _aiModelNameController.dispose();
+    _apiKeyController.dispose();
+    _customChatbotPromptController.dispose();
+    _customReflectionPromptController.dispose();
+    super.dispose();
+  }
+
+  // ... (Change password and username methods same as before)
+   Future<void> _handleChangePassword(AppProvider appProvider) async {
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      setState(() => _passwordChangeError = "Passwords do not match.");
+      return;
+    }
+    if (_newPasswordController.text.length < 6) {
+      setState(() => _passwordChangeError =
+          "Password should be at least 6 characters long.");
+      return;
+    }
+    setState(() {
+      _passwordChangeLoading = true;
+      _passwordChangeError = '';
+      _passwordChangeSuccess = '';
+    });
+    try {
+      await appProvider.changePasswordHandler(_newPasswordController.text);
+      setState(() {
+        _passwordChangeSuccess = "Password changed successfully!";
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+      });
+    } catch (e) {
+      if (e is FirebaseAuthException) {
+        setState(() =>
+            _passwordChangeError = e.message ?? "Failed to change password.");
+      } else {
+        setState(() => _passwordChangeError =
+            "An unexpected error occurred while changing password.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _passwordChangeLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleChangeUsername(AppProvider appProvider) async {
+    if (_newUsernameController.text.trim().isEmpty) {
+      setState(() => _usernameChangeError = "Username cannot be empty.");
+      return;
+    }
+    if (_newUsernameController.text.trim().length < 3) {
+      setState(() =>
+          _usernameChangeError = "Username must be at least 3 characters.");
+      return;
+    }
+    setState(() {
+      _usernameChangeLoading = true;
+      _usernameChangeError = '';
+      _usernameChangeSuccess = '';
+    });
+    try {
+      await appProvider.updateUserDisplayName(_newUsernameController.text.trim());
+      setState(() {
+        _usernameChangeSuccess = "Username updated successfully!";
+      });
+    } catch (e) {
+      if (e is FirebaseAuthException) {
+        setState(() =>
+            _usernameChangeError = e.message ?? "Failed to update username.");
+      } else {
+        setState(() => _usernameChangeError =
+            "An unexpected error occurred while updating username.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _usernameChangeLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleLogout(
+      AppProvider appProvider, BuildContext pageContext) async {
+    setState(() => _logoutLoading = true);
+    try {
+      await appProvider.logoutUser();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(pageContext).showSnackBar(SnackBar(
+          content: Text('Logout failed: ${e.toString()}'),
+          backgroundColor: AppTheme.fhAccentRed));
+    } finally {
+      if (mounted) setState(() => _logoutLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    // ... (Manual save section same as before)
+     String lastSavedString = "Not synced yet.";
+    if (appProvider.lastSuccessfulSaveTimestamp != null) {
+      lastSavedString =
+          "Last synced: ${DateFormat('MMM d, yyyy, hh:mm:ss a').format(appProvider.lastSuccessfulSaveTimestamp!.toLocal())}";
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.cloudSyncOutline,
+              title: 'Cloud Synchronization',
+              children: [
+                  // ... (Save/Load buttons same)
+                  ElevatedButton.icon(
+                  icon: appProvider.isManuallySaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                      : Icon(MdiIcons.cloudUploadOutline, size: 18),
+                  label: const Text('SAVE TO CLOUD NOW'),
+                  onPressed: appProvider.isManuallySaving ||
+                          appProvider.isManuallyLoading
+                      ? null
+                      : () async {
+                          try {
+                            await appProvider.manuallySaveToCloud();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Data saved to cloud.'),
+                                      backgroundColor: AppTheme.fhAccentGreen));
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          'Cloud save failed: ${e.toString()}'),
+                                      backgroundColor: AppTheme.fhAccentRed));
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      backgroundColor: (appProvider.getSelectedTask()?.taskColor ??
+                          AppTheme.fhAccentTealFixed),
+                      foregroundColor: AppTheme.fhBgDark),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  icon: appProvider.isManuallyLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                      : Icon(MdiIcons.cloudDownloadOutline, size: 18),
+                  label: const Text('LOAD FROM CLOUD NOW'),
+                  onPressed: appProvider.isManuallySaving ||
+                          appProvider.isManuallyLoading
+                      ? null
+                      : () async {
+                           // ... confirm dialog
+                            final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Row(children: [
+                                Icon(MdiIcons.cloudQuestionOutline,
+                                    color: AppTheme.fhAccentOrange),
+                                SizedBox(width: 10),
+                                Text('Confirm Load')
+                              ]),
+                              content: const Text(
+                                  'This will overwrite any local unsaved changes with data from the cloud. Are you sure?'),
+                              actionsAlignment: MainAxisAlignment.spaceBetween,
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(false),
+                                    child: const Text('CANCEL')),
+                                ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(true),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppTheme.fhAccentOrange),
+                                    child: const Text('CONFIRM LOAD')),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            try {
+                              await appProvider.manuallyLoadFromCloud();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text('Data loaded from cloud.'),
+                                        backgroundColor:
+                                            AppTheme.fhAccentGreen));
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Cloud load failed: ${e.toString()}'),
+                                        backgroundColor: AppTheme.fhAccentRed));
+                              }
+                            }
+                          }
+                      },
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      backgroundColor: (appProvider.getSelectedTask()?.taskColor ??
+                          AppTheme.fhAccentTealFixed),
+                      foregroundColor: AppTheme.fhBgDark),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    lastSavedString,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ]),
+          
+          // AI CONFIGURATION
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.robotHappyOutline,
+              title: 'AI Configuration',
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _availableModels.contains(appProvider.settings.aiModelName) 
+                      ? appProvider.settings.aiModelName 
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'AI Model Selection',
+                    prefixIcon: Icon(MdiIcons.brain, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgLight,
+                  items: _availableModels.map((m) => DropdownMenuItem(
+                    value: m,
+                    child: Text(m),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                       appProvider.setSettings(appProvider.settings..aiModelName = val);
+                       _aiModelNameController.text = val;
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _aiModelNameController,
+                  decoration:  const InputDecoration(
+                    labelText: 'Custom Model Name (Override)',
+                    hintText: 'e.g., gemini-1.5-pro-latest',
+                    prefixIcon:  Icon(MdiIcons.pencilOutline, size: 20),
+                  ),
+                  onChanged: (value) {
+                    appProvider
+                        .setSettings(appProvider.settings..aiModelName = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _apiKeyController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Custom Gemini API Key (Optional)',
+                    hintText: 'Paste your API Key here',
+                    prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(MdiIcons.contentSave, size: 20),
+                      onPressed: () {
+                         appProvider.setSettings(appProvider.settings..customApiKey = _apiKeyController.text.trim());
+                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key saved locally.")));
+                      },
+                    )
+                  ),
+                  onChanged: (val) {
+                    // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text("Custom System Prompts", style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _customChatbotPromptController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'AI Advisor System Prompt',
+                    hintText: 'Define the persona and behavior of the chatbot.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                     appProvider.setSettings(appProvider.settings..customChatbotPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _customReflectionPromptController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Reflection Analysis System Prompt',
+                    hintText: 'Define how reflections are analyzed and XP awarded.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                     appProvider.setSettings(appProvider.settings..customReflectionPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text("Leave blank to use built-in defaults.", 
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
+              ]),
+              
+          // ... (Rest of the sections: Weekly Progress, User Profile, Interface, Credentials, Reset)
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.calendarWeek,
+              title: 'Weekly Progress',
+              children: [
+                DropdownButtonFormField<int>(
+                  decoration:  const InputDecoration(
+                    labelText: 'Start Day of the Week',
+                    prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgLight,
+                  value: appProvider.settings.startOfWeek,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Monday')),
+                    DropdownMenuItem(value: 2, child: Text('Tuesday')),
+                    DropdownMenuItem(value: 3, child: Text('Wednesday')),
+                    DropdownMenuItem(value: 4, child: Text('Thursday')),
+                    DropdownMenuItem(value: 5, child: Text('Friday')),
+                    DropdownMenuItem(value: 6, child: Text('Saturday')),
+                    DropdownMenuItem(value: 7, child: Text('Sunday')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      appProvider.setSettings(
+                          appProvider.settings..startOfWeek = value);
+                    }
+                  },
+                ),
+              ]),
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.accountEditOutline,
+              title: 'User Profile',
+              children: [
+                  // ... same
+                  TextFormField(
+                  controller: _newUsernameController,
+                  decoration: const InputDecoration(
+                      labelText: 'Display Name',
+                      prefixIcon: Icon(MdiIcons.accountBadgeOutline, size: 20)),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Display name cannot be empty.';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'Must be at least 3 characters.';
+                    }
+                    return null;
+                  },
+                ),
+                if (_usernameChangeError.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(_usernameChangeError,
+                        style: const TextStyle(
+                            color: AppTheme.fhAccentRed, fontSize: 12)),
+                  ),
+                if (_usernameChangeSuccess.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(_usernameChangeSuccess,
+                        style: const TextStyle(
+                            color: AppTheme.fhAccentGreen, fontSize: 12)),
+                  ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: _usernameChangeLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                      : Icon(MdiIcons.contentSaveOutline, size: 18),
+                  label: const Text('UPDATE DISPLAY NAME'),
+                  onPressed: _usernameChangeLoading
+                      ? null
+                      : () => _handleChangeUsername(appProvider),
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44)),
+                ),
+              ]),
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.eyeSettingsOutline,
+              title: 'User Interface Config',
+              children: [
+                 SwitchListTile.adaptive(
+                  title: const Text('Verbose Data Display'),
+                  subtitle: const Text(
+                      'Show detailed descriptions for stats and items throughout the interface.'),
+                  value: appProvider.settings.descriptionsVisible,
+                  onChanged: (value) => appProvider.setSettings(
+                      appProvider.settings..descriptionsVisible = value),
+                  activeTrackColor: (appProvider.getSelectedTask()?.taskColor ??
+                      AppTheme.fhAccentTealFixed),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ]),
+          // ... Credentials & Reset sections
+           if (appProvider.currentUser != null)
+            _buildSettingsSection(appProvider, theme,
+                icon: MdiIcons.shieldAccountOutline,
+                title: 'Access Credentials',
+                children: [
+                    // ... same
+                     TextFormField(
+                    controller: _newPasswordController,
+                    decoration: const InputDecoration(
+                        labelText: 'New Passcode Sequence',
+                        prefixIcon:
+                            Icon(MdiIcons.formTextboxPassword, size: 20)),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    decoration: const InputDecoration(
+                        labelText: 'Confirm Passcode Sequence',
+                        prefixIcon:
+                            Icon(MdiIcons.formTextboxPassword, size: 20)),
+                    obscureText: true,
+                  ),
+                  if (_passwordChangeError.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
+                      child: Text(_passwordChangeError,
+                          style: const TextStyle(
+                              color: AppTheme.fhAccentRed, fontSize: 12)),
+                    ),
+                  if (_passwordChangeSuccess.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
+                      child: Text(_passwordChangeSuccess,
+                          style: const TextStyle(
+                              color: AppTheme.fhAccentGreen, fontSize: 12)),
+                    ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: _passwordChangeLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.fhTextPrimary))
+                        : Icon(MdiIcons.keyChange, size: 18),
+                    label: const Text('UPDATE PASSCODE'),
+                    onPressed: _passwordChangeLoading
+                        ? null
+                        : () => _handleChangePassword(appProvider),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            (appProvider.getSelectedTask()?.taskColor ??
+                                AppTheme.fhAccentTealFixed),
+                        foregroundColor: AppTheme.fhBgDark,
+                        minimumSize: const Size(double.infinity, 44)),
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    icon: _logoutLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.fhAccentOrange))
+                        : Icon(MdiIcons.logoutVariant, size: 18),
+                    label: const Text('TERMINATE SESSION'),
+                    onPressed: _logoutLoading
+                        ? null
+                        : () => _handleLogout(appProvider, context),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.fhAccentOrange,
+                        side: const BorderSide(
+                            color: AppTheme.fhAccentOrange, width: 1.5),
+                        minimumSize: const Size(double.infinity, 44)),
+                  ),
+                ]),
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.databaseRemoveOutline,
+              title: 'Data & System Reset',
+              children: [
+                 // ... same
+                 Text(
+                  'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: Icon(MdiIcons.alertOctagonOutline, size: 18),
+                  label: const Text('PURGE ALL DATA'),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Row(children: [
+                          Icon(MdiIcons.alertOutline,
+                              color: AppTheme.fhAccentRed),
+                          SizedBox(width: 10),
+                          Text('Confirm System Purge',
+                              style: TextStyle(color: AppTheme.fhAccentRed))
+                        ]),
+                        content: const Text(
+                            'Are you absolutely certain you wish to erase all data? This operation cannot be undone and will result in total loss of progress.'),
+                        actionsAlignment: MainAxisAlignment.spaceBetween,
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('CANCEL')),
+                          ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentRed,
+                                  foregroundColor: AppTheme.fhTextPrimary),
+                              child: const Text('CONFIRM PURGE')),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      appProvider.clearAllData();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('All data has been purged.'),
+                                backgroundColor: AppTheme.fhAccentGreen));
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.fhAccentRed,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      minimumSize: const Size(double.infinity, 44)),
+                ),
+              ]),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
+      {required IconData icon,
+      required String title,
+      required List<Widget> children}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon,
+                    color: (appProvider.getSelectedTask()?.taskColor ??
+                        AppTheme.fhAccentTealFixed),
+                    size: 22),
+                const SizedBox(width: 10),
+                Text(title,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            Divider(
+                height: 24,
+                thickness: 0.5,
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/settings_view.dart ---
+
+--- START OF FILE lib/src/widgets/task_navigation_drawer.dart ---
+// lib/src/widgets/task_navigation_drawer.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/models/task_models.dart';
+
+class TaskNavigationDrawer extends StatefulWidget {
+  const TaskNavigationDrawer({super.key});
+
+  @override
+  State<TaskNavigationDrawer> createState() => _TaskNavigationDrawerState();
+}
+
+class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
+  final _newTaskNameController = TextEditingController();
+  final _newTaskDescController = TextEditingController();
+  final _editTaskNameController = TextEditingController();
+  final _editTaskDescController = TextEditingController();
+
+  String _dialogSelectedTheme = 'tech';
+  String _dialogSelectedColorHex =
+      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
+
+  final List<Map<String, dynamic>> _availableThemes = [
+    {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
+    {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
+    {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
+    {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
+    {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
+    {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
+  ];
+
+  Color _getColorForTheme(String themeName) {
+    return _availableThemes.firstWhere((t) => t['name'] == themeName,
+            orElse: () => {'color': AppTheme.fhAccentTealFixed})['color']
+        as Color;
+  }
+
+  @override
+  void dispose() {
+    _newTaskNameController.dispose();
+    _newTaskDescController.dispose();
+    _editTaskNameController.dispose();
+    _editTaskDescController.dispose();
+    super.dispose();
+  }
+
+  IconData _getThemeIcon(String? themeName) {
+    return _availableThemes.firstWhere((t) => t['name'] == themeName,
+            orElse: () => _availableThemes.last)['icon']
+        as IconData;
+  }
+
+  void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
+    _newTaskNameController.clear();
+    _newTaskDescController.clear();
+    _dialogSelectedTheme = 'tech';
+    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme)
+        .value
+        .toRadixString(16)
+        .toUpperCase();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setStateDialog) {
+          return AlertDialog(
+            backgroundColor: AppTheme.fhBgMedium,
+            title: const Text('Add New Mission',
+                style: TextStyle(color: AppTheme.fhAccentRed)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextField(
+                      controller: _newTaskNameController,
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
+                  const SizedBox(height: 8),
+                  TextField(
+                      controller: _newTaskDescController,
+                      decoration: const InputDecoration(labelText: 'Description'),
+                      maxLines: 2),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'Theme'),
+                    dropdownColor: AppTheme.fhBgLight,
+                    value: _dialogSelectedTheme,
+                    items: _availableThemes
+                        .map((themeMap) => DropdownMenuItem<String>(
+                            value: themeMap['name'] as String,
+                            child: Row(
+                              children: [
+                                Icon(
+                                    _getThemeIcon(themeMap['name'] as String),
+                                    size: 18,
+                                    color: themeMap['color'] as Color),
+                                const SizedBox(width: 8),
+                                Text(themeMap['name'] as String),
+                              ],
+                            )))
+                        .toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setStateDialog(() {
+                          _dialogSelectedTheme = newValue;
+                          _dialogSelectedColorHex = _getColorForTheme(newValue)
+                              .value
+                              .toRadixString(16)
+                              .toUpperCase();
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text("Select Theme Color:",
+                      style: Theme.of(context).textTheme.labelMedium),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: _availableThemes.map((themeMap) {
+                      Color color = themeMap['color'] as Color;
+                      String colorHex =
+                          color.value.toRadixString(16).toUpperCase();
+                      bool isSelectedColor = _dialogSelectedColorHex == colorHex;
+
+                      return GestureDetector(
+                        onTap: () => setStateDialog(
+                            () => _dialogSelectedColorHex = colorHex),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(4),
+                            border: isSelectedColor
+                                ? Border.all(color: Colors.white, width: 2)
+                                : Border.all(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    width: 1),
+                          ),
+                          child: isSelectedColor
+                              ? Icon(MdiIcons.check,
+                                  color: ThemeData.estimateBrightnessForColor(
+                                              color) ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black,
+                                  size: 18)
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(dialogContext).pop()),
+              ElevatedButton(
+                child: const Text('Add Mission'),
+                onPressed: () {
+                  if (_newTaskNameController.text.isNotEmpty) {
+                    appProvider.addMainTask(
+                      name: _newTaskNameController.text,
+                      description: _newTaskDescController.text,
+                      theme: _dialogSelectedTheme,
+                      colorHex: _dialogSelectedColorHex,
+                    );
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  void _showEditTaskDialog(
+      BuildContext context, AppProvider appProvider, MainTask taskToEdit) {
+    _editTaskNameController.text = taskToEdit.name;
+    _editTaskDescController.text = taskToEdit.description;
+    _dialogSelectedTheme = taskToEdit.theme;
+    _dialogSelectedColorHex = taskToEdit.colorHex;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setStateDialog) {
+          return AlertDialog(
+            backgroundColor: AppTheme.fhBgMedium,
+            title: const Text('Edit Mission',
+                style: TextStyle(color: AppTheme.fhAccentRed)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextField(
+                      controller: _editTaskNameController,
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
+                  const SizedBox(height: 8),
+                  TextField(
+                      controller: _editTaskDescController,
+                      decoration: const InputDecoration(labelText: 'Description'),
+                      maxLines: 2),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(labelText: 'Theme'),
+                      dropdownColor: AppTheme.fhBgLight,
+                      value: _dialogSelectedTheme,
+                      items: _availableThemes
+                          .map((themeMap) => DropdownMenuItem<String>(
+                              value: themeMap['name'] as String,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                      _getThemeIcon(
+                                          themeMap['name'] as String),
+                                      size: 18,
+                                      color: themeMap['color'] as Color),
+                                  const SizedBox(width: 8),
+                                  Text(themeMap['name'] as String),
+                                ],
+                              )))
+                          .toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setStateDialog(() {
+                            _dialogSelectedTheme = newValue;
+                            _dialogSelectedColorHex =
+                                _getColorForTheme(newValue)
+                                    .value
+                                    .toRadixString(16)
+                                    .toUpperCase();
+                          });
+                        }
+                      }),
+                  const SizedBox(height: 16),
+                  Text("Select Theme Color:",
+                      style: Theme.of(context).textTheme.labelMedium),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: _availableThemes.map((themeMap) {
+                      Color color = themeMap['color'] as Color;
+                      String colorHex =
+                          color.value.toRadixString(16).toUpperCase();
+                      bool isSelectedColor = _dialogSelectedColorHex == colorHex;
+
+                      return GestureDetector(
+                        onTap: () => setStateDialog(
+                            () => _dialogSelectedColorHex = colorHex),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(4),
+                            border: isSelectedColor
+                                ? Border.all(color: Colors.white, width: 2)
+                                : Border.all(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    width: 1),
+                          ),
+                          child: isSelectedColor
+                              ? Icon(MdiIcons.check,
+                                  color: ThemeData.estimateBrightnessForColor(
+                                              color) ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black,
+                                  size: 18)
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(dialogContext).pop()),
+              ElevatedButton(
+                child: const Text('Save Changes'),
+                onPressed: () {
+                  if (_editTaskNameController.text.isNotEmpty) {
+                    appProvider.editMainTask(
+                      taskToEdit.id,
+                      name: _editTaskNameController.text,
+                      description: _editTaskDescController.text,
+                      theme: _dialogSelectedTheme,
+                      colorHex: _dialogSelectedColorHex,
+                    );
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    return Drawer(
+      backgroundColor: AppTheme.fhBgDark,
+      child: Column(
+        children: [
+          AppBar(
+            title: Text('MISSIONS',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                    color: AppTheme.fhTextPrimary, letterSpacing: 1)),
+            automaticallyImplyLeading: false,
+            backgroundColor: AppTheme.fhBgMedium,
+            elevation: 0,
+            actions: [
+              IconButton(
+                icon: Icon(MdiIcons.plusCircleOutline,
+                    color: AppTheme.fhAccentTeal),
+                onPressed: () => _showAddTaskDialog(context, appProvider),
+                tooltip: 'Add New Mission',
+              ),
+            ],
+          ),
+          Expanded(
+            child: appProvider.mainTasks.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'No missions available. Add a new one to begin.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.fhTextSecondary,
+                            fontStyle: FontStyle.italic),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: appProvider.mainTasks.length,
+                    itemBuilder: (context, index) {
+                      final task = appProvider.mainTasks[index];
+                      final isSelected = appProvider.selectedTaskId == task.id;
+                      final taskColor = Color(int.parse("0x${task.colorHex}"));
+
+                      return Material(
+                        color: isSelected
+                            ? taskColor.withValues(alpha: 0.25)
+                            : Colors.transparent,
+                        child: ListTile(
+                          leading: Icon(
+                            _getThemeIcon(task.theme),
+                            color: isSelected
+                                ? taskColor
+                                : AppTheme.fhTextSecondary,
+                            size: 22,
+                          ),
+                          title: Text(
+                            task.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: isSelected
+                                  ? taskColor
+                                  : AppTheme.fhTextPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(MdiIcons.pencilOutline,
+                                size: 18,
+                                color:
+                                    AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
+                            onPressed: () =>
+                                _showEditTaskDialog(context, appProvider, task),
+                            tooltip: 'Edit Mission',
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 6),
+                            constraints: const BoxConstraints(),
+                          ),
+                          selected: isSelected,
+                          onTap: () {
+                            appProvider.setSelectedTaskId(task.id);
+                            if (MediaQuery.of(context).size.width < 900) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          selectedTileColor: taskColor.withValues(alpha: 0.15),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/task_navigation_drawer.dart ---
+
 --- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class VirtuePieChart extends StatefulWidget {
   final List<ReflectionLog> logs;
@@ -19,7 +4051,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
   @override
   Widget build(BuildContext context) {
     if (widget.logs.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           "No virtue data logged today.",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
@@ -39,7 +4071,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     totals.removeWhere((key, value) => value <= 0);
 
     if (totals.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           "No XP gained yet.",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
@@ -64,8 +4096,8 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
 
     return LayoutBuilder(builder: (context, constraints) {
       // Responsive sizing
-      final double chartRadius = constraints.maxWidth < 350 ? 35.0 : 45.0;
-      final double centerRadius = constraints.maxWidth < 300 ? 30.0 : 50.0;
+      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
+      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
       final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
         final isTouched = i == _touchedIndex;
@@ -76,14 +4108,14 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
         final double radius = isTouched ? chartRadius + 8 : chartRadius;
         
         return PieChartSectionData(
-          color: color.withOpacity(isTouched ? 1.0 : 0.8),
+          color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
           value: entry.value.toDouble(),
           title: '', // Hiding title on the chart itself for cleanliness
           radius: radius,
           // Add a border to sections for better separation
           badgeWidget: isTouched ? _buildBadge(entry.key, color) : null,
           badgePositionPercentageOffset: 1.4,
-          borderSide: BorderSide(color: AppTheme.fhBgMedium, width: 2),
+          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
       });
 
@@ -120,7 +4152,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
               children: [
                 Text(
                   centerTopText,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -139,7 +4171,7 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                     fontFamily: AppTheme.fontDisplay,
                     shadows: [
                       Shadow(
-                        color: centerColor.withOpacity(0.5),
+                        color: centerColor.withValues(alpha: 0.5),
                         blurRadius: 10,
                       )
                     ]
@@ -162,9 +4194,9 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
         color: AppTheme.fhBgDeepDark,
         border: Border.all(color: color),
         borderRadius: BorderRadius.circular(4),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)]
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)]
       ),
-      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
+      child:  Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
       // Used an icon marker instead of text to avoid clutter, 
       // since text is now in the center.
     );
@@ -183,3 +4215,155 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
   }
 }
 --- END OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
+
+--- START OF FILE lib/src/widgets/skills_drawer.dart ---
+// lib/src/widgets/skills_drawer.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/reflection_dialog.dart';
+import 'package:arcane/src/widgets/ui/virtue_circle.dart';
+import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
+import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart'; 
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SkillsDrawer extends StatelessWidget {
+  const SkillsDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    final skills = appProvider.skills;
+
+    return Drawer(
+      width: 360, 
+      backgroundColor: AppTheme.fhBgDeepDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 20),
+            decoration: const BoxDecoration(
+              color: AppTheme.fhBgDark,
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
+            ),
+            child: Column(
+              children: [
+                  Icon(MdiIcons.shieldAccount, size: 48, color: AppTheme.fhAccentGold),
+                const SizedBox(height: 12),
+                Text("PERSONA & VIRTUES",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.fhTextPrimary, letterSpacing: 1.2)),
+                const SizedBox(height: 8),
+                Text("Track your internal growth",
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Responsive grid count based on drawer width
+                int crossAxisCount = constraints.maxWidth < 300 ? 2 : 3;
+                
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Skills Grid
+                    GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.85, 
+                      children: skills.map((skill) {
+                        return VirtueCircle(
+                          skill: skill,
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => SkillDetailDialog(
+                                skill: skill,
+                                color: _getSkillColor(skill.name),
+                                icon: _getSkillIcon(skill.name),
+                                xpGainedToday: appProvider.getXpGainedForSkillToday(skill.name),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                    const SizedBox(height: 24),
+                    
+                    ElevatedButton.icon(
+                      icon:   Icon(MdiIcons.notebookEditOutline),
+                      label: const Text("LOG REFLECTION"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        foregroundColor: AppTheme.fhAccentTeal,
+                        side: const BorderSide(color: AppTheme.fhAccentTeal),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const ReflectionDialog(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    if (appProvider.reflectionLogs.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("RECENT INSIGHTS", style: theme.textTheme.labelMedium),
+                          Text("${appProvider.reflectionLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Use reversed to show newest first, take 5
+                      ...appProvider.reflectionLogs.reversed.take(5).map((log) => 
+                        ReflectionLogCard(log: log)
+                      ),
+                    ]
+                  ],
+                );
+              }
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getSkillColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63); // Pink
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return AppTheme.fhTextSecondary;
+    }
+  }
+  
+  IconData _getSkillIcon(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circle;
+    }
+  }
+}
+--- END OF FILE lib/src/widgets/skills_drawer.dart ---

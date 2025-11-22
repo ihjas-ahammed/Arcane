@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/settings_screen.dart';
+import 'package:arcane/src/screens/chatbot_screen.dart'; // Import chatbot
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/skills_drawer.dart'; // New Import
+import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -26,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
+    'ADVISOR', // New Title
     'SETTINGS',
   ];
 
@@ -149,8 +151,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
+    // Tabs Content
     final List<Widget> widgetOptions = <Widget>[
-      // Center the content for large screens to avoid stretching
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
@@ -158,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
+      const ChatbotScreen(), // New Tab View
       const SettingsScreen(),
     ];
 
@@ -165,9 +168,12 @@ class _HomeScreenState extends State<HomeScreen> {
       data: dynamicTheme,
       child: Scaffold(
         key: _scaffoldKey,
-        appBar: HeaderWidget(currentViewLabel: _viewTitles[_selectedIndex]),
+        appBar: HeaderWidget(
+          currentViewLabel: _viewTitles[_selectedIndex],
+          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+        ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(), // New Right Drawer
+        endDrawer: const SkillsDrawer(), // Right Drawer for Persona/Virtues
         body: SafeArea(
           child: Row(
             children: [
@@ -185,38 +191,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const TaskNavigationDrawer(),
                 ),
               Expanded(
-                child: Stack(
-                  children: [
-                    IndexedStack(
-                      index: _selectedIndex,
-                      children: widgetOptions,
-                    ),
-                    // Floating button to open right drawer (Persona) on mobile/desktop if not swiping
-                    Positioned(
-                      right: 0,
-                      top: 100,
-                      child: GestureDetector(
-                        onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.fhBgMedium,
-                            borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
-                            border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.5)),
-                          ),
-                          child:  Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 20),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: widgetOptions,
                 ),
               ),
             ],
           ),
         ),
         bottomNavigationBar: BottomNavigationBar(
-          items:  <BottomNavigationBarItem>[
+          items: <BottomNavigationBarItem>[
             BottomNavigationBarItem(
               icon: Icon(MdiIcons.targetAccount),
               label: 'Missions',
@@ -224,6 +208,10 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Icon(MdiIcons.bookOpenVariant),
               label: 'Logbook',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.robotHappyOutline),
+              label: 'Advisor',
             ),
             BottomNavigationBarItem(
               icon: Icon(MdiIcons.cogOutline),

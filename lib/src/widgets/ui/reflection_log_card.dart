@@ -18,7 +18,7 @@ class ReflectionLogCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(6),
-        side: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))
+        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
       ),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
@@ -42,9 +42,9 @@ class ReflectionLogCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.fhAccentGold.withOpacity(0.15),
+                      color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.3))
+                      border: Border.all(color: AppTheme.fhAccentGold.withValues(alpha: 0.3))
                     ),
                     child: Text(
                       "+$totalXp XP", 
