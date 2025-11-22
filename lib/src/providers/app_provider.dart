@@ -653,7 +653,7 @@ class AppProvider with ChangeNotifier {
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
-  Future<void> processReflection({
+  Future<Map<String, int>> processReflection({
     required String trigger,
     required String emotion,
     required String reason,
@@ -700,6 +700,8 @@ class AppProvider with ChangeNotifier {
     _skills = updatedSkills;
     _hasUnsavedChanges = true;
     notifyListeners();
+    
+    return xpAllocation;
   }
 
   void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {

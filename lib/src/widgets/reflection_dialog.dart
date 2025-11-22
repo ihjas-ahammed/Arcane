@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -17,6 +18,7 @@ class _ReflectionDialogState extends State<ReflectionDialog> {
   final _emotionController = TextEditingController();
   final _reasonController = TextEditingController();
   bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +63,14 @@ class _ReflectionDialogState extends State<ReflectionDialog> {
               ),
               maxLines: 2,
             ),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Text(
+                  "Error: $_errorMessage",
+                  style: const TextStyle(color: AppTheme.fhAccentRed, fontSize: 12),
+                ),
+              ),
           ],
         ),
       ),
@@ -69,11 +79,16 @@ class _ReflectionDialogState extends State<ReflectionDialog> {
           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
           child: const Text("Cancel"),
         ),
+        if (_errorMessage != null)
+          TextButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: const Text("Retry", style: TextStyle(color: AppTheme.fhAccentOrange)),
+          ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple),
           onPressed: _isSubmitting ? null : _submit,
           child: _isSubmitting 
-            ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
             : const Text("Analyze & Submit"),
         ),
       ],
@@ -83,29 +98,28 @@ class _ReflectionDialogState extends State<ReflectionDialog> {
   Future<void> _submit() async {
     if (_triggerController.text.isEmpty || _emotionController.text.isEmpty) return;
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
 
     final provider = Provider.of<AppProvider>(context, listen: false);
     try {
-      await provider.processReflection(
+      final xpGained = await provider.processReflection(
         trigger: _triggerController.text,
         emotion: _emotionController.text,
         reason: _reasonController.text,
       );
+      
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Reflection logged! Virtues updated."),
-            backgroundColor: AppTheme.fhAccentGreen,
-          ),
-        );
+        Navigator.pop(context); // Close form
+        showDialog(context: context, builder: (ctx) => XpGainDialog(xpGained: xpGained));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed),
-        );
+        setState(() {
+          _errorMessage = e.toString();
+        });
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

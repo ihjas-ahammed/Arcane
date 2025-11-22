@@ -65,7 +65,7 @@ class AIService {
          onLog("<span style=\"color:var(--fh-accent-orange);\">Key $keyAttemptIndex failed: ${e.toString()}</span>");
       }
     }
-    throw Exception("All API keys failed.");
+    throw Exception("All API keys failed. Please check your connection or keys.");
   }
 
   Future<Map<String, dynamic>> makeAICall({
@@ -137,23 +137,15 @@ class AIService {
     Ensure the sum of xp_allocation values is exactly 50.
     """;
 
-    try {
-      return await makeAICall(
-        prompt: prompt,
-        modelName: modelName,
-        customApiKey: customApiKey,
-        currentApiKeyIndex: 0, 
-        onNewApiKeyIndex: (_) {},
-        onLog: (_) {},
-      );
-    } catch (e) {
-      return {
-        "feedback": "Analysis unavailable. Keep reflecting to grow.",
-        "xp_allocation": {
-          "Wisdom": 10, "Courage": 5, "Humanity": 5, "Justice": 5, "Temperance": 15, "Transcendence": 10
-        }
-      };
-    }
+    // We propagate errors here to allow the UI to show a 'Retry' button
+    return await makeAICall(
+      prompt: prompt,
+      modelName: modelName,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: 0, 
+      onNewApiKeyIndex: (_) {},
+      onLog: (_) {},
+    );
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
