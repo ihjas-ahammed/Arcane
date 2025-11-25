@@ -1,6 +1,5 @@
 // lib/src/providers/actions/task_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/utils/helpers.dart';
@@ -39,8 +38,6 @@ class TaskActions {
           description: description,
           theme: theme,
           colorHex: colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks,
@@ -61,7 +58,6 @@ class TaskActions {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
-          'energyLogs': <Map<String, dynamic>>[]
         });
 
     if (type == 'taskTime') {
@@ -121,8 +117,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: [...task.subTasks, newSubtask],
@@ -172,14 +166,6 @@ class TaskActions {
           'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
     }
 
-    final int oldDailyTotalBeforeThisChange =
-        taskToUpdate.dailyTimeSpent - timeDifference;
-    if (oldDailyTotalBeforeThisChange < dailyTaskGoalMinutes &&
-        taskToUpdate.dailyTimeSpent >= dailyTaskGoalMinutes) {
-      taskToUpdate.streak = taskToUpdate.streak + 1;
-      _provider.markDailyTaskGoalMet(taskToUpdate.id);
-    }
-
     final newMainTasks = _provider.mainTasks
         .map((t) => t.id == mainTaskId ? taskToUpdate : t)
         .toList();
@@ -219,8 +205,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -266,8 +250,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
@@ -325,8 +307,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: [...task.subTasks, newSubtask],
@@ -359,8 +339,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -397,8 +375,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -461,8 +437,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {
@@ -553,8 +527,6 @@ class TaskActions {
           description: task.description,
           theme: task.theme,
           colorHex: task.colorHex,
-          streak: task.streak,
-          weeklyStreak: task.weeklyStreak,
           dailyTimeSpent: task.dailyTimeSpent,
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks.map((st) {

@@ -137,7 +137,23 @@ class _SubmissionCardState extends State<SubmissionCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (!widget.subTask.completed)
+                // Completed state options
+                if (widget.subTask.completed) ...[
+                  IconButton(
+                    icon:  Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextSecondary),
+                    onPressed: () => provider.duplicateCompletedSubtask(widget.parentTask.id, widget.subTask.id),
+                    tooltip: "Duplicate Task",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon:  Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
+                    onPressed: () => provider.deleteSubtask(widget.parentTask.id, widget.subTask.id),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  )
+                ] else ...[
                   IconButton(
                     icon:  Icon(MdiIcons.pencilOutline, size: 16, color: AppTheme.fhTextSecondary),
                     onPressed: () {},
@@ -145,14 +161,14 @@ class _SubmissionCardState extends State<SubmissionCard> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                 const SizedBox(width: 8),
-                 if (!widget.subTask.completed)
+                  const SizedBox(width: 8),
                   IconButton(
                     icon:  Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed),
                     onPressed: () => provider.deleteSubtask(widget.parentTask.id, widget.subTask.id),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   )
+                ]
               ],
             ),
           ),

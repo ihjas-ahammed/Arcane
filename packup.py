@@ -43,7 +43,9 @@ ADDITIONAL_IGNORE_PATTERNS = [
     "linux/",
     "android/",
     "ios/",
-    "ai.txt"
+    "ai.txt",
+    "ai.md",
+    "project_snapshot.txt"
    # The script dynamically adds its own output file to this list later.
     # Note: Rely on project's .gitignore for most build artifacts like 'build/',
     # 'ios/Pods/', 'android/.gradle/' as they can be configured differently.

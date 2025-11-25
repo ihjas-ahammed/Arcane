@@ -90,8 +90,13 @@ class WeeklyActivityBarChart extends StatelessWidget {
 
 class WeeklyVirtueBarChart extends StatelessWidget {
   final Map<int, double> weeklyXp; // Key: 0 (Today) -> 6
+  final Map<int, Color> dominantVirtueColors; // Key: 0 (Today) -> 6
 
-  const WeeklyVirtueBarChart({super.key, required this.weeklyXp});
+  const WeeklyVirtueBarChart({
+    super.key, 
+    required this.weeklyXp,
+    this.dominantVirtueColors = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -144,13 +149,14 @@ class WeeklyVirtueBarChart extends StatelessWidget {
         barGroups: List.generate(7, (index) {
           final daysAgo = 6 - index;
           final value = weeklyXp[daysAgo] ?? 0.0;
+          final color = dominantVirtueColors[daysAgo] ?? AppTheme.fhAccentGold;
 
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
                 toY: value,
-                color: AppTheme.fhAccentGold,
+                color: color,
                 width: 12,
                 borderRadius: BorderRadius.circular(4),
                 backDrawRodData: BackgroundBarChartRodData(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/emotion_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
@@ -12,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart'; // for firstWhereOrNull
 
 class DailySummaryView extends StatefulWidget {
   const DailySummaryView({super.key});
@@ -22,7 +22,6 @@ class DailySummaryView extends StatefulWidget {
 
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
-  double _currentEnergyLevel = 50.0;
 
   @override
   void didChangeDependencies() {
@@ -47,12 +46,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         initialValue: currentValue,
         onDelete: () {
           if (_selectedDate == null) return;
-          if (type == 'Energy') provider.deleteEnergyLog(_selectedDate!, index);
+          // Energy log delete removed
           if (type == 'Reflection') provider.deleteReflectionLog(currentValue['id']);
         },
         onSave: (val) {
           if (_selectedDate == null) return;
-          if (type == 'Energy') provider.updateEnergyLog(_selectedDate!, index, val);
+          // Energy log update removed
           if (type == 'Reflection') {
              provider.updateReflectionLog(
                currentValue['id'], 
@@ -66,239 +65,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     );
   }
 
-  Widget _buildEnergyLoggingRow(
-      AppProvider appProvider, String date, ThemeData theme) {
-    return Card(
-      color: AppTheme.fhBgMedium,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("Soul Meter (Energy)",
-                    style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16)),
-                Text("${_currentEnergyLevel.toInt()}%",
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                        fontSize: 16,
-                        color: (appProvider.getSelectedTask()?.taskColor ??
-                            AppTheme.fhAccentTealFixed))),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 4,
-                activeTrackColor: AppTheme.fhAccentTeal,
-                inactiveTrackColor: AppTheme.fhBgDeepDark,
-                thumbColor: Colors.white,
-                overlayColor: AppTheme.fhAccentTeal.withValues(alpha: 0.2),
-              ),
-              child: Slider(
-                value: _currentEnergyLevel,
-                min: 0,
-                max: 100,
-                divisions: 10,
-                label: "${_currentEnergyLevel.round()}%",
-                onChanged: (double value) {
-                  setState(() {
-                    _currentEnergyLevel = value;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                icon: Icon(MdiIcons.lightningBoltOutline, size: 18),
-                label: const Text('LOG'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  backgroundColor: AppTheme.fhBgDeepDark,
-                  side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5))
-                ),
-                onPressed: () {
-                  appProvider.logEnergy(date, _currentEnergyLevel.toInt());
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildTrendCurveChart<T>(
-      {required List<T> logs,
-      required ThemeData theme,
-      required Color dynamicAccent,
-      required double Function(T) getX,
-      required double Function(T) getY,
-      required String Function(T) getTooltipLabel,
-      required double minY,
-      required double maxY,
-      String? yAxisSuffix}) {
-    if (logs.length < 2) {
-      return SizedBox(
-        height: 200,
-        child: Center(
-            child: Text(
-          "Not enough data for a trend line yet.",
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
-        )),
-      );
-    }
-
-    List<FlSpot> spots =
-        logs.map((log) => FlSpot(getX(log), getY(log))).toList();
-
-    double dataMinX = spots.map((s) => s.x).reduce((a, b) => a < b ? a : b);
-    double dataMaxX = spots.map((s) => s.x).reduce((a, b) => a > b ? a : b);
-    double minX, maxX;
-
-    if (dataMaxX == dataMinX) {
-      minX = dataMinX - 1.0;
-      maxX = dataMaxX + 1.0;
-    } else {
-      double range = dataMaxX - dataMinX;
-      minX = dataMinX - range * 0.05;
-      maxX = dataMaxX + range * 0.05;
-    }
-
-    minX = minX.clamp(0.0, 23.49);
-    maxX = maxX.clamp(minX + 0.1, 23.99);
-
-    if (maxX - minX < 0.2) {
-      double midDataX = (dataMinX + dataMaxX) / 2.0;
-      minX = (midDataX - 0.5).clamp(0.0, 23.0);
-      maxX = (midDataX + 0.5).clamp(minX + 0.1, 23.99);
-      if (maxX <= minX) {
-        minX = 0.0;
-        maxX = 23.99;
-      }
-    }
-
-    return SizedBox(
-      height: 200,
-      child: LineChart(
-        LineChartData(
-          minX: minX,
-          maxX: maxX,
-          minY: minY,
-          maxY: maxY,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: true,
-            horizontalInterval: (maxY - minY) / 5,
-            verticalInterval: ((maxX - minX) / 5).clamp(0.2, 6.0),
-            getDrawingHorizontalLine: (value) => FlLine(
-                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
-                strokeWidth: 0.8),
-            getDrawingVerticalLine: (value) => FlLine(
-                color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
-                strokeWidth: 0.8),
-          ),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: (maxY - minY) / 5,
-                reservedSize: 35,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                      '${value.toInt()}${yAxisSuffix ?? ''}',
-                      style: const TextStyle(
-                          color: AppTheme.fhTextSecondary, fontSize: 10));
-                },
-              ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: ((maxX - minX) / 4).ceilToDouble().clamp(0.5, 6.0),
-                getTitlesWidget: (value, meta) {
-                  final hour = value.truncate().clamp(0, 23);
-                  final minute = ((value - hour) * 60).round().clamp(0, 59);
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                        DateFormat('HH:mm')
-                            .format(DateTime(2000, 1, 1, hour, minute)),
-                        style: const TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
-                  );
-                },
-              ),
-            ),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          borderData: FlBorderData(
-              show: true,
-              border:
-                  Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2))),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: dynamicAccent,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) =>
-                    FlDotCirclePainter(
-                        radius: 4,
-                        color: dynamicAccent.withValues(alpha: 0.8),
-                        strokeWidth: 1.5,
-                        strokeColor: AppTheme.fhBgMedium),
-              ),
-              belowBarData: BarAreaData(
-                  show: true, color: dynamicAccent.withValues(alpha: 0.1)),
-            ),
-          ],
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (touchedSpot) => AppTheme.fhBgDeepDark,
-              getTooltipItems: (List<LineBarSpot> touchedSpots) {
-                return touchedSpots
-                    .map((LineBarSpot touchedSpot) {
-                      final spotIndex = touchedSpot.spotIndex;
-                      if (spotIndex < 0 || spotIndex >= logs.length) return null;
-                      return LineTooltipItem(
-                        getTooltipLabel(logs[spotIndex]),
-                        TextStyle(
-                            color: dynamicAccent,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay),
-                      );
-                    })
-                    .where((item) => item != null)
-                    .map((item) => item!)
-                    .toList();
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // Helper to prepare data for charts
   Map<String, dynamic> _prepareWeeklyData(AppProvider provider) {
     final today = DateTime.now();
     final Map<int, double> activityData = {};
     final Map<int, Color> activityColors = {};
     final Map<int, double> virtueData = {};
+    final Map<int, Color> virtueColors = {}; // New
 
     for (int i = 0; i < 7; i++) {
       final date = today.subtract(Duration(days: i));
@@ -329,17 +102,48 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final reflections = provider.reflectionLogs.where((l) {
          return l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day;
       });
+      
       double totalXp = 0;
+      Map<String, int> virtueTotals = {};
       for(var ref in reflections) {
+        ref.xpGained.forEach((k, v) {
+           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
+        });
         totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
       }
       virtueData[i] = totalXp;
+      
+      // Determine Dominant Virtue Color
+      Color dominantVirtueColor = AppTheme.fhAccentGold;
+      if (virtueTotals.isNotEmpty) {
+        var maxVirtue = virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
+        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+      }
+      virtueColors[i] = dominantVirtueColor;
+    }
+    
+    // Prepare Daily Time Data for Pie Chart
+    Map<String, double> dailyTaskTimeData = {};
+    Map<String, Color> taskColors = {};
+    if (_selectedDate != null) {
+      final summaryData = provider.completedByDay[_selectedDate!];
+      if (summaryData != null && summaryData['taskTimes'] != null) {
+        (summaryData['taskTimes'] as Map<String, dynamic>).forEach((taskId, time) {
+           final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+           final String name = task?.name ?? "Unknown";
+           dailyTaskTimeData[name] = (time as num).toDouble();
+           taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+        });
+      }
     }
 
     return {
       'activityData': activityData,
       'activityColors': activityColors,
       'virtueData': virtueData,
+      'virtueColors': virtueColors,
+      'dailyTaskTimeData': dailyTaskTimeData,
+      'taskColors': taskColors,
     };
   }
 
@@ -348,9 +152,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
     
-    // Prepare chart data
-    final chartData = _prepareWeeklyData(appProvider);
-
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
 
@@ -368,16 +169,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
       });
     }
+    
+    // Prepare chart data AFTER determining selection
+    final chartData = _prepareWeeklyData(appProvider);
 
     final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
     final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
     final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
-    final List<EnergyLog> energyLogsForSelectedDate = _selectedDate != null
-        ? appProvider.getEnergyLogsForDate(_selectedDate!)
-        : [];
-    
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
              final d = DateTime.parse(_selectedDate!);
@@ -399,6 +199,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 activityData: chartData['activityData'],
                 activityColors: chartData['activityColors'],
                 virtueData: chartData['virtueData'],
+                virtueColors: chartData['virtueColors'],
+                dailyTaskTimeData: chartData['dailyTaskTimeData'],
+                taskColors: chartData['taskColors'],
               ),
               
               const SizedBox(height: 24),
@@ -452,8 +255,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                 child: VirtuePieChart(logs: reflectionsForDate),
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
                           ],
                         ),
                       ),
@@ -466,7 +267,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                 'Activity Details',
                                 style: theme.textTheme.headlineSmall),
                              const SizedBox(height: 12),
-                             // Use the ActivityLogList component directly
                              ActivityLogList(
                                taskTimes: taskTimes,
                                subtasksCompleted: subtasksCompleted,
@@ -489,13 +289,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  _buildEnergyLoggingRow(appProvider, _selectedDate!, theme),
-                  const SizedBox(height: 30),
                   Text(
                     'Activity Details',
                     style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 12),
-                  // Use the ActivityLogList component directly
                   ActivityLogList(
                     taskTimes: taskTimes,
                     subtasksCompleted: subtasksCompleted,
@@ -504,64 +301,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 ],
 
                 const SizedBox(height: 30),
-
-                // ENERGY TREND GRAPH
-                if (energyLogsForSelectedDate.isNotEmpty) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Energy Trend", style: theme.textTheme.headlineSmall),
-                      TextButton.icon(
-                        icon: Icon(MdiIcons.deleteSweepOutline, size: 16, color: AppTheme.fhAccentRed),
-                        label: const Text("Clear Latest", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
-                        onPressed: () => appProvider.deleteLatestEnergyLog(_selectedDate!),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                   _buildTrendCurveChart<EnergyLog>(
-                      logs: energyLogsForSelectedDate,
-                      theme: theme,
-                      dynamicAccent: AppTheme.fhAccentGold,
-                      getX: (log) {
-                        final logDayMidnight = DateTime(log.timestamp.year,
-                            log.timestamp.month, log.timestamp.day);
-                        return log.timestamp
-                                .difference(logDayMidnight)
-                                .inMinutes /
-                            60.0;
-                      },
-                      getY: (log) => log.level.toDouble(),
-                      getTooltipLabel: (log) =>
-                          '${log.level}% at ${DateFormat('HH:mm').format(log.timestamp.toLocal())}',
-                      minY: -5,
-                      maxY: 105,
-                      yAxisSuffix: "%",
-                    ),
-                  const SizedBox(height: 16),
-                  ExpansionTile(
-                    title: const Text("View Energy Log History", style: TextStyle(fontSize: 14)),
-                    children: [
-                        ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: energyLogsForSelectedDate.length,
-                        itemBuilder: (ctx, i) {
-                          final log = energyLogsForSelectedDate[i];
-                          return ListTile(
-                            dense: true,
-                            title: Text("${log.level}% Energy"),
-                            subtitle: Text(DateFormat('HH:mm').format(log.timestamp)),
-                            leading: Icon(MdiIcons.lightningBolt, color: AppTheme.fhAccentGold, size: 18),
-                            trailing: Icon(MdiIcons.pencilOutline, size: 16),
-                            onTap: () => _showEditDialog(context, appProvider, 'Energy', i, log.level),
-                          );
-                        }
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                ],
                 
                 // REFLECTIONS LIST
                  if (reflectionsForDate.isNotEmpty) ...[
@@ -603,6 +342,18 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         );
       }
     );
+  }
+
+  Color _getVirtueColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return Colors.grey;
+    }
   }
 }
 

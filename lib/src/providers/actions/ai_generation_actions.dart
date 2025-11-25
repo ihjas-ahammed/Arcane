@@ -87,8 +87,6 @@ class AIGenerationActions {
             description: task.description,
             theme: task.theme,
             colorHex: task.colorHex,
-            streak: task.streak,
-            weeklyStreak: task.weeklyStreak,
             dailyTimeSpent: task.dailyTimeSpent,
             lastWorkedDate: task.lastWorkedDate,
             subTasks: [...task.subTasks, ...newSubTasksForParent],

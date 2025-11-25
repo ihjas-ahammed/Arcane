@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/emotion_models.dart';
 import 'package:arcane/src/models/skill_models.dart'; 
 
 import 'actions/task_actions.dart';
@@ -215,8 +214,7 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent(
-            'energyLogs', () => <Map<String, dynamic>>[]);
+        // Remove energy logs loading
       }
     });
 
@@ -450,6 +448,19 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // New Method to get Yesterday's Time for Comparison
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+
+    final dayData = _completedByDay[yesterdayStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+      return (taskTimes[taskId] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
   Future<void> _handleDailyReset() async {
      if (_currentUser == null) return;
     final today = helper.getTodayDateString();
@@ -459,7 +470,12 @@ class AppProvider with ChangeNotifier {
       hasResetRun = true;
       _lastLoginDate = today;
       _hasUnsavedChanges = true;
-      scheduleEmotionReminders();
+      // Reset daily time spent for all tasks on a new day
+      for (var task in _mainTasks) {
+        if (task.lastWorkedDate != today) {
+          task.dailyTimeSpent = 0;
+        }
+      }
     }
 
     if (hasResetRun) {
@@ -472,76 +488,8 @@ class AppProvider with ChangeNotifier {
   }
 
   // ----------------------------------------------------------------
-  // Logging Management (Energy, Reflections)
+  // Logging Management (Reflections only, Energy Removed)
   // ----------------------------------------------------------------
-
-  void logEnergy(String date, int level, [DateTime? customTimestamp]) {
-    final timestamp = customTimestamp ?? DateTime.now();
-    final energyLog = EnergyLog(timestamp: timestamp, level: level);
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ??
-        {
-          'taskTimes': <String, int>{},
-          'subtasksCompleted': <Map<String, dynamic>>[],
-          'checkpointsCompleted': <Map<String, dynamic>>[],
-          'energyLogs': <Map<String, dynamic>>[]
-        });
-    final energyLogsList =
-        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
-    if (energyLogsList.length >= 10) energyLogsList.removeAt(0);
-    energyLogsList.add(energyLog.toJson());
-    energyLogsList.sort(
-        (a, b) => (a['timestamp'] as String).compareTo(b['timestamp'] as String));
-    dayData['energyLogs'] = energyLogsList;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
-  }
-
-  List<EnergyLog> getEnergyLogsForDate(String date) {
-    final dayData = _completedByDay[date] as Map<String, dynamic>?;
-    if (dayData == null || dayData['energyLogs'] == null) return [];
-    return (dayData['energyLogs'] as List<dynamic>)
-        .map((logJson) => EnergyLog.fromJson(logJson as Map<String, dynamic>))
-        .toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-  }
-
-  void deleteEnergyLog(String date, int index) {
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    final energyLogsList =
-        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
-    
-    if (index >= 0 && index < energyLogsList.length) {
-      energyLogsList.removeAt(index);
-      dayData['energyLogs'] = energyLogsList;
-      newCompletedByDay[date] = dayData;
-      setProviderState(completedByDay: newCompletedByDay);
-    }
-  }
-
-  void deleteLatestEnergyLog(String date) {
-      final logs = getEnergyLogsForDate(date);
-      if (logs.isNotEmpty) {
-        deleteEnergyLog(date, logs.length - 1);
-      }
-  }
-
-  void updateEnergyLog(String date, int index, int newLevel) {
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    final energyLogsList =
-        List<Map<String, dynamic>>.from(dayData['energyLogs'] as List? ?? []);
-    
-    if (index >= 0 && index < energyLogsList.length) {
-      final oldLog = EnergyLog.fromJson(energyLogsList[index]);
-      final newLog = EnergyLog(timestamp: oldLog.timestamp, level: newLevel);
-      energyLogsList[index] = newLog.toJson();
-      dayData['energyLogs'] = energyLogsList;
-      newCompletedByDay[date] = dayData;
-      setProviderState(completedByDay: newCompletedByDay);
-    }
-  }
 
   String _generateWeeklySummaryForChatbot() {
       return "Summary placeholder";
@@ -571,7 +519,7 @@ class AppProvider with ChangeNotifier {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
     for (var t in _mainTasks) {
-      sb.writeln("- ${t.name} (${t.theme}): ${t.description} [Streak: ${t.streak}]");
+      sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
       sb.writeln("  Sub-missions:");
       for (var st in t.subTasks) {
         sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
@@ -584,11 +532,7 @@ class AppProvider with ChangeNotifier {
       final d = today.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
       if (_completedByDay.containsKey(dateStr)) {
-        final dayData = _completedByDay[dateStr];
         sb.writeln("Date: $dateStr");
-        // Energy
-        final energy = (dayData['energyLogs'] as List?)?.map((e) => "${e['level']}%").join(", ");
-        if (energy != null && energy.isNotEmpty) sb.writeln("  Energy: $energy");
         // Reflections
         final reflections = _reflectionLogs.where((r) {
            final rd = r.timestamp;
@@ -679,10 +623,7 @@ class AppProvider with ChangeNotifier {
     xpAllocation.forEach((skillName, xp) {
       final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
       if (skill != null) {
-        bool leveledUp = skill.addXp(xp);
-        if (leveledUp) {
-          // In a real app, trigger a level-up dialog or toast here
-        }
+        skill.addXp(xp);
       }
     });
 
@@ -742,10 +683,6 @@ class AppProvider with ChangeNotifier {
     await _performActualSave();
     notifyListeners();
   }
-
-  void setWakeupTime(TimeOfDay newTime) {}
-
-  void scheduleEmotionReminders() {}
 
   void setProviderState({
     String? lastLoginDate,

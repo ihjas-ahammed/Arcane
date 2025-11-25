@@ -6,7 +6,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 class EditLogDialog extends StatefulWidget {
   final String title;
   final dynamic initialValue; // int for Energy, Map for Reflection
-  final String logType; // 'energy', 'reflection'
+  final String logType; // 'reflection' (Energy removed)
   final Function(dynamic) onSave;
   final Function() onDelete;
 
@@ -24,8 +24,6 @@ class EditLogDialog extends StatefulWidget {
 }
 
 class _EditLogDialogState extends State<EditLogDialog> {
-  double _sliderValue = 0;
-  
   final _triggerController = TextEditingController();
   final _emotionController = TextEditingController();
   final _reasonController = TextEditingController();
@@ -33,9 +31,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.logType == 'energy') {
-      _sliderValue = (widget.initialValue as int).toDouble();
-    } else if (widget.logType == 'reflection') {
+    if (widget.logType == 'reflection') {
       final data = widget.initialValue as Map<String, String>;
       _triggerController.text = data['trigger'] ?? '';
       _emotionController.text = data['emotion'] ?? '';
@@ -58,15 +54,6 @@ class _EditLogDialogState extends State<EditLogDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (widget.logType == 'energy') ...[
-               Text("Level: ${_sliderValue.toInt()}%"),
-               Slider(
-                value: _sliderValue,
-                min: 0, max: 100, divisions: 20,
-                activeColor: AppTheme.fhAccentGold,
-                onChanged: (val) => setState(() => _sliderValue = val),
-              ),
-            ],
             if (widget.logType == 'reflection') ...[
               TextField(controller: _triggerController, decoration: const InputDecoration(labelText: 'Trigger')),
               const SizedBox(height: 8),
@@ -113,8 +100,6 @@ class _EditLogDialogState extends State<EditLogDialog> {
                     'emotion': _emotionController.text,
                     'reason': _reasonController.text
                   });
-                } else {
-                  widget.onSave(_sliderValue.toInt());
                 }
                 Navigator.pop(context);
               },

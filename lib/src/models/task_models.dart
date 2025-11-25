@@ -8,8 +8,6 @@ class MainTask {
   String description;
   String theme;
   String colorHex;
-  int streak;
-  int weeklyStreak;
   int dailyTimeSpent;
   String? lastWorkedDate;
   Map<String, List<bool>> weeklyCompletionStatus;
@@ -21,8 +19,6 @@ class MainTask {
     required this.description,
     required this.theme,
     this.colorHex = "FF00F8F8",
-    this.streak = 0,
-    this.weeklyStreak = 0,
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
     Map<String, List<bool>>? weeklyCompletionStatus,
@@ -54,8 +50,6 @@ class MainTask {
       description: json['description'] as String,
       theme: json['theme'] as String,
       colorHex: json['colorHex'] as String? ?? "FF00F8F8",
-      streak: json['streak'] as int? ?? 0,
-      weeklyStreak: json['weeklyStreak'] as int? ?? 0,
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
       weeklyCompletionStatus:
@@ -75,8 +69,6 @@ class MainTask {
       'description': description,
       'theme': theme,
       'colorHex': colorHex,
-      'streak': streak,
-      'weeklyStreak': weeklyStreak,
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
       'weeklyCompletionStatus': weeklyCompletionStatus,
@@ -103,7 +95,6 @@ class SubTask {
   int targetCount;
   int currentCount;
   List<SubSubTask> subSubTasks;
-  // Priority removed
 
   SubTask({
     required this.id,
