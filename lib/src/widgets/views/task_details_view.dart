@@ -6,7 +6,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart'; // Imported new component
+import 'package:arcane/src/widgets/cards/task_header_card.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -99,7 +99,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- MAIN TASK HEADER CARD (Modularized) ---
+              // --- MAIN TASK HEADER CARD ---
               TaskHeaderCard(
                 task: task,
                 yesterdayTime: yesterdayTime,
@@ -135,7 +135,13 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   itemCount: task.subTasks.length,
                   itemBuilder: (ctx, index) {
                     final st = task.subTasks[index];
-                    return SubmissionCard(parentTask: task, subTask: st);
+                    // IMPORTANT: Key is essential here to ensure widgets update
+                    // correctly when data in the list changes, especially for edits.
+                    return SubmissionCard(
+                      key: ValueKey(st.id), 
+                      parentTask: task, 
+                      subTask: st
+                    );
                   },
                 ),
 
@@ -169,9 +175,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                return AlertDialog(
                  backgroundColor: AppTheme.fhBgMedium,
                  title: const Text("New Sub-Mission"),
+                 // Removing autofocus to fix mobile input issues
                  content: TextField(
                    controller: controller,
-                   autofocus: true,
+                   autofocus: false, 
                    decoration: const InputDecoration(hintText: "Enter title..."),
                  ),
                  actions: [

@@ -8,6 +8,7 @@ import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
 import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart'; 
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
 
 class SkillsDrawer extends StatelessWidget {
   const SkillsDrawer({super.key});
@@ -17,6 +18,13 @@ class SkillsDrawer extends StatelessWidget {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
     final skills = appProvider.skills;
+    
+    // Filter to show ALL recent insights of the current day
+    final todayStr = helper.getTodayDateString();
+    final todayLogs = appProvider.reflectionLogs.where((l) {
+      final logDate = "${l.timestamp.year}-${l.timestamp.month.toString().padLeft(2, '0')}-${l.timestamp.day.toString().padLeft(2, '0')}";
+      return logDate == todayStr;
+    }).toList();
 
     return Drawer(
       width: 360, 
@@ -99,19 +107,26 @@ class SkillsDrawer extends StatelessWidget {
                       },
                     ),
                     const SizedBox(height: 24),
-                    if (appProvider.reflectionLogs.isNotEmpty) ...[
+                    if (todayLogs.isNotEmpty) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("RECENT INSIGHTS", style: theme.textTheme.labelMedium),
-                          Text("${appProvider.reflectionLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
+                          Text("TODAY'S INSIGHTS", style: theme.textTheme.labelMedium),
+                          Text("${todayLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Use reversed to show newest first, take 5
-                      ...appProvider.reflectionLogs.reversed.take(5).map((log) => 
+                      // Show ALL logs for today, newest first
+                      ...todayLogs.reversed.map((log) => 
                         ReflectionLogCard(log: log)
                       ),
+                    ] else ...[
+                       Center(
+                         child: Padding(
+                           padding: const EdgeInsets.all(8.0),
+                           child: Text("No insights logged today.", style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+                         ),
+                       )
                     ]
                   ],
                 );

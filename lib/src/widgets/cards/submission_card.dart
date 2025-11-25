@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart'; // Imported new component
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -45,6 +46,7 @@ class _SubmissionCardState extends State<SubmissionCard> {
   @override
   void didUpdateWidget(covariant SubmissionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Sync time controller if external change happened (e.g. timer tick)
     if (oldWidget.subTask.currentTimeSpent != widget.subTask.currentTimeSpent) {
         if (!_timeController.selection.isValid) {
            _timeController.text = widget.subTask.currentTimeSpent.toString();
@@ -69,6 +71,28 @@ class _SubmissionCardState extends State<SubmissionCard> {
       _isCheckpointCountable = false;
       _checkpointCountController.text = '5';
     });
+  }
+
+  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider) async {
+    // Open the modular dialog
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) => EditSubtaskDialog(initialName: widget.subTask.name),
+    );
+
+    // If a name was returned, update the provider immediately
+    if (newName != null && newName.isNotEmpty && newName != widget.subTask.name) {
+      provider.updateSubtask(
+        widget.parentTask.id, 
+        widget.subTask.id, 
+        {'name': newName}
+      );
+      setState(() {
+        widget.subTask.name = newName;
+      });
+    }
+
+    
   }
 
   @override
@@ -156,7 +180,7 @@ class _SubmissionCardState extends State<SubmissionCard> {
                 ] else ...[
                   IconButton(
                     icon:  Icon(MdiIcons.pencilOutline, size: 16, color: AppTheme.fhTextSecondary),
-                    onPressed: () {},
+                    onPressed: () => _handleEditSubtask(context, provider), // Uses new modular dialog
                     tooltip: "Edit Task",
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),

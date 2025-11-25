@@ -4,14 +4,15 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart'; 
-import 'package:arcane/src/widgets/ui/activity_log_list.dart'; 
-import 'package:arcane/src/widgets/views/stats_carousel_view.dart'; 
+import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/ui/activity_log_list.dart';
+import 'package:arcane/src/widgets/ui/chart_carousel.dart'; // New generic component
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart'; // for firstWhereOrNull
+import 'package:collection/collection.dart';
 
 class DailySummaryView extends StatefulWidget {
   const DailySummaryView({super.key});
@@ -36,33 +37,31 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
     }
   }
-  
-  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
+
+  void _showEditDialog(BuildContext context, AppProvider provider, String type,
+      int index, dynamic currentValue) {
     showDialog(
-      context: context,
-      builder: (ctx) => EditLogDialog(
-        title: "Edit ${type.capitalize()}",
-        logType: type.toLowerCase(),
-        initialValue: currentValue,
-        onDelete: () {
-          if (_selectedDate == null) return;
-          // Energy log delete removed
-          if (type == 'Reflection') provider.deleteReflectionLog(currentValue['id']);
-        },
-        onSave: (val) {
-          if (_selectedDate == null) return;
-          // Energy log update removed
-          if (type == 'Reflection') {
-             provider.updateReflectionLog(
-               currentValue['id'], 
-               trigger: val['trigger'], 
-               emotion: val['emotion'], 
-               reason: val['reason']
-             );
-          }
-        },
-      )
-    );
+        context: context,
+        builder: (ctx) => EditLogDialog(
+              title: "Edit ${type.capitalize()}",
+              logType: type.toLowerCase(),
+              initialValue: currentValue,
+              onDelete: () {
+                if (_selectedDate == null) return;
+                if (type == 'Reflection') {
+                  provider.deleteReflectionLog(currentValue['id']);
+                }
+              },
+              onSave: (val) {
+                if (_selectedDate == null) return;
+                if (type == 'Reflection') {
+                  provider.updateReflectionLog(currentValue['id'],
+                      trigger: val['trigger'],
+                      emotion: val['emotion'],
+                      reason: val['reason']);
+                }
+              },
+            ));
   }
 
   // Helper to prepare data for charts
@@ -71,12 +70,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final Map<int, double> activityData = {};
     final Map<int, Color> activityColors = {};
     final Map<int, double> virtueData = {};
-    final Map<int, Color> virtueColors = {}; // New
+    final Map<int, Color> virtueColors = {};
 
     for (int i = 0; i < 7; i++) {
       final date = today.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      
+
       // Activity Data
       final dayData = provider.completedByDay[dateStr];
       double totalMins = 0;
@@ -90,7 +89,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           totalMins += mins;
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
-            final task = provider.mainTasks.firstWhere((t) => t.id == taskId, orElse: () => MainTask(id: '', name: '', description: '', theme: ''));
+            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
+                orElse: () => MainTask(
+                    id: '', name: '', description: '', theme: ''));
             dominantColor = task.taskColor;
           }
         });
@@ -100,39 +101,44 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
       // Virtue Data
       final reflections = provider.reflectionLogs.where((l) {
-         return l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day;
+        return l.timestamp.year == date.year &&
+            l.timestamp.month == date.month &&
+            l.timestamp.day == date.day;
       });
-      
+
       double totalXp = 0;
       Map<String, int> virtueTotals = {};
-      for(var ref in reflections) {
+      for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
-           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
+          virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
         });
         totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
       }
       virtueData[i] = totalXp;
-      
+
       // Determine Dominant Virtue Color
       Color dominantVirtueColor = AppTheme.fhAccentGold;
       if (virtueTotals.isNotEmpty) {
-        var maxVirtue = virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
+        var maxVirtue =
+            virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
         dominantVirtueColor = _getVirtueColor(maxVirtue.key);
       }
       virtueColors[i] = dominantVirtueColor;
     }
-    
+
     // Prepare Daily Time Data for Pie Chart
     Map<String, double> dailyTaskTimeData = {};
     Map<String, Color> taskColors = {};
     if (_selectedDate != null) {
       final summaryData = provider.completedByDay[_selectedDate!];
       if (summaryData != null && summaryData['taskTimes'] != null) {
-        (summaryData['taskTimes'] as Map<String, dynamic>).forEach((taskId, time) {
-           final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
-           final String name = task?.name ?? "Unknown";
-           dailyTaskTimeData[name] = (time as num).toDouble();
-           taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+        (summaryData['taskTimes'] as Map<String, dynamic>)
+            .forEach((taskId, time) {
+          final task =
+              provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+          final String name = task?.name ?? "Unknown";
+          dailyTaskTimeData[name] = (time as num).toDouble();
+          taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
         });
       }
     }
@@ -151,214 +157,260 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
-    
+
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
 
     // Handle date selection logic safely
     if (_selectedDate == null && availableDates.isNotEmpty) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _selectedDate = availableDates.first);
       });
-    } else if (_selectedDate != null && !availableDates.contains(_selectedDate)) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+    } else if (_selectedDate != null &&
+        !availableDates.contains(_selectedDate)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() =>
+              _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+        }
       });
     } else if (availableDates.isEmpty) {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
       });
     }
-    
-    // Prepare chart data AFTER determining selection
+
+    // Prepare chart data
     final chartData = _prepareWeeklyData(appProvider);
 
-    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
-    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+    final summaryData =
+        _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
+    final taskTimes =
+        summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    final subtasksCompleted =
+        summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted =
+        summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
-             final d = DateTime.parse(_selectedDate!);
-             return l.timestamp.year == d.year && l.timestamp.month == d.month && l.timestamp.day == d.day;
+            final d = DateTime.parse(_selectedDate!);
+            return l.timestamp.year == d.year &&
+                l.timestamp.month == d.month &&
+                l.timestamp.day == d.day;
           }).toList()
         : [];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isWideScreen = constraints.maxWidth > 800;
+    return LayoutBuilder(builder: (context, constraints) {
+      final bool isWideScreen = constraints.maxWidth > 800;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- STATS CAROUSEL (Top Section) ---
-              StatsCarouselView(
-                activityData: chartData['activityData'],
-                activityColors: chartData['activityColors'],
-                virtueData: chartData['virtueData'],
-                virtueColors: chartData['virtueColors'],
-                dailyTaskTimeData: chartData['dailyTaskTimeData'],
-                taskColors: chartData['taskColors'],
-              ),
-              
-              const SizedBox(height: 24),
-              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-              const SizedBox(height: 16),
-
-              if (availableDates.isEmpty)
-                Center(
-                    child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32.0),
-                  child: Text("No detailed logs recorded yet.",
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                          color: AppTheme.fhTextSecondary,
-                          fontStyle: FontStyle.italic)),
-                ))
-              else ...[
-                // --- DAILY DETAIL SELECTOR ---
-                DropdownButtonFormField<String>(
-                  value: _selectedDate,
-                  decoration:  InputDecoration(
-                    labelText: 'Inspect Day',
-                    prefixIcon: Icon(MdiIcons.calendarSearchOutline, color: AppTheme.fhAccentTeal)
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- WEEKLY STATS CAROUSEL ---
+            ChartCarousel(
+              height: 250,
+              pages: [
+                ChartCarouselData(
+                  title: "Last 7 Days Activity",
+                  chart: WeeklyActivityBarChart(
+                    weeklyData: chartData['activityData'],
+                    dominantColors: chartData['activityColors'],
                   ),
-                  dropdownColor: AppTheme.fhBgMedium,
-                  items: availableDates.map((date) {
-                    return DropdownMenuItem(
-                      value: date,
-                      child: Text(DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
-                    );
-                  }).toList(),
-                  onChanged: (value) => setState(() => _selectedDate = value),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // Responsive Layout for Charts and Logs
-                if (isWideScreen) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          children: [
-                            Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
-                            const SizedBox(height: 12),
-                            Card(
-                              color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: VirtuePieChart(logs: reflectionsForDate),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          children: [
-                             Text(
-                                'Activity Details',
-                                style: theme.textTheme.headlineSmall),
-                             const SizedBox(height: 12),
-                             ActivityLogList(
-                               taskTimes: taskTimes,
-                               subtasksCompleted: subtasksCompleted,
-                               checkpointsCompleted: checkpointsCompleted,
-                             ),
-                          ],
-                        ),
-                      )
-                    ],
-                  )
-                ] else ...[
-                  // Mobile Layout (Vertical Stack)
-                  Text("Daily Virtue Breakdown", style: theme.textTheme.headlineSmall),
-                  const SizedBox(height: 12),
-                  Card(
-                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: VirtuePieChart(logs: reflectionsForDate),
+                ChartCarouselData(
+                  title: "Last 7 Days Growth",
+                  chart: WeeklyVirtueBarChart(
+                    weeklyXp: chartData['virtueData'],
+                    dominantVirtueColors: chartData['virtueColors'],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+
+            if (availableDates.isEmpty)
+              Center(
+                  child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32.0),
+                child: Text("No detailed logs recorded yet.",
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: AppTheme.fhTextSecondary,
+                        fontStyle: FontStyle.italic)),
+              ))
+            else ...[
+              // --- DAILY DETAIL SELECTOR ---
+              DropdownButtonFormField<String>(
+                value: _selectedDate,
+                decoration: InputDecoration(
+                    labelText: 'Inspect Day',
+                    prefixIcon: Icon(MdiIcons.calendarSearchOutline,
+                        color: AppTheme.fhAccentTeal)),
+                dropdownColor: AppTheme.fhBgMedium,
+                items: availableDates.map((date) {
+                  return DropdownMenuItem(
+                    value: date,
+                    child: Text(
+                        DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
+                  );
+                }).toList(),
+                onChanged: (value) => setState(() => _selectedDate = value),
+              ),
+
+              const SizedBox(height: 24),
+
+              // --- DAILY STATS CAROUSEL (Mixed Focus & Virtue) ---
+              // This groups the daily charts together as requested
+              ChartCarousel(
+                height: 320,
+                pages: [
+                  ChartCarouselData(
+                    title: "Daily Virtue Breakdown",
+                    chart: VirtuePieChart(logs: reflectionsForDate),
+                  ),
+                  ChartCarouselData(
+                    title: "Today's Mission Focus",
+                    chart: TimePieChart(
+                      taskData: chartData['dailyTaskTimeData'],
+                      taskColors: chartData['taskColors'],
                     ),
                   ),
-                  const SizedBox(height: 30),
-                  Text(
-                    'Activity Details',
-                    style: theme.textTheme.headlineSmall),
-                  const SizedBox(height: 12),
-                  ActivityLogList(
-                    taskTimes: taskTimes,
-                    subtasksCompleted: subtasksCompleted,
-                    checkpointsCompleted: checkpointsCompleted,
-                  ),
                 ],
+              ),
 
+              const SizedBox(height: 30),
+
+              if (isWideScreen) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: _buildActivitySection(
+                          theme,
+                          appProvider,
+                          taskTimes,
+                          subtasksCompleted,
+                          checkpointsCompleted),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 1,
+                      child: _buildReflectionsSection(
+                          context, theme, appProvider, reflectionsForDate),
+                    )
+                  ],
+                )
+              ] else ...[
+                // Mobile Layout (Vertical Stack)
+                _buildActivitySection(theme, appProvider, taskTimes,
+                    subtasksCompleted, checkpointsCompleted),
                 const SizedBox(height: 30),
-                
-                // REFLECTIONS LIST
-                 if (reflectionsForDate.isNotEmpty) ...[
-                   Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
-                   const SizedBox(height: 8),
-                   ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: reflectionsForDate.length,
-                    itemBuilder: (ctx, i) {
-                      final log = reflectionsForDate[i];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        color: AppTheme.fhBgDark,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
-                        ),
-                        child: ListTile(
-                          title: Text(log.trigger.isNotEmpty ? log.trigger : "Reflection", style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text("Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a,b)=>a+b)}"),
-                          leading: Icon(MdiIcons.notebookOutline, color: AppTheme.fhAccentPurple),
-                          trailing: Icon(MdiIcons.pencilOutline, size: 16),
-                          onTap: () => _showEditDialog(context, appProvider, 'Reflection', i, {
-                            'id': log.id,
-                            'trigger': log.trigger,
-                            'emotion': log.emotion,
-                            'reason': log.reason
-                          }),
-                        ),
-                      );
-                    }
-                  ),
-                  const SizedBox(height: 30),
-                 ],
+                _buildReflectionsSection(
+                    context, theme, appProvider, reflectionsForDate),
               ],
             ],
-          ),
-        );
-      }
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildActivitySection(
+      ThemeData theme,
+      AppProvider provider,
+      Map<String, dynamic> taskTimes,
+      List<dynamic> subtasksCompleted,
+      List<dynamic> checkpointsCompleted) {
+    return Column(
+      children: [
+        Text('Activity Details', style: theme.textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        ActivityLogList(
+          taskTimes: taskTimes,
+          subtasksCompleted: subtasksCompleted,
+          checkpointsCompleted: checkpointsCompleted,
+          // Pass available tasks to resolve IDs to Names
+          availableTasks: provider.mainTasks,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReflectionsSection(
+      BuildContext context,
+      ThemeData theme,
+      AppProvider provider,
+      List<ReflectionLog> reflections) {
+    return Column(
+      children: [
+        if (reflections.isNotEmpty) ...[
+          Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: reflections.length,
+              itemBuilder: (ctx, i) {
+                final log = reflections[i];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  color: AppTheme.fhBgDark,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                          color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                  child: ListTile(
+                    title: Text(
+                        log.trigger.isNotEmpty ? log.trigger : "Reflection",
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        "Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a, b) => a + b)}"),
+                    leading: Icon(MdiIcons.notebookOutline,
+                        color: AppTheme.fhAccentPurple),
+                    trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                    onTap: () =>
+                        _showEditDialog(context, provider, 'Reflection', i, {
+                      'id': log.id,
+                      'trigger': log.trigger,
+                      'emotion': log.emotion,
+                      'reason': log.reason
+                    }),
+                  ),
+                );
+              }),
+        ],
+      ],
     );
   }
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
+      case 'wisdom':
+        return Colors.blueAccent;
+      case 'courage':
+        return AppTheme.fhAccentRed;
+      case 'humanity':
+        return const Color(0xFFE91E63);
+      case 'justice':
+        return AppTheme.fhAccentGold;
+      case 'temperance':
+        return AppTheme.fhAccentTeal;
+      case 'transcendence':
+        return AppTheme.fhAccentPurple;
+      default:
+        return Colors.grey;
     }
   }
 }
 
 extension StringExtension on String {
-    String capitalize() {
-      return "${this[0].toUpperCase()}${this.substring(1)}";
-    }
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1)}";
+  }
 }
