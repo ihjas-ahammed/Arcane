@@ -137,45 +137,7 @@ class TaskHeaderCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // WEEKLY COMPLETION PANEL (Replaces Streak Panel)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDeepDark,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(weeklyText,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppTheme.fhTextSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(7, (index) {
-                      final isComplete =
-                          weeklyCompletion.length > index &&
-                              weeklyCompletion[index];
-                      return Container(
-                        width: 24, height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isComplete ? AppTheme.fhAccentGold.withValues(alpha: 0.2) : Colors.transparent,
-                          border: Border.all(color: isComplete ? AppTheme.fhAccentGold : AppTheme.fhTextDisabled.withValues(alpha: 0.3))
-                        ),
-                        child: isComplete ?  Icon(MdiIcons.check, size: 16, color: AppTheme.fhAccentGold) : null,
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ),
+            
           ],
         ),
       ),
