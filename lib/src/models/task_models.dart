@@ -1,6 +1,7 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart'; // Added Import
 
 class MainTask {
   String id;
@@ -12,6 +13,7 @@ class MainTask {
   String? lastWorkedDate;
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
+  List<Project> projects; // New Field
 
   MainTask({
     required this.id,
@@ -23,8 +25,10 @@ class MainTask {
     this.lastWorkedDate,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
+    List<Project>? projects, // New Param
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
-        subTasks = subTasks ?? [];
+        subTasks = subTasks ?? [],
+        projects = projects ?? [];
 
   factory MainTask.fromTemplate(MainTaskTemplate template) {
     return MainTask(
@@ -59,6 +63,9 @@ class MainTask {
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
               .toList() ??
           [],
+      projects: (json['projects'] as List<dynamic>?)
+          ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [], // Load Projects
     );
   }
 
@@ -73,6 +80,7 @@ class MainTask {
       'lastWorkedDate': lastWorkedDate,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
+      'projects': projects.map((p) => p.toJson()).toList(), // Save Projects
     };
   }
 

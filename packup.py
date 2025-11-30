@@ -12,7 +12,14 @@ DEFAULT_BINARY_EXTENSIONS = {
     '.mp4', '.avi', '.mov', '.mkv', '.webm',                   # Video
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', # Documents (often binary)
     '.zip', '.tar', '.gz', '.rar', '.7z',                      # Archives
-    '.exe', '.dll', '.so', '.dylib', '.app',                   # Executables/Libraries
+    '.exe', '.dll', '.so', '.dylib', '.app',                # Python compiled files
+    "*.pyo",                # Python optimized compiled files
+    ".DS_Store",            # macOS specific
+    "windows/",
+    "macos/",
+    "linux/",
+    "build/",
+    "android/",                  # Executables/Libraries
     '.o', '.a', '.obj', '.lib',                                # Object/static lib
     '.db', '.sqlite', '.sqlite3',                             # Databases
     '.woff', '.woff2', '.ttf', '.otf', '.eot',                 # Fonts
@@ -41,6 +48,7 @@ ADDITIONAL_IGNORE_PATTERNS = [
     "windows/",
     "macos/",
     "linux/",
+    "build/",
     "android/",
     "ios/",
     "ai.txt",
@@ -62,7 +70,14 @@ def load_gitignore_patterns(root_dir):
                     line = line.strip()
                     if line and not line.startswith("#"):
                         # If pattern starts with '/', it's relative to .gitignore root.
-                        # os.path.relpath gives paths without leading '/', so strip it from pattern too.
+                        # os.path.relpath gi               # Python compiled files
+    "*.pyo",                # Python optimized compiled files
+    ".DS_Store",            # macOS specific
+    "windows/",
+    "macos/",
+    "linux/",
+    "build/",
+    "android/",ves paths without leading '/', so strip it from pattern too.
                         if line.startswith('/'):
                             patterns.append(line[1:])
                         # elif '**/' in line:

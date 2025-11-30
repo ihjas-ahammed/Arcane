@@ -192,6 +192,48 @@ Return ONLY the JSON object.
             .toList() ?? [];
   }
 
+  // --- Projects Generation ---
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required String modelName,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a project manager AI. Create a detailed project structure based on this prompt: "$userPrompt".
+    
+    Structure:
+    - Project Title
+    - Description
+    - Steps (Recursive: steps can have substeps).
+    
+    Output strictly JSON matching this structure:
+    {
+      "title": "string",
+      "description": "string",
+      "steps": [
+        {
+          "title": "string",
+          "description": "string",
+          "substeps": [ ...recursive... ] 
+        }
+      ]
+    }
+    Go at least 2 levels deep if the topic implies complexity.
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelName: modelName,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+  }
+
    Future<String> getChatbotResponse({
     required String modelName,
     required ChatbotMemory memory,

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/settings_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; // Import chatbot
+// SettingsScreen is no longer a main tab, imported in HeaderWidget for navigation
+import 'package:arcane/src/screens/chatbot_screen.dart'; 
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart'; // Import Projects View
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -27,8 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'ADVISOR', // New Title
-    'SETTINGS',
+    'ADVISOR', 
+    'PROJECTS', // Changed from Settings
   ];
 
   void _onItemTapped(int index) {
@@ -160,8 +161,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ChatbotScreen(), // New Tab View
-      const SettingsScreen(),
+      const ChatbotScreen(),
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const ProjectsView(), // New Projects View
+        ),
+      ),
     ];
 
     return Theme(
@@ -173,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
         ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(), // Right Drawer for Persona/Virtues
+        endDrawer: const SkillsDrawer(),
         body: SafeArea(
           child: Row(
             children: [
@@ -214,8 +220,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Advisor',
             ),
             BottomNavigationBarItem(
-              icon: Icon(MdiIcons.cogOutline),
-              label: 'Settings',
+              icon: Icon(MdiIcons.rocketLaunchOutline), // Icon for Projects
+              label: 'Projects',
             ),
           ],
           currentIndex: _selectedIndex,

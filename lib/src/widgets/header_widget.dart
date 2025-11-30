@@ -1,8 +1,10 @@
+import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/screens/settings_screen.dart'; // Import Settings View
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
@@ -41,7 +43,28 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       ),
       centerTitle: true,
       actions: <Widget>[
-        // Persona / Virtues Button replacing AI button
+        // Settings Button moved here
+        IconButton(
+          icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
+          tooltip: 'Settings',
+          onPressed: () {
+            // Push settings screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => Scaffold(
+                appBar: AppBar(title: const Text("SETTINGS")),
+                backgroundColor: AppTheme.fhBgDeepDark,
+                body:  Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 800),
+                    child: SettingsView()
+                  )
+                ),
+              )),
+            );
+          },
+        ),
+        // Persona / Virtues Button
         IconButton(
           icon: Icon(MdiIcons.shieldAccount, // Or accountDetailsOutline
               color: AppTheme.fhTextSecondary),

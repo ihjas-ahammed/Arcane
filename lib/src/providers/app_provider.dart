@@ -17,6 +17,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
 import 'actions/timer_actions.dart';
+import 'actions/project_actions.dart'; // Import Project Actions
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
@@ -82,11 +83,13 @@ class AppProvider with ChangeNotifier {
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
+  late final ProjectActions _projectActions; // New
 
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this); // Init
     _initializeSkills(); // Init default skills
     _initialize();
 
@@ -98,6 +101,7 @@ class AppProvider with ChangeNotifier {
     });
   }
 
+  // ... (Skills Init same)
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
@@ -181,6 +185,10 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Persistence Logic Updated for Projects ---
+  // Note: Projects are part of MainTask, so MainTask.toJson() handles it. 
+  // We just need to ensure the AppState methods call .toJson on mainTasks, which is already there.
+
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -207,6 +215,7 @@ class AppProvider with ChangeNotifier {
         initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
 
     _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
+    // ... (rest of load logic)
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
@@ -214,7 +223,6 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        // Remove energy logs loading
       }
     });
 
@@ -261,6 +269,7 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
   }
 
+  // ... (Reset, Save, Login, Signup methods same as before)
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -290,8 +299,8 @@ class AppProvider with ChangeNotifier {
       }
     }
   }
-  
-  Future<void> manuallySaveToCloud() async {
+
+   Future<void> manuallySaveToCloud() async {
     if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
     _isManuallySaving = true;
     notifyListeners();
@@ -396,6 +405,8 @@ class AppProvider with ChangeNotifier {
     await _performActualSave();
   }
 
+  // ... (Accessors and simple setters)
+
   void setSelectedTaskId(String? taskId) {
     if (_selectedTaskId != taskId) {
       _selectedTaskId = taskId;
@@ -448,7 +459,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // New Method to get Yesterday's Time for Comparison
   int getYesterdaysTimeForTask(String taskId) {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
@@ -470,7 +480,6 @@ class AppProvider with ChangeNotifier {
       hasResetRun = true;
       _lastLoginDate = today;
       _hasUnsavedChanges = true;
-      // Reset daily time spent for all tasks on a new day
       for (var task in _mainTasks) {
         if (task.lastWorkedDate != today) {
           task.dailyTimeSpent = 0;
@@ -487,10 +496,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // ----------------------------------------------------------------
-  // Logging Management (Reflections only, Energy Removed)
-  // ----------------------------------------------------------------
-
+  // ... (Chatbot & Reflection methods same as before)
   String _generateWeeklySummaryForChatbot() {
       return "Summary placeholder";
   }
@@ -513,8 +519,7 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
     notifyListeners();
   }
-
-  // Helper to build data context for AI
+  
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -523,6 +528,13 @@ class AppProvider with ChangeNotifier {
       sb.writeln("  Sub-missions:");
       for (var st in t.subTasks) {
         sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      }
+      // Add Projects to context
+      if(t.projects.isNotEmpty) {
+        sb.writeln("  Projects:");
+        for(var p in t.projects) {
+          sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
+        }
       }
     }
     
@@ -584,10 +596,7 @@ class AppProvider with ChangeNotifier {
     setProviderState(chatbotMemory: _chatbotMemory);
   }
 
-  // ----------------------------------------------------------------
-  // Reflection & Skills Logic
-  // ----------------------------------------------------------------
-
+  // ... (Reflection methods same)
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
     
@@ -611,7 +620,6 @@ class AppProvider with ChangeNotifier {
       systemInstruction: settings.customReflectionPrompt,
     );
 
-    // Apply XP
     Map<String, int> xpAllocation = {};
     if (result['xp_allocation'] is Map) {
       (result['xp_allocation'] as Map).forEach((key, value) {
@@ -745,37 +753,22 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // --- Actions Exposure ---
+
   Future<void> triggerAISubquestGeneration(MainTask mainTask,
           String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(
           mainTask, generationMode, userInput, numSubquests);
   
-  void addMainTask(
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.addMainTask(
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
-  void editMainTask(String taskId,
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.editMainTask(taskId,
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) =>
+      _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) =>
+      _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
   void logToDailySummary(String type, Map<String, dynamic> data) =>
       _taskActions.logToDailySummary(type, data);
   String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
       _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(
-          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
   bool completeSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.completeSubtask(mainTaskId, subtaskId);
@@ -783,23 +776,20 @@ class AppProvider with ChangeNotifier {
       _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId,
-          Map<String, dynamic> subSubtaskData) =>
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) =>
       _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
-          String subSubtaskId, Map<String, dynamic> updates) =>
-      _taskActions.updateSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
-      _taskActions.completeSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
       _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
 
   void startTimer(String id, String type, String mainTaskId) =>
       _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+
+  // Project Actions Exposure
+  ProjectActions get projectActions => _projectActions;
 }
