@@ -81,16 +81,9 @@ class AIGenerationActions {
 
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskForSubquests.id) {
-          return MainTask(
-            id: task.id,
-            name: task.name,
-            description: task.description,
-            theme: task.theme,
-            colorHex: task.colorHex,
-            dailyTimeSpent: task.dailyTimeSpent,
-            lastWorkedDate: task.lastWorkedDate,
+          // Use copyWith to preserve other fields like 'projects'
+          return task.copyWith(
             subTasks: [...task.subTasks, ...newSubTasksForParent],
-            weeklyCompletionStatus: task.weeklyCompletionStatus,
           );
         }
         return task;

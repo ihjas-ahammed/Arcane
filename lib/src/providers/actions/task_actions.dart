@@ -32,16 +32,11 @@ class TaskActions {
       required String colorHex}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == taskId) {
-        return MainTask(
-          id: task.id,
+        return task.copyWith(
           name: name,
           description: description,
           theme: theme,
           colorHex: colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
-          subTasks: task.subTasks,
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -111,16 +106,8 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: [...task.subTasks, newSubtask],
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -199,14 +186,7 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
               return SubTask(
@@ -222,7 +202,6 @@ class TaskActions {
             }
             return st;
           }).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -244,16 +223,8 @@ class TaskActions {
   void deleteSubtask(String mainTaskId, String subtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -301,16 +272,8 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: [...task.subTasks, newSubtask],
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -333,14 +296,7 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
@@ -357,7 +313,6 @@ class TaskActions {
             }
             return st;
           }).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -369,14 +324,7 @@ class TaskActions {
       String subSubtaskId, Map<String, dynamic> updates) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
@@ -416,7 +364,6 @@ class TaskActions {
             }
             return st;
           }).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -431,14 +378,7 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
@@ -484,7 +424,6 @@ class TaskActions {
             }
             return st;
           }).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;
@@ -521,14 +460,7 @@ class TaskActions {
       String mainTaskId, String parentSubtaskId, String subSubtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
+        return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
@@ -547,7 +479,6 @@ class TaskActions {
             }
             return st;
           }).toList(),
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
         );
       }
       return task;

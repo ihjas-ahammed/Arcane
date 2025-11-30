@@ -21,8 +21,8 @@ class _SettingsViewState extends State<SettingsView> {
   final _newUsernameController = TextEditingController();
   final _aiModelNameController = TextEditingController();
   final _apiKeyController = TextEditingController(); 
-  final _customChatbotPromptController = TextEditingController(); // New
-  final _customReflectionPromptController = TextEditingController(); // New
+  final _customChatbotPromptController = TextEditingController(); 
+  final _customReflectionPromptController = TextEditingController(); 
   
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
@@ -62,7 +62,6 @@ class _SettingsViewState extends State<SettingsView> {
     super.dispose();
   }
 
-  // ... (Change password and username methods same as before)
    Future<void> _handleChangePassword(AppProvider appProvider) async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
       setState(() => _passwordChangeError = "Passwords do not match.");
@@ -155,7 +154,6 @@ class _SettingsViewState extends State<SettingsView> {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    // ... (Manual save section same as before)
      String lastSavedString = "Not synced yet.";
     if (appProvider.lastSuccessfulSaveTimestamp != null) {
       lastSavedString =
@@ -171,7 +169,17 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.cloudSyncOutline,
               title: 'Cloud Synchronization',
               children: [
-                  // ... (Save/Load buttons same)
+                  SwitchListTile.adaptive(
+                    title: const Text('Auto-Sync Data'),
+                    subtitle: const Text('Automatically sync changes to cloud every minute.'),
+                    value: appProvider.settings.autoSaveEnabled,
+                    activeColor: AppTheme.fhAccentTeal,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      appProvider.setSettings(appProvider.settings..autoSaveEnabled = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   ElevatedButton.icon(
                   icon: appProvider.isManuallySaving
                       ? const SizedBox(
@@ -382,7 +390,6 @@ class _SettingsViewState extends State<SettingsView> {
                   style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]),
               
-          // ... (Rest of the sections: Weekly Progress, User Profile, Interface, Credentials, Reset)
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
@@ -415,7 +422,6 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.accountEditOutline,
               title: 'User Profile',
               children: [
-                  // ... same
                   TextFormField(
                   controller: _newUsernameController,
                   decoration:  InputDecoration(
@@ -478,13 +484,11 @@ class _SettingsViewState extends State<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ]),
-          // ... Credentials & Reset sections
            if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
                 title: 'Access Credentials',
                 children: [
-                    // ... same
                      TextFormField(
                     controller: _newPasswordController,
                     decoration:  InputDecoration(
@@ -562,7 +566,6 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
               children: [
-                 // ... same
                  Text(
                   'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
                   style: theme.textTheme.bodySmall

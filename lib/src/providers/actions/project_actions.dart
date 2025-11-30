@@ -62,16 +62,8 @@ class ProjectActions {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         final updatedProjects = updateFn(task.projects);
-        return MainTask(
-          id: task.id,
-          name: task.name,
-          description: task.description,
-          theme: task.theme,
-          colorHex: task.colorHex,
-          dailyTimeSpent: task.dailyTimeSpent,
-          lastWorkedDate: task.lastWorkedDate,
-          subTasks: task.subTasks,
-          weeklyCompletionStatus: task.weeklyCompletionStatus,
+        // Use copyWith to prevent data loss on other fields
+        return task.copyWith(
           projects: updatedProjects,
         );
       }

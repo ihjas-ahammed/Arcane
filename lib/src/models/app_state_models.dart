@@ -4,24 +4,26 @@ import 'package:flutter/material.dart'; // For TimeOfDay
 class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
+  bool autoSaveEnabled; // New setting
   int wakeupTimeHour;
   int wakeupTimeMinute;
   String aiModelName;
-  String? customApiKey; // Added custom API Key support
-  String? customChatbotPrompt; // New: Custom prompt for advisor
-  String? customReflectionPrompt; // New: Custom prompt for reflection analysis
+  String? customApiKey; 
+  String? customChatbotPrompt; 
+  String? customReflectionPrompt; 
   int startOfWeek; // 1 for Monday, 7 for Sunday
 
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
+    this.autoSaveEnabled = true, // Default to true
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
-    this.aiModelName = 'gemini-2.0-flash', // Updated default
+    this.aiModelName = 'gemini-2.0-flash', 
     this.customApiKey,
     this.customChatbotPrompt,
     this.customReflectionPrompt,
-    this.startOfWeek = 1, // Default to Monday
+    this.startOfWeek = 1, 
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,7 @@ class AppSettings {
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
           json['autoGenerateContent'] as bool? ?? 
           true,
+      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
       aiModelName:
@@ -44,6 +47,7 @@ class AppSettings {
     return {
       'descriptionsVisible': descriptionsVisible,
       'dailyAutoGenerateContent': dailyAutoGenerateContent,
+      'autoSaveEnabled': autoSaveEnabled,
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,
       'aiModelName': aiModelName,

@@ -17,7 +17,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
 import 'actions/timer_actions.dart';
-import 'actions/project_actions.dart'; // Import Project Actions
+import 'actions/project_actions.dart'; 
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
@@ -83,14 +83,14 @@ class AppProvider with ChangeNotifier {
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
-  late final ProjectActions _projectActions; // New
+  late final ProjectActions _projectActions;
 
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
-    _projectActions = ProjectActions(this); // Init
-    _initializeSkills(); // Init default skills
+    _projectActions = ProjectActions(this);
+    _initializeSkills();
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -101,7 +101,6 @@ class AppProvider with ChangeNotifier {
     });
   }
 
-  // ... (Skills Init same)
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
@@ -125,11 +124,13 @@ class AppProvider with ChangeNotifier {
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
+    // Check autoSaveEnabled settings before saving
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (_hasUnsavedChanges &&
           _currentUser != null &&
           !_isManuallySaving &&
-          !_isManuallyLoading) {
+          !_isManuallyLoading &&
+          _settings.autoSaveEnabled) { // Respect user setting
         _performActualSave();
       }
     });
@@ -185,10 +186,6 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Persistence Logic Updated for Projects ---
-  // Note: Projects are part of MainTask, so MainTask.toJson() handles it. 
-  // We just need to ensure the AppState methods call .toJson on mainTasks, which is already there.
-
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -215,7 +212,7 @@ class AppProvider with ChangeNotifier {
         initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
 
     _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
-    // ... (rest of load logic)
+    
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
@@ -269,7 +266,6 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
   }
 
-  // ... (Reset, Save, Login, Signup methods same as before)
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -405,8 +401,6 @@ class AppProvider with ChangeNotifier {
     await _performActualSave();
   }
 
-  // ... (Accessors and simple setters)
-
   void setSelectedTaskId(String? taskId) {
     if (_selectedTaskId != taskId) {
       _selectedTaskId = taskId;
@@ -496,7 +490,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // ... (Chatbot & Reflection methods same as before)
   String _generateWeeklySummaryForChatbot() {
       return "Summary placeholder";
   }
@@ -529,7 +522,6 @@ class AppProvider with ChangeNotifier {
       for (var st in t.subTasks) {
         sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
       }
-      // Add Projects to context
       if(t.projects.isNotEmpty) {
         sb.writeln("  Projects:");
         for(var p in t.projects) {
@@ -596,7 +588,6 @@ class AppProvider with ChangeNotifier {
     setProviderState(chatbotMemory: _chatbotMemory);
   }
 
-  // ... (Reflection methods same)
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
     
@@ -753,8 +744,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // --- Actions Exposure ---
-
   Future<void> triggerAISubquestGeneration(MainTask mainTask,
           String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(
@@ -790,6 +779,5 @@ class AppProvider with ChangeNotifier {
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
 
-  // Project Actions Exposure
   ProjectActions get projectActions => _projectActions;
 }

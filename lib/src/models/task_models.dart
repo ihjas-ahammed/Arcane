@@ -1,7 +1,7 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart'; // Added Import
+import 'package:arcane/src/models/project_models.dart'; 
 
 class MainTask {
   String id;
@@ -13,7 +13,7 @@ class MainTask {
   String? lastWorkedDate;
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
-  List<Project> projects; // New Field
+  List<Project> projects; 
 
   MainTask({
     required this.id,
@@ -25,10 +25,37 @@ class MainTask {
     this.lastWorkedDate,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects, // New Param
+    List<Project>? projects, 
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
         subTasks = subTasks ?? [],
         projects = projects ?? [];
+
+  // Implement copyWith to prevent data loss during updates
+  MainTask copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? theme,
+    String? colorHex,
+    int? dailyTimeSpent,
+    String? lastWorkedDate,
+    Map<String, List<bool>>? weeklyCompletionStatus,
+    List<SubTask>? subTasks,
+    List<Project>? projects,
+  }) {
+    return MainTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      theme: theme ?? this.theme,
+      colorHex: colorHex ?? this.colorHex,
+      dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
+      lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
+      weeklyCompletionStatus: weeklyCompletionStatus ?? this.weeklyCompletionStatus,
+      subTasks: subTasks ?? this.subTasks,
+      projects: projects ?? this.projects,
+    );
+  }
 
   factory MainTask.fromTemplate(MainTaskTemplate template) {
     return MainTask(
@@ -65,7 +92,7 @@ class MainTask {
           [],
       projects: (json['projects'] as List<dynamic>?)
           ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [], // Load Projects
+          .toList() ?? [], 
     );
   }
 
@@ -80,7 +107,7 @@ class MainTask {
       'lastWorkedDate': lastWorkedDate,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
-      'projects': projects.map((p) => p.toJson()).toList(), // Save Projects
+      'projects': projects.map((p) => p.toJson()).toList(), 
     };
   }
 
