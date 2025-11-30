@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/ui/project_step_card.dart';
-import 'package:arcane/src/widgets/dialogs/project_generation_dialog.dart';
+import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:arcane/src/widgets/cards/quick_action_card.dart';
+import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
+import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
+import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
+import 'package:arcane/src/screens/project_detail_screen.dart'; // Import detail screen
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -13,205 +17,229 @@ class ProjectsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final selectedTask = provider.getSelectedTask();
+    final theme = Theme.of(context);
 
-    if (selectedTask == null) {
-      return const Center(child: Text("Select a Mission to view Projects."));
+    // Aggregate all projects from all main tasks
+    final List<Map<String, dynamic>> allProjects = [];
+    int totalSteps = 0;
+    int completedSteps = 0;
+
+    for (var task in provider.mainTasks) {
+      for (var project in task.projects) {
+        allProjects.add({
+          'project': project,
+          'mainTaskId': task.id,
+          'mainTaskName': task.name,
+          'color': task.taskColor,
+        });
+        
+        // Calculate global stats
+        for (var step in project.steps) {
+          totalSteps++;
+          if (step.isCompleted) completedSteps++;
+          // Rough calculation for substeps if needed
+        }
+      }
     }
 
-    final projects = selectedTask.projects;
+    final double overallProgress = totalSteps > 0 ? (completedSteps / totalSteps) : 0.0;
+    final int percentage = (overallProgress * 100).toInt();
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Section
+          Text("Welcome Back!", style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text("Here's your progress", style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+          
+          const SizedBox(height: 24),
+          
+          // Overall Progress Bar
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgMedium,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhAccentTealFixed,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "$percentage%", 
+                    style: const TextStyle(color: AppTheme.fhBgDeepDark, fontWeight: FontWeight.bold)
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      "Overall Project Progress", 
+                      style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.8), fontSize: 13)
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Ongoing Projects Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("ACTIVE PROJECTS", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(
-                icon: Icon(MdiIcons.plus, size: 18),
-                label: const Text("New Project"),
-                onPressed: () => _showAddProjectDialog(context, provider, selectedTask.id),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.fhAccentTealFixed,
-                  foregroundColor: AppTheme.fhBgDeepDark,
+               Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
+              const SizedBox(width: 8),
+              Text("Ongoing Projects", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Project List
+          if (allProjects.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3))
+              ),
+              child: Column(
+                children: [
+                  Icon(MdiIcons.folderOutline, size: 48, color: AppTheme.fhTextSecondary.withOpacity(0.3)),
+                  const SizedBox(height: 12),
+                  const Text("No active projects.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => _showCreateProjectSheet(context),
+                    child: const Text("Create your first project"),
+                  )
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: allProjects.length,
+              itemBuilder: (context, index) {
+                final item = allProjects[index];
+                return GestureDetector(
+                  onTap: () {
+                    // Push to Detail Screen
+                    Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (context) => ProjectDetailScreen(
+                          project: item['project'] as Project, 
+                          mainTaskId: item['mainTaskId'] as String
+                        )
+                      )
+                    );
+                  },
+                  child: ProjectDashboardCard(
+                    project: item['project'] as Project,
+                    mainTaskId: item['mainTaskId'] as String,
+                    mainTaskName: item['mainTaskName'] as String,
+                    accentColor: item['color'] as Color,
+                  ),
+                );
+              },
+            ),
+
+          const SizedBox(height: 32),
+          
+          // Quick Actions
+          Text("Quick Actions", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          
+          // Primary Create Button
+          GestureDetector(
+            onTap: () => _showCreateProjectSheet(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A90E2), Color(0xFF9013FE)], // Blue to Purple gradient
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF9013FE).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                ]
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(MdiIcons.plus, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text("Create New Project", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Secondary Actions Grid
+          Row(
+            children: [
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.viewDashboardOutline,
+                  label: "Templates",
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.robotOutline,
+                  label: "AI Prompts",
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // AI Gen Button
-          ElevatedButton.icon(
-            icon: Icon(MdiIcons.creationOutline, size: 18),
-            label: const Text("Create Project from AI Prompt"),
-            onPressed: () => showDialog(
-              context: context, 
-              builder: (context) => ProjectGenerationDialog(mainTaskId: selectedTask.id)
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.fhAccentPurple,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-            ),
+          const SizedBox(height: 12),
+          QuickActionCard(
+            icon: MdiIcons.targetVariant,
+            label: "Link Submission",
+            onTap: () => _showLinkSubmissionSheet(context),
+            isFullWidth: true,
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: projects.isEmpty
-              ? Center(
-                  child: Text(
-                    "No projects active for this mission.",
-                    style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5)),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: projects.length,
-                  itemBuilder: (context, index) {
-                    final project = projects[index];
-                    return _buildProjectCard(context, provider, selectedTask.id, project);
-                  },
-                ),
-          ),
+          
+          const SizedBox(height: 80), // Bottom padding for scroll
         ],
       ),
     );
   }
 
-  Widget _buildProjectCard(BuildContext context, AppProvider provider, String mainTaskId, Project project) {
-    return Card(
-      color: AppTheme.fhBgDark,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ExpansionTile(
-        title: Text(project.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if(project.description.isNotEmpty)
-              Text(project.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: project.progress,
-                backgroundColor: AppTheme.fhBgMedium,
-                color: AppTheme.fhAccentTeal,
-                minHeight: 6,
-              ),
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-          onPressed: () => _confirmDeleteProject(context, provider, mainTaskId, project.id),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                // Button to add root step
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    icon: Icon(MdiIcons.plus, size: 16),
-                    label: const Text("Add Root Step"),
-                    onPressed: () => _showAddStepDialog(context, provider, mainTaskId, project.id, null),
-                  ),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: project.steps.length,
-                  itemBuilder: (context, index) {
-                    return ProjectStepCard(
-                      step: project.steps[index],
-                      mainTaskId: mainTaskId,
-                      projectId: project.id,
-                      depth: 0,
-                    );
-                  },
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
+  void _showCreateProjectSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CreateProjectSheet(),
     );
   }
-
-  void _showAddProjectDialog(BuildContext context, AppProvider provider, String mainTaskId) {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        title: const Text("New Project"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: "Project Title")),
-            const SizedBox(height: 8),
-            TextField(controller: descController, decoration: const InputDecoration(labelText: "Description")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                provider.projectActions.addProject(mainTaskId, titleController.text, descController.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("Create"),
-          )
-        ],
-      );
-    });
-  }
-
-  void _showAddStepDialog(BuildContext context, AppProvider provider, String mainTaskId, String projectId, String? parentStepId) {
-    final titleController = TextEditingController();
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        title: const Text("Add Step"),
-        content: TextField(controller: titleController, decoration: const InputDecoration(labelText: "Step Title")),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                if(parentStepId == null) {
-                  provider.projectActions.addRootStep(mainTaskId, projectId, titleController.text);
-                } else {
-                  // Not reachable from here directly for root add, but generic handler
-                }
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("Add"),
-          )
-        ],
-      );
-    });
-  }
-
-  void _confirmDeleteProject(BuildContext context, AppProvider provider, String mainTaskId, String projectId) {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("Delete Project?"),
-      content: const Text("This cannot be undone."),
-      actions: [
-        TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Cancel")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-          onPressed: () {
-            provider.projectActions.deleteProject(mainTaskId, projectId);
-            Navigator.pop(context);
-          },
-          child: const Text("Delete"),
-        )
-      ],
-    ));
+  
+  void _showLinkSubmissionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const LinkSubmissionSheet(),
+    );
   }
 }

@@ -6,6 +6,7 @@ class Project {
   String description;
   List<ProjectStep> steps;
   double progress;
+  String? linkedMainTaskId; // Track which MainTask this belongs to strictly
 
   Project({
     required this.id,
@@ -13,6 +14,7 @@ class Project {
     required this.description,
     List<ProjectStep>? steps,
     this.progress = 0.0,
+    this.linkedMainTaskId,
   }) : steps = steps ?? [];
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class Project {
       title: json['title'] as String? ?? 'Untitled Project',
       description: json['description'] as String? ?? '',
       progress: (json['progress'] as num? ?? 0.0).toDouble(),
+      linkedMainTaskId: json['linkedMainTaskId'] as String?,
       steps: (json['steps'] as List<dynamic>?)
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -34,6 +37,7 @@ class Project {
       'title': title,
       'description': description,
       'progress': calculateProgress(), // Always recalc on save
+      'linkedMainTaskId': linkedMainTaskId,
       'steps': steps.map((e) => e.toJson()).toList(),
     };
   }
@@ -46,6 +50,12 @@ class Project {
     }
     progress = total / steps.length;
     return progress;
+  }
+  
+  int get completedStepsCount {
+    if (steps.isEmpty) return 0;
+    // Count steps that are fully complete
+    return steps.where((s) => s.calculateProgress() >= 1.0).length;
   }
 }
 
@@ -95,12 +105,8 @@ class ProjectStep {
     for (var step in substeps) {
       total += step.calculateProgress();
     }
-    // If it has children, completion is derived from children
-    // However, if the user explicitly checks the parent, it counts as 100% override?
-    // For this implementation, parent status is derived if children exist.
     double childProgress = total / substeps.length;
     
-    // Auto-update isCompleted flag based on children for UI convenience
     if (substeps.isNotEmpty) {
       isCompleted = childProgress >= 1.0;
     }

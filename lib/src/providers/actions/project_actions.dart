@@ -11,22 +11,30 @@ class ProjectActions {
 
   ProjectActions(this._provider);
 
-  void addProject(String mainTaskId, String title, String description) {
+  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  void addProject(String title, String description, {String? mainTaskId}) {
+    // If no specific task is targeted, use the currently selected one, or the first one.
+    final targetTaskId = mainTaskId ?? _provider.selectedTaskId ?? _provider.mainTasks.firstOrNull?.id;
+    
+    if (targetTaskId == null) {
+      debugPrint("Error: No MainTask available to assign project to.");
+      return;
+    }
+
     final newProject = Project(
       id: const Uuid().v4(),
       title: title,
       description: description,
+      linkedMainTaskId: targetTaskId,
     );
 
-    _updateMainTaskProjects(mainTaskId, (projects) {
+    _updateMainTaskProjects(targetTaskId, (projects) {
       return [...projects, newProject];
     });
   }
 
   void updateProject(String mainTaskId, Project updatedProject) {
-    // Recalculate progress before saving
     updatedProject.calculateProgress();
-    
     _updateMainTaskProjects(mainTaskId, (projects) {
       return projects.map((p) => p.id == updatedProject.id ? updatedProject : p).toList();
     });
@@ -52,7 +60,7 @@ class ProjectActions {
           lastWorkedDate: task.lastWorkedDate,
           subTasks: task.subTasks,
           weeklyCompletionStatus: task.weeklyCompletionStatus,
-          projects: updatedProjects, // Updated
+          projects: updatedProjects,
         );
       }
       return task;
@@ -69,42 +77,15 @@ class ProjectActions {
       title: title,
       description: '',
     );
-
-    Project? targetProject;
-    
-    // Find reference
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
-        }
-      }
-    }
-
-    if (targetProject != null) {
-      targetProject.steps.add(newStep);
-      updateProject(mainTaskId, targetProject);
-    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      project.steps.add(newStep);
+    });
   }
 
-  // Recursive search to find and update a step
   void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
-    Project? targetProject;
-    // Find project
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
-        }
-      }
-    }
-
-    if (targetProject == null) return;
-
-    bool found = _updateStepRecursive(targetProject.steps, updatedStep);
-    if (found) {
-      updateProject(mainTaskId, targetProject);
-    }
+    _performStepAction(mainTaskId, projectId, (project) {
+       _updateStepRecursive(project.steps, updatedStep);
+    });
   }
 
   bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
@@ -121,19 +102,9 @@ class ProjectActions {
   }
 
   void deleteStep(String mainTaskId, String projectId, String stepId) {
-    Project? targetProject;
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
-        }
-      }
-    }
-
-    if (targetProject == null) return;
-
-    _deleteStepRecursive(targetProject.steps, stepId);
-    updateProject(mainTaskId, targetProject);
+    _performStepAction(mainTaskId, projectId, (project) {
+      _deleteStepRecursive(project.steps, stepId);
+    });
   }
 
   void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
@@ -149,7 +120,24 @@ class ProjectActions {
       title: title,
       description: '',
     );
+    _performStepAction(mainTaskId, projectId, (project) {
+       _addSubstepRecursive(project.steps, parentStepId, newStep);
+    });
+  }
 
+  bool _addSubstepRecursive(List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        s.substeps.add(newStep);
+        s.isCompleted = false; 
+        return true;
+      }
+      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+  
+  void _performStepAction(String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
     for (var t in _provider.mainTasks) {
       if (t.id == mainTaskId) {
@@ -158,23 +146,10 @@ class ProjectActions {
         }
       }
     }
-
-    if (targetProject == null) return;
-
-    _addSubstepRecursive(targetProject.steps, parentStepId, newStep);
-    updateProject(mainTaskId, targetProject);
-  }
-
-  bool _addSubstepRecursive(List<ProjectStep> steps, String parentId, ProjectStep newStep) {
-    for (var s in steps) {
-      if (s.id == parentId) {
-        s.substeps.add(newStep);
-        s.isCompleted = false; // Re-open parent if new step added
-        return true;
-      }
-      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    if (targetProject != null) {
+      action(targetProject);
+      updateProject(mainTaskId, targetProject);
     }
-    return false;
   }
 
   // --- Integration ---
@@ -183,7 +158,7 @@ class ProjectActions {
     _provider.addSubtask(mainTaskId, {
       'name': step.title,
       'isCountable': false,
-      'subSubTasksData': <Map<String, dynamic>>[] // Explicit type cast
+      'subSubTasksData': <Map<String, dynamic>>[] 
     });
   }
 
@@ -201,8 +176,8 @@ class ProjectActions {
       );
 
       final newProject = Project.fromJson(projectData);
-      // Ensure IDs are unique if AI didn't provide them nicely
       newProject.id = const Uuid().v4();
+      newProject.linkedMainTaskId = mainTaskId;
       
       _updateMainTaskProjects(mainTaskId, (projects) => [...projects, newProject]);
     } catch (e) {

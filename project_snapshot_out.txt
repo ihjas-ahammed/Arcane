@@ -613,6 +613,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  uuid:
+    dependency: "direct main"
+    description:
+      name: uuid
+      sha256: a11b666489b1954e01d992f3d601b1804a33937b5a8fe677bd26b8a9f96f96e8
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.2"
   vector_math:
     dependency: transitive
     description:
@@ -806,6 +814,7 @@ dependencies:
   collection: ^1.18.0 
   flutter_colorpicker: ^1.1.0 # For task color selection
   smooth_page_indicator: ^1.2.1
+  uuid: ^4.5.2
 
 
 dev_dependencies:
@@ -1277,6 +1286,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
 import 'actions/timer_actions.dart';
+import 'actions/project_actions.dart'; // Import Project Actions
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
@@ -1342,11 +1352,13 @@ class AppProvider with ChangeNotifier {
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
+  late final ProjectActions _projectActions; // New
 
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this); // Init
     _initializeSkills(); // Init default skills
     _initialize();
 
@@ -1358,6 +1370,7 @@ class AppProvider with ChangeNotifier {
     });
   }
 
+  // ... (Skills Init same)
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
@@ -1441,6 +1454,10 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Persistence Logic Updated for Projects ---
+  // Note: Projects are part of MainTask, so MainTask.toJson() handles it. 
+  // We just need to ensure the AppState methods call .toJson on mainTasks, which is already there.
+
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -1467,6 +1484,7 @@ class AppProvider with ChangeNotifier {
         initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
 
     _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
+    // ... (rest of load logic)
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
@@ -1474,7 +1492,6 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        // Remove energy logs loading
       }
     });
 
@@ -1521,6 +1538,7 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
   }
 
+  // ... (Reset, Save, Login, Signup methods same as before)
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -1550,8 +1568,8 @@ class AppProvider with ChangeNotifier {
       }
     }
   }
-  
-  Future<void> manuallySaveToCloud() async {
+
+   Future<void> manuallySaveToCloud() async {
     if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
     _isManuallySaving = true;
     notifyListeners();
@@ -1656,6 +1674,8 @@ class AppProvider with ChangeNotifier {
     await _performActualSave();
   }
 
+  // ... (Accessors and simple setters)
+
   void setSelectedTaskId(String? taskId) {
     if (_selectedTaskId != taskId) {
       _selectedTaskId = taskId;
@@ -1708,7 +1728,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // New Method to get Yesterday's Time for Comparison
   int getYesterdaysTimeForTask(String taskId) {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
@@ -1730,7 +1749,6 @@ class AppProvider with ChangeNotifier {
       hasResetRun = true;
       _lastLoginDate = today;
       _hasUnsavedChanges = true;
-      // Reset daily time spent for all tasks on a new day
       for (var task in _mainTasks) {
         if (task.lastWorkedDate != today) {
           task.dailyTimeSpent = 0;
@@ -1747,10 +1765,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // ----------------------------------------------------------------
-  // Logging Management (Reflections only, Energy Removed)
-  // ----------------------------------------------------------------
-
+  // ... (Chatbot & Reflection methods same as before)
   String _generateWeeklySummaryForChatbot() {
       return "Summary placeholder";
   }
@@ -1773,8 +1788,7 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
     notifyListeners();
   }
-
-  // Helper to build data context for AI
+  
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -1783,6 +1797,13 @@ class AppProvider with ChangeNotifier {
       sb.writeln("  Sub-missions:");
       for (var st in t.subTasks) {
         sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      }
+      // Add Projects to context
+      if(t.projects.isNotEmpty) {
+        sb.writeln("  Projects:");
+        for(var p in t.projects) {
+          sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
+        }
       }
     }
     
@@ -1844,10 +1865,7 @@ class AppProvider with ChangeNotifier {
     setProviderState(chatbotMemory: _chatbotMemory);
   }
 
-  // ----------------------------------------------------------------
-  // Reflection & Skills Logic
-  // ----------------------------------------------------------------
-
+  // ... (Reflection methods same)
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
     
@@ -1871,7 +1889,6 @@ class AppProvider with ChangeNotifier {
       systemInstruction: settings.customReflectionPrompt,
     );
 
-    // Apply XP
     Map<String, int> xpAllocation = {};
     if (result['xp_allocation'] is Map) {
       (result['xp_allocation'] as Map).forEach((key, value) {
@@ -2005,37 +2022,22 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // --- Actions Exposure ---
+
   Future<void> triggerAISubquestGeneration(MainTask mainTask,
           String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(
           mainTask, generationMode, userInput, numSubquests);
   
-  void addMainTask(
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.addMainTask(
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
-  void editMainTask(String taskId,
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.editMainTask(taskId,
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) =>
+      _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) =>
+      _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
   void logToDailySummary(String type, Map<String, dynamic> data) =>
       _taskActions.logToDailySummary(type, data);
   String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
       _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(
-          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
   bool completeSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.completeSubtask(mainTaskId, subtaskId);
@@ -2043,25 +2045,22 @@ class AppProvider with ChangeNotifier {
       _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId,
-          Map<String, dynamic> subSubtaskData) =>
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) =>
       _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
-          String subSubtaskId, Map<String, dynamic> updates) =>
-      _taskActions.updateSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
-      _taskActions.completeSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
       _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
 
   void startTimer(String id, String type, String mainTaskId) =>
       _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+
+  // Project Actions Exposure
+  ProjectActions get projectActions => _projectActions;
 }
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
@@ -2839,6 +2838,198 @@ class AIGenerationActions {
 }
 --- END OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
 
+--- START OF FILE lib/src/providers/actions/project_actions.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+
+class ProjectActions {
+  final AppProvider _provider;
+  final AIService _aiService = AIService();
+
+  ProjectActions(this._provider);
+
+  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  void addProject(String title, String description, {String? mainTaskId}) {
+    // If no specific task is targeted, use the currently selected one, or the first one.
+    final targetTaskId = mainTaskId ?? _provider.selectedTaskId ?? _provider.mainTasks.firstOrNull?.id;
+    
+    if (targetTaskId == null) {
+      debugPrint("Error: No MainTask available to assign project to.");
+      return;
+    }
+
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      linkedMainTaskId: targetTaskId,
+    );
+
+    _updateMainTaskProjects(targetTaskId, (projects) {
+      return [...projects, newProject];
+    });
+  }
+
+  void updateProject(String mainTaskId, Project updatedProject) {
+    updatedProject.calculateProgress();
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) => p.id == updatedProject.id ? updatedProject : p).toList();
+    });
+  }
+
+  void deleteProject(String mainTaskId, String projectId) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.where((p) => p.id != projectId).toList();
+    });
+  }
+
+  void _updateMainTaskProjects(String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        return MainTask(
+          id: task.id,
+          name: task.name,
+          description: task.description,
+          theme: task.theme,
+          colorHex: task.colorHex,
+          dailyTimeSpent: task.dailyTimeSpent,
+          lastWorkedDate: task.lastWorkedDate,
+          subTasks: task.subTasks,
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
+          projects: updatedProjects,
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Step Management ---
+
+  void addRootStep(String mainTaskId, String projectId, String title) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: '',
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+      project.steps.add(newStep);
+    });
+  }
+
+  void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
+    _performStepAction(mainTaskId, projectId, (project) {
+       _updateStepRecursive(project.steps, updatedStep);
+    });
+  }
+
+  bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == updatedStep.id) {
+        steps[i] = updatedStep;
+        return true;
+      }
+      if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void deleteStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _deleteStepRecursive(project.steps, stepId);
+    });
+  }
+
+  void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
+    steps.removeWhere((s) => s.id == stepId);
+    for (var s in steps) {
+      _deleteStepRecursive(s.substeps, stepId);
+    }
+  }
+
+  void addSubstep(String mainTaskId, String projectId, String parentStepId, String title) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: '',
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+       _addSubstepRecursive(project.steps, parentStepId, newStep);
+    });
+  }
+
+  bool _addSubstepRecursive(List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        s.substeps.add(newStep);
+        s.isCompleted = false; 
+        return true;
+      }
+      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+  
+  void _performStepAction(String mainTaskId, String projectId, Function(Project) action) {
+    Project? targetProject;
+    for (var t in _provider.mainTasks) {
+      if (t.id == mainTaskId) {
+        for (var p in t.projects) {
+          if (p.id == projectId) targetProject = p;
+        }
+      }
+    }
+    if (targetProject != null) {
+      action(targetProject);
+      updateProject(mainTaskId, targetProject);
+    }
+  }
+
+  // --- Integration ---
+
+  void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
+    _provider.addSubtask(mainTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'subSubTasksData': <Map<String, dynamic>>[] 
+    });
+  }
+
+  // --- AI Generation ---
+
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    try {
+      final projectData = await _aiService.generateProjectFromPrompt(
+        modelName: _provider.settings.aiModelName,
+        userPrompt: userPrompt,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+      );
+
+      final newProject = Project.fromJson(projectData);
+      newProject.id = const Uuid().v4();
+      newProject.linkedMainTaskId = mainTaskId;
+      
+      _updateMainTaskProjects(mainTaskId, (projects) => [...projects, newProject]);
+    } catch (e) {
+      debugPrint("Error generating project: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/project_actions.dart ---
+
 --- START OF FILE lib/src/theme/app_theme.dart ---
 import 'package:flutter/material.dart';
 
@@ -3327,11 +3518,13 @@ class SkillsDrawer extends StatelessWidget {
 --- END OF FILE lib/src/widgets/skills_drawer.dart ---
 
 --- START OF FILE lib/src/widgets/header_widget.dart ---
+import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/screens/settings_screen.dart'; // Import Settings View
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
@@ -3370,7 +3563,28 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       ),
       centerTitle: true,
       actions: <Widget>[
-        // Persona / Virtues Button replacing AI button
+        // Settings Button moved here
+        IconButton(
+          icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
+          tooltip: 'Settings',
+          onPressed: () {
+            // Push settings screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => Scaffold(
+                appBar: AppBar(title: const Text("SETTINGS")),
+                backgroundColor: AppTheme.fhBgDeepDark,
+                body:  Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 800),
+                    child: SettingsView()
+                  )
+                ),
+              )),
+            );
+          },
+        ),
+        // Persona / Virtues Button
         IconButton(
           icon: Icon(MdiIcons.shieldAccount, // Or accountDetailsOutline
               color: AppTheme.fhTextSecondary),
@@ -3944,6 +4158,333 @@ class _ReflectionDialogState extends State<ReflectionDialog> {
   }
 }
 --- END OF FILE lib/src/widgets/reflection_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/sheets/create_project_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+
+class CreateProjectSheet extends StatefulWidget {
+  const CreateProjectSheet({super.key});
+
+  @override
+  State<CreateProjectSheet> createState() => _CreateProjectSheetState();
+}
+
+class _CreateProjectSheetState extends State<CreateProjectSheet> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+  String? _selectedMainTaskId;
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    // Default to currently selected task, or first available
+    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: AppTheme.fhBgDeepDark,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: AppTheme.fhTextSecondary, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          
+          Text("Create New Project", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 24),
+          
+          // Project Name
+          const Text("Project Name", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              hintText: "e.g., Develop AI Prompt System",
+              filled: true,
+              fillColor: AppTheme.fhBgDark,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+
+           // Mission Selector
+          const Text("Link to Mission (Optional)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Container(
+             padding: const EdgeInsets.symmetric(horizontal: 12),
+             decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+             ),
+             child: DropdownButtonHideUnderline(
+               child: DropdownButton<String>(
+                 value: _selectedMainTaskId,
+                 isExpanded: true,
+                 dropdownColor: AppTheme.fhBgDark,
+                 items: provider.mainTasks.map((task) {
+                   return DropdownMenuItem(
+                     value: task.id,
+                     child: Text(task.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                   );
+                 }).toList(),
+                 onChanged: (val) => setState(() => _selectedMainTaskId = val),
+               ),
+             ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Description
+          const Text("Description", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _descController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: "Briefly describe your project goals...",
+              filled: true,
+              fillColor: AppTheme.fhBgDark,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+          
+          const Spacer(),
+          
+          // Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_nameController.text.isNotEmpty && _selectedMainTaskId != null) {
+                  provider.projectActions.addProject(
+                    _nameController.text, 
+                    _descController.text,
+                    mainTaskId: _selectedMainTaskId
+                  );
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A90E2), // Matching the blue/purple gradient vibe
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              child: const Text("Create Project", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/create_project_sheet.dart ---
+
+--- START OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class LinkSubmissionSheet extends StatefulWidget {
+  const LinkSubmissionSheet({super.key});
+
+  @override
+  State<LinkSubmissionSheet> createState() => _LinkSubmissionSheetState();
+}
+
+class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
+  String? _selectedMainTaskId;
+  String? _selectedProjectId;
+  String? _selectedStepId;
+  Project? _selectedProjectObj;
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    _selectedMainTaskId = provider.selectedTaskId;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    // Filter projects based on selected main task
+    final availableProjects = <Project>[];
+    if (_selectedMainTaskId != null) {
+      final task = provider.mainTasks.firstWhere((t) => t.id == _selectedMainTaskId);
+      availableProjects.addAll(task.projects);
+    }
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: AppTheme.fhBgDeepDark,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: AppTheme.fhTextSecondary, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          
+          Text("Add Submission to Mission", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text("Link a project step to a mission as a sub-task.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+          
+          const SizedBox(height: 24),
+
+          // 1. Choose Mission
+          const Text("Choose Mission", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          _buildDropdown(
+            value: _selectedMainTaskId,
+            items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
+            onChanged: (val) {
+               setState(() {
+                 _selectedMainTaskId = val as String?;
+                 _selectedProjectId = null;
+                 _selectedStepId = null;
+                 _selectedProjectObj = null;
+               });
+            }
+          ),
+
+          const SizedBox(height: 20),
+
+          // 2. Select Project
+          if (_selectedMainTaskId != null) ...[
+            const Text("Select Project", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+             _buildDropdown(
+              value: _selectedProjectId,
+              items: availableProjects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title))).toList(),
+              onChanged: (val) {
+                 final proj = availableProjects.firstWhere((p) => p.id == val);
+                 setState(() {
+                   _selectedProjectId = val as String?;
+                   _selectedProjectObj = proj;
+                   _selectedStepId = null;
+                 });
+              }
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // 3. Select Step (Flattened for simplicity)
+          if (_selectedProjectObj != null) ...[
+            const Text("Select Project Step", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Container(
+              height: 150,
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListView.builder(
+                itemCount: _selectedProjectObj!.steps.length,
+                itemBuilder: (context, index) {
+                  final step = _selectedProjectObj!.steps[index];
+                  final isSelected = _selectedStepId == step.id;
+                  return ListTile(
+                    title: Text(step.title, style: TextStyle(color: isSelected ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary)),
+                    trailing: isSelected ?  Icon(MdiIcons.checkCircle, color: AppTheme.fhAccentTeal) :  Icon(MdiIcons.circleOutline, color: AppTheme.fhTextSecondary),
+                    onTap: () => setState(() => _selectedStepId = step.id),
+                  );
+                },
+              ),
+            )
+          ],
+
+          const Spacer(),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_selectedMainTaskId != null && _selectedStepId != null) 
+                ? () {
+                    // Find the actual step object
+                    // Note: This only finds top-level steps for now based on the simplistic ListView above.
+                    // Recursive lookup would be needed for deep steps.
+                    final step = _selectedProjectObj!.steps.firstWhere((s) => s.id == _selectedStepId);
+                    provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Linked successfully!")));
+                }
+                : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.fhAccentPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              child: const Text("Link Submission", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown({required dynamic value, required List<DropdownMenuItem<Object>> items, required Function(Object?) onChanged}) {
+    return Container(
+       padding: const EdgeInsets.symmetric(horizontal: 12),
+       decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          borderRadius: BorderRadius.circular(12),
+       ),
+       child: DropdownButtonHideUnderline(
+         child: DropdownButton(
+           value: value,
+           isExpanded: true,
+           dropdownColor: AppTheme.fhBgDark,
+           hint: const Text("Select...", style: TextStyle(color: AppTheme.fhTextSecondary)),
+           items: items,
+           onChanged: onChanged,
+           style: const TextStyle(color: AppTheme.fhTextPrimary),
+         ),
+       ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
 
 --- START OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
 import 'package:flutter/material.dart';
@@ -5056,6 +5597,280 @@ class TaskHeaderCard extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/cards/task_header_card.dart ---
 
+--- START OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/project_step_card.dart'; // Reusing existing card for detailed view logic
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class ProjectDashboardCard extends StatefulWidget {
+  final Project project;
+  final String mainTaskId;
+  final String mainTaskName;
+  final Color accentColor;
+
+  const ProjectDashboardCard({
+    super.key,
+    required this.project,
+    required this.mainTaskId,
+    required this.mainTaskName,
+    required this.accentColor,
+  });
+
+  @override
+  State<ProjectDashboardCard> createState() => _ProjectDashboardCardState();
+}
+
+class _ProjectDashboardCardState extends State<ProjectDashboardCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = widget.project.progress;
+    final totalSteps = widget.project.steps.length;
+    final completedSteps = widget.project.completedStepsCount;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark, // Dark card background
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
+        ]
+      ),
+      child: Column(
+        children: [
+          // Collapsed Header
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.project.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Progress Row
+                  Row(
+                    children: [
+                      // Circular Progress
+                      SizedBox(
+                        width: 40, 
+                        height: 40,
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          backgroundColor: AppTheme.fhBgDeepDark,
+                          color: widget.accentColor,
+                          strokeWidth: 4,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "$completedSteps/$totalSteps Steps Completed",
+                              style: TextStyle(color: widget.accentColor, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            if (widget.project.description.isNotEmpty)
+                              Text(
+                                widget.project.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                              )
+                            else 
+                               Text(
+                                "Linked to: ${widget.mainTaskName}",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Icon(_isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown, color: AppTheme.fhTextSecondary),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+          
+          // Expanded Content (Steps)
+          if (_isExpanded)
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgMedium.withOpacity(0.2),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                )
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  children: [
+                    // Action Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                         TextButton.icon(
+                          icon: Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed),
+                          label: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
+                          onPressed: () => _confirmDelete(context),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          icon:  Icon(MdiIcons.plus, size: 16),
+                          label: const Text("Add Step"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.fhBgLight,
+                            foregroundColor: AppTheme.fhTextPrimary,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onPressed: () => _addRootStep(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Steps List
+                    if (widget.project.steps.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text("No steps yet.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: widget.project.steps.length,
+                        itemBuilder: (context, index) {
+                          // Using existing ProjectStepCard but stripping context for dashboard look
+                          return ProjectStepCard(
+                            step: widget.project.steps[index],
+                            mainTaskId: widget.mainTaskId,
+                            projectId: widget.project.id,
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            )
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(context: context, builder: (context) => AlertDialog(
+      title: const Text("Delete Project?"),
+      content: const Text("This cannot be undone."),
+      actions: [
+        TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+          onPressed: () {
+            Provider.of<AppProvider>(context, listen: false)
+              .projectActions.deleteProject(widget.mainTaskId, widget.project.id);
+            Navigator.pop(context);
+          },
+          child: const Text("Delete"),
+        )
+      ],
+    ));
+  }
+
+  void _addRootStep(BuildContext context) {
+    final titleController = TextEditingController();
+    showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: const Text("Add Step"),
+        content: TextField(controller: titleController, decoration: const InputDecoration(labelText: "Step Title")),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.isNotEmpty) {
+                Provider.of<AppProvider>(context, listen: false)
+                  .projectActions.addRootStep(widget.mainTaskId, widget.project.id, titleController.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Add"),
+          )
+        ],
+      );
+    });
+  }
+}
+--- END OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
+
+--- START OF FILE lib/src/widgets/cards/quick_action_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isFullWidth;
+
+  const QuickActionCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isFullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisAlignment: isFullWidth ? MainAxisAlignment.start : MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppTheme.fhTextSecondary, size: 20),
+            const SizedBox(width: 12),
+            Text(label, style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.w500)),
+            if (isFullWidth) ...[
+              const Spacer(),
+              const Icon(Icons.arrow_forward_ios, color: AppTheme.fhTextSecondary, size: 14),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/cards/quick_action_card.dart ---
+
 --- START OF FILE lib/src/widgets/dialogs/edit_subtask_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -5242,6 +6057,68 @@ class SkillDetailDialog extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/project_generation_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+class ProjectGenerationDialog extends StatefulWidget {
+  final String mainTaskId;
+  const ProjectGenerationDialog({super.key, required this.mainTaskId});
+
+  @override
+  State<ProjectGenerationDialog> createState() => _ProjectGenerationDialogState();
+}
+
+class _ProjectGenerationDialogState extends State<ProjectGenerationDialog> {
+  final TextEditingController _promptController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Generate Project with AI", style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text("Describe the project goal. The AI will break it down into recursive steps.", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _promptController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: "e.g., Build a personal website with portfolio and blog.",
+              border: OutlineInputBorder()
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: provider.isGeneratingSubquests ? null : () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          onPressed: provider.isGeneratingSubquests 
+            ? null 
+            : () async {
+              if (_promptController.text.isNotEmpty) {
+                // Using existing loading flag for simplicity, or create a new one
+                await provider.projectActions.generateProjectStructure(widget.mainTaskId, _promptController.text);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple),
+          child: provider.isGeneratingSubquests 
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text("Generate"),
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/project_generation_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
@@ -5817,6 +6694,240 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   }
 }
 --- END OF FILE lib/src/widgets/views/task_details_view.dart ---
+
+--- START OF FILE lib/src/widgets/views/projects_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:arcane/src/widgets/cards/quick_action_card.dart';
+import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
+import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
+import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class ProjectsView extends StatelessWidget {
+  const ProjectsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    // Aggregate all projects from all main tasks
+    final List<Map<String, dynamic>> allProjects = [];
+    int totalSteps = 0;
+    int completedSteps = 0;
+
+    for (var task in provider.mainTasks) {
+      for (var project in task.projects) {
+        allProjects.add({
+          'project': project,
+          'mainTaskId': task.id,
+          'mainTaskName': task.name,
+          'color': task.taskColor,
+        });
+        
+        // Calculate global stats
+        for (var step in project.steps) {
+          totalSteps++;
+          if (step.isCompleted) completedSteps++;
+          // Rough calculation for substeps if needed, 
+          // but relying on top-level steps for summary is cleaner
+        }
+      }
+    }
+
+    final double overallProgress = totalSteps > 0 ? (completedSteps / totalSteps) : 0.0;
+    final int percentage = (overallProgress * 100).toInt();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Text("Welcome Back!", style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text("Here's your progress", style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+          
+          const SizedBox(height: 24),
+          
+          // Overall Progress Bar
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgMedium,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhAccentTealFixed,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "$percentage%", 
+                    style: const TextStyle(color: AppTheme.fhBgDeepDark, fontWeight: FontWeight.bold)
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      "Overall Project Progress", 
+                      style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.8), fontSize: 13)
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Ongoing Projects Header
+          Row(
+            children: [
+               Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
+              const SizedBox(width: 8),
+              Text("Ongoing Projects", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Project List
+          if (allProjects.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3))
+              ),
+              child: Column(
+                children: [
+                  Icon(MdiIcons.folderOutline, size: 48, color: AppTheme.fhTextSecondary.withOpacity(0.3)),
+                  const SizedBox(height: 12),
+                  const Text("No active projects.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => _showCreateProjectSheet(context),
+                    child: const Text("Create your first project"),
+                  )
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: allProjects.length,
+              itemBuilder: (context, index) {
+                final item = allProjects[index];
+                return ProjectDashboardCard(
+                  project: item['project'] as Project,
+                  mainTaskId: item['mainTaskId'] as String,
+                  mainTaskName: item['mainTaskName'] as String,
+                  accentColor: item['color'] as Color,
+                );
+              },
+            ),
+
+          const SizedBox(height: 32),
+          
+          // Quick Actions
+          Text("Quick Actions", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          
+          // Primary Create Button
+          GestureDetector(
+            onTap: () => _showCreateProjectSheet(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A90E2), Color(0xFF9013FE)], // Blue to Purple gradient
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF9013FE).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                ]
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(MdiIcons.plus, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text("Create New Project", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Secondary Actions Grid
+          Row(
+            children: [
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.viewDashboardOutline,
+                  label: "Templates",
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.robotOutline,
+                  label: "AI Prompts",
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          QuickActionCard(
+            icon: MdiIcons.targetVariant,
+            label: "Link Submission",
+            onTap: () => _showLinkSubmissionSheet(context),
+            isFullWidth: true,
+          ),
+          
+          const SizedBox(height: 80), // Bottom padding for scroll
+        ],
+      ),
+    );
+  }
+
+  void _showCreateProjectSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CreateProjectSheet(),
+    );
+  }
+  
+  void _showLinkSubmissionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const LinkSubmissionSheet(),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/projects_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/chatbot_view.dart ---
 // lib/src/widgets/views/chatbot_view.dart
@@ -6567,6 +7678,193 @@ extension StringExtension on String {
   }
 }
 --- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+
+--- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class AiPromptsView extends StatefulWidget {
+  const AiPromptsView({super.key});
+
+  @override
+  State<AiPromptsView> createState() => _AiPromptsViewState();
+}
+
+class _AiPromptsViewState extends State<AiPromptsView> {
+  final TextEditingController _promptController = TextEditingController();
+  String? _selectedMainTaskId;
+
+  final List<Map<String, String>> _templates = [
+    {
+      "title": "Health & Fitness",
+      "prompt": "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
+    },
+    {
+      "title": "Creative Writing",
+      "prompt": "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
+    },
+    {
+      "title": "Coding & Tech",
+      "prompt": "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
+    },
+    {
+      "title": "Home Org",
+      "prompt": "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("AI Prompts"),
+        backgroundColor: AppTheme.fhBgDeepDark,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text("Describe your project idea...", style: theme.textTheme.titleMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+            const SizedBox(height: 12),
+            
+            // Text Input
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+              ),
+              child: TextField(
+                controller: _promptController,
+                maxLines: 5,
+                decoration: const InputDecoration.collapsed(
+                  hintText: "e.g., 'Learn Python in 90 days with a focus on web development.'",
+                  hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                ),
+                style: const TextStyle(color: AppTheme.fhTextPrimary),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Task Selector for AI Generation
+             DropdownButtonFormField<String>(
+               value: _selectedMainTaskId,
+               dropdownColor: AppTheme.fhBgDark,
+               decoration: InputDecoration(
+                 labelText: "Assign to Mission",
+                 fillColor: AppTheme.fhBgDark,
+                 filled: true,
+                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+               ),
+               items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
+               onChanged: (val) => setState(() => _selectedMainTaskId = val),
+             ),
+             
+             const SizedBox(height: 24),
+
+            // Generate Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: provider.isGeneratingSubquests ? null : () {
+                  if (_promptController.text.isNotEmpty && _selectedMainTaskId != null) {
+                    provider.projectActions.generateProjectStructure(_selectedMainTaskId!, _promptController.text);
+                    Navigator.pop(context); // Go back to projects view
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Generating project structure...")));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A90E2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: provider.isGeneratingSubquests 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Generate Project Plan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            Text("Prompt Templates", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            
+            // Templates Grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: _templates.length,
+              itemBuilder: (context, index) {
+                final t = _templates[index];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _promptController.text = t['prompt']!;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhBgDark,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Text(
+                            t['prompt']!, 
+                            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            
+            const SizedBox(height: 32),
+            // Saved Prompts Section (Placeholder for future feature)
+            Text("Saved Prompts", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Center(child: Text("No saved prompts yet.", style: TextStyle(color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/settings_view.dart ---
 // lib/src/widgets/views/settings_view.dart
@@ -7818,6 +9116,146 @@ class ActivityLogList extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/activity_log_list.dart ---
 
+--- START OF FILE lib/src/widgets/ui/project_step_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ProjectStepCard extends StatefulWidget {
+  final ProjectStep step;
+  final String mainTaskId;
+  final String projectId;
+  final int depth;
+
+  const ProjectStepCard({
+    super.key,
+    required this.step,
+    required this.mainTaskId,
+    required this.projectId,
+    this.depth = 0,
+  });
+
+  @override
+  State<ProjectStepCard> createState() => _ProjectStepCardState();
+}
+
+class _ProjectStepCardState extends State<ProjectStepCard> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final progress = widget.step.calculateProgress();
+
+    return Container(
+      margin: EdgeInsets.only(left: widget.depth * 16.0, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: widget.step.isCompleted ? AppTheme.fhAccentGreen.withOpacity(0.5) : AppTheme.fhBorderColor.withOpacity(0.3)
+        ),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: IconButton(
+              icon: Icon(
+                widget.step.isCompleted ? MdiIcons.checkboxMarkedCircleOutline : MdiIcons.checkboxBlankCircleOutline,
+                color: widget.step.isCompleted ? AppTheme.fhAccentGreen : AppTheme.fhTextSecondary,
+              ),
+              onPressed: () {
+                // Toggle completion manually
+                final updatedStep = widget.step..isCompleted = !widget.step.isCompleted;
+                provider.projectActions.updateStep(widget.mainTaskId, widget.projectId, updatedStep);
+              },
+            ),
+            title: Text(
+              widget.step.title,
+              style: TextStyle(
+                decoration: widget.step.isCompleted ? TextDecoration.lineThrough : null,
+                color: widget.step.isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
+              ),
+            ),
+            subtitle: progress > 0 && progress < 1.0 
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: LinearProgressIndicator(value: progress, minHeight: 4, color: AppTheme.fhAccentTeal, backgroundColor: AppTheme.fhBgDeepDark),
+                )
+              : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                 IconButton(
+                  icon: Icon(MdiIcons.targetVariant, size: 18, color: AppTheme.fhAccentPurple),
+                  tooltip: "Promote to Mission Submission",
+                  onPressed: () {
+                     provider.projectActions.promoteStepToSubmission(widget.mainTaskId, widget.step);
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Added as Submission to Mission")));
+                  },
+                ),
+                IconButton(
+                  icon: Icon(MdiIcons.plus, size: 18),
+                  tooltip: "Add Substep",
+                  onPressed: () => _showAddSubstepDialog(context, provider),
+                ),
+                IconButton(
+                  icon: Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed),
+                  onPressed: () => provider.projectActions.deleteStep(widget.mainTaskId, widget.projectId, widget.step.id),
+                ),
+                if (widget.step.substeps.isNotEmpty)
+                  IconButton(
+                    icon: Icon(_isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown),
+                    onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                  ),
+              ],
+            ),
+          ),
+          if (_isExpanded && widget.step.substeps.isNotEmpty)
+            Column(
+              children: widget.step.substeps.map((substep) {
+                return ProjectStepCard(
+                  step: substep,
+                  mainTaskId: widget.mainTaskId,
+                  projectId: widget.projectId,
+                  depth: 1, // Indent relative to parent container, logical depth handled by widget recursive placement
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSubstepDialog(BuildContext context, AppProvider provider) {
+    final controller = TextEditingController();
+    showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: const Text("Add Substep"),
+        content: TextField(controller: controller, decoration: const InputDecoration(labelText: "Substep Title")),
+        actions: [
+          TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                provider.projectActions.addSubstep(widget.mainTaskId, widget.projectId, widget.step.id, controller.text);
+                Navigator.pop(context);
+                setState(() => _isExpanded = true);
+              }
+            },
+            child: const Text("Add"),
+          )
+        ],
+      );
+    });
+  }
+}
+--- END OF FILE lib/src/widgets/ui/project_step_card.dart ---
+
 --- START OF FILE lib/src/utils/constants.dart ---
 // lib/src/utils/constants.dart
 import 'package:arcane/src/models/task_models.dart';
@@ -8221,13 +9659,14 @@ class _LoginScreenState extends State<LoginScreen> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/settings_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; // Import chatbot
+// SettingsScreen is no longer a main tab, imported in HeaderWidget for navigation
+import 'package:arcane/src/screens/chatbot_screen.dart'; 
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart'; // Import Projects View
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -8247,8 +9686,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'ADVISOR', // New Title
-    'SETTINGS',
+    'ADVISOR', 
+    'PROJECTS', // Changed from Settings
   ];
 
   void _onItemTapped(int index) {
@@ -8380,8 +9819,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ChatbotScreen(), // New Tab View
-      const SettingsScreen(),
+      const ChatbotScreen(),
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const ProjectsView(), // New Projects View
+        ),
+      ),
     ];
 
     return Theme(
@@ -8393,7 +9837,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
         ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(), // Right Drawer for Persona/Virtues
+        endDrawer: const SkillsDrawer(),
         body: SafeArea(
           child: Row(
             children: [
@@ -8434,8 +9878,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Advisor',
             ),
             BottomNavigationBarItem(
-              icon: Icon(MdiIcons.cogOutline),
-              label: 'Settings',
+              icon: Icon(MdiIcons.rocketLaunchOutline), // Icon for Projects
+              label: 'Projects',
             ),
           ],
           currentIndex: _selectedIndex,
@@ -8726,6 +10170,48 @@ Return ONLY the JSON object.
     return (rawData['newSubquests'] as List?)
             ?.map((sq) => sq as Map<String, dynamic>)
             .toList() ?? [];
+  }
+
+  // --- Projects Generation ---
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required String modelName,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a project manager AI. Create a detailed project structure based on this prompt: "$userPrompt".
+    
+    Structure:
+    - Project Title
+    - Description
+    - Steps (Recursive: steps can have substeps).
+    
+    Output strictly JSON matching this structure:
+    {
+      "title": "string",
+      "description": "string",
+      "steps": [
+        {
+          "title": "string",
+          "description": "string",
+          "substeps": [ ...recursive... ] 
+        }
+      ]
+    }
+    Go at least 2 levels deep if the topic implies complexity.
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelName: modelName,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
   }
 
    Future<String> getChatbotResponse({
@@ -9187,10 +10673,130 @@ class ReflectionLog {
 }
 --- END OF FILE lib/src/models/skill_models.dart ---
 
+--- START OF FILE lib/src/models/project_models.dart ---
+import 'package:uuid/uuid.dart';
+
+class Project {
+  String id;
+  String title;
+  String description;
+  List<ProjectStep> steps;
+  double progress;
+  String? linkedMainTaskId; // Track which MainTask this belongs to strictly
+
+  Project({
+    required this.id,
+    required this.title,
+    required this.description,
+    List<ProjectStep>? steps,
+    this.progress = 0.0,
+    this.linkedMainTaskId,
+  }) : steps = steps ?? [];
+
+  factory Project.fromJson(Map<String, dynamic> json) {
+    return Project(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Project',
+      description: json['description'] as String? ?? '',
+      progress: (json['progress'] as num? ?? 0.0).toDouble(),
+      linkedMainTaskId: json['linkedMainTaskId'] as String?,
+      steps: (json['steps'] as List<dynamic>?)
+              ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'progress': calculateProgress(), // Always recalc on save
+      'linkedMainTaskId': linkedMainTaskId,
+      'steps': steps.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  double calculateProgress() {
+    if (steps.isEmpty) return 0.0;
+    double total = 0;
+    for (var step in steps) {
+      total += step.calculateProgress();
+    }
+    progress = total / steps.length;
+    return progress;
+  }
+  
+  int get completedStepsCount {
+    if (steps.isEmpty) return 0;
+    // Count steps that are fully complete
+    return steps.where((s) => s.calculateProgress() >= 1.0).length;
+  }
+}
+
+class ProjectStep {
+  String id;
+  String title;
+  String description;
+  bool isCompleted;
+  List<ProjectStep> substeps;
+
+  ProjectStep({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.isCompleted = false,
+    List<ProjectStep>? substeps,
+  }) : substeps = substeps ?? [];
+
+  factory ProjectStep.fromJson(Map<String, dynamic> json) {
+    return ProjectStep(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Step',
+      description: json['description'] as String? ?? '',
+      isCompleted: json['isCompleted'] as bool? ?? false,
+      substeps: (json['substeps'] as List<dynamic>?)
+              ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'isCompleted': isCompleted,
+      'substeps': substeps.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  double calculateProgress() {
+    if (substeps.isEmpty) {
+      return isCompleted ? 1.0 : 0.0;
+    }
+    double total = 0;
+    for (var step in substeps) {
+      total += step.calculateProgress();
+    }
+    double childProgress = total / substeps.length;
+    
+    if (substeps.isNotEmpty) {
+      isCompleted = childProgress >= 1.0;
+    }
+    
+    return childProgress;
+  }
+}
+--- END OF FILE lib/src/models/project_models.dart ---
+
 --- START OF FILE lib/src/models/task_models.dart ---
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart'; // Added Import
 
 class MainTask {
   String id;
@@ -9202,6 +10808,7 @@ class MainTask {
   String? lastWorkedDate;
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
+  List<Project> projects; // New Field
 
   MainTask({
     required this.id,
@@ -9213,8 +10820,10 @@ class MainTask {
     this.lastWorkedDate,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
+    List<Project>? projects, // New Param
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
-        subTasks = subTasks ?? [];
+        subTasks = subTasks ?? [],
+        projects = projects ?? [];
 
   factory MainTask.fromTemplate(MainTaskTemplate template) {
     return MainTask(
@@ -9249,6 +10858,9 @@ class MainTask {
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
               .toList() ??
           [],
+      projects: (json['projects'] as List<dynamic>?)
+          ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [], // Load Projects
     );
   }
 
@@ -9263,6 +10875,7 @@ class MainTask {
       'lastWorkedDate': lastWorkedDate,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
+      'projects': projects.map((p) => p.toJson()).toList(), // Save Projects
     };
   }
 
