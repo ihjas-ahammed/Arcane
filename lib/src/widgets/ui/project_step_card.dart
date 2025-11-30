@@ -123,7 +123,7 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
           ElevatedButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                provider.projectActions.addSubstep(widget.mainTaskId, widget.projectId, widget.step.id, controller.text);
+                provider.projectActions.addSubstep(widget.mainTaskId, widget.projectId, widget.step.id, controller.text, widget.step.description);
                 Navigator.pop(context);
                 setState(() => _isExpanded = true);
               }

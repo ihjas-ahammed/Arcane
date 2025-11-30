@@ -1,3 +1,942 @@
+--- START OF FILE lib/src/models/project_models.dart ---
+import 'package:uuid/uuid.dart';
+
+class Project {
+  String id;
+  String title;
+  String description;
+  List<ProjectStep> steps;
+  double progress;
+  String? linkedMainTaskId; 
+
+  Project({
+    required this.id,
+    required this.title,
+    required this.description,
+    List<ProjectStep>? steps,
+    this.progress = 0.0,
+    this.linkedMainTaskId,
+  }) : steps = steps ?? [];
+
+  factory Project.fromJson(Map<String, dynamic> json) {
+    return Project(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Project',
+      description: json['description'] as String? ?? '',
+      progress: (json['progress'] as num? ?? 0.0).toDouble(),
+      linkedMainTaskId: json['linkedMainTaskId'] as String?,
+      steps: (json['steps'] as List<dynamic>?)
+              ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'progress': calculateProgress(),
+      'linkedMainTaskId': linkedMainTaskId,
+      'steps': steps.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  double calculateProgress() {
+    if (steps.isEmpty) return 0.0;
+    double total = 0;
+    for (var step in steps) {
+      total += step.calculateProgress();
+    }
+    progress = total / steps.length;
+    return progress;
+  }
+  
+  int get completedStepsCount {
+    if (steps.isEmpty) return 0;
+    // Count steps that are fully complete
+    return steps.where((s) => s.calculateProgress() >= 1.0).length;
+  }
+}
+
+class ProjectStep {
+  String id;
+  String title;
+  String description;
+  bool isCompleted;
+  List<ProjectStep> substeps;
+
+  ProjectStep({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.isCompleted = false,
+    List<ProjectStep>? substeps,
+  }) : substeps = substeps ?? [];
+
+  factory ProjectStep.fromJson(Map<String, dynamic> json) {
+    return ProjectStep(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Step',
+      description: json['description'] as String? ?? '',
+      isCompleted: json['isCompleted'] as bool? ?? false,
+      substeps: (json['substeps'] as List<dynamic>?)
+              ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'isCompleted': isCompleted,
+      'substeps': substeps.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  double calculateProgress() {
+    // If it has children, progress is purely based on children
+    if (substeps.isNotEmpty) {
+      double total = 0;
+      for (var step in substeps) {
+        total += step.calculateProgress();
+      }
+      double childProgress = total / substeps.length;
+      isCompleted = childProgress >= 1.0;
+      return childProgress;
+    }
+    // If leaf node, return 1.0 or 0.0 based on checkbox
+    return isCompleted ? 1.0 : 0.0;
+  }
+  
+  int get completedSubstepsCount {
+     if (substeps.isEmpty) return isCompleted ? 1 : 0;
+     return substeps.where((s) => s.calculateProgress() >= 1.0).length;
+  }
+}
+--- END OF FILE lib/src/models/project_models.dart ---
+
+--- START OF FILE lib/src/providers/actions/project_actions.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+
+class ProjectActions {
+  final AppProvider _provider;
+  final AIService _aiService = AIService();
+
+  ProjectActions(this._provider);
+
+  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  void addProject(String title, String description, {String? mainTaskId}) {
+    // If no specific task is targeted, use the currently selected one, or the first one.
+    final targetTaskId = mainTaskId ?? _provider.selectedTaskId ?? _provider.mainTasks.firstOrNull?.id;
+    
+    if (targetTaskId == null) {
+      debugPrint("Error: No MainTask available to assign project to.");
+      return;
+    }
+
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      linkedMainTaskId: targetTaskId,
+    );
+
+    _updateMainTaskProjects(targetTaskId, (projects) {
+      return [...projects, newProject];
+    });
+  }
+
+  void updateProjectDetails(String mainTaskId, String projectId, String title, String description) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.title = title;
+          p.description = description;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void updateProject(String mainTaskId, Project updatedProject) {
+    updatedProject.calculateProgress();
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) => p.id == updatedProject.id ? updatedProject : p).toList();
+    });
+  }
+
+  void deleteProject(String mainTaskId, String projectId) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.where((p) => p.id != projectId).toList();
+    });
+  }
+
+  void _updateMainTaskProjects(String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        return MainTask(
+          id: task.id,
+          name: task.name,
+          description: task.description,
+          theme: task.theme,
+          colorHex: task.colorHex,
+          dailyTimeSpent: task.dailyTimeSpent,
+          lastWorkedDate: task.lastWorkedDate,
+          subTasks: task.subTasks,
+          weeklyCompletionStatus: task.weeklyCompletionStatus,
+          projects: updatedProjects,
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Step Management ---
+
+  void addRootStep(String mainTaskId, String projectId, String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+      project.steps.add(newStep);
+    });
+  }
+
+  void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
+    _performStepAction(mainTaskId, projectId, (project) {
+       _updateStepRecursive(project.steps, updatedStep);
+    });
+  }
+
+  bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == updatedStep.id) {
+        steps[i] = updatedStep;
+        return true;
+      }
+      if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void deleteStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _deleteStepRecursive(project.steps, stepId);
+    });
+  }
+
+  void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
+    steps.removeWhere((s) => s.id == stepId);
+    for (var s in steps) {
+      _deleteStepRecursive(s.substeps, stepId);
+    }
+  }
+
+  void addSubstep(String mainTaskId, String projectId, String parentStepId, String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+       _addSubstepRecursive(project.steps, parentStepId, newStep);
+    });
+  }
+
+  bool _addSubstepRecursive(List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        s.substeps.add(newStep);
+        s.isCompleted = false; // Parent can't be complete if new incomplete child added
+        return true;
+      }
+      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+  
+  void _performStepAction(String mainTaskId, String projectId, Function(Project) action) {
+    Project? targetProject;
+    for (var t in _provider.mainTasks) {
+      if (t.id == mainTaskId) {
+        for (var p in t.projects) {
+          if (p.id == projectId) targetProject = p;
+        }
+      }
+    }
+    if (targetProject != null) {
+      action(targetProject);
+      updateProject(mainTaskId, targetProject);
+    }
+  }
+
+  // --- Integration ---
+
+  void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
+    _provider.addSubtask(mainTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'subSubTasksData': <Map<String, dynamic>>[] 
+    });
+  }
+
+  // --- AI Generation ---
+
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    try {
+      final projectData = await _aiService.generateProjectFromPrompt(
+        modelName: _provider.settings.aiModelName,
+        userPrompt: userPrompt,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+      );
+
+      final newProject = Project.fromJson(projectData);
+      newProject.id = const Uuid().v4();
+      newProject.linkedMainTaskId = mainTaskId;
+      
+      _updateMainTaskProjects(mainTaskId, (projects) => [...projects, newProject]);
+    } catch (e) {
+      debugPrint("Error generating project: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/project_actions.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/project_dialogs.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+// Unified Dialog for Adding/Editing Projects
+class AddEditProjectDialog extends StatefulWidget {
+  final String mainTaskId;
+  final String? projectId; // If null, we are adding. If exists, we are editing.
+  final String? initialTitle;
+  final String? initialDescription;
+
+  const AddEditProjectDialog({
+    super.key, 
+    required this.mainTaskId,
+    this.projectId,
+    this.initialTitle,
+    this.initialDescription
+  });
+
+  @override
+  State<AddEditProjectDialog> createState() => _AddEditProjectDialogState();
+}
+
+class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
+  late TextEditingController _titleController;
+  late TextEditingController _descController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initialTitle);
+    _descController = TextEditingController(text: widget.initialDescription);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: Text(widget.projectId == null ? "New Project" : "Edit Project", 
+        style: const TextStyle(color: AppTheme.fhTextPrimary)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              autofocus: widget.projectId == null,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: const InputDecoration(
+                labelText: "Project Title",
+                hintText: "e.g., Launch Website",
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descController,
+              maxLines: 3,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: const InputDecoration(
+                labelText: "Description",
+                hintText: "Brief objectives...",
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          onPressed: () {
+            if (_titleController.text.trim().isNotEmpty) {
+              Navigator.pop(context, {
+                'title': _titleController.text.trim(),
+                'desc': _descController.text.trim(),
+              });
+            }
+          },
+          child: const Text("Save"),
+        )
+      ],
+    );
+  }
+}
+
+// Unified Dialog for Adding/Editing Steps
+class AddEditStepDialog extends StatefulWidget {
+  final String? initialTitle;
+  final String? initialDescription;
+  final bool isEditing;
+
+  const AddEditStepDialog({
+    super.key,
+    this.initialTitle,
+    this.initialDescription,
+    this.isEditing = false,
+  });
+
+  @override
+  State<AddEditStepDialog> createState() => _AddEditStepDialogState();
+}
+
+class _AddEditStepDialogState extends State<AddEditStepDialog> {
+  late TextEditingController _titleController;
+  late TextEditingController _descController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initialTitle);
+    _descController = TextEditingController(text: widget.initialDescription);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: Row(
+        children: [
+          Icon(widget.isEditing ? MdiIcons.pencilOutline : MdiIcons.plus, color: AppTheme.fhAccentTeal),
+          const SizedBox(width: 8),
+          Text(widget.isEditing ? "Edit Step" : "Add Step", style: const TextStyle(color: AppTheme.fhTextPrimary)),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              autofocus: true,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: const InputDecoration(
+                labelText: "Step Title",
+                filled: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descController,
+              maxLines: 3,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: const InputDecoration(
+                labelText: "Description / Notes (Optional)",
+                filled: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          onPressed: () {
+            if (_titleController.text.trim().isNotEmpty) {
+              Navigator.pop(context, {
+                'title': _titleController.text.trim(),
+                'desc': _descController.text.trim(),
+              });
+            }
+          },
+          child: Text(widget.isEditing ? "Update" : "Add"),
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/project_dialogs.dart ---
+
+--- START OF FILE lib/src/widgets/ui/project_step_list_tile.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/screens/step_detail_screen.dart'; 
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ProjectStepListTile extends StatelessWidget {
+  final ProjectStep step;
+  final String mainTaskId;
+  final String projectId;
+  final String indexPrefix;
+
+  const ProjectStepListTile({
+    super.key,
+    required this.step,
+    required this.mainTaskId,
+    required this.projectId,
+    required this.indexPrefix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final double progress = step.calculateProgress();
+    final int percentage = (progress * 100).toInt();
+    final bool hasSubsteps = step.substeps.isNotEmpty;
+
+    // Status Colors
+    Color statusColor = AppTheme.fhAccentTeal;
+    if (percentage == 100) statusColor = AppTheme.fhAccentGreen;
+    if (percentage == 0) statusColor = AppTheme.fhTextDisabled;
+
+    return Card(
+      color: AppTheme.fhBgDark,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          // Navigate to recursive step detail screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StepDetailScreen(
+                step: step,
+                mainTaskId: mainTaskId,
+                projectId: projectId,
+                stepNumber: indexPrefix,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Checkbox: Only active if leaf node. If parent, it's read-only indicator.
+                  RhombusCheckbox(
+                    checked: step.isCompleted,
+                    size: CheckboxSize.small,
+                    disabled: hasSubsteps, // Disable manual toggle if it relies on children
+                    onChanged: (val) {
+                      if (!hasSubsteps) {
+                        final updatedStep = step..isCompleted = !step.isCompleted;
+                        provider.projectActions.updateStep(mainTaskId, projectId, updatedStep);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Title
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "$indexPrefix. ${step.title}",
+                          style: TextStyle(
+                            color: step.isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
+                            decoration: step.isCompleted ? TextDecoration.lineThrough : null,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (step.description.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              step.description,
+                              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Metadata / Arrow
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (hasSubsteps)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            "$percentage%",
+                            style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                       const SizedBox(height: 4),
+                       Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                    ],
+                  )
+                ],
+              ),
+              
+              // Mini Progress Bar for non-leaf nodes
+              if (hasSubsteps)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0, left: 34), // Indent to align with text
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: AppTheme.fhBgDeepDark,
+                      color: statusColor,
+                      minHeight: 4,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/project_step_list_tile.dart ---
+
+--- START OF FILE lib/src/screens/step_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class StepDetailScreen extends StatelessWidget {
+  final ProjectStep step;
+  final String mainTaskId;
+  final String projectId;
+  final String stepNumber;
+
+  const StepDetailScreen({
+    super.key,
+    required this.step,
+    required this.mainTaskId,
+    required this.projectId,
+    required this.stepNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    // Re-fetch the step from provider to ensure reactivity
+    ProjectStep currentStep = step;
+    try {
+      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final project = task.projects.firstWhere((p) => p.id == projectId);
+      
+      // Recursive finder
+      ProjectStep? findStep(List<ProjectStep> list) {
+        for (var s in list) {
+          if (s.id == step.id) return s;
+          var found = findStep(s.substeps);
+          if (found != null) return found;
+        }
+        return null;
+      }
+      
+      var found = findStep(project.steps);
+      if (found != null) currentStep = found;
+    } catch (e) {
+      // Fallback
+    }
+
+    final double progress = currentStep.calculateProgress();
+    final int percentage = (progress * 100).toInt();
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
+        actions: [
+          IconButton(
+            icon: Icon(MdiIcons.pencilOutline, size: 20),
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditStepDialog(
+                  initialTitle: currentStep.title,
+                  initialDescription: currentStep.description,
+                  isEditing: true,
+                ),
+              );
+              if (result != null) {
+                final updated = currentStep
+                  ..title = result['title']!
+                  ..description = result['desc']!;
+                provider.projectActions.updateStep(mainTaskId, projectId, updated);
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
+            onPressed: () {
+               // Confirm Delete
+               showDialog(context: context, builder: (ctx) => AlertDialog(
+                 backgroundColor: AppTheme.fhBgMedium,
+                 title: const Text("Delete Step?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                 content: const Text("This will delete this step and all its sub-steps."),
+                 actions: [
+                   TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
+                   ElevatedButton(
+                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+                     onPressed: () {
+                       provider.projectActions.deleteStep(mainTaskId, projectId, currentStep.id);
+                       Navigator.pop(ctx); // Close dialog
+                       Navigator.pop(context); // Close screen
+                     }, 
+                     child: const Text("Delete")
+                   )
+                 ],
+               ));
+            },
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Info
+            Text(
+              currentStep.title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+              ),
+            ),
+            if (currentStep.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                currentStep.description,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Progress Section
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Step Progress", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                      Text("$percentage%", style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhAccentTeal, fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 10,
+                      backgroundColor: AppTheme.fhBgDeepDark,
+                      color: AppTheme.fhAccentTeal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Substeps List
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Sub-steps",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.fhTextPrimary
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                     final result = await showDialog<Map<String, String>>(
+                        context: context,
+                        builder: (ctx) => const AddEditStepDialog(),
+                      );
+                      if (result != null) {
+                        provider.projectActions.addSubstep(
+                          mainTaskId, 
+                          projectId, 
+                          currentStep.id, 
+                          result['title']!, 
+                          result['desc']!
+                        );
+                      }
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text("Add"),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentTeal),
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (currentStep.substeps.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(style: BorderStyle.none)
+                ),
+                child: Column(
+                  children: [
+                    Icon(MdiIcons.fileTreeOutline, size: 32, color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 8),
+                    const Text("No sub-steps yet.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Break this step down further or mark it as complete.", 
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: currentStep.substeps.length,
+                itemBuilder: (context, index) {
+                  final substep = currentStep.substeps[index];
+                  // Recursive numbering: e.g., 1.2.1
+                  final displayPrefix = "$stepNumber.${index + 1}";
+                  
+                  return ProjectStepListTile(
+                    step: substep,
+                    mainTaskId: mainTaskId,
+                    projectId: projectId,
+                    indexPrefix: displayPrefix,
+                  );
+                },
+              ),
+              
+            // Manual Completion Toggle (Only if leaf node)
+            if (currentStep.substeps.isEmpty) ...[
+              const SizedBox(height: 30),
+              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                title: const Text("Mark as Complete", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                subtitle: const Text("This step has no sub-steps, so you can toggle it directly.", style: TextStyle(fontSize: 12)),
+                value: currentStep.isCompleted,
+                activeColor: AppTheme.fhAccentGreen,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                   final updated = currentStep..isCompleted = val;
+                   provider.projectActions.updateStep(mainTaskId, projectId, updated);
+                },
+              )
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/step_detail_screen.dart ---
+
 --- START OF FILE lib/src/screens/project_detail_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
@@ -5,6 +944,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/cards/project_progress_header_card.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; // Import unified dialogs
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -24,7 +964,6 @@ class ProjectDetailScreen extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
 
     // Ensure we are working with the latest data from provider
-    // We find the project again in the provider to ensure state updates (like checkbox toggles) reflect immediately
     Project currentProject = project;
     try {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
@@ -43,16 +982,35 @@ class ProjectDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // EDIT PROJECT BUTTON
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
-            onPressed: () {
-              // Edit Project Logic here if needed
+            tooltip: "Edit Project Details",
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditProjectDialog(
+                  mainTaskId: mainTaskId,
+                  projectId: currentProject.id,
+                  initialTitle: currentProject.title,
+                  initialDescription: currentProject.description,
+                ),
+              );
+              
+              if (result != null) {
+                provider.projectActions.updateProjectDetails(
+                  mainTaskId, 
+                  currentProject.id, 
+                  result['title']!, 
+                  result['desc']!
+                );
+              }
             },
           ),
           IconButton(
-            icon: Icon(MdiIcons.dotsVertical, size: 20),
+            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
-              // Menu Logic
+              _confirmDelete(context, provider, currentProject);
             },
           )
         ],
@@ -70,13 +1028,14 @@ class ProjectDetailScreen extends StatelessWidget {
                 color: AppTheme.fhTextPrimary,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               currentProject.description.isNotEmpty 
                 ? currentProject.description 
-                : "Project Workflow",
+                : "No description provided.",
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppTheme.fhTextSecondary,
+                height: 1.5,
               ),
             ),
             
@@ -87,12 +1046,12 @@ class ProjectDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Steps List
+            // Steps List Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Workflow Steps",
+                  "Root Steps",
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppTheme.fhTextPrimary
@@ -116,10 +1075,16 @@ class ProjectDetailScreen extends StatelessWidget {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
-                  child: Text(
-                    "No steps defined.\nAdd a step to begin tracking.",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                  child: Column(
+                    children: [
+                      Icon(MdiIcons.stairsBox, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
+                      const SizedBox(height: 16),
+                      Text(
+                        "No steps defined.\nAdd a root step to begin.",
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -131,6 +1096,7 @@ class ProjectDetailScreen extends StatelessWidget {
                 separatorBuilder: (ctx, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final step = currentProject.steps[index];
+                  // Use the updated Tile which now navigates to StepDetailScreen
                   return ProjectStepListTile(
                     step: step,
                     mainTaskId: mainTaskId,
@@ -147,706 +1113,40 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showAddRootStepDialog(BuildContext context, AppProvider provider) {
-    final controller = TextEditingController();
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("Add Root Step", style: TextStyle(color: AppTheme.fhTextPrimary)),
-        content: TextField(
-          controller: controller, 
-          style: const TextStyle(color: AppTheme.fhTextPrimary),
-          decoration: const InputDecoration(
-            labelText: "Step Title",
-            labelStyle: TextStyle(color: AppTheme.fhTextSecondary),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhTextSecondary)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
-          )
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Cancel", style: TextStyle(color: AppTheme.fhTextSecondary))
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                provider.projectActions.addRootStep(mainTaskId, project.id, controller.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("Add", style: TextStyle(color: AppTheme.fhBgDeepDark, fontWeight: FontWeight.bold)),
-          )
-        ],
+  void _showAddRootStepDialog(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => const AddEditStepDialog(),
+    );
+
+    if (result != null) {
+      provider.projectActions.addRootStep(
+        mainTaskId, 
+        project.id, 
+        result['title']!, 
+        result['desc']!
       );
-    });
+    }
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider, Project project) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Delete Project?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: const Text("This action cannot be undone."),
+      actions: [
+        TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+          onPressed: () {
+            provider.projectActions.deleteProject(mainTaskId, project.id);
+            Navigator.pop(ctx);
+            Navigator.pop(context); // Go back to projects view
+          }, 
+          child: const Text("Delete")
+        )
+      ],
+    ));
   }
 }
 --- END OF FILE lib/src/screens/project_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/cards/project_progress_header_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class ProjectProgressHeaderCard extends StatelessWidget {
-  final Project project;
-
-  const ProjectProgressHeaderCard({super.key, required this.project});
-
-  @override
-  Widget build(BuildContext context) {
-    // Recalculate to ensure UI is fresh
-    final double progress = project.calculateProgress();
-    final int percentage = (progress * 100).toInt();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2196F3), Color(0xFF536DFE)], // Blue gradient similar to design
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF536DFE).withValues(alpha: 0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            "$percentage%",
-            style: const TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              fontFamily: AppTheme.fontDisplay,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            project.title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.9),
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Small decorative bar
-          Container(
-            height: 4,
-            width: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/project_progress_header_card.dart ---
-
---- START OF FILE lib/src/widgets/ui/project_step_list_tile.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ProjectStepListTile extends StatefulWidget {
-  final ProjectStep step;
-  final String mainTaskId;
-  final String projectId;
-  final String indexPrefix;
-
-  const ProjectStepListTile({
-    super.key,
-    required this.step,
-    required this.mainTaskId,
-    required this.projectId,
-    required this.indexPrefix,
-  });
-
-  @override
-  State<ProjectStepListTile> createState() => _ProjectStepListTileState();
-}
-
-class _ProjectStepListTileState extends State<ProjectStepListTile> {
-  bool _isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final double progress = widget.step.calculateProgress();
-    final int percentage = (progress * 100).toInt();
-
-    // Determine color based on progress (Design: Green for 100%, Blue for in-progress)
-    Color statusColor = AppTheme.fhAccentTeal; // Default/In-progress
-    if (percentage == 100) statusColor = const Color(0xFF00C853); // Green
-    if (percentage == 0) statusColor = AppTheme.fhTextDisabled;
-
-    return Column(
-      children: [
-        // Main Card
-        InkWell(
-          onTap: () {
-            // Expand if it has substeps, or toggle if it's a leaf node
-            if (widget.step.substeps.isNotEmpty) {
-              setState(() => _isExpanded = !_isExpanded);
-            } else {
-               // If no substeps, tapping the card could act as toggle or edit
-               // For this design, let's just expand context menu or do nothing
-            }
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark, // White/Light grey in design, Dark here for theme
-              borderRadius: BorderRadius.circular(16),
-              // Subtle border
-              border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title and Index
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "${widget.indexPrefix}. ${widget.step.title}",
-                            style: const TextStyle(
-                              color: AppTheme.fhTextPrimary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Percentage Text
-                    Text(
-                      "$percentage%",
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Progress Bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: statusColor,
-                  ),
-                ),
-                
-                // Expand Icon (Only if substeps exist)
-                if (widget.step.substeps.isNotEmpty)
-                  Align(
-                    alignment: Alignment.center,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Icon(
-                        _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
-                        size: 20,
-                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-
-        // Expanded Substeps (The Checklist View)
-        if (_isExpanded && widget.step.substeps.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 8, left: 12, right: 12),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                ...widget.step.substeps.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final substep = entry.value;
-                  return _buildChecklistItem(context, provider, substep, index);
-                }),
-                // Add Substep Button inside expanded view
-                TextButton.icon(
-                  onPressed: () => _showAddSubstepDialog(context, provider),
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text("Add Item", style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.fhTextSecondary,
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-                    minimumSize: const Size(0, 32),
-                  ),
-                )
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildChecklistItem(BuildContext context, AppProvider provider, ProjectStep substep, int index) {
-    // Determine if this is a leaf node or has deeper levels
-    // For this UI component, we are treating level 2 as checklist items.
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          RhombusCheckbox(
-            checked: substep.isCompleted, 
-            size: CheckboxSize.small,
-            onChanged: (val) {
-               // Recursive update handled by provider usually, but here we toggle leaf
-               final updated = substep..isCompleted = !substep.isCompleted;
-               provider.projectActions.updateStep(widget.mainTaskId, widget.projectId, updated);
-            }
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              substep.title,
-              style: TextStyle(
-                color: substep.isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
-                decoration: substep.isCompleted ? TextDecoration.lineThrough : null,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          // Delete action for item
-          InkWell(
-            onTap: () => provider.projectActions.deleteStep(widget.mainTaskId, widget.projectId, substep.id),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Icon(MdiIcons.close, size: 14, color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _showAddSubstepDialog(BuildContext context, AppProvider provider) {
-    final controller = TextEditingController();
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("Add Item", style: TextStyle(color: AppTheme.fhTextPrimary)),
-        content: TextField(
-          controller: controller, 
-          style: const TextStyle(color: AppTheme.fhTextPrimary),
-          decoration: const InputDecoration(labelText: "Description")
-        ),
-        actions: [
-          TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                provider.projectActions.addSubstep(widget.mainTaskId, widget.projectId, widget.step.id, controller.text);
-                Navigator.pop(context);
-                setState(() {}); // refresh
-              }
-            },
-            child: const Text("Add"),
-          )
-        ],
-      );
-    });
-  }
-}
---- END OF FILE lib/src/widgets/ui/project_step_list_tile.dart ---
-
---- START OF FILE lib/src/widgets/views/projects_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
-import 'package:arcane/src/widgets/cards/quick_action_card.dart';
-import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
-import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
-import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
-import 'package:arcane/src/screens/project_detail_screen.dart'; // Import detail screen
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-
-class ProjectsView extends StatelessWidget {
-  const ProjectsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
-
-    // Aggregate all projects from all main tasks
-    final List<Map<String, dynamic>> allProjects = [];
-    int totalSteps = 0;
-    int completedSteps = 0;
-
-    for (var task in provider.mainTasks) {
-      for (var project in task.projects) {
-        allProjects.add({
-          'project': project,
-          'mainTaskId': task.id,
-          'mainTaskName': task.name,
-          'color': task.taskColor,
-        });
-        
-        // Calculate global stats
-        for (var step in project.steps) {
-          totalSteps++;
-          if (step.isCompleted) completedSteps++;
-          // Rough calculation for substeps if needed
-        }
-      }
-    }
-
-    final double overallProgress = totalSteps > 0 ? (completedSteps / totalSteps) : 0.0;
-    final int percentage = (overallProgress * 100).toInt();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Text("Welcome Back!", style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text("Here's your progress", style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary)),
-          
-          const SizedBox(height: 24),
-          
-          // Overall Progress Bar
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgMedium,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhAccentTealFixed,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    "$percentage%", 
-                    style: const TextStyle(color: AppTheme.fhBgDeepDark, fontWeight: FontWeight.bold)
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      "Overall Project Progress", 
-                      style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.8), fontSize: 13)
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Ongoing Projects Header
-          Row(
-            children: [
-               Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
-              const SizedBox(width: 8),
-              Text("Ongoing Projects", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          // Project List
-          if (allProjects.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3))
-              ),
-              child: Column(
-                children: [
-                  Icon(MdiIcons.folderOutline, size: 48, color: AppTheme.fhTextSecondary.withOpacity(0.3)),
-                  const SizedBox(height: 12),
-                  const Text("No active projects.", style: TextStyle(color: AppTheme.fhTextSecondary)),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => _showCreateProjectSheet(context),
-                    child: const Text("Create your first project"),
-                  )
-                ],
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: allProjects.length,
-              itemBuilder: (context, index) {
-                final item = allProjects[index];
-                return GestureDetector(
-                  onTap: () {
-                    // Push to Detail Screen
-                    Navigator.push(
-                      context, 
-                      MaterialPageRoute(
-                        builder: (context) => ProjectDetailScreen(
-                          project: item['project'] as Project, 
-                          mainTaskId: item['mainTaskId'] as String
-                        )
-                      )
-                    );
-                  },
-                  child: ProjectDashboardCard(
-                    project: item['project'] as Project,
-                    mainTaskId: item['mainTaskId'] as String,
-                    mainTaskName: item['mainTaskName'] as String,
-                    accentColor: item['color'] as Color,
-                  ),
-                );
-              },
-            ),
-
-          const SizedBox(height: 32),
-          
-          // Quick Actions
-          Text("Quick Actions", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          
-          // Primary Create Button
-          GestureDetector(
-            onTap: () => _showCreateProjectSheet(context),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4A90E2), Color(0xFF9013FE)], // Blue to Purple gradient
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF9013FE).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
-                ]
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   Icon(MdiIcons.plus, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text("Create New Project", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Secondary Actions Grid
-          Row(
-            children: [
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.viewDashboardOutline,
-                  label: "Templates",
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.robotOutline,
-                  label: "AI Prompts",
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiPromptsView())),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          QuickActionCard(
-            icon: MdiIcons.targetVariant,
-            label: "Link Submission",
-            onTap: () => _showLinkSubmissionSheet(context),
-            isFullWidth: true,
-          ),
-          
-          const SizedBox(height: 80), // Bottom padding for scroll
-        ],
-      ),
-    );
-  }
-
-  void _showCreateProjectSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const CreateProjectSheet(),
-    );
-  }
-  
-  void _showLinkSubmissionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const LinkSubmissionSheet(),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/views/projects_view.dart ---
-
---- START OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ProjectDashboardCard extends StatelessWidget {
-  final Project project;
-  final String mainTaskId;
-  final String mainTaskName;
-  final Color accentColor;
-
-  const ProjectDashboardCard({
-    super.key,
-    required this.project,
-    required this.mainTaskId,
-    required this.mainTaskName,
-    required this.accentColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Force recalc to update UI
-    final progress = project.calculateProgress();
-    final totalSteps = project.steps.length;
-    final completedSteps = project.completedStepsCount;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark, // Dark card background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ]
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    project.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // Progress Row
-            Row(
-              children: [
-                // Circular Progress
-                SizedBox(
-                  width: 40, 
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: accentColor,
-                    strokeWidth: 4,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "$completedSteps/$totalSteps Steps Completed",
-                        style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      if (project.description.isNotEmpty)
-                        Text(
-                          project.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                        )
-                      else 
-                          Text(
-                          "Linked to: $mainTaskName",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---

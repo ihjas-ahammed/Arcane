@@ -6,7 +6,7 @@ class Project {
   String description;
   List<ProjectStep> steps;
   double progress;
-  String? linkedMainTaskId; // Track which MainTask this belongs to strictly
+  String? linkedMainTaskId; 
 
   Project({
     required this.id,
@@ -36,7 +36,7 @@ class Project {
       'id': id,
       'title': title,
       'description': description,
-      'progress': calculateProgress(), // Always recalc on save
+      'progress': calculateProgress(),
       'linkedMainTaskId': linkedMainTaskId,
       'steps': steps.map((e) => e.toJson()).toList(),
     };
@@ -98,19 +98,22 @@ class ProjectStep {
   }
 
   double calculateProgress() {
-    if (substeps.isEmpty) {
-      return isCompleted ? 1.0 : 0.0;
-    }
-    double total = 0;
-    for (var step in substeps) {
-      total += step.calculateProgress();
-    }
-    double childProgress = total / substeps.length;
-    
+    // If it has children, progress is purely based on children
     if (substeps.isNotEmpty) {
+      double total = 0;
+      for (var step in substeps) {
+        total += step.calculateProgress();
+      }
+      double childProgress = total / substeps.length;
       isCompleted = childProgress >= 1.0;
+      return childProgress;
     }
-    
-    return childProgress;
+    // If leaf node, return 1.0 or 0.0 based on checkbox
+    return isCompleted ? 1.0 : 0.0;
+  }
+  
+  int get completedSubstepsCount {
+     if (substeps.isEmpty) return isCompleted ? 1 : 0;
+     return substeps.where((s) => s.calculateProgress() >= 1.0).length;
   }
 }

@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/cards/project_progress_header_card.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; // Import unified dialogs
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -23,7 +24,6 @@ class ProjectDetailScreen extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
 
     // Ensure we are working with the latest data from provider
-    // We find the project again in the provider to ensure state updates (like checkbox toggles) reflect immediately
     Project currentProject = project;
     try {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
@@ -42,16 +42,35 @@ class ProjectDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // EDIT PROJECT BUTTON
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
-            onPressed: () {
-              // Edit Project Logic here if needed
+            tooltip: "Edit Project Details",
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditProjectDialog(
+                  mainTaskId: mainTaskId,
+                  projectId: currentProject.id,
+                  initialTitle: currentProject.title,
+                  initialDescription: currentProject.description,
+                ),
+              );
+              
+              if (result != null) {
+                provider.projectActions.updateProjectDetails(
+                  mainTaskId, 
+                  currentProject.id, 
+                  result['title']!, 
+                  result['desc']!
+                );
+              }
             },
           ),
           IconButton(
-            icon: Icon(MdiIcons.dotsVertical, size: 20),
+            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
-              // Menu Logic
+              _confirmDelete(context, provider, currentProject);
             },
           )
         ],
@@ -69,13 +88,14 @@ class ProjectDetailScreen extends StatelessWidget {
                 color: AppTheme.fhTextPrimary,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               currentProject.description.isNotEmpty 
                 ? currentProject.description 
-                : "Project Workflow",
+                : "No description provided.",
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppTheme.fhTextSecondary,
+                height: 1.5,
               ),
             ),
             
@@ -86,12 +106,12 @@ class ProjectDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Steps List
+            // Steps List Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Workflow Steps",
+                  "Root Steps",
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppTheme.fhTextPrimary
@@ -115,10 +135,16 @@ class ProjectDetailScreen extends StatelessWidget {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
-                  child: Text(
-                    "No steps defined.\nAdd a step to begin tracking.",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                  child: Column(
+                    children: [
+                      Icon(MdiIcons.stairsBox, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
+                      const SizedBox(height: 16),
+                      Text(
+                        "No steps defined.\nAdd a root step to begin.",
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -130,6 +156,7 @@ class ProjectDetailScreen extends StatelessWidget {
                 separatorBuilder: (ctx, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final step = currentProject.steps[index];
+                  // Use the updated Tile which now navigates to StepDetailScreen
                   return ProjectStepListTile(
                     step: step,
                     mainTaskId: mainTaskId,
@@ -146,39 +173,39 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showAddRootStepDialog(BuildContext context, AppProvider provider) {
-    final controller = TextEditingController();
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("Add Root Step", style: TextStyle(color: AppTheme.fhTextPrimary)),
-        content: TextField(
-          controller: controller, 
-          style: const TextStyle(color: AppTheme.fhTextPrimary),
-          decoration: const InputDecoration(
-            labelText: "Step Title",
-            labelStyle: TextStyle(color: AppTheme.fhTextSecondary),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhTextSecondary)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
-          )
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Cancel", style: TextStyle(color: AppTheme.fhTextSecondary))
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                provider.projectActions.addRootStep(mainTaskId, project.id, controller.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("Add", style: TextStyle(color: AppTheme.fhBgDeepDark, fontWeight: FontWeight.bold)),
-          )
-        ],
+  void _showAddRootStepDialog(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => const AddEditStepDialog(),
+    );
+
+    if (result != null) {
+      provider.projectActions.addRootStep(
+        mainTaskId, 
+        project.id, 
+        result['title']!, 
+        result['desc']!
       );
-    });
+    }
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider, Project project) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Delete Project?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: const Text("This action cannot be undone."),
+      actions: [
+        TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+          onPressed: () {
+            provider.projectActions.deleteProject(mainTaskId, project.id);
+            Navigator.pop(ctx);
+            Navigator.pop(context); // Go back to projects view
+          }, 
+          child: const Text("Delete")
+        )
+      ],
+    ));
   }
 }

@@ -33,6 +33,18 @@ class ProjectActions {
     });
   }
 
+  void updateProjectDetails(String mainTaskId, String projectId, String title, String description) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.title = title;
+          p.description = description;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
   void updateProject(String mainTaskId, Project updatedProject) {
     updatedProject.calculateProgress();
     _updateMainTaskProjects(mainTaskId, (projects) {
@@ -71,11 +83,11 @@ class ProjectActions {
 
   // --- Step Management ---
 
-  void addRootStep(String mainTaskId, String projectId, String title) {
+  void addRootStep(String mainTaskId, String projectId, String title, String description) {
     final newStep = ProjectStep(
       id: const Uuid().v4(),
       title: title,
-      description: '',
+      description: description,
     );
     _performStepAction(mainTaskId, projectId, (project) {
       project.steps.add(newStep);
@@ -114,11 +126,11 @@ class ProjectActions {
     }
   }
 
-  void addSubstep(String mainTaskId, String projectId, String parentStepId, String title) {
+  void addSubstep(String mainTaskId, String projectId, String parentStepId, String title, String description) {
     final newStep = ProjectStep(
       id: const Uuid().v4(),
       title: title,
-      description: '',
+      description: description,
     );
     _performStepAction(mainTaskId, projectId, (project) {
        _addSubstepRecursive(project.steps, parentStepId, newStep);
@@ -129,7 +141,7 @@ class ProjectActions {
     for (var s in steps) {
       if (s.id == parentId) {
         s.substeps.add(newStep);
-        s.isCompleted = false; 
+        s.isCompleted = false; // Parent can't be complete if new incomplete child added
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
