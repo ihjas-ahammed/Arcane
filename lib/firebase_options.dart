@@ -23,15 +23,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
@@ -56,7 +50,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg',
-    appId: '1:1059901273076:android:bdeb039da1e16ab1843fa1',
+    appId: '1:1059901273076:android:edb8027313c28e2c843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -65,12 +59,33 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyC1VzXpHEKVCNfXZAHQ1eWJQo1ruzO1-oY',
-    appId: '1:1059901273076:web:86c0ab680c91dc5f843fa1',
+    appId: '1:1059901273076:web:fc82a312504729c1843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     authDomain: 'task-dominion.firebaseapp.com',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'task-dominion.firebasestorage.app',
-    measurementId: 'G-TZTWWCQMCY',
+    measurementId: 'G-E4Z8MZKKCS',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
+    appId: '1:1059901273076:ios:681581fd0db8a039843fa1',
+    messagingSenderId: '1059901273076',
+    projectId: 'task-dominion',
+    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'task-dominion.firebasestorage.app',
+    iosBundleId: 'me.ihjas.myapp',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
+    appId: '1:1059901273076:ios:0e00d77480cd44e6843fa1',
+    messagingSenderId: '1059901273076',
+    projectId: 'task-dominion',
+    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'task-dominion.firebasestorage.app',
+    iosBundleId: 'me.ihjas.arcane',
+  );
+
 }
