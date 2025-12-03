@@ -2,7 +2,7 @@ name: arcane
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 1.0.3+3 # Incremented version
+version: 2025.12.4+508 # Incremented version
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -46,9 +46,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/fonts/icons/new_ic.png" # Path to your single PNG icon
+  image_path: "assets/fonts/icons/icon.png" # Path to your single PNG icon
   adaptive_icon_background: "#000000" # Or "assets/icon/background.png"
   adaptive_icon_foreground: "assets/fonts/icons/icon.png"
+  adaptive_icon_foreground_inset: 25
   min_sdk_android: 21 # Minimum Android SDK version supported (usually default is fine)
   web:
     generate: true
