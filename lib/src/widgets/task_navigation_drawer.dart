@@ -1,12 +1,10 @@
 // lib/src/widgets/task_navigation_drawer.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/models/game_models.dart'; // Added import
-
-// import 'package:flutter_colorpicker/flutter_colorpicker.dart'; // For color picker
+import 'package:arcane/src/models/task_models.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -18,13 +16,9 @@ class TaskNavigationDrawer extends StatefulWidget {
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   final _newTaskNameController = TextEditingController();
   final _newTaskDescController = TextEditingController();
-
-  // For editing
   final _editTaskNameController = TextEditingController();
   final _editTaskDescController = TextEditingController();
 
-  // Theme and Color selection state for dialogs
-  // These will be initialized when the dialog is shown.
   String _dialogSelectedTheme = 'tech';
   String _dialogSelectedColorHex =
       AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
@@ -35,12 +29,12 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
     {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
     {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
-    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': Color(0xFF58D68D)},
-    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': Color(0xFFF1C40F)},
-    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': Color(0xFFEC7063)},
-    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': Color(0xFF5DADE2)},
-    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': Color(0xFFE59866)},
-    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': Color(0xFF2ECC71)},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
     {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
@@ -65,14 +59,14 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
         as IconData;
   }
 
-  void _showAddTaskDialog(BuildContext context, GameProvider gameProvider) {
+  void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
     _newTaskNameController.clear();
     _newTaskDescController.clear();
-    _dialogSelectedTheme = 'tech'; // Reset to default
+    _dialogSelectedTheme = 'tech';
     _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme)
         .value
         .toRadixString(16)
-        .toUpperCase(); // Reset to default theme's color
+        .toUpperCase();
 
     showDialog(
       context: context,
@@ -81,7 +75,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             builder: (BuildContext context, StateSetter setStateDialog) {
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title: Text('Add New Mission',
+            title: const Text('Add New Mission',
                 style: TextStyle(color: AppTheme.fhAccentRed)),
             content: SingleChildScrollView(
               child: Column(
@@ -89,15 +83,15 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _newTaskNameController,
-                      decoration: InputDecoration(labelText: 'Mission Name')),
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _newTaskDescController,
-                      decoration: InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    decoration: InputDecoration(labelText: 'Theme'),
+                    decoration: const InputDecoration(labelText: 'Theme'),
                     dropdownColor: AppTheme.fhBgLight,
                     value: _dialogSelectedTheme,
                     items: _availableThemes
@@ -109,7 +103,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                                     _getThemeIcon(themeMap['name'] as String),
                                     size: 18,
                                     color: themeMap['color'] as Color),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(themeMap['name'] as String),
                               ],
                             )))
@@ -151,7 +145,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             border: isSelectedColor
                                 ? Border.all(color: Colors.white, width: 2)
                                 : Border.all(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     width: 1),
                           ),
                           child: isSelectedColor
@@ -172,13 +166,13 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
             actions: <Widget>[
               TextButton(
-                  child: Text('Cancel'),
+                  child: const Text('Cancel'),
                   onPressed: () => Navigator.of(dialogContext).pop()),
               ElevatedButton(
-                child: Text('Add Mission'),
+                child: const Text('Add Mission'),
                 onPressed: () {
                   if (_newTaskNameController.text.isNotEmpty) {
-                    gameProvider.addMainTask(
+                    appProvider.addMainTask(
                       name: _newTaskNameController.text,
                       description: _newTaskDescController.text,
                       theme: _dialogSelectedTheme,
@@ -196,7 +190,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   }
 
   void _showEditTaskDialog(
-      BuildContext context, GameProvider gameProvider, MainTask taskToEdit) {
+      BuildContext context, AppProvider appProvider, MainTask taskToEdit) {
     _editTaskNameController.text = taskToEdit.name;
     _editTaskDescController.text = taskToEdit.description;
     _dialogSelectedTheme = taskToEdit.theme;
@@ -209,7 +203,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             builder: (BuildContext context, StateSetter setStateDialog) {
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title: Text('Edit Mission',
+            title: const Text('Edit Mission',
                 style: TextStyle(color: AppTheme.fhAccentRed)),
             content: SingleChildScrollView(
               child: Column(
@@ -217,15 +211,15 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _editTaskNameController,
-                      decoration: InputDecoration(labelText: 'Mission Name')),
+                      decoration: const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _editTaskDescController,
-                      decoration: InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                      decoration: InputDecoration(labelText: 'Theme'),
+                      decoration: const InputDecoration(labelText: 'Theme'),
                       dropdownColor: AppTheme.fhBgLight,
                       value: _dialogSelectedTheme,
                       items: _availableThemes
@@ -238,7 +232,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                                           themeMap['name'] as String),
                                       size: 18,
                                       color: themeMap['color'] as Color),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(themeMap['name'] as String),
                                 ],
                               )))
@@ -280,7 +274,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             border: isSelectedColor
                                 ? Border.all(color: Colors.white, width: 2)
                                 : Border.all(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     width: 1),
                           ),
                           child: isSelectedColor
@@ -301,13 +295,13 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
             actions: <Widget>[
               TextButton(
-                  child: Text('Cancel'),
+                  child: const Text('Cancel'),
                   onPressed: () => Navigator.of(dialogContext).pop()),
               ElevatedButton(
-                child: Text('Save Changes'),
+                child: const Text('Save Changes'),
                 onPressed: () {
                   if (_editTaskNameController.text.isNotEmpty) {
-                    gameProvider.editMainTask(
+                    appProvider.editMainTask(
                       taskToEdit.id,
                       name: _editTaskNameController.text,
                       description: _editTaskDescController.text,
@@ -327,7 +321,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final gameProvider = Provider.of<GameProvider>(context);
+    final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
     return Drawer(
@@ -345,13 +339,13 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
               IconButton(
                 icon: Icon(MdiIcons.plusCircleOutline,
                     color: AppTheme.fhAccentTeal),
-                onPressed: () => _showAddTaskDialog(context, gameProvider),
+                onPressed: () => _showAddTaskDialog(context, appProvider),
                 tooltip: 'Add New Mission',
               ),
             ],
           ),
           Expanded(
-            child: gameProvider.mainTasks.isEmpty
+            child: appProvider.mainTasks.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -366,15 +360,15 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                   )
                 : ListView.builder(
                     padding: EdgeInsets.zero,
-                    itemCount: gameProvider.mainTasks.length,
+                    itemCount: appProvider.mainTasks.length,
                     itemBuilder: (context, index) {
-                      final task = gameProvider.mainTasks[index];
-                      final isSelected = gameProvider.selectedTaskId == task.id;
+                      final task = appProvider.mainTasks[index];
+                      final isSelected = appProvider.selectedTaskId == task.id;
                       final taskColor = Color(int.parse("0x${task.colorHex}"));
 
                       return Material(
                         color: isSelected
-                            ? taskColor.withOpacity(0.25)
+                            ? taskColor.withValues(alpha: 0.25)
                             : Colors.transparent,
                         child: ListTile(
                           leading: Icon(
@@ -396,49 +390,26 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          trailing: Wrap(
-                              spacing: 0,
-                              children: [
-                                if (task.streak > 0)
-                                  Chip(
-                                    avatar: Icon(MdiIcons.fire,
-                                        color: AppTheme.fhAccentOrange,
-                                        size: 14),
-                                    label: Text('${task.streak}',
-                                        style: TextStyle(
-                                            color: AppTheme.fhAccentOrange,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold)),
-                                    backgroundColor:
-                                        Color.fromARGB(55, 0, 0, 0),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 0),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                IconButton(
-                                  icon: Icon(MdiIcons.pencilOutline,
-                                      size: 18,
-                                      color: AppTheme.fhTextSecondary
-                                          .withOpacity(0.7)),
-                                  onPressed: () => _showEditTaskDialog(
-                                      context, gameProvider, task),
-                                  tooltip: 'Edit Mission',
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 6),
-                                  constraints: BoxConstraints(),
-                                ),
-                              ]),
+                          trailing: IconButton(
+                            icon: Icon(MdiIcons.pencilOutline,
+                                size: 18,
+                                color:
+                                    AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
+                            onPressed: () =>
+                                _showEditTaskDialog(context, appProvider, task),
+                            tooltip: 'Edit Mission',
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 6),
+                            constraints: const BoxConstraints(),
+                          ),
                           selected: isSelected,
                           onTap: () {
-                            gameProvider.setSelectedTaskId(task.id);
-                            if (gameProvider.currentView != 'task-details') {
-                              gameProvider.setCurrentView('task-details');
-                            }
+                            appProvider.setSelectedTaskId(task.id);
                             if (MediaQuery.of(context).size.width < 900) {
                               Navigator.pop(context);
                             }
                           },
-                          selectedTileColor: taskColor.withOpacity(0.15),
+                          selectedTileColor: taskColor.withValues(alpha: 0.15),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                         ),

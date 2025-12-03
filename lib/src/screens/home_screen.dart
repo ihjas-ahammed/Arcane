@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
+import 'package:arcane/src/screens/chatbot_screen.dart'; 
 import 'package:arcane/src/widgets/header_widget.dart';
-import 'package:arcane/src/widgets/middle_panel_widget.dart'; // This will be adapted
-import 'package:arcane/src/widgets/player_stats_drawer.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
+import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/views/artifact_shop_view.dart';
-import 'package:arcane/src/widgets/views/blacksmith_view.dart';
-import 'package:arcane/src/widgets/views/game_view.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/park_view.dart'; // New Park View
-import 'package:provider/provider.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,135 +19,65 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0; // For BottomNavigationBar or TabBar
-  late GameProvider _gameProvider;
-  final ScrollController _scrollController = ScrollController();
+class _HomeScreenState extends State<HomeScreen> {
+  late AppProvider _appProvider;
   bool _isUsernameDialogShowing = false;
-  late TabController _tabController; // Add TabController
+  int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final List<Map<String, dynamic>> _views = [
-    {
-      'label': 'MISSIONS',
-      'value': 'task-details',
-      'icon': MdiIcons.clipboardListOutline
-    },
-    {
-      'label': 'ARMORY',
-      'value': 'artifact-shop',
-      'icon': MdiIcons.storefrontOutline
-    },
-    {'label': 'FORGE', 'value': 'blacksmith', 'icon': MdiIcons.hammerWrench},
-    {'label': 'ARENA', 'value': 'game', 'icon': MdiIcons.swordCross},
-    {'label': 'PARK', 'value': 'park', 'icon': MdiIcons.tree}, // Changed Park Icon
+  static const List<String> _viewTitles = <String>[
+    'MISSIONS',
+    'LOGBOOK',
+    'ADVISOR', 
+    'PROJECTS',
+    'MORE', // New Title
   ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-    _gameProvider = Provider.of<GameProvider>(context, listen: false);
-
-    _tabController = TabController(length: _views.length, vsync: this);
-
-    _selectedIndex =
-        _views.indexWhere((view) => view['value'] == _gameProvider.currentView);
-    if (_selectedIndex == -1) {
-      _selectedIndex = 0;
-      _gameProvider.setCurrentView(_views[0]['value'] as String);
-    }
-    _tabController.index = _selectedIndex; // Set initial tab index
-
-    // Listen to tab controller changes to update provider
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging ||
-          _tabController.index == _selectedIndex) {
-        // Only update if the index is actually changing by user interaction or a direct set.
-        // Avoid redundant updates when _selectedIndex is already in sync.
-        return;
-      }
-      setState(() {
-        _selectedIndex = _tabController.index;
-      });
-      _gameProvider.setCurrentView(_views[_selectedIndex]['value'] as String);
-      print(
-          "[HomeScreen] TabController Listener: Updated selectedIndex to $_selectedIndex for view ${_views[_selectedIndex]['value']}");
-    });
+    _appProvider = Provider.of<AppProvider>(context, listen: false);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_gameProvider.selectedTaskId == null &&
-          _gameProvider.mainTasks.isNotEmpty) {
-        _gameProvider.setSelectedTaskId(_gameProvider.mainTasks.first.id);
+      if (_appProvider.selectedTaskId == null &&
+          _appProvider.mainTasks.isNotEmpty) {
+        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
       }
-      _checkAndPromptForUsername(_gameProvider);
+      _checkAndPromptForUsername(_appProvider);
     });
-    _gameProvider.addListener(_handleProviderForUsernamePrompt);
-    _gameProvider.addListener(_handleCurrentViewChangeFromProvider);
-
-    print(
-        "[HomeScreen] initState: Initial selectedIndex: $_selectedIndex, currentView: ${_gameProvider.currentView}");
+    _appProvider.addListener(_handleProviderForUsernamePrompt);
   }
 
   void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(
-        Provider.of<GameProvider>(context, listen: false));
+    _checkAndPromptForUsername(Provider.of<AppProvider>(context, listen: false));
   }
 
-  void _handleCurrentViewChangeFromProvider() {
-    final gameProvider = Provider.of<GameProvider>(context, listen: false);
-    final newIndex =
-        _views.indexWhere((view) => view['value'] == gameProvider.currentView);
-    if (newIndex != -1 && newIndex != _selectedIndex) {
-      if (mounted) {
-        setState(() {
-          _selectedIndex = newIndex;
-        });
-        _tabController.animateTo(newIndex); // Animate to the new tab
-        print(
-            "[HomeScreen] _handleCurrentViewChangeFromProvider: Updated selectedIndex to $newIndex for view ${gameProvider.currentView}");
-      }
-    } else if (newIndex == -1 &&
-        _views.indexWhere((v) => v['value'] == gameProvider.currentView) ==
-            -1) {
-      if (mounted && _selectedIndex != 0) {
-        setState(() {
-          _selectedIndex = 0;
-        });
-        _tabController.animateTo(0); // Animate to the first tab
-        print(
-            "[HomeScreen] _handleCurrentViewChangeFromProvider: currentView '${gameProvider.currentView}' not in tabs, defaulting to index 0.");
-      }
-    }
-  }
-
-  void _checkAndPromptForUsername(GameProvider gameProvider) {
+  void _checkAndPromptForUsername(AppProvider appProvider) {
     if (mounted &&
-        gameProvider.isUsernameMissing &&
-        gameProvider.currentUser != null &&
+        appProvider.isUsernameMissing &&
+        appProvider.currentUser != null &&
         !_isUsernameDialogShowing &&
-        !gameProvider.authLoading &&
-        !gameProvider.isDataLoadingAfterLogin) {
-      print("[HomeScreen] Prompting for username.");
-      setState(() {
-        _isUsernameDialogShowing = true;
-      });
-      _showUsernameDialog(context, gameProvider).then((_) {
-        if (mounted) {
-          setState(() {
-            _isUsernameDialogShowing = false;
-          });
-        }
+        !appProvider.authLoading &&
+        !appProvider.isDataLoadingAfterLogin) {
+      setState(() => _isUsernameDialogShowing = true);
+      _showUsernameDialog(context, appProvider).then((_) {
+        if (mounted) setState(() => _isUsernameDialogShowing = false);
       });
     }
   }
 
   Future<void> _showUsernameDialog(
-      BuildContext context, GameProvider gameProvider) async {
+      BuildContext context, AppProvider appProvider) async {
     final TextEditingController usernameController = TextEditingController();
     final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    print("[HomeScreen] Showing username dialog.");
     final Color currentAccentColor =
-        gameProvider.getSelectedTask()?.taskColor ??
+        appProvider.getSelectedTask()?.taskColor ??
             Theme.of(context).colorScheme.secondary;
 
     return showDialog<void>(
@@ -185,14 +114,12 @@ class _HomeScreenState extends State<HomeScreen>
                                   currentAccentColor) ==
                               Brightness.dark
                           ? AppTheme.fhTextPrimary
-                          : AppTheme.fhBgDark)),
+                          : AppTheme.fhBgDeepDark)),
               onPressed: () async {
                 if (dialogFormKey.currentState!.validate()) {
                   String newUsername = usernameController.text.trim();
                   Navigator.of(dialogContext).pop();
-                  print(
-                      "[HomeScreen] Username dialog confirmed with: $newUsername");
-                  await gameProvider.updateUserDisplayName(newUsername);
+                  await appProvider.updateUserDisplayName(newUsername);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -209,23 +136,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _onItemTapped(int index) {
-    if (index < 0 || index >= _views.length) return;
-    print(
-        "[HomeScreen] _onItemTapped: index $index, view value: ${_views[index]['value']}");
-    setState(() {
-      _selectedIndex = index;
-    });
-    _gameProvider.setCurrentView(_views[index]['value'] as String);
-     _tabController.animateTo(index); // Sync TabController on BottomNav tap for smaller screens
-  }
-
   @override
   void dispose() {
-    _gameProvider.removeListener(_handleProviderForUsernamePrompt);
-    _gameProvider.removeListener(_handleCurrentViewChangeFromProvider);
-    _scrollController.dispose();
-    _tabController.dispose(); // Dispose TabController
+    _appProvider.removeListener(_handleProviderForUsernamePrompt);
     super.dispose();
   }
 
@@ -234,144 +147,94 @@ class _HomeScreenState extends State<HomeScreen>
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 900;
 
-    final gameProvider = context.watch<GameProvider>();
+    final appProvider = context.watch<AppProvider>();
     final Color currentTaskColor =
-        gameProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
-    print(
-        "[HomeScreen] build: SelectedIndex: $_selectedIndex, CurrentView from provider: ${gameProvider.currentView}");
+    // Tabs Content
+    final List<Widget> widgetOptions = <Widget>[
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const TaskDetailsView(),
+        ),
+      ),
+      const LogbookScreen(),
+      const ChatbotScreen(),
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const ProjectsView(),
+        ),
+      ),
+      const MoreScreen(), // New Tab
+    ];
 
     return Theme(
       data: dynamicTheme,
       child: Scaffold(
+        key: _scaffoldKey,
+        appBar: HeaderWidget(
+          currentViewLabel: _viewTitles[_selectedIndex],
+          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+        ),
+        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
+        endDrawer: const SkillsDrawer(),
         body: SafeArea(
-          child: Column(
+          child: Row(
             children: [
-              HeaderWidget(
-                  currentViewLabel: _views.isNotEmpty &&
-                          _selectedIndex >= 0 &&
-                          _selectedIndex < _views.length
-                      ? _views[_selectedIndex]['label'] as String
-                      : "MISSIONS"),
+              if (isLargeScreen)
+                Container(
+                  width: 280,
+                  decoration: BoxDecoration(
+                    color: dynamicTheme.cardTheme.color,
+                    border: Border(
+                        right: BorderSide(
+                            color: dynamicTheme.dividerTheme.color ??
+                                AppTheme.fhBorderColor,
+                            width: 1)),
+                  ),
+                  child: const TaskNavigationDrawer(),
+                ),
               Expanded(
-                child: isLargeScreen
-                    ? Row(
-                        children: [
-                          Container(
-                            width: 280,
-                            decoration: BoxDecoration(
-                              color: dynamicTheme.cardTheme.color,
-                              border: Border(
-                                  right: BorderSide(
-                                      color: dynamicTheme.dividerTheme.color ??
-                                          AppTheme.fhBorderColor,
-                                      width: 1)),
-                            ),
-                            child: const TaskNavigationDrawer(),
-                          ),
-                          Expanded(
-                            child: Column(
-                              // New: Column for TabBar and TabBarView
-                              children: [
-                                Container(
-                                  color: dynamicTheme.cardTheme.color,
-                                  child: TabBar(
-                                    controller: _tabController,
-                                    isScrollable: false,
-                                    indicatorColor:
-                                        dynamicTheme.colorScheme.secondary,
-                                    labelColor:
-                                        dynamicTheme.colorScheme.secondary,
-                                    unselectedLabelColor: dynamicTheme
-                                        .textTheme.bodyMedium?.color
-                                        ?.withOpacity(0.7),
-                                    tabs: _views.map((view) {
-                                      return Tab(
-                                        icon: Icon(view['icon'] as IconData),
-                                        text: view['label'] as String,
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                                Expanded(
-                                  // Ensure TabBarView takes remaining space
-                                  child: TabBarView(
-                                    controller: _tabController,
-                                    children: _views
-                                        .map<Widget>((v) => MiddlePanelWidget(
-                                            selectedIndex: _views.indexOf(v),
-                                            views: _views
-                                                .map<Widget>((v) =>
-                                                    _getViewWidget(
-                                                        v['value'] as String))
-                                                .toList()))
-                                        .toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 320,
-                            decoration: BoxDecoration(
-                              color: dynamicTheme.cardTheme.color,
-                              border: Border(
-                                  left: BorderSide(
-                                      color: dynamicTheme.dividerTheme.color ??
-                                          AppTheme.fhBorderColor,
-                                      width: 1)),
-                            ),
-                            child: const PlayerStatsDrawer(),
-                          ),
-                        ],
-                      )
-                    : MiddlePanelWidget(
-                        selectedIndex: _selectedIndex,
-                        views: _views
-                            .map<Widget>(
-                                (v) => _getViewWidget(v['value'] as String))
-                            .toList()),
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: widgetOptions,
+                ),
               ),
             ],
           ),
         ),
-        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: isLargeScreen ? null : const PlayerStatsDrawer(),
-        bottomNavigationBar: isLargeScreen
-            ? null
-            : BottomNavigationBar(
-                items: _views.map((view) {
-                  return BottomNavigationBarItem(
-                    icon: Icon(view['icon'] as IconData),
-                    label: view['label'] as String,
-                  );
-                }).toList(),
-                currentIndex: _selectedIndex.clamp(0, _views.length - 1),
-                onTap: _onItemTapped,
-              ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.targetAccount),
+              label: 'Missions',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.bookOpenVariant),
+              label: 'Logbook',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.robotHappyOutline),
+              label: 'Advisor',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.rocketLaunchOutline),
+              label: 'Projects',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.dotsHorizontal),
+              label: 'More',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
-  }
-
-  Widget _getViewWidget(String viewValue) {
-    switch (viewValue) {
-      case 'task-details':
-        return const TaskDetailsView();
-      case 'artifact-shop':
-        return const ArtifactShopView();
-      case 'blacksmith':
-        return const BlacksmithView();
-      case 'game':
-        return const GameView();
-      case 'park': // New Park View
-        return const ParkView(); 
-      default:
-        if (_views.isNotEmpty) {
-          return _getViewWidget(_views[0]['value'] as String);
-        }
-        return const Center(child: Text('Unknown View'));
-    }
   }
 }

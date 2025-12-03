@@ -34,6 +34,13 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: primaryAccent, // Dynamic primary accent
       scaffoldBackgroundColor: fhBgDeepDark,
+      
+      // Improved Page Transitions for smoother feel
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+      }),
 
       colorScheme: ColorScheme.dark(
         primary: primaryAccent, // Dynamic primary accent
@@ -110,9 +117,9 @@ class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: fhBgMedium.withOpacity(0.8),
+        fillColor: fhBgMedium.withValues(alpha: 0.8),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: TextStyle(color: fhTextSecondary.withOpacity(0.7), fontFamily: fontBody, fontSize: 13),
+        hintStyle: TextStyle(color: fhTextSecondary.withValues(alpha: 0.7), fontFamily: fontBody, fontSize: 13),
         labelStyle: TextStyle(color: fhTextSecondary, fontFamily: fontBody, fontSize: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4.0),
@@ -128,7 +135,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4.0),
-          borderSide: BorderSide(color: fhAccentRed.withOpacity(0.7), width: 1.0),
+          borderSide: BorderSide(color: fhAccentRed.withValues(alpha: 0.7), width: 1.0),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4.0),
@@ -149,11 +156,11 @@ class AppTheme {
         backgroundColor: fhBgMedium,
         labelStyle: TextStyle(color: fhTextPrimary, fontFamily: fontBody, fontSize: 11),
         selectedColor: primaryAccent, // Dynamic accent
-        secondarySelectedColor: primaryAccent.withOpacity(0.7), // Dynamic accent
-        disabledColor: fhBorderColor.withOpacity(0.5),
+        secondarySelectedColor: primaryAccent.withValues(alpha: 0.7), // Dynamic accent
+        disabledColor: fhBorderColor.withValues(alpha: 0.5),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        side: BorderSide(color: fhBorderColor.withOpacity(0.3)),
+        side: BorderSide(color: fhBorderColor.withValues(alpha: 0.3)),
       ),
 
       tabBarTheme: TabBarThemeData(
@@ -176,23 +183,23 @@ class AppTheme {
         preferBelow: false,
         textStyle: TextStyle(fontSize: 11, color: fhBgDark, fontFamily: fontBody),
         decoration: BoxDecoration(
-          color: fhAccentGold.withOpacity(0.95),
+          color: fhAccentGold.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(4),
         ),
       ),
 
       dividerTheme: DividerThemeData(
-        color: fhBorderColor.withOpacity(0.5),
+        color: fhBorderColor.withValues(alpha: 0.5),
         thickness: 1,
         space: 1,
       ),
 
       cardTheme: CardThemeData(
         color: fhBgDark, 
-        elevation: 0, 
+        elevation: 2, // Slight elevation for better separation
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(2.0), 
-          side: BorderSide(color: fhBorderColor.withOpacity(0.4), width: 1),
+          borderRadius: BorderRadius.circular(4.0), 
+          side: BorderSide(color: fhBorderColor.withValues(alpha: 0.4), width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
       ),
@@ -201,7 +208,7 @@ class AppTheme {
         iconColor: fhTextSecondary,
         textColor: fhTextPrimary,
         tileColor: Colors.transparent, 
-        selectedTileColor: primaryAccent.withOpacity(0.1), // Dynamic accent
+        selectedTileColor: primaryAccent.withValues(alpha: 0.1), // Dynamic accent
         titleTextStyle: TextStyle(fontFamily: fontBody, fontSize: 14, fontWeight: FontWeight.w500),
         subtitleTextStyle: TextStyle(fontFamily: fontBody, fontSize: 12, color: fhTextSecondary),
         minVerticalPadding: 12,
@@ -212,13 +219,13 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) {
             return primaryAccent; // Dynamic accent
           }
-          return fhTextSecondary.withOpacity(0.6);
+          return fhTextSecondary.withValues(alpha: 0.6);
         }),
         trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
           if (states.contains(WidgetState.selected)) {
-            return primaryAccent.withOpacity(0.3); // Dynamic accent
+            return primaryAccent.withValues(alpha: 0.3); // Dynamic accent
           }
-          return fhBorderColor.withOpacity(0.3);
+          return fhBorderColor.withValues(alpha: 0.3);
         }),
         trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),
@@ -234,7 +241,7 @@ class AppTheme {
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
           backgroundColor: fhBgDeepDark,
           selectedItemColor: primaryAccent, // Dynamic Accent
-          unselectedItemColor: fhTextSecondary.withOpacity(0.8),
+          unselectedItemColor: fhTextSecondary.withValues(alpha: 0.8),
           selectedLabelStyle: TextStyle(fontSize: 10, fontFamily: fontBody, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           unselectedLabelStyle: TextStyle(fontSize: 10, fontFamily: fontBody, letterSpacing: 0.5),
           type: BottomNavigationBarType.fixed,

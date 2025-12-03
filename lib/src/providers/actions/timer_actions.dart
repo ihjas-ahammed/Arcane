@@ -1,9 +1,10 @@
 // lib/src/providers/actions/timer_actions.dart
-import 'package:arcane/src/providers/game_provider.dart';
-import 'package:arcane/src/models/game_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 
 class TimerActions {
-  final GameProvider _provider;
+  final AppProvider _provider;
 
   TimerActions(this._provider);
 
@@ -11,7 +12,6 @@ class TimerActions {
     Map<String, ActiveTimerInfo> updatedActiveTimers =
         Map.from(_provider.activeTimers);
 
-    // Pause any other running timer
     for (var entry in updatedActiveTimers.entries) {
       final timerId = entry.key;
       final timerInfo = entry.value;
@@ -29,12 +29,10 @@ class TimerActions {
       }
     }
 
-    // Start or resume the selected timer
     final existingTimer = updatedActiveTimers[id];
     updatedActiveTimers[id] = ActiveTimerInfo(
       startTime: DateTime.now(),
-      accumulatedDisplayTime:
-          existingTimer?.accumulatedDisplayTime ?? 0, // Retain accumulated time
+      accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
       isRunning: true,
       type: type,
       mainTaskId: mainTaskId,
@@ -50,8 +48,7 @@ class TimerActions {
       final newActiveTimers =
           Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers[id] = ActiveTimerInfo(
-        startTime: timer
-            .startTime, // Keep original startTime, elapsed time is added to accumulated
+        startTime: timer.startTime,
         accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
         isRunning: false,
         type: timer.type,
@@ -83,16 +80,11 @@ class TimerActions {
                 (st) => st.id == id,
                 orElse: () => SubTask(id: '', name: ''));
             if (subtask.id.isNotEmpty) {
-              // Update the subtask's currentTimeSpent
-              // This will also trigger daily goal checks and energy regen in updateSubtask
-              _provider.updateSubtask(timer.mainTaskId, id, {
-                'currentTimeSpent': subtask.currentTimeSpent + minutesToLog
-              });
+              _provider.updateSubtask(timer.mainTaskId, id,
+                  {'currentTimeSpent': subtask.currentTimeSpent + minutesToLog});
             }
           }
         }
-        // Process park time for the logged minutes if park features are active
-        _provider.parkActions.processParkTime(minutesToLog);
       }
 
       final newActiveTimers =

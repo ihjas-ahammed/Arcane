@@ -3,7 +3,7 @@ import fnmatch
 import argparse
 
 # --- Configuration ---
-DEFAULT_OUTPUT_FILENAME = "project_snapshot.txt"
+DEFAULT_OUTPUT_FILENAME = "project_snapshot_out.txt"
 # Common binary file extensions to skip by default (can be overridden)
 DEFAULT_BINARY_EXTENSIONS = {
     # General
@@ -43,7 +43,10 @@ ADDITIONAL_IGNORE_PATTERNS = [
     "linux/",
     "android/",
     "ios/",
-    "ai.txt"
+    "ai.txt",
+    "ai.md",
+    "project_snapshot.txt",
+    "LOGS.md"
    # The script dynamically adds its own output file to this list later.
     # Note: Rely on project's .gitignore for most build artifacts like 'build/',
     # 'ios/Pods/', 'android/.gradle/' as they can be configured differently.

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/game_provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -44,15 +44,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final gameProvider = Provider.of<GameProvider>(context, listen: false);
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (_isLogin) {
-        await gameProvider.loginUser(_email, _password);
+        await appProvider.loginUser(_email, _password);
       } else {
-        await gameProvider.signupUser(_email, _password, _username);
+        await appProvider.signupUser(_email, _password, _username);
       }
-      // Auth state change will handle navigation in MyApp or GameProvider listener
     } catch (e) {
-      // print("[LoginScreen] Auth Error: $e"); // DEBUG
       setState(() {
         if (e is FirebaseAuthException) {
           _error =
@@ -74,65 +72,58 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDark, // Use the new dark background
+      backgroundColor: AppTheme.fhBgDeepDark,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
-          child:
-              // Add a ConstrainedBox to limit the width for desktop
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: 400), // Max width of 400 pixels
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
             child: Card(
-              color: AppTheme.fhBgMedium, // Slightly lighter card background
-              elevation: 0, // Flatter design
+              color: AppTheme.fhBgDark,
+              elevation: 8,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: BorderRadius.circular(12.0),
                 side: const BorderSide(
-                    color: AppTheme.fhBorderColor, width: 1.5), // Themed border
+                    color: AppTheme.fhBorderColor, width: 1.0),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0, vertical: 32.0),
+                    horizontal: 32.0, vertical: 40.0),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Icon(MdiIcons.shieldCrownOutline,
-                          size: 56,
-                          color: AppTheme.fhAccentTealFixed), // Themed Icon
-                      const SizedBox(height: 16),
+                       Icon(MdiIcons.shieldCrownOutline,
+                          size: 64, color: AppTheme.fhAccentTealFixed),
+                      const SizedBox(height: 24),
                       Text(
                         'ARCANE',
                         style: theme.textTheme.displaySmall?.copyWith(
-                          // Use displaySmall for prominent title
                           color: AppTheme.fhAccentTealFixed,
+                          fontFamily: AppTheme.fontDisplay,
+                          letterSpacing: 2.0
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _isLogin
-                            ? 'Secure Login'
-                            : 'Create Account', // Updated subtitle
+                        _isLogin ? 'Enter the Void' : 'Ascend',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: AppTheme.fhTextSecondary,
+                          fontStyle: FontStyle.italic
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 40),
                       if (!_isLogin)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
-                          child: TextFormField(
+                          child:  TextFormField(
                             controller: _usernameController,
-                            decoration: InputDecoration(
-                              labelText: 'Username',
-                              prefixIcon: Icon(MdiIcons.accountOutline,
-                                  color: theme
-                                      .inputDecorationTheme.labelStyle?.color,
-                                  size: 20),
+                            decoration:  InputDecoration(
+                              labelText: 'Callsign',
+                              prefixIcon:  Icon(MdiIcons.accountOutline),
                             ),
                             style: const TextStyle(
                                 color: AppTheme.fhTextPrimary,
@@ -151,12 +142,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       TextFormField(
                         controller: _emailController,
-                        decoration: InputDecoration(
+                        decoration:  InputDecoration(
                           labelText: 'Email Address',
-                          prefixIcon: Icon(MdiIcons.emailOutline,
-                              color:
-                                  theme.inputDecorationTheme.labelStyle?.color,
-                              size: 20),
+                          prefixIcon: Icon(MdiIcons.emailOutline),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(
@@ -176,18 +164,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: Icon(MdiIcons.lockOutline,
-                              color:
-                                  theme.inputDecorationTheme.labelStyle?.color,
-                              size: 20),
+                          labelText: 'Passcode',
+                          prefixIcon:  Icon(MdiIcons.lockOutline),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? MdiIcons.eyeOutline
                                   : MdiIcons.eyeOffOutline,
-                              color:
-                                  theme.inputDecorationTheme.labelStyle?.color,
                             ),
                             onPressed: () {
                               setState(() {
@@ -230,7 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ElevatedButton(
                           onPressed: _submit,
                           style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
+                            minimumSize: const Size(double.infinity, 50),
+                            backgroundColor: AppTheme.fhAccentTealFixed,
+                            foregroundColor: AppTheme.fhBgDeepDark,
                           ),
                           child: Text(_isLogin ? 'LOGIN' : 'SIGN UP'),
                         ),
@@ -250,6 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           _isLogin
                               ? 'Need an account? Sign Up'
                               : 'Already have an account? Login',
+                          style: const TextStyle(color: AppTheme.fhTextSecondary),
                         ),
                       ),
                     ],

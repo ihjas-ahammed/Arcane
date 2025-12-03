@@ -1,0 +1,164 @@
+// lib/src/widgets/skills_drawer.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/reflection_dialog.dart';
+import 'package:arcane/src/widgets/ui/virtue_circle.dart';
+import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
+import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart'; 
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+
+class SkillsDrawer extends StatelessWidget {
+  const SkillsDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    final skills = appProvider.skills;
+    
+    // Filter to show ALL recent insights of the current day
+    final todayStr = helper.getTodayDateString();
+    final todayLogs = appProvider.reflectionLogs.where((l) {
+      final logDate = "${l.timestamp.year}-${l.timestamp.month.toString().padLeft(2, '0')}-${l.timestamp.day.toString().padLeft(2, '0')}";
+      return logDate == todayStr;
+    }).toList();
+
+    return Drawer(
+      width: 360, 
+      backgroundColor: AppTheme.fhBgDeepDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 20),
+            decoration: const BoxDecoration(
+              color: AppTheme.fhBgDark,
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
+            ),
+            child: Column(
+              children: [
+                  Icon(MdiIcons.shieldAccount, size: 48, color: AppTheme.fhAccentGold),
+                const SizedBox(height: 12),
+                Text("PERSONA & VIRTUES",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.fhTextPrimary, letterSpacing: 1.2)),
+                const SizedBox(height: 8),
+                Text("Track your internal growth",
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Responsive grid count based on drawer width
+                int crossAxisCount = constraints.maxWidth < 300 ? 2 : 3;
+                
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Skills Grid
+                    GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.85, 
+                      children: skills.map((skill) {
+                        return VirtueCircle(
+                          skill: skill,
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => SkillDetailDialog(
+                                skill: skill,
+                                color: _getSkillColor(skill.name),
+                                icon: _getSkillIcon(skill.name),
+                                xpGainedToday: appProvider.getXpGainedForSkillToday(skill.name),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                    const SizedBox(height: 24),
+                    
+                    ElevatedButton.icon(
+                      icon:   Icon(MdiIcons.notebookEditOutline),
+                      label: const Text("LOG REFLECTION"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        foregroundColor: AppTheme.fhAccentTeal,
+                        side: const BorderSide(color: AppTheme.fhAccentTeal),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const ReflectionDialog(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    if (todayLogs.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("TODAY'S INSIGHTS", style: theme.textTheme.labelMedium),
+                          Text("${todayLogs.length} Total", style: const TextStyle(fontSize: 10, color: AppTheme.fhTextDisabled)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Show ALL logs for today, newest first
+                      ...todayLogs.reversed.map((log) => 
+                        ReflectionLogCard(log: log)
+                      ),
+                    ] else ...[
+                       Center(
+                         child: Padding(
+                           padding: const EdgeInsets.all(8.0),
+                           child: Text("No insights logged today.", style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+                         ),
+                       )
+                    ]
+                  ],
+                );
+              }
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getSkillColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63); // Pink
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return AppTheme.fhTextSecondary;
+    }
+  }
+  
+  IconData _getSkillIcon(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circle;
+    }
+  }
+}
