@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-// SettingsScreen is no longer a main tab, imported in HeaderWidget for navigation
 import 'package:arcane/src/screens/chatbot_screen.dart'; 
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart'; // Import Projects View
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -29,7 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
     'MISSIONS',
     'LOGBOOK',
     'ADVISOR', 
-    'PROJECTS', // Changed from Settings
+    'PROJECTS',
+    'MORE', // New Title
   ];
 
   void _onItemTapped(int index) {
@@ -165,9 +166,10 @@ class _HomeScreenState extends State<HomeScreen> {
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(), // New Projects View
+          child: const ProjectsView(),
         ),
       ),
+      const MoreScreen(), // New Tab
     ];
 
     return Theme(
@@ -220,8 +222,12 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Advisor',
             ),
             BottomNavigationBarItem(
-              icon: Icon(MdiIcons.rocketLaunchOutline), // Icon for Projects
+              icon: Icon(MdiIcons.rocketLaunchOutline),
               label: 'Projects',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.dotsHorizontal),
+              label: 'More',
             ),
           ],
           currentIndex: _selectedIndex,
