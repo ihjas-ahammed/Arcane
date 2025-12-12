@@ -4,17 +4,14 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/screens/settings_screen.dart'; // Import Settings View
+// Import Settings View
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
   final VoidCallback? onOpenPersona; // Callback for opening end drawer
 
-  const HeaderWidget({
-    super.key, 
-    required this.currentViewLabel,
-    this.onOpenPersona
-  });
+  const HeaderWidget(
+      {super.key, required this.currentViewLabel, this.onOpenPersona});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +30,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
               child:
                   Icon(MdiIcons.shieldCrownOutline, color: currentAccentColor),
             )
-          : null, 
+          : null,
       title: Text(
         currentViewLabel.toUpperCase(),
         style: theme.textTheme.headlineSmall?.copyWith(
@@ -51,16 +48,15 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             // Push settings screen
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => Scaffold(
-                appBar: AppBar(title: const Text("SETTINGS")),
-                backgroundColor: AppTheme.fhBgDeepDark,
-                body:  Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 800),
-                    child: SettingsView()
-                  )
-                ),
-              )),
+              MaterialPageRoute(
+                  builder: (context) => Scaffold(
+                        appBar: AppBar(title: const Text("SETTINGS")),
+                        backgroundColor: AppTheme.fhBgDeepDark,
+                        body: Center(
+                            child: ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: 800),
+                                child: SettingsView())),
+                      )),
             );
           },
         ),

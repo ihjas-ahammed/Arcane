@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class TimePieChart extends StatefulWidget {

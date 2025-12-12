@@ -6,7 +6,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'dart:convert';
 
 class ChatbotView extends StatefulWidget {
@@ -25,7 +24,8 @@ class _ChatbotViewState extends State<ChatbotView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AppProvider>(context, listen: false).initializeChatbotMemory();
+      Provider.of<AppProvider>(context, listen: false)
+          .initializeChatbotMemory();
       _scrollToBottom();
     });
   }
@@ -82,8 +82,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                 icon: Icon(MdiIcons.refresh,
                     size: 16, color: AppTheme.fhTextSecondary),
                 label: const Text("Restart Session",
-                    style:
-                        TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12)),
                 onPressed: () async {
                   final confirm = await showDialog<bool>(
                       context: context,
@@ -102,8 +102,9 @@ class _ChatbotViewState extends State<ChatbotView> {
                                     backgroundColor: dynamicAccent),
                                 child: Text("Restart",
                                     style: TextStyle(
-                                        color: ThemeData.estimateBrightnessForColor(
-                                                    dynamicAccent) ==
+                                        color: ThemeData
+                                                    .estimateBrightnessForColor(
+                                                        dynamicAccent) ==
                                                 Brightness.dark
                                             ? AppTheme.fhTextPrimary
                                             : AppTheme.fhBgDark)),
@@ -124,7 +125,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(MdiIcons.robotHappyOutline,
-                          size: 48, color: dynamicAccent.withValues(alpha: 0.7)),
+                          size: 48,
+                          color: dynamicAccent.withValues(alpha: 0.7)),
                       const SizedBox(height: 16),
                       Text(
                         "Arcane Advisor Online",
@@ -165,8 +167,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                   ),
           ),
           Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
             child: Row(
               children: [
                 Expanded(
@@ -176,7 +177,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                       hintText: 'Send a message to Arcane Advisor...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
-                        borderSide: const BorderSide(color: AppTheme.fhBorderColor),
+                        borderSide:
+                            const BorderSide(color: AppTheme.fhBorderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
@@ -187,8 +189,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                           horizontal: 16, vertical: 10),
                     ),
                     onSubmitted: (_) => _sendMessage(),
-                    style:
-                        const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextPrimary, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -249,8 +251,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                         ? const Radius.circular(4)
                         : const Radius.circular(18),
                   ),
-                  border:
-                      Border.all(color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
+                  border: Border.all(
+                      color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
               child: Column(
                 crossAxisAlignment: crossAxisAlignment,
                 mainAxisSize: MainAxisSize.min,
@@ -269,8 +271,8 @@ class _ChatbotViewState extends State<ChatbotView> {
                     const SizedBox(height: 4),
                     Text(
                       DateFormat('HH:mm').format(message.timestamp.toLocal()),
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: textColor.withValues(alpha: 0.7), fontSize: 9),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: textColor.withValues(alpha: 0.7), fontSize: 9),
                     ),
                   ]
                 ],
@@ -306,8 +308,9 @@ class _ChatbotViewState extends State<ChatbotView> {
 
     // Emotion tracking removed, returning error for legacy emotion graphs.
     if (graphType == 'emotion_trend_bar' || source == 'emotion_logs') {
-        return const Text("Emotion tracking is no longer supported.",
-            style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
+      return const Text("Emotion tracking is no longer supported.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
     }
 
     return Text(

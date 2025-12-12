@@ -19,39 +19,170 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   String _currentTimeStr = "";
 
   final List<String> _locations = ["S.S College", "EDAVANNAPPARA", "AREEKODE"];
-  
+
   // Data Structure
-  Map<String, Map<String, List<String>>> _schedules = {
+  final Map<String, Map<String, List<String>>> _schedules = {
     "S.S College": {
       "EDAVANNAPPARA": [
-        "06:30 AM", "06:35 AM", "06:40 AM", "06:55 AM", "07:20 AM", "07:40 AM", "07:55 AM",
-        "08:10 AM", "08:15 AM", "08:30 AM", "08:40 AM", "08:50 AM", "09:05 AM", "09:25 AM",
-        "09:40 AM", "10:05 AM", "10:13 AM", "10:18 AM", "10:40 AM", "10:50 AM", "11:05 AM",
-        "11:20 AM", "11:38 AM", "11:55 AM", "12:03 PM", "12:18 PM", "12:30 PM", "12:40 PM",
-        "01:08 PM", "01:32 PM", "01:42 PM", "01:50 PM", "01:55 PM", "02:05 PM", "02:15 PM",
-        "02:25 PM", "02:48 PM", "03:00 PM", "03:10 PM", "03:25 PM", "03:40 PM", "04:05 PM",
-        "04:20 PM", "04:37 PM", "04:50 PM", "04:55 PM", "05:10 PM", "05:22 PM", "05:35 PM",
-        "05:45 PM", "05:53 PM", "05:55 PM", "06:03 PM", "06:13 PM", "06:23 PM", "06:35 PM"
+        "06:30 AM",
+        "06:35 AM",
+        "06:40 AM",
+        "06:55 AM",
+        "07:20 AM",
+        "07:40 AM",
+        "07:55 AM",
+        "08:10 AM",
+        "08:15 AM",
+        "08:30 AM",
+        "08:40 AM",
+        "08:50 AM",
+        "09:05 AM",
+        "09:25 AM",
+        "09:40 AM",
+        "10:05 AM",
+        "10:13 AM",
+        "10:18 AM",
+        "10:40 AM",
+        "10:50 AM",
+        "11:05 AM",
+        "11:20 AM",
+        "11:38 AM",
+        "11:55 AM",
+        "12:03 PM",
+        "12:18 PM",
+        "12:30 PM",
+        "12:40 PM",
+        "01:08 PM",
+        "01:32 PM",
+        "01:42 PM",
+        "01:50 PM",
+        "01:55 PM",
+        "02:05 PM",
+        "02:15 PM",
+        "02:25 PM",
+        "02:48 PM",
+        "03:00 PM",
+        "03:10 PM",
+        "03:25 PM",
+        "03:40 PM",
+        "04:05 PM",
+        "04:20 PM",
+        "04:37 PM",
+        "04:50 PM",
+        "04:55 PM",
+        "05:10 PM",
+        "05:22 PM",
+        "05:35 PM",
+        "05:45 PM",
+        "05:53 PM",
+        "05:55 PM",
+        "06:03 PM",
+        "06:13 PM",
+        "06:23 PM",
+        "06:35 PM"
       ],
       "AREEKODE": [
-        "07:06 AM", "07:28 AM", "07:43 AM", "07:53 AM", "08:03 AM", "08:20 AM", "08:35 AM", 
-        "08:50 AM", "09:13 AM", "09:23 AM", "09:35 AM", "09:43 AM", "10:02 AM", "10:20 AM", 
-        "10:31 AM", "10:35 AM", "10:53 AM", "11:03 AM", "11:20 AM", "11:30 AM", "11:38 AM", 
-        "11:58 AM", "12:18 PM", "12:28 PM", "12:33 PM", "12:43 PM", "12:50 PM", "01:03 PM",
-        "01:11 PM", "01:18 PM", "01:31 PM", "01:48 PM", "02:03 PM", "02:16 PM", "02:33 PM", 
-        "02:48 PM", "03:10 PM", "03:38 PM", "03:48 PM", "03:58 PM", "04:08 PM", "04:16 PM", 
-        "04:33 PM", "04:50 PM", "04:58 PM", "05:10 PM", "05:18 PM", "05:38 PM", "05:43 PM", 
-        "06:01 PM", "06:10 PM", "06:18 PM", "06:23 PM", "06:38 PM", "06:48 PM", "07:08 PM"
+        "07:06 AM",
+        "07:28 AM",
+        "07:43 AM",
+        "07:53 AM",
+        "08:03 AM",
+        "08:20 AM",
+        "08:35 AM",
+        "08:50 AM",
+        "09:13 AM",
+        "09:23 AM",
+        "09:35 AM",
+        "09:43 AM",
+        "10:02 AM",
+        "10:20 AM",
+        "10:31 AM",
+        "10:35 AM",
+        "10:53 AM",
+        "11:03 AM",
+        "11:20 AM",
+        "11:30 AM",
+        "11:38 AM",
+        "11:58 AM",
+        "12:18 PM",
+        "12:28 PM",
+        "12:33 PM",
+        "12:43 PM",
+        "12:50 PM",
+        "01:03 PM",
+        "01:11 PM",
+        "01:18 PM",
+        "01:31 PM",
+        "01:48 PM",
+        "02:03 PM",
+        "02:16 PM",
+        "02:33 PM",
+        "02:48 PM",
+        "03:10 PM",
+        "03:38 PM",
+        "03:48 PM",
+        "03:58 PM",
+        "04:08 PM",
+        "04:16 PM",
+        "04:33 PM",
+        "04:50 PM",
+        "04:58 PM",
+        "05:10 PM",
+        "05:18 PM",
+        "05:38 PM",
+        "05:43 PM",
+        "06:01 PM",
+        "06:10 PM",
+        "06:18 PM",
+        "06:23 PM",
+        "06:38 PM",
+        "06:48 PM",
+        "07:08 PM"
       ]
     },
     "EDAVANNAPPARA": {
       "S.S College": [
-        "08:00 AM", "08:15 AM", "08:35 AM", "08:55 AM", "09:15 AM", "09:30 AM", "09:45 AM",
-        "10:05 AM", "10:20 AM", "10:35 AM", "10:50 AM", "11:10 AM", "11:25 AM", "11:40 AM",
-        "12:00 PM", "12:15 PM", "12:30 PM", "12:45 PM", "01:00 PM", "01:15 PM", "01:30 PM",
-        "01:45 PM", "02:00 PM", "02:15 PM", "02:30 PM", "02:45 PM", "03:00 PM", "03:15 PM",
-        "03:30 PM", "03:45 PM", "04:00 PM", "04:15 PM", "04:30 PM", "04:45 PM", "05:00 PM",
-        "05:15 PM", "05:30 PM", "05:45 PM", "06:00 PM", "06:15 PM", "06:30 PM"
+        "08:00 AM",
+        "08:15 AM",
+        "08:35 AM",
+        "08:55 AM",
+        "09:15 AM",
+        "09:30 AM",
+        "09:45 AM",
+        "10:05 AM",
+        "10:20 AM",
+        "10:35 AM",
+        "10:50 AM",
+        "11:10 AM",
+        "11:25 AM",
+        "11:40 AM",
+        "12:00 PM",
+        "12:15 PM",
+        "12:30 PM",
+        "12:45 PM",
+        "01:00 PM",
+        "01:15 PM",
+        "01:30 PM",
+        "01:45 PM",
+        "02:00 PM",
+        "02:15 PM",
+        "02:30 PM",
+        "02:45 PM",
+        "03:00 PM",
+        "03:15 PM",
+        "03:30 PM",
+        "03:45 PM",
+        "04:00 PM",
+        "04:15 PM",
+        "04:30 PM",
+        "04:45 PM",
+        "05:00 PM",
+        "05:15 PM",
+        "05:30 PM",
+        "05:45 PM",
+        "06:00 PM",
+        "06:15 PM",
+        "06:30 PM"
       ],
       "AREEKODE": [] // Calculated
     },
@@ -70,7 +201,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       _updateTime();
     });
   }
-  
+
   void _updateTime() {
     if (mounted) {
       setState(() {
@@ -88,19 +219,25 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   // --- Logic Translation ---
 
   void _calculateDerivedRoutes() {
-    // EDAVANNAPPARA -> AREEKODE (+0 logic from source?) 
+    // EDAVANNAPPARA -> AREEKODE (+0 logic from source?)
     // Source: busSchedules["EDAVANNAPPARA"]["AREEKODE"] = busSchedules["EDAVANNAPPARA"]["S.S College"].map... addMinutes(0)
-    _schedules["EDAVANNAPPARA"]!["AREEKODE"] = _schedules["EDAVANNAPPARA"]!["S.S College"]!
-        .map((t) => _addMinutesToTime(t, 0)).toList();
+    _schedules["EDAVANNAPPARA"]!["AREEKODE"] =
+        _schedules["EDAVANNAPPARA"]!["S.S College"]!
+            .map((t) => _addMinutesToTime(t, 0))
+            .toList();
 
     // AREEKODE -> S.S College (-2 min from S.S -> EDAVANNAPPARA logic? Code says: addMinutesToTime(time, -2))
     // Note: JS code uses busSchedules["S.S College"]["EDAVANNAPPARA"] as source for Areekode -> SS.
-    _schedules["AREEKODE"]!["S.S College"] = _schedules["S.S College"]!["EDAVANNAPPARA"]!
-        .map((t) => _addMinutesToTime(t, -2)).toList();
-        
+    _schedules["AREEKODE"]!["S.S College"] =
+        _schedules["S.S College"]!["EDAVANNAPPARA"]!
+            .map((t) => _addMinutesToTime(t, -2))
+            .toList();
+
     // AREEKODE -> EDAVANNAPPARA
-    _schedules["AREEKODE"]!["EDAVANNAPPARA"] = _schedules["S.S College"]!["EDAVANNAPPARA"]!
-        .map((t) => _addMinutesToTime(t, -2)).toList();
+    _schedules["AREEKODE"]!["EDAVANNAPPARA"] =
+        _schedules["S.S College"]!["EDAVANNAPPARA"]!
+            .map((t) => _addMinutesToTime(t, -2))
+            .toList();
   }
 
   String _addMinutesToTime(String timeStr, int minutesToAdd) {
@@ -108,7 +245,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       // timeStr is "HH:mm AM"
       // DateFormat parsing requires handling the space correctly or using loose parsing
       // 'hh:mm a' matches "06:30 AM"
-      DateTime parsed = DateFormat("hh:mm a").parse(timeStr); 
+      DateTime parsed = DateFormat("hh:mm a").parse(timeStr);
       // DateFormat.parse returns a date in 1970. We just manipulate time.
       DateTime newTime = parsed.add(Duration(minutes: minutesToAdd));
       return DateFormat("hh:mm a").format(newTime);
@@ -122,7 +259,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       DateTime now = DateTime.now();
       DateTime parsed = DateFormat("hh:mm a").parse(timeStr);
       // Construct a DateTime for *today* with that time
-      DateTime combined = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
+      DateTime combined =
+          DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
       return combined.hour * 60 + combined.minute;
     } catch (e) {
       return 0;
@@ -135,12 +273,12 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
     final now = DateTime.now();
     final currentMinutes = now.hour * 60 + now.minute;
-    
+
     // Sort times just in case, though source list looks sorted.
-    // Logic: Find first time > currentMinutes. 
+    // Logic: Find first time > currentMinutes.
     // Since lists cross AM/PM, raw minute comparison works if 00:00 is start.
-    // The lists start at morning. 
-    
+    // The lists start at morning.
+
     // We need to handle 12 AM vs 12 PM sorting correctly if logic relies on simple int.
     // _timeToMinutes uses 24h format so sorting is safe.
 
@@ -151,7 +289,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     for (String time in routes) {
       int busMin = _timeToMinutes(time);
       int diff = busMin - currentMinutes;
-      
+
       if (diff >= 0 && diff < smallestDiff) {
         smallestDiff = diff;
         nextBusTime = time;
@@ -177,12 +315,18 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   }
 
   String _getRouteInfo() {
-    if (_origin == "S.S College" && _destination == "EDAVANNAPPARA") return "Direct - 18 min";
-    if (_origin == "S.S College" && _destination == "AREEKODE") return "Direct - 2 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "S.S College") return "Direct - 18 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "AREEKODE") return "Direct - 20 min";
-    if (_origin == "AREEKODE" && _destination == "S.S College") return "Direct - 2 min";
-    if (_origin == "AREEKODE" && _destination == "EDAVANNAPPARA") return "Direct - 20 min";
+    if (_origin == "S.S College" && _destination == "EDAVANNAPPARA")
+      return "Direct - 18 min";
+    if (_origin == "S.S College" && _destination == "AREEKODE")
+      return "Direct - 2 min";
+    if (_origin == "EDAVANNAPPARA" && _destination == "S.S College")
+      return "Direct - 18 min";
+    if (_origin == "EDAVANNAPPARA" && _destination == "AREEKODE")
+      return "Direct - 20 min";
+    if (_origin == "AREEKODE" && _destination == "S.S College")
+      return "Direct - 2 min";
+    if (_origin == "AREEKODE" && _destination == "EDAVANNAPPARA")
+      return "Direct - 20 min";
     return "Route info unavailable";
   }
 
@@ -198,7 +342,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   Widget build(BuildContext context) {
     final nextBus = _findNextBus();
     final scheduleList = _schedules[_origin]?[_destination] ?? [];
-    
+
     // Background Image
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -217,7 +361,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
             child: Image.network(
               'https://images.unsplash.com/photo-1741016825495-1faf2afc19d6?q=80&w=1888&auto=format&fit=crop',
               fit: BoxFit.cover,
-              errorBuilder: (c,e,s) => Container(color: const Color(0xFF1A1A2E)),
+              errorBuilder: (c, e, s) =>
+                  Container(color: const Color(0xFF1A1A2E)),
             ),
           ),
           // Gradient Overlay
@@ -225,7 +370,10 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.black.withValues(alpha: 0.7), const Color(0xFF141428).withValues(alpha: 0.9)],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.7),
+                    const Color(0xFF141428).withValues(alpha: 0.9)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -238,15 +386,25 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("BusTime", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                      const Text("BusTime",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold)),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16)),
-                        child: Text(_currentTimeStr, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(16)),
+                        child: Text(_currentTimeStr,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16)),
                       )
                     ],
                   ),
@@ -262,115 +420,165 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12)
-                          ),
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(12)),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("From", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              const Text("From",
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 12)),
                               const SizedBox(height: 8),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
-                                  children: _locations.map((loc) => _buildLocationChip(loc, _origin, (val) {
-                                    if (val == _destination) _swapLocations();
-                                    else setState(() => _origin = val);
-                                  })).toList(),
+                                  children: _locations
+                                      .map((loc) => _buildLocationChip(
+                                              loc, _origin, (val) {
+                                            if (val == _destination) {
+                                              _swapLocations();
+                                            } else {
+                                              setState(() => _origin = val);
+                                            }
+                                          }))
+                                      .toList(),
                                 ),
                               ),
-                              
                               Center(
                                 child: IconButton(
                                   onPressed: _swapLocations,
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                                    child: Icon(MdiIcons.swapVertical, color: Colors.white),
+                                    decoration: BoxDecoration(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8)),
+                                    child: Icon(MdiIcons.swapVertical,
+                                        color: Colors.white),
                                   ),
                                 ),
                               ),
-                              
-                              const Text("To", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              const Text("To",
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 12)),
                               const SizedBox(height: 8),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
-                                  children: _locations.map((loc) => _buildLocationChip(loc, _destination, (val) {
-                                     if (val == _origin) _swapLocations();
-                                     else setState(() => _destination = val);
-                                  }, isDisabled: loc == _origin)).toList(),
+                                  children: _locations
+                                      .map((loc) => _buildLocationChip(
+                                              loc, _destination, (val) {
+                                            if (val == _origin) {
+                                              _swapLocations();
+                                            } else {
+                                              setState(
+                                                  () => _destination = val);
+                                            }
+                                          }, isDisabled: loc == _origin))
+                                      .toList(),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Next Bus Card (Modularized)
                         BusNextCard(
-                          nextBusData: nextBus, 
+                          nextBusData: nextBus,
                           routeInfo: _getRouteInfo(),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Schedule List
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12)
-                          ),
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(12)),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("Today's Schedule", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                              const Text("Today's Schedule",
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 16)),
                               const SizedBox(height: 12),
                               if (scheduleList.isEmpty)
-                                const Center(child: Padding(
+                                const Center(
+                                    child: Padding(
                                   padding: EdgeInsets.all(16.0),
-                                  child: Text("No schedule available", style: TextStyle(color: Colors.white)),
+                                  child: Text("No schedule available",
+                                      style: TextStyle(color: Colors.white)),
                                 ))
                               else
                                 ListView.separated(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: scheduleList.length,
-                                  separatorBuilder: (c,i) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+                                  separatorBuilder: (c, i) => Divider(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.05),
+                                      height: 1),
                                   itemBuilder: (context, index) {
                                     final time = scheduleList[index];
-                                    final nowMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
+                                    final nowMinutes =
+                                        DateTime.now().hour * 60 +
+                                            DateTime.now().minute;
                                     final itemMinutes = _timeToMinutes(time);
-                                    
+
                                     // Handle wrapping logic loosely for display styling
-                                    final bool isPassed = itemMinutes < nowMinutes; 
-                                    final bool isNext = nextBus != null && nextBus['time'] == time;
-                                    
+                                    final bool isPassed =
+                                        itemMinutes < nowMinutes;
+                                    final bool isNext = nextBus != null &&
+                                        nextBus['time'] == time;
+
                                     return Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 8),
                                       decoration: BoxDecoration(
-                                        color: isNext ? const Color(0xFF3F51B5).withValues(alpha: 0.2) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8)
-                                      ),
+                                          color: isNext
+                                              ? const Color(0xFF3F51B5)
+                                                  .withValues(alpha: 0.2)
+                                              : Colors.transparent,
+                                          borderRadius:
+                                              BorderRadius.circular(8)),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             time,
                                             style: TextStyle(
-                                              color: Colors.white.withValues(alpha: isPassed ? 0.5 : 1.0),
-                                              fontSize: 16,
-                                              decoration: isPassed ? TextDecoration.lineThrough : null,
-                                              fontWeight: isNext ? FontWeight.bold : FontWeight.normal
-                                            ),
+                                                color: Colors.white.withValues(
+                                                    alpha:
+                                                        isPassed ? 0.5 : 1.0),
+                                                fontSize: 16,
+                                                decoration: isPassed
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                                fontWeight: isNext
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal),
                                           ),
                                           if (isNext)
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(color: const Color(0xFF3F51B5), borderRadius: BorderRadius.circular(4)),
-                                              child: const Text("NEXT", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                  color:
+                                                      const Color(0xFF3F51B5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4)),
+                                              child: const Text("NEXT",
+                                                  style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
                                             )
                                         ],
                                       ),
@@ -380,7 +588,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 40),
                       ],
                     ),
@@ -394,7 +602,9 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     );
   }
 
-  Widget _buildLocationChip(String label, String selectedValue, Function(String) onTap, {bool isDisabled = false}) {
+  Widget _buildLocationChip(
+      String label, String selectedValue, Function(String) onTap,
+      {bool isDisabled = false}) {
     final bool isSelected = label == selectedValue;
     return GestureDetector(
       onTap: isDisabled ? null : () => onTap(label),
@@ -402,16 +612,18 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3F51B5) : (isDisabled ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.1)),
-          borderRadius: BorderRadius.circular(8)
-        ),
-        child: Text(
-          label, 
-          style: TextStyle(
-            color: isDisabled ? Colors.white.withValues(alpha: 0.3) : Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500
-          )
-        ),
+            color: isSelected
+                ? const Color(0xFF3F51B5)
+                : (isDisabled
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.1)),
+            borderRadius: BorderRadius.circular(8)),
+        child: Text(label,
+            style: TextStyle(
+                color: isDisabled
+                    ? Colors.white.withValues(alpha: 0.3)
+                    : Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
       ),
     );
   }

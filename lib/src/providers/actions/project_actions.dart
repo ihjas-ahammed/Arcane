@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
@@ -14,8 +13,10 @@ class ProjectActions {
   // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
   void addProject(String title, String description, {String? mainTaskId}) {
     // If no specific task is targeted, use the currently selected one, or the first one.
-    final targetTaskId = mainTaskId ?? _provider.selectedTaskId ?? _provider.mainTasks.firstOrNull?.id;
-    
+    final targetTaskId = mainTaskId ??
+        _provider.selectedTaskId ??
+        _provider.mainTasks.firstOrNull?.id;
+
     if (targetTaskId == null) {
       debugPrint("Error: No MainTask available to assign project to.");
       return;
@@ -33,7 +34,8 @@ class ProjectActions {
     });
   }
 
-  void updateProjectDetails(String mainTaskId, String projectId, String title, String description) {
+  void updateProjectDetails(
+      String mainTaskId, String projectId, String title, String description) {
     _updateMainTaskProjects(mainTaskId, (projects) {
       return projects.map((p) {
         if (p.id == projectId) {
@@ -48,7 +50,9 @@ class ProjectActions {
   void updateProject(String mainTaskId, Project updatedProject) {
     updatedProject.calculateProgress();
     _updateMainTaskProjects(mainTaskId, (projects) {
-      return projects.map((p) => p.id == updatedProject.id ? updatedProject : p).toList();
+      return projects
+          .map((p) => p.id == updatedProject.id ? updatedProject : p)
+          .toList();
     });
   }
 
@@ -58,7 +62,8 @@ class ProjectActions {
     });
   }
 
-  void _updateMainTaskProjects(String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+  void _updateMainTaskProjects(
+      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         final updatedProjects = updateFn(task.projects);
@@ -75,7 +80,8 @@ class ProjectActions {
 
   // --- Step Management ---
 
-  void addRootStep(String mainTaskId, String projectId, String title, String description) {
+  void addRootStep(
+      String mainTaskId, String projectId, String title, String description) {
     final newStep = ProjectStep(
       id: const Uuid().v4(),
       title: title,
@@ -86,9 +92,10 @@ class ProjectActions {
     });
   }
 
-  void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
+  void updateStep(
+      String mainTaskId, String projectId, ProjectStep updatedStep) {
     _performStepAction(mainTaskId, projectId, (project) {
-       _updateStepRecursive(project.steps, updatedStep);
+      _updateStepRecursive(project.steps, updatedStep);
     });
   }
 
@@ -118,30 +125,34 @@ class ProjectActions {
     }
   }
 
-  void addSubstep(String mainTaskId, String projectId, String parentStepId, String title, String description) {
+  void addSubstep(String mainTaskId, String projectId, String parentStepId,
+      String title, String description) {
     final newStep = ProjectStep(
       id: const Uuid().v4(),
       title: title,
       description: description,
     );
     _performStepAction(mainTaskId, projectId, (project) {
-       _addSubstepRecursive(project.steps, parentStepId, newStep);
+      _addSubstepRecursive(project.steps, parentStepId, newStep);
     });
   }
 
-  bool _addSubstepRecursive(List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+  bool _addSubstepRecursive(
+      List<ProjectStep> steps, String parentId, ProjectStep newStep) {
     for (var s in steps) {
       if (s.id == parentId) {
         s.substeps.add(newStep);
-        s.isCompleted = false; // Parent can't be complete if new incomplete child added
+        s.isCompleted =
+            false; // Parent can't be complete if new incomplete child added
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
     }
     return false;
   }
-  
-  void _performStepAction(String mainTaskId, String projectId, Function(Project) action) {
+
+  void _performStepAction(
+      String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
     for (var t in _provider.mainTasks) {
       if (t.id == mainTaskId) {
@@ -162,17 +173,18 @@ class ProjectActions {
     _provider.addSubtask(mainTaskId, {
       'name': step.title,
       'isCountable': false,
-      'subSubTasksData': <Map<String, dynamic>>[] 
+      'subSubTasksData': <Map<String, dynamic>>[]
     });
   }
 
   // --- AI Generation ---
 
-  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+  Future<void> generateProjectStructure(
+      String mainTaskId, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
-        modelName: _provider.settings.aiModelName,
+        modelCandidates: _provider.settings.heavyModels, // Heavy for projects
         userPrompt: userPrompt,
         currentApiKeyIndex: _provider.apiKeyIndex,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -182,8 +194,9 @@ class ProjectActions {
       final newProject = Project.fromJson(projectData);
       newProject.id = const Uuid().v4();
       newProject.linkedMainTaskId = mainTaskId;
-      
-      _updateMainTaskProjects(mainTaskId, (projects) => [...projects, newProject]);
+
+      _updateMainTaskProjects(
+          mainTaskId, (projects) => [...projects, newProject]);
     } catch (e) {
       debugPrint("Error generating project: $e");
     } finally {

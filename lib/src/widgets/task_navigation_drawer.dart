@@ -24,24 +24,71 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
       AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
 
   final List<Map<String, dynamic>> _availableThemes = [
-    {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
-    {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
-    {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
-    {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
-    {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
-    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
-    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
-    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
-    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
-    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
-    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
-    {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
+    {
+      'name': 'tech',
+      'icon': MdiIcons.memory,
+      'color': AppTheme.fhAccentTealFixed
+    },
+    {
+      'name': 'knowledge',
+      'icon': MdiIcons.bookOpenPageVariantOutline,
+      'color': AppTheme.fhAccentPurple
+    },
+    {
+      'name': 'learning',
+      'icon': MdiIcons.schoolOutline,
+      'color': AppTheme.fhAccentOrange
+    },
+    {
+      'name': 'discipline',
+      'icon': MdiIcons.karate,
+      'color': AppTheme.fhAccentRed
+    },
+    {
+      'name': 'order',
+      'icon': MdiIcons.playlistCheck,
+      'color': AppTheme.fhAccentGreen
+    },
+    {
+      'name': 'health',
+      'icon': MdiIcons.heartPulse,
+      'color': const Color(0xFF58D68D)
+    },
+    {
+      'name': 'finance',
+      'icon': MdiIcons.cashMultiple,
+      'color': const Color(0xFFF1C40F)
+    },
+    {
+      'name': 'creative',
+      'icon': MdiIcons.paletteOutline,
+      'color': const Color(0xFFEC7063)
+    },
+    {
+      'name': 'exploration',
+      'icon': MdiIcons.mapSearchOutline,
+      'color': const Color(0xFF5DADE2)
+    },
+    {
+      'name': 'social',
+      'icon': MdiIcons.accountGroupOutline,
+      'color': const Color(0xFFE59866)
+    },
+    {
+      'name': 'nature',
+      'icon': MdiIcons.treeOutline,
+      'color': const Color(0xFF2ECC71)
+    },
+    {
+      'name': 'general',
+      'icon': MdiIcons.targetAccount,
+      'color': AppTheme.fhTextSecondary
+    },
   ];
 
   Color _getColorForTheme(String themeName) {
     return _availableThemes.firstWhere((t) => t['name'] == themeName,
-            orElse: () => {'color': AppTheme.fhAccentTealFixed})['color']
-        as Color;
+        orElse: () => {'color': AppTheme.fhAccentTealFixed})['color'] as Color;
   }
 
   @override
@@ -55,8 +102,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
 
   IconData _getThemeIcon(String? themeName) {
     return _availableThemes.firstWhere((t) => t['name'] == themeName,
-            orElse: () => _availableThemes.last)['icon']
-        as IconData;
+        orElse: () => _availableThemes.last)['icon'] as IconData;
   }
 
   void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
@@ -83,24 +129,25 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _newTaskNameController,
-                      decoration: const InputDecoration(labelText: 'Mission Name')),
+                      decoration:
+                          const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _newTaskDescController,
-                      decoration: const InputDecoration(labelText: 'Description'),
+                      decoration:
+                          const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'Theme'),
                     dropdownColor: AppTheme.fhBgLight,
-                    value: _dialogSelectedTheme,
+                    initialValue: _dialogSelectedTheme,
                     items: _availableThemes
                         .map((themeMap) => DropdownMenuItem<String>(
                             value: themeMap['name'] as String,
                             child: Row(
                               children: [
-                                Icon(
-                                    _getThemeIcon(themeMap['name'] as String),
+                                Icon(_getThemeIcon(themeMap['name'] as String),
                                     size: 18,
                                     color: themeMap['color'] as Color),
                                 const SizedBox(width: 8),
@@ -131,7 +178,8 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                       Color color = themeMap['color'] as Color;
                       String colorHex =
                           color.value.toRadixString(16).toUpperCase();
-                      bool isSelectedColor = _dialogSelectedColorHex == colorHex;
+                      bool isSelectedColor =
+                          _dialogSelectedColorHex == colorHex;
 
                       return GestureDetector(
                         onTap: () => setStateDialog(
@@ -211,25 +259,26 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 children: <Widget>[
                   TextField(
                       controller: _editTaskNameController,
-                      decoration: const InputDecoration(labelText: 'Mission Name')),
+                      decoration:
+                          const InputDecoration(labelText: 'Mission Name')),
                   const SizedBox(height: 8),
                   TextField(
                       controller: _editTaskDescController,
-                      decoration: const InputDecoration(labelText: 'Description'),
+                      decoration:
+                          const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                       decoration: const InputDecoration(labelText: 'Theme'),
                       dropdownColor: AppTheme.fhBgLight,
-                      value: _dialogSelectedTheme,
+                      initialValue: _dialogSelectedTheme,
                       items: _availableThemes
                           .map((themeMap) => DropdownMenuItem<String>(
                               value: themeMap['name'] as String,
                               child: Row(
                                 children: [
                                   Icon(
-                                      _getThemeIcon(
-                                          themeMap['name'] as String),
+                                      _getThemeIcon(themeMap['name'] as String),
                                       size: 18,
                                       color: themeMap['color'] as Color),
                                   const SizedBox(width: 8),
@@ -260,7 +309,8 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                       Color color = themeMap['color'] as Color;
                       String colorHex =
                           color.value.toRadixString(16).toUpperCase();
-                      bool isSelectedColor = _dialogSelectedColorHex == colorHex;
+                      bool isSelectedColor =
+                          _dialogSelectedColorHex == colorHex;
 
                       return GestureDetector(
                         onTap: () => setStateDialog(
@@ -393,8 +443,8 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                           trailing: IconButton(
                             icon: Icon(MdiIcons.pencilOutline,
                                 size: 18,
-                                color:
-                                    AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
+                                color: AppTheme.fhTextSecondary
+                                    .withValues(alpha: 0.7)),
                             onPressed: () =>
                                 _showEditTaskDialog(context, appProvider, task),
                             tooltip: 'Edit Mission',

@@ -90,8 +90,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
             final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-                orElse: () => MainTask(
-                    id: '', name: '', description: '', theme: ''));
+                orElse: () =>
+                    MainTask(id: '', name: '', description: '', theme: ''));
             dominantColor = task.taskColor;
           }
         });
@@ -170,23 +170,24 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         !availableDates.contains(_selectedDate)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          setState(() =>
-              _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+          setState(() => _selectedDate =
+              availableDates.isNotEmpty ? availableDates.first : null);
         }
       });
     } else if (availableDates.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
+        if (mounted && _selectedDate != null)
+          setState(() => _selectedDate = null);
       });
     }
 
     // Prepare chart data
     final chartData = _prepareWeeklyData(appProvider);
 
-    final summaryData =
-        _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-    final taskTimes =
-        summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    final summaryData = _selectedDate != null
+        ? appProvider.completedByDay[_selectedDate!]
+        : null;
+    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
     final subtasksCompleted =
         summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted =
@@ -246,7 +247,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             else ...[
               // --- DAILY DETAIL SELECTOR ---
               DropdownButtonFormField<String>(
-                value: _selectedDate,
+                initialValue: _selectedDate,
                 decoration: InputDecoration(
                     labelText: 'Inspect Day',
                     prefixIcon: Icon(MdiIcons.calendarSearchOutline,
@@ -255,8 +256,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 items: availableDates.map((date) {
                   return DropdownMenuItem(
                     value: date,
-                    child: Text(
-                        DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
+                    child: Text(DateFormat('MMMM d, yyyy')
+                        .format(DateTime.parse(date))),
                   );
                 }).toList(),
                 onChanged: (value) => setState(() => _selectedDate = value),
@@ -291,12 +292,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   children: [
                     Expanded(
                       flex: 1,
-                      child: _buildActivitySection(
-                          theme,
-                          appProvider,
-                          taskTimes,
-                          subtasksCompleted,
-                          checkpointsCompleted),
+                      child: _buildActivitySection(theme, appProvider,
+                          taskTimes, subtasksCompleted, checkpointsCompleted),
                     ),
                     const SizedBox(width: 24),
                     Expanded(
@@ -342,15 +339,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     );
   }
 
-  Widget _buildReflectionsSection(
-      BuildContext context,
-      ThemeData theme,
-      AppProvider provider,
-      List<ReflectionLog> reflections) {
+  Widget _buildReflectionsSection(BuildContext context, ThemeData theme,
+      AppProvider provider, List<ReflectionLog> reflections) {
     return Column(
       children: [
         if (reflections.isNotEmpty) ...[
-          Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
+          Text("Reflections (Tap to Edit)",
+              style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),
           ListView.builder(
               shrinkWrap: true,
@@ -364,7 +359,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                          color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                          color:
+                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
                   child: ListTile(
                     title: Text(
                         log.trigger.isNotEmpty ? log.trigger : "Reflection",

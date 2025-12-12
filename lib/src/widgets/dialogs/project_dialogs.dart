@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 // Unified Dialog for Adding/Editing Projects
@@ -10,13 +9,12 @@ class AddEditProjectDialog extends StatefulWidget {
   final String? initialTitle;
   final String? initialDescription;
 
-  const AddEditProjectDialog({
-    super.key, 
-    required this.mainTaskId,
-    this.projectId,
-    this.initialTitle,
-    this.initialDescription
-  });
+  const AddEditProjectDialog(
+      {super.key,
+      required this.mainTaskId,
+      this.projectId,
+      this.initialTitle,
+      this.initialDescription});
 
   @override
   State<AddEditProjectDialog> createState() => _AddEditProjectDialogState();
@@ -44,8 +42,8 @@ class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.fhBgMedium,
-      title: Text(widget.projectId == null ? "New Project" : "Edit Project", 
-        style: const TextStyle(color: AppTheme.fhTextPrimary)),
+      title: Text(widget.projectId == null ? "New Project" : "Edit Project",
+          style: const TextStyle(color: AppTheme.fhTextPrimary)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -73,9 +71,12 @@ class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          style:
+              ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
           onPressed: () {
             if (_titleController.text.trim().isNotEmpty) {
               Navigator.pop(context, {
@@ -132,9 +133,11 @@ class _AddEditStepDialogState extends State<AddEditStepDialog> {
       backgroundColor: AppTheme.fhBgMedium,
       title: Row(
         children: [
-          Icon(widget.isEditing ? MdiIcons.pencilOutline : MdiIcons.plus, color: AppTheme.fhAccentTeal),
+          Icon(widget.isEditing ? MdiIcons.pencilOutline : MdiIcons.plus,
+              color: AppTheme.fhAccentTeal),
           const SizedBox(width: 8),
-          Text(widget.isEditing ? "Edit Step" : "Add Step", style: const TextStyle(color: AppTheme.fhTextPrimary)),
+          Text(widget.isEditing ? "Edit Step" : "Add Step",
+              style: const TextStyle(color: AppTheme.fhTextPrimary)),
         ],
       ),
       content: SingleChildScrollView(
@@ -164,9 +167,12 @@ class _AddEditStepDialogState extends State<AddEditStepDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          style:
+              ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
           onPressed: () {
             if (_titleController.text.trim().isNotEmpty) {
               Navigator.pop(context, {
