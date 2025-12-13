@@ -22,7 +22,8 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       return const Center(
         child: Text(
           "No virtue data logged today.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -42,7 +43,8 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       return const Center(
         child: Text(
           "No XP gained yet.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -67,14 +69,15 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
       final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
+      final List<PieChartSectionData> sections =
+          List.generate(entries.length, (i) {
         final isTouched = i == _touchedIndex;
         final entry = entries[i];
         final color = _getVirtueColor(entry.key);
-        
+
         // Pop out effect
         final double radius = isTouched ? chartRadius + 8 : chartRadius;
-        
+
         return PieChartSectionData(
           color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
           value: entry.value.toDouble(),
@@ -103,15 +106,16 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                         _touchedIndex = -1;
                         return;
                       }
-                      _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                      _touchedIndex =
+                          pieTouchResponse.touchedSection!.touchedSectionIndex;
                     });
                   },
                 ),
                 borderData: FlBorderData(show: false),
-                sectionsSpace: 0, 
+                sectionsSpace: 0,
                 centerSpaceRadius: centerRadius,
                 sections: sections,
-                startDegreeOffset: 270, 
+                startDegreeOffset: 270,
               ),
             ),
             // Center Info Display
@@ -133,17 +137,16 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                 Text(
                   centerBottomText,
                   style: TextStyle(
-                    color: centerColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    shadows: [
-                      Shadow(
-                        color: centerColor.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                      )
-                    ]
-                  ),
+                      color: centerColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                      shadows: [
+                        Shadow(
+                          color: centerColor.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        )
+                      ]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -159,26 +162,34 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)]
-      ),
-      child:  Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
-      // Used an icon marker instead of text to avoid clutter, 
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
+          ]),
+      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+      // Used an icon marker instead of text to avoid clutter,
       // since text is now in the center.
     );
   }
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
+      case 'wisdom':
+        return Colors.blueAccent;
+      case 'courage':
+        return AppTheme.fhAccentRed;
+      case 'humanity':
+        return const Color(0xFFE91E63);
+      case 'justice':
+        return AppTheme.fhAccentGold;
+      case 'temperance':
+        return AppTheme.fhAccentTeal;
+      case 'transcendence':
+        return AppTheme.fhAccentPurple;
+      default:
+        return Colors.grey;
     }
   }
 }

@@ -629,6 +629,7 @@ class AppProvider with ChangeNotifier {
     required String trigger,
     required String emotion,
     required String reason,
+    DateTime? timestamp,
   }) async {
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
@@ -657,7 +658,7 @@ class AppProvider with ChangeNotifier {
 
     final log = ReflectionLog(
       id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
-      timestamp: DateTime.now(),
+      timestamp: timestamp ?? DateTime.now(),
       trigger: trigger,
       emotion: emotion,
       reason: reason,

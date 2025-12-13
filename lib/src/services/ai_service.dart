@@ -257,6 +257,51 @@ Return ONLY the JSON object.
     );
   }
 
+  Future<String> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    if (reflections.isEmpty) return "No reflections recorded for this day.";
+
+    final StringBuffer reflectionsText = StringBuffer();
+    for (int i = 0; i < reflections.length; i++) {
+      reflectionsText.writeln("Entry ${i + 1}:");
+      reflectionsText.writeln("  - Trigger: ${reflections[i]['trigger']}");
+      reflectionsText.writeln("  - Emotion: ${reflections[i]['emotion']}");
+      reflectionsText.writeln("  - Reason: ${reflections[i]['reason']}");
+      reflectionsText.writeln("");
+    }
+
+    final prompt = """
+    You are a wise Stoic mentor.
+    
+    Here are the user's reflection logs for today:
+    $reflectionsText
+    
+    Based on these entries, provide a concise, insightful daily summary (max 100 words).
+    Highlight the key emotional themes, acknowledge any progress in stoic virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence), and offer one clear, actionable thought for tomorrow.
+    
+    Tone: Empathetic, encouraging, profound but grounded.
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKey: customApiKey,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response =
+              await model.generateContent([genai.Content.text(prompt)]);
+          return response.text ?? "Unable to generate summary.";
+        });
+  }
+
   Future<String> getChatbotResponse({
     required List<String> modelCandidates, // Changed
     required ChatbotMemory memory,

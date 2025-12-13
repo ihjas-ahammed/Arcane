@@ -7,7 +7,8 @@ class TimePieChart extends StatefulWidget {
   final Map<String, double> taskData; // Task Name -> Minutes
   final Map<String, Color> taskColors; // Task Name -> Color
 
-  const TimePieChart({super.key, required this.taskData, required this.taskColors});
+  const TimePieChart(
+      {super.key, required this.taskData, required this.taskColors});
 
   @override
   State<TimePieChart> createState() => _TimePieChartState();
@@ -18,11 +19,13 @@ class _TimePieChartState extends State<TimePieChart> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.taskData.isEmpty || widget.taskData.values.fold(0.0, (a, b) => a + b) <= 0) {
+    if (widget.taskData.isEmpty ||
+        widget.taskData.values.fold(0.0, (a, b) => a + b) <= 0) {
       return const Center(
         child: Text(
           "No active mission time today.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -34,15 +37,17 @@ class _TimePieChartState extends State<TimePieChart> {
     });
 
     if (activeData.isEmpty) {
-       return const Center(
+      return const Center(
         child: Text(
           "No time logged today.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
 
-    final double totalTime = activeData.values.fold(0, (sum, item) => sum + item);
+    final double totalTime =
+        activeData.values.fold(0, (sum, item) => sum + item);
     final entries = activeData.entries.toList();
 
     String centerTopText = "TOTAL TIME";
@@ -52,8 +57,9 @@ class _TimePieChartState extends State<TimePieChart> {
     if (_touchedIndex != -1 && _touchedIndex < entries.length) {
       final entry = entries[_touchedIndex];
       centerTopText = entry.key.toUpperCase();
-      if (centerTopText.length > 10) centerTopText = "${centerTopText.substring(0,8)}..";
-      
+      if (centerTopText.length > 10)
+        centerTopText = "${centerTopText.substring(0, 8)}..";
+
       centerBottomText = "${entry.value.toInt()}m";
       centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
     }
@@ -62,13 +68,14 @@ class _TimePieChartState extends State<TimePieChart> {
       final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
       final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
+      final List<PieChartSectionData> sections =
+          List.generate(entries.length, (i) {
         final isTouched = i == _touchedIndex;
         final entry = entries[i];
         final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-        
+
         final double radius = isTouched ? chartRadius + 8 : chartRadius;
-        
+
         return PieChartSectionData(
           color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
           value: entry.value,
@@ -96,15 +103,16 @@ class _TimePieChartState extends State<TimePieChart> {
                         _touchedIndex = -1;
                         return;
                       }
-                      _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                      _touchedIndex =
+                          pieTouchResponse.touchedSection!.touchedSectionIndex;
                     });
                   },
                 ),
                 borderData: FlBorderData(show: false),
-                sectionsSpace: 0, 
+                sectionsSpace: 0,
                 centerSpaceRadius: centerRadius,
                 sections: sections,
-                startDegreeOffset: 270, 
+                startDegreeOffset: 270,
               ),
             ),
             Column(
@@ -125,17 +133,16 @@ class _TimePieChartState extends State<TimePieChart> {
                 Text(
                   centerBottomText,
                   style: TextStyle(
-                    color: centerColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    shadows: [
-                      Shadow(
-                        color: centerColor.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                      )
-                    ]
-                  ),
+                      color: centerColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                      shadows: [
+                        Shadow(
+                          color: centerColor.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        )
+                      ]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -150,12 +157,13 @@ class _TimePieChartState extends State<TimePieChart> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)]
-      ),
-      child:  Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
+          ]),
+      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
     );
   }
 }

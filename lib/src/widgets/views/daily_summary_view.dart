@@ -8,7 +8,9 @@ import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/activity_log_list.dart';
-import 'package:arcane/src/widgets/ui/chart_carousel.dart'; // New generic component
+import 'package:arcane/src/widgets/ui/chart_carousel.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/utils/helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -38,8 +40,35 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  void _navigateToReflectionEditor(BuildContext context,
+      {ReflectionLog? initialLog}) {
+    // If we have a selected date, pass it. Otherwise use today.
+    final dateStr =
+        _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReflectionEditorScreen(
+          initialLog: initialLog,
+          dateStr: dateStr,
+        ),
+      ),
+    );
+  }
+
   void _showEditDialog(BuildContext context, AppProvider provider, String type,
       int index, dynamic currentValue) {
+    if (type == 'Reflection') {
+      final logId = currentValue['id'];
+      final log =
+          provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log != null) {
+        _navigateToReflectionEditor(context, initialLog: log);
+      }
+      return;
+    }
+
     showDialog(
         context: context,
         builder: (ctx) => EditLogDialog(
@@ -48,18 +77,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               initialValue: currentValue,
               onDelete: () {
                 if (_selectedDate == null) return;
-                if (type == 'Reflection') {
-                  provider.deleteReflectionLog(currentValue['id']);
-                }
+                // Deletion for reflection is handled (or not) via editor or we could keep it here
+                // But for now, since we redirect reflections, this block won't run for reflections.
               },
               onSave: (val) {
                 if (_selectedDate == null) return;
-                if (type == 'Reflection') {
-                  provider.updateReflectionLog(currentValue['id'],
-                      trigger: val['trigger'],
-                      emotion: val['emotion'],
-                      reason: val['reason']);
-                }
+                // Update implementation
               },
             ));
   }
@@ -246,27 +269,80 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ))
             else ...[
               // --- DAILY DETAIL SELECTOR ---
-              DropdownButtonFormField<String>(
-                initialValue: _selectedDate,
-                decoration: InputDecoration(
+              InkWell(
+                onTap: () async {
+                  if (availableDates.isEmpty) return;
+
+                  // Parse dates to find range
+                  final dates =
+                      availableDates.map((d) => DateTime.parse(d)).toList();
+                  dates.sort();
+                  final firstDate = dates.first;
+
+                  final initialDate = _selectedDate != null
+                      ? DateTime.parse(_selectedDate!)
+                      : dates.last;
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: firstDate.subtract(
+                        const Duration(days: 365)), // Allow looking back
+                    lastDate: DateTime.now().add(const Duration(days: 1)),
+                    selectableDayPredicate: (day) {
+                      final dateStr = DateFormat('yyyy-MM-dd').format(day);
+                      return availableDates.contains(dateStr);
+                    },
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.dark(
+                            primary: AppTheme.fhAccentTeal,
+                            onPrimary: AppTheme.fhTextPrimary,
+                            surface: AppTheme.fhBgMedium,
+                            onSurface: AppTheme.fhTextPrimary,
+                          ),
+                          // ignore: deprecated_member_use
+                          dialogBackgroundColor: AppTheme.fhBgDark,
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (picked != null) {
+                    setState(() {
+                      _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
                     labelText: 'Inspect Day',
                     prefixIcon: Icon(MdiIcons.calendarSearchOutline,
-                        color: AppTheme.fhAccentTeal)),
-                dropdownColor: AppTheme.fhBgMedium,
-                items: availableDates.map((date) {
-                  return DropdownMenuItem(
-                    value: date,
-                    child: Text(DateFormat('MMMM d, yyyy')
-                        .format(DateTime.parse(date))),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedDate = value),
+                        color: AppTheme.fhAccentTeal),
+                    suffixIcon: const Icon(Icons.arrow_drop_down,
+                        color: AppTheme.fhTextSecondary),
+                    filled: true,
+                    fillColor: AppTheme.fhBgMedium,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  child: Text(
+                    _selectedDate != null
+                        ? DateFormat('MMMM d, yyyy')
+                            .format(DateTime.parse(_selectedDate!))
+                        : 'Select a date',
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 24),
 
               // --- DAILY STATS CAROUSEL (Mixed Focus & Virtue) ---
-              // This groups the daily charts together as requested
               ChartCarousel(
                 height: 320,
                 pages: [
@@ -332,7 +408,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           taskTimes: taskTimes,
           subtasksCompleted: subtasksCompleted,
           checkpointsCompleted: checkpointsCompleted,
-          // Pass available tasks to resolve IDs to Names
           availableTasks: provider.mainTasks,
         ),
       ],
@@ -381,6 +456,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 );
               }),
         ],
+        // Add a primary button to add a new reflection if none exist or just as an option
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: ElevatedButton.icon(
+            onPressed: () => _navigateToReflectionEditor(context),
+            icon: const Icon(Icons.add),
+            label: const Text("Add Reflection"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentPurple,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -402,11 +490,5 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       default:
         return Colors.grey;
     }
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
