@@ -6,9 +6,16 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 class TimePieChart extends StatefulWidget {
   final Map<String, double> taskData; // Task Name -> Minutes
   final Map<String, Color> taskColors; // Task Name -> Color
+  final String? selectedTask;
+  final Function(String?)? onTaskSelected;
 
-  const TimePieChart(
-      {super.key, required this.taskData, required this.taskColors});
+  const TimePieChart({
+    super.key,
+    required this.taskData,
+    required this.taskColors,
+    this.selectedTask,
+    this.onTaskSelected,
+  });
 
   @override
   State<TimePieChart> createState() => _TimePieChartState();
@@ -54,8 +61,15 @@ class _TimePieChartState extends State<TimePieChart> {
     String centerBottomText = "${totalTime.toInt()}m";
     Color centerColor = AppTheme.fhTextPrimary;
 
-    if (_touchedIndex != -1 && _touchedIndex < entries.length) {
-      final entry = entries[_touchedIndex];
+    // Determine what to show in center
+    // Priority: Hovered -> Selected -> Total
+    int highlightIndex = _touchedIndex;
+    if (highlightIndex == -1 && widget.selectedTask != null) {
+      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedTask);
+    }
+
+    if (highlightIndex != -1 && highlightIndex < entries.length) {
+      final entry = entries[highlightIndex];
       centerTopText = entry.key.toUpperCase();
       if (centerTopText.length > 10)
         centerTopText = "${centerTopText.substring(0, 8)}..";
@@ -70,18 +84,21 @@ class _TimePieChartState extends State<TimePieChart> {
 
       final List<PieChartSectionData> sections =
           List.generate(entries.length, (i) {
-        final isTouched = i == _touchedIndex;
         final entry = entries[i];
+        final isHovered = i == _touchedIndex;
+        final isSelected = entry.key == widget.selectedTask;
+        final showActive = isHovered || (isSelected && _touchedIndex == -1);
+
         final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
 
-        final double radius = isTouched ? chartRadius + 8 : chartRadius;
+        final double radius = showActive ? chartRadius + 8 : chartRadius;
 
         return PieChartSectionData(
-          color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
+          color: color.withValues(alpha: showActive ? 1.0 : 0.8),
           value: entry.value,
           title: '',
           radius: radius,
-          badgeWidget: isTouched ? _buildBadge(color) : null,
+          badgeWidget: showActive ? _buildBadge(color) : null,
           badgePositionPercentageOffset: 1.4,
           borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
@@ -101,10 +118,24 @@ class _TimePieChartState extends State<TimePieChart> {
                           pieTouchResponse == null ||
                           pieTouchResponse.touchedSection == null) {
                         _touchedIndex = -1;
+                        // Clear selection on hover exit / touch release
+                        if (widget.selectedTask != null) {
+                          widget.onTaskSelected?.call(null);
+                        }
                         return;
                       }
-                      _touchedIndex =
+
+                      final index =
                           pieTouchResponse.touchedSection!.touchedSectionIndex;
+                      _touchedIndex = index;
+
+                      // Update selection on hover/touch
+                      if (index >= 0 && index < entries.length) {
+                        final key = entries[index].key;
+                        if (widget.selectedTask != key) {
+                          widget.onTaskSelected?.call(key);
+                        }
+                      }
                     });
                   },
                 ),

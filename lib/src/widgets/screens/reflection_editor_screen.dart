@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -93,47 +93,10 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
           // Show XP Gain Dialog
           showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                      backgroundColor: AppTheme.fhBgDark,
-                      title: Row(children: [
-                        Icon(MdiIcons.starFourPoints,
-                            color: AppTheme.fhAccentGold),
-                        const SizedBox(width: 8),
-                        const Text("Insight Gained!"),
-                      ]),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("You have gained experience in:",
-                              style:
-                                  TextStyle(color: AppTheme.fhTextSecondary)),
-                          const SizedBox(height: 12),
-                          ...xpGained.entries.map((e) => Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  children: [
-                                    Text(e.key.capitalize(),
-                                        style: const TextStyle(
-                                            color: AppTheme.fhTextPrimary,
-                                            fontWeight: FontWeight.bold)),
-                                    const Spacer(),
-                                    Text("+${e.value} XP",
-                                        style: const TextStyle(
-                                            color: AppTheme.fhAccentGreen,
-                                            fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              )),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text("Awesome"))
-                      ]));
+            context: context,
+            barrierColor: Colors.black.withValues(alpha: 0.8),
+            builder: (ctx) => XpGainDialog(xpGained: xpGained),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -146,83 +109,21 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     }
   }
 
-  Future<void> _generateDailySummary() async {
-    setState(() => _isLoading = true);
-    try {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final aiService = Provider.of<AIService>(context, listen: false);
-
-      // Filter logs for the specific day passed in
-      final targetDate = DateTime.parse(widget.dateStr);
-      final dailyLogs = appProvider.reflectionLogs.where((l) {
-        return l.timestamp.year == targetDate.year &&
-            l.timestamp.month == targetDate.month &&
-            l.timestamp.day == targetDate.day;
-      }).toList();
-
-      final summary = await aiService.generateDailySummary(
-        reflections: dailyLogs
-            .map((l) => {
-                  'trigger': l.trigger,
-                  'emotion': l.emotion,
-                  'reason': l.reason,
-                })
-            .toList(),
-        modelCandidates: appProvider.settings.liteModels,
-        currentApiKeyIndex: appProvider.apiKeyIndex,
-        onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
-        onLog: (s) => (s), // Avoid print in production
-      );
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.fhBgDark,
-          title: const Text("Daily Summary",
-              style: TextStyle(color: AppTheme.fhTextPrimary)),
-          content: SingleChildScrollView(
-              child: Text(summary,
-                  style: const TextStyle(color: AppTheme.fhTextSecondary))),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Close"),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to generate summary: $e")));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Reflection Editor"),
         backgroundColor: AppTheme.fhBgDark,
-        leading: IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(MdiIcons.robotHappyOutline,
-                    color: AppTheme.fhAccentGold),
-            tooltip: "Generate Daily Summary",
-            onPressed: _isLoading ? null : _generateDailySummary),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check, color: AppTheme.fhAccentGreen),
-            onPressed: _saveReflection,
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.check, color: AppTheme.fhAccentGreen),
+            onPressed: _isLoading ? null : _saveReflection,
           )
         ],
       ),

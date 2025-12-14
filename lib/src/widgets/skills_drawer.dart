@@ -8,6 +8,7 @@ import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
 import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 
 class SkillsDrawer extends StatelessWidget {
@@ -17,7 +18,7 @@ class SkillsDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
-    final skills = appProvider.skills;
+    // Removed unused skills variable
 
     // Filter to show ALL recent insights of the current day
     final todayStr = helper.getTodayDateString();
@@ -28,7 +29,7 @@ class SkillsDrawer extends StatelessWidget {
     }).toList();
 
     return Drawer(
-      width: 360,
+      width: 340,
       backgroundColor: AppTheme.fhBgDeepDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,22 +57,48 @@ class SkillsDrawer extends StatelessWidget {
           Expanded(
             child: LayoutBuilder(builder: (context, constraints) {
               // Responsive grid count based on drawer width
-              int crossAxisCount = constraints.maxWidth < 300 ? 2 : 3;
+              int crossAxisCount = 3;
 
               return ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 children: [
                   // Skills Grid
                   GridView.count(
                     crossAxisCount: crossAxisCount,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 6,
+                    crossAxisSpacing: 6,
                     childAspectRatio: 0.85,
-                    children: skills.map((skill) {
+                    children: [
+                      'Wisdom',
+                      'Courage',
+                      'Humanity',
+                      'Justice',
+                      'Temperance',
+                      'Transcendence'
+                    ].map((name) {
+                      final xp7d = appProvider.get7DaySkillMomentum(name);
+
+                      // Create a temporary skill object for display purposes
+                      final skill = Skill(
+                          id: name.substring(0, 3).toLowerCase(),
+                          name: name,
+                          description: "A core Stoic virtue.",
+                          currentXp: xp7d,
+                          maxXp: 100, // Arbitrary for momentum view
+                          level: (xp7d / 50).floor() + 1);
+
+                      // Define Momentum: Level = xp / 50 (approx), Progress = (xp % 50) / 50
+                      // This makes "Level 1" = 50 XP in last 7 days.
+                      final int momentumLevel =
+                          (xp7d / 50).floor() + 1; // Start at level 1
+                      final double momentumProgress = (xp7d % 50) / 50.0;
+
                       return VirtueCircle(
                         skill: skill,
+                        momentumLevel: momentumLevel,
+                        momentumProgress: momentumProgress,
                         onTap: () {
                           showDialog(
                             context: context,
@@ -88,9 +115,9 @@ class SkillsDrawer extends StatelessWidget {
                     }).toList(),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-                  const SizedBox(height: 24),
+                  
 
                   ElevatedButton.icon(
                     icon: Icon(MdiIcons.notebookEditOutline),

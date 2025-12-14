@@ -126,6 +126,7 @@ class AIService {
     required String emotion,
     required String reason,
     required List<String> modelCandidates, // Changed
+    List<Map<String, String>>? dailyReflections,
     String? customApiKey,
     String? systemInstruction,
   }) async {
@@ -133,13 +134,26 @@ class AIService {
         """
     You are a wise stoic mentor. A user has submitted a reflection log.
     Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
-    Distribute exactly 50 XP points among these 6 virtues based on the reflection: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
+    Determine a total XP score between 20 and 100 based on the depth, honesty, and effort of the reflection. 
+    Distribute this total XP amount among these 6 virtues: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
     """;
+
+    String contextStr = "";
+    if (dailyReflections != null && dailyReflections.isNotEmpty) {
+      contextStr = "PREVIOUS REFLECTIONS TODAY:\n";
+      for (var r in dailyReflections) {
+        contextStr +=
+            "- Trigger: ${r['trigger']}, Emotion: ${r['emotion']}, Reason: ${r['reason']}\n";
+      }
+      contextStr +=
+          "\nConsidering the context of today's events above, analyze the NEW REFLECTION below:\n";
+    }
 
     final prompt = """
     $baseSystemPrompt
 
-    REFLECTION DATA:
+    $contextStr
+    NEW REFLECTION DATA:
     1. What happened: "$trigger"
     2. Emotion felt: "$emotion"
     3. Why: "$reason"
@@ -156,7 +170,7 @@ class AIService {
         "Transcendence": int
       }
     }
-    Ensure the sum of xp_allocation values is exactly 50.
+    Ensure the sum of xp_allocation values equals the total XP you determined (20-100).
     """;
 
     // We propagate errors here to allow the UI to show a 'Retry' button

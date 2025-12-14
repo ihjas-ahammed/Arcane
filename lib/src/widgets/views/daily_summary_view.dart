@@ -14,6 +14,7 @@ import 'package:arcane/src/utils/helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
 
 class DailySummaryView extends StatefulWidget {
@@ -25,6 +26,9 @@ class DailySummaryView extends StatefulWidget {
 
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
+  bool _isLoading = false;
+  String? _selectedTaskFilter;
+  String? _selectedVirtueFilter;
 
   @override
   void didChangeDependencies() {
@@ -87,6 +91,73 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ));
   }
 
+  Future<void> _generateDailySummary() async {
+    if (_selectedDate == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final aiService = Provider.of<AIService>(context, listen: false);
+
+      // Filter logs for the specific day passed in
+      final targetDate = DateTime.parse(_selectedDate!);
+      final dailyLogs = appProvider.reflectionLogs.where((l) {
+        return l.timestamp.year == targetDate.year &&
+            l.timestamp.month == targetDate.month &&
+            l.timestamp.day == targetDate.day;
+      }).toList();
+
+      if (dailyLogs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("No reflections to summarize for this day.")));
+        }
+        return;
+      }
+
+      final summary = await aiService.generateDailySummary(
+        reflections: dailyLogs
+            .map((l) => {
+                  'trigger': l.trigger,
+                  'emotion': l.emotion,
+                  'reason': l.reason,
+                })
+            .toList(),
+        modelCandidates: appProvider.settings.liteModels,
+        currentApiKeyIndex: appProvider.apiKeyIndex,
+        onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
+        onLog: (s) => (s), // Avoid print in production
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          title: const Text("Daily Summary",
+              style: TextStyle(color: AppTheme.fhTextPrimary)),
+          content: SingleChildScrollView(
+              child: Text(summary,
+                  style: const TextStyle(color: AppTheme.fhTextSecondary))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to generate summary: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   // Helper to prepare data for charts
   Map<String, dynamic> _prepareWeeklyData(AppProvider provider) {
     final today = DateTime.now();
@@ -108,13 +179,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       if (dayData != null && dayData['taskTimes'] != null) {
         final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
         taskTimes.forEach((taskId, time) {
+          final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
+              orElse: () => MainTask(
+                  id: '', name: 'Unknown', description: '', theme: ''));
+
+          // Apply Filter
+          if (_selectedTaskFilter != null && task.name != _selectedTaskFilter) {
+            return;
+          }
+
           final mins = (time as num).toDouble();
           totalMins += mins;
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
-            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-                orElse: () =>
-                    MainTask(id: '', name: '', description: '', theme: ''));
             dominantColor = task.taskColor;
           }
         });
@@ -133,9 +210,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       Map<String, int> virtueTotals = {};
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
+          // Apply Filter
+          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter) {
+            return;
+          }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
         });
-        totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
+
+        // Sum filtered XP
+        // Correctly sum only what passed filter
+        int xpForEntry = 0;
+        ref.xpGained.forEach((k, v) {
+          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter)
+            return;
+          xpForEntry += v;
+        });
+        totalXp += xpForEntry;
       }
       virtueData[i] = totalXp;
 
@@ -348,13 +438,23 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 pages: [
                   ChartCarouselData(
                     title: "Daily Virtue Breakdown",
-                    chart: VirtuePieChart(logs: reflectionsForDate),
+                    chart: VirtuePieChart(
+                      logs: reflectionsForDate,
+                      selectedVirtue: _selectedVirtueFilter,
+                      onVirtueSelected: (val) {
+                        setState(() => _selectedVirtueFilter = val);
+                      },
+                    ),
                   ),
                   ChartCarouselData(
                     title: "Today's Mission Focus",
                     chart: TimePieChart(
                       taskData: chartData['dailyTaskTimeData'],
                       taskColors: chartData['taskColors'],
+                      selectedTask: _selectedTaskFilter,
+                      onTaskSelected: (val) {
+                        setState(() => _selectedTaskFilter = val);
+                      },
                     ),
                   ),
                 ],
@@ -419,8 +519,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     return Column(
       children: [
         if (reflections.isNotEmpty) ...[
-          Text("Reflections (Tap to Edit)",
-              style: theme.textTheme.headlineSmall),
+          Row(
+            children: [
+              IconButton(
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.robotHappyOutline,
+                          color: AppTheme.fhAccentGold),
+                  tooltip: "Generate Daily Summary",
+                  onPressed: _isLoading ? null : _generateDailySummary),
+              const SizedBox(width: 8),
+              Text("Reflections", style: theme.textTheme.headlineSmall),
+            ],
+          ),
           const SizedBox(height: 8),
           ListView.builder(
               shrinkWrap: true,

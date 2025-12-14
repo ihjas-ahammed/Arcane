@@ -625,17 +625,45 @@ class AppProvider with ChangeNotifier {
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
+  // Returns total XP gained for a skill in the last 7 days to show momentum
+  int get7DaySkillMomentum(String skillName) {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    return _reflectionLogs.where((log) {
+      return log.timestamp.isAfter(sevenDaysAgo) &&
+          log.timestamp.isBefore(now.add(const Duration(days: 1)));
+    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
+  }
+
   Future<Map<String, int>> processReflection({
     required String trigger,
     required String emotion,
     required String reason,
     DateTime? timestamp,
   }) async {
+    final actualTimestamp = timestamp ?? DateTime.now();
+
+    final dailyReflections = _reflectionLogs
+        .where((log) {
+          final logDt = log.timestamp;
+          return logDt.year == actualTimestamp.year &&
+              logDt.month == actualTimestamp.month &&
+              logDt.day == actualTimestamp.day;
+        })
+        .map((r) => {
+              'trigger': r.trigger,
+              'emotion': r.emotion,
+              'reason': r.reason,
+            })
+        .toList();
+
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
       emotion: emotion,
       reason: reason,
       modelCandidates: settings.liteModels, // Reflection uses Lite (Insights)
+      dailyReflections: dailyReflections,
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
     );
