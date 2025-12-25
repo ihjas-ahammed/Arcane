@@ -2,7 +2,7 @@ name: arcane
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 2025.12.4+508 # Incremented version
+version: 2025.12.14+617 # Incremented version
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -33,6 +33,7 @@ dependencies:
   flutter_colorpicker: ^1.1.0 # For task color selection
   smooth_page_indicator: ^1.2.1
   uuid: ^4.5.2
+  http: ^1.6.0
 
 
 dev_dependencies:

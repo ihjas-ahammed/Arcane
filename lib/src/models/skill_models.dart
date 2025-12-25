@@ -18,14 +18,36 @@ class Skill {
   });
 
   factory Skill.fromJson(Map<String, dynamic> json) {
+    String name = (json['name'] as String? ??
+            json['skillName'] as String? ??
+            'Unknown Virtue')
+        .trim();
+
+    // Attempt to recover ID if missing or generic
+    String id = json['id'] as String? ?? 'unknown_skill';
+    if (id == 'unknown_skill') {
+      final n = name.toLowerCase();
+      if (n.contains('wisdom') || n.contains('tech') || n.contains('learning'))
+        id = 'wis';
+      else if (n.contains('courage') || n.contains('health'))
+        id = 'cou';
+      else if (n.contains('humanity') || n.contains('social'))
+        id = 'hum';
+      else if (n.contains('justice') || n.contains('work'))
+        id = 'jus';
+      else if (n.contains('temperance') || n.contains('order'))
+        id = 'tem';
+      else if (n.contains('transcendence') || n.contains('creative'))
+        id = 'tra';
+    }
+
     return Skill(
-      id: json['id'] as String? ?? 'unknown_skill',
-      name: json['name'] as String? ?? 'Unknown Virtue',
-      level: json['level'] as int? ?? 1,
-      currentXp: json['currentXp'] as int? ?? 0,
-      maxXp: json['maxXp'] as int? ?? 100,
-      description: json['description'] as String? ?? "A core virtue."
-    );
+        id: id,
+        name: name,
+        level: (json['level'] as num?)?.toInt() ?? 1,
+        currentXp: (json['currentXp'] as num?)?.toInt() ?? 0,
+        maxXp: (json['maxXp'] as num?)?.toInt() ?? 100,
+        description: json['description'] as String? ?? "A core virtue.");
   }
 
   Map<String, dynamic> toJson() {

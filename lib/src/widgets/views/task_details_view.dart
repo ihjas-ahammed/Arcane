@@ -21,6 +21,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   String _aiGenerationMode = 'text_list';
   final _aiUserInputController = TextEditingController();
   final _aiNumSubquestsController = TextEditingController(text: '3');
+  final _newSubTaskController = TextEditingController();
 
   late AppProvider appProvider;
 
@@ -34,6 +35,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   void dispose() {
     _aiUserInputController.dispose();
     _aiNumSubquestsController.dispose();
+    _newSubTaskController.dispose();
     super.dispose();
   }
 
@@ -69,7 +71,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                 Icon(MdiIcons.textBoxSearchOutline,
+                Icon(MdiIcons.textBoxSearchOutline,
                     size: 56, color: AppTheme.fhAccentTealFixed),
                 const SizedBox(height: 16),
                 Text('Select a Mission',
@@ -90,11 +92,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final weeklyCompletion =
             appProviderConsumer.getCompletionStatusForCurrentWeek(task);
         // Get Yesterday's time for comparison
-        final int yesterdayTime = appProviderConsumer.getYesterdaysTimeForTask(task.id);
+        final int yesterdayTime =
+            appProviderConsumer.getYesterdaysTimeForTask(task.id);
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(
-              top: 8, bottom: 80, left: 10, right: 10),
+          padding:
+              const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +128,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                           'No sub-missions recorded yet. Add some manually or use AI.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyLarge?.copyWith(
-                              color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
+                              color: AppTheme.fhTextSecondary
+                                  .withValues(alpha: 0.8),
                               fontStyle: FontStyle.italic))),
                 )
               else
@@ -138,10 +142,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     // IMPORTANT: Key is essential here to ensure widgets update
                     // correctly when data in the list changes, especially for edits.
                     return SubmissionCard(
-                      key: ValueKey(st.id), 
-                      parentTask: task, 
-                      subTask: st
-                    );
+                        key: ValueKey(st.id), parentTask: task, subTask: st);
                   },
                 ),
 
@@ -155,48 +156,48 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 
-  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
+  Widget _buildAddNewSubTaskButton(
+      BuildContext context, AppProvider provider, MainTask task) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
-      child: ElevatedButton.icon(
-        icon: Icon(MdiIcons.plusBoxOutline),
-        label: const Text("ADD NEW SUB-MISSION"),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.fhBgMedium,
-          foregroundColor: AppTheme.fhTextPrimary,
-          minimumSize: const Size(double.infinity, 48),
-          side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
-        ),
-        onPressed: () {
-           showDialog(
-             context: context,
-             builder: (ctx) {
-               final controller = TextEditingController();
-               return AlertDialog(
-                 backgroundColor: AppTheme.fhBgMedium,
-                 title: const Text("New Sub-Mission"),
-                 // Removing autofocus to fix mobile input issues
-                 content: TextField(
-                   controller: controller,
-                   autofocus: false, 
-                   decoration: const InputDecoration(hintText: "Enter title..."),
-                 ),
-                 actions: [
-                   TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
-                   ElevatedButton(
-                     onPressed: () {
-                       if (controller.text.isNotEmpty) {
-                         provider.addSubtask(task.id, {'name': controller.text.trim(), 'isCountable': false});
-                         Navigator.pop(ctx);
-                       }
-                     },
-                     child: const Text("Create")
-                   )
-                 ],
-               );
-             }
-           );
-        },
+      child: Column(
+        children: [
+          TextField(
+            controller: _newSubTaskController,
+            decoration: const InputDecoration(
+              hintText: "Enter new sub-mission title...",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onSubmitted: (value) {
+              if (value.trim().isNotEmpty) {
+                provider.addSubtask(
+                    task.id, {'name': value.trim(), 'isCountable': false});
+                _newSubTaskController.clear();
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: Icon(MdiIcons.plusBoxOutline),
+            label: const Text("ADD NEW SUB-MISSION"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.fhBgMedium,
+                foregroundColor: AppTheme.fhTextPrimary,
+                minimumSize: const Size(double.infinity, 48),
+                side: BorderSide(
+                    color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
+            onPressed: () {
+              if (_newSubTaskController.text.trim().isNotEmpty) {
+                provider.addSubtask(task.id, {
+                  'name': _newSubTaskController.text.trim(),
+                  'isCountable': false
+                });
+                _newSubTaskController.clear();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -208,8 +209,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
       margin: const EdgeInsets.only(top: 16, left: 0, right: 0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(
-            color: AppTheme.fhAccentPurple, width: 1),
+        side: const BorderSide(color: AppTheme.fhAccentPurple, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -218,7 +218,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           children: [
             Row(
               children: [
-                 Icon(MdiIcons.robotHappyOutline,
+                Icon(MdiIcons.robotHappyOutline,
                     color: AppTheme.fhAccentPurple, size: 22),
                 const SizedBox(width: 10),
                 Text('Generate Sub-Missions with AI',
@@ -235,7 +235,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   labelStyle:
                       TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
               dropdownColor: AppTheme.fhBgMedium,
-              value: _aiGenerationMode,
+              initialValue: _aiGenerationMode,
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
               items: const [
@@ -288,7 +288,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: AppTheme.fhBgDeepDark))
-                  :  Icon(MdiIcons.creationOutline, size: 18),
+                  : Icon(MdiIcons.creationOutline, size: 18),
               label: Text(appProviderConsumer.isGeneratingSubquests
                   ? 'GENERATING...'
                   : 'INITIATE AI PROTOCOL'),

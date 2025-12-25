@@ -25,14 +25,16 @@ class SubmissionCard extends StatefulWidget {
 class _SubmissionCardState extends State<SubmissionCard> {
   final TextEditingController _checkpointController = TextEditingController();
   bool _isCheckpointCountable = false;
-  final TextEditingController _checkpointCountController = TextEditingController(text: '5');
+  final TextEditingController _checkpointCountController =
+      TextEditingController(text: '5');
 
   late TextEditingController _timeController;
-  
+
   @override
   void initState() {
     super.initState();
-    _timeController = TextEditingController(text: widget.subTask.currentTimeSpent.toString());
+    _timeController =
+        TextEditingController(text: widget.subTask.currentTimeSpent.toString());
   }
 
   @override
@@ -48,9 +50,9 @@ class _SubmissionCardState extends State<SubmissionCard> {
     super.didUpdateWidget(oldWidget);
     // Sync time controller if external change happened (e.g. timer tick)
     if (oldWidget.subTask.currentTimeSpent != widget.subTask.currentTimeSpent) {
-        if (!_timeController.selection.isValid) {
-           _timeController.text = widget.subTask.currentTimeSpent.toString();
-        }
+      if (!_timeController.selection.isValid) {
+        _timeController.text = widget.subTask.currentTimeSpent.toString();
+      }
     }
   }
 
@@ -60,8 +62,8 @@ class _SubmissionCardState extends State<SubmissionCard> {
     final subSubData = {
       'name': _checkpointController.text.trim(),
       'isCountable': _isCheckpointCountable,
-      'targetCount': _isCheckpointCountable 
-          ? (int.tryParse(_checkpointCountController.text) ?? 1) 
+      'targetCount': _isCheckpointCountable
+          ? (int.tryParse(_checkpointCountController.text) ?? 1)
           : 0,
     };
 
@@ -73,7 +75,8 @@ class _SubmissionCardState extends State<SubmissionCard> {
     });
   }
 
-  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider) async {
+  Future<void> _handleEditSubtask(
+      BuildContext context, AppProvider provider) async {
     // Open the modular dialog
     final String? newName = await showDialog<String>(
       context: context,
@@ -81,18 +84,15 @@ class _SubmissionCardState extends State<SubmissionCard> {
     );
 
     // If a name was returned, update the provider immediately
-    if (newName != null && newName.isNotEmpty && newName != widget.subTask.name) {
+    if (newName != null &&
+        newName.isNotEmpty &&
+        newName != widget.subTask.name) {
       provider.updateSubtask(
-        widget.parentTask.id, 
-        widget.subTask.id, 
-        {'name': newName}
-      );
+          widget.parentTask.id, widget.subTask.id, {'name': newName});
       setState(() {
         widget.subTask.name = newName;
       });
     }
-
-    
   }
 
   @override
@@ -100,23 +100,32 @@ class _SubmissionCardState extends State<SubmissionCard> {
     final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[widget.subTask.id];
-    
+
     final int totalCheckpoints = widget.subTask.subSubTasks.length;
-    final int completedCheckpoints = widget.subTask.subSubTasks.where((s) => s.completed).length;
-    final double progress = totalCheckpoints > 0 ? completedCheckpoints / totalCheckpoints : 0.0;
+    final int completedCheckpoints =
+        widget.subTask.subSubTasks.where((s) => s.completed).length;
+    final double progress =
+        totalCheckpoints > 0 ? completedCheckpoints / totalCheckpoints : 0.0;
 
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
             ? timerState.accumulatedDisplayTime +
-                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+                (DateTime.now()
+                        .difference(timerState.startTime)
+                        .inMilliseconds /
+                    1000)
             : timerState.accumulatedDisplayTime)
         : widget.subTask.currentTimeSpent * 60.0;
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
-    final cardBorderColor = isRunning ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor.withValues(alpha: 0.5);
-    final glowColor = isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.15) : Colors.transparent;
+    final cardBorderColor = isRunning
+        ? AppTheme.fhAccentTeal
+        : AppTheme.fhBorderColor.withValues(alpha: 0.5);
+    final glowColor = isRunning
+        ? AppTheme.fhAccentTeal.withValues(alpha: 0.15)
+        : Colors.transparent;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -135,17 +144,16 @@ class _SubmissionCardState extends State<SubmissionCard> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10)
-              )
-            ),
+                color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+                borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10))),
             child: Row(
               children: [
                 RhombusCheckbox(
                   checked: widget.subTask.completed,
-                  onChanged: (val) => provider.completeSubtask(widget.parentTask.id, widget.subTask.id),
+                  onChanged: (val) => provider.completeSubtask(
+                      widget.parentTask.id, widget.subTask.id),
                   disabled: widget.subTask.completed,
                   size: CheckboxSize.small,
                 ),
@@ -154,41 +162,51 @@ class _SubmissionCardState extends State<SubmissionCard> {
                   child: Text(
                     widget.subTask.name.toUpperCase(),
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: widget.subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary
-                    ),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: widget.subTask.completed
+                            ? AppTheme.fhTextDisabled
+                            : AppTheme.fhTextPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // Completed state options
                 if (widget.subTask.completed) ...[
                   IconButton(
-                    icon:  Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextSecondary),
-                    onPressed: () => provider.duplicateCompletedSubtask(widget.parentTask.id, widget.subTask.id),
+                    icon: Icon(MdiIcons.contentCopy,
+                        size: 16, color: AppTheme.fhTextSecondary),
+                    onPressed: () => provider.duplicateCompletedSubtask(
+                        widget.parentTask.id, widget.subTask.id),
                     tooltip: "Duplicate Task",
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon:  Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
-                    onPressed: () => provider.deleteSubtask(widget.parentTask.id, widget.subTask.id),
+                    icon: Icon(MdiIcons.deleteOutline,
+                        size: 18,
+                        color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
+                    onPressed: () => provider.deleteSubtask(
+                        widget.parentTask.id, widget.subTask.id),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   )
                 ] else ...[
                   IconButton(
-                    icon:  Icon(MdiIcons.pencilOutline, size: 16, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _handleEditSubtask(context, provider), // Uses new modular dialog
+                    icon: Icon(MdiIcons.pencilOutline,
+                        size: 16, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _handleEditSubtask(
+                        context, provider), // Uses new modular dialog
                     tooltip: "Edit Task",
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon:  Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed),
-                    onPressed: () => provider.deleteSubtask(widget.parentTask.id, widget.subTask.id),
+                    icon: Icon(MdiIcons.deleteOutline,
+                        size: 18, color: AppTheme.fhAccentRed),
+                    onPressed: () => provider.deleteSubtask(
+                        widget.parentTask.id, widget.subTask.id),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   )
@@ -207,46 +225,54 @@ class _SubmissionCardState extends State<SubmissionCard> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.fhBgDeepDark,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
-                        ),
+                            color: AppTheme.fhBgDeepDark,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: AppTheme.fhBorderColor
+                                    .withValues(alpha: 0.5))),
                         child: Text(
                           formattedTime,
                           style: const TextStyle(
-                            fontFamily: "RobotoCondensed", 
-                            fontSize: 24,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white
-                          ),
+                              fontFamily: "RobotoCondensed",
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white),
                         ),
                       ),
                       const SizedBox(width: 16),
                       InkWell(
                         onTap: () {
-                           if (isRunning) {
-                             provider.pauseTimer(widget.subTask.id);
-                             provider.logTimerAndReset(widget.subTask.id);
-                           } else {
-                             provider.startTimer(widget.subTask.id, 'subtask', widget.parentTask.id);
-                           }
+                          if (isRunning) {
+                            provider.pauseTimer(widget.subTask.id);
+                            provider.logTimerAndReset(widget.subTask.id);
+                          } else {
+                            provider.startTimer(widget.subTask.id, 'subtask',
+                                widget.parentTask.id);
+                          }
                         },
                         borderRadius: BorderRadius.circular(30),
                         child: Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen,
-                              width: 1.5
-                            ),
-                            color: (isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen).withValues(alpha: 0.1)
-                          ),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: isRunning
+                                      ? AppTheme.fhAccentOrange
+                                      : AppTheme.fhAccentGreen,
+                                  width: 1.5),
+                              color: (isRunning
+                                      ? AppTheme.fhAccentOrange
+                                      : AppTheme.fhAccentGreen)
+                                  .withValues(alpha: 0.1)),
                           child: Icon(
                             isRunning ? MdiIcons.pause : MdiIcons.play,
-                            color: isRunning ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen,
+                            color: isRunning
+                                ? AppTheme.fhAccentOrange
+                                : AppTheme.fhAccentGreen,
                             size: 24,
                           ),
                         ),
@@ -257,27 +283,41 @@ class _SubmissionCardState extends State<SubmissionCard> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            const Text("Manually: ", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                            const Text("Manually: ",
+                                style: TextStyle(
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 12)),
                             SizedBox(
                               width: 40,
                               child: TextField(
                                 controller: _timeController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                                style: const TextStyle(
+                                    color: AppTheme.fhTextPrimary,
+                                    fontSize: 13),
                                 decoration: const InputDecoration(
                                   isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 4),
-                                  border: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 4),
+                                  border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: AppTheme.fhBorderColor)),
                                 ),
                                 onSubmitted: (val) {
                                   final int? newTime = int.tryParse(val);
                                   if (newTime != null) {
-                                    provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'currentTimeSpent': newTime});
+                                    provider.updateSubtask(
+                                        widget.parentTask.id,
+                                        widget.subTask.id,
+                                        {'currentTimeSpent': newTime});
                                   }
                                 },
                               ),
                             ),
-                            const Text("m", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                            const Text("m",
+                                style: TextStyle(
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 12)),
                           ],
                         ),
                       )
@@ -289,7 +329,10 @@ class _SubmissionCardState extends State<SubmissionCard> {
                   // --- CHECKLIST PROGRESS ---
                   Row(
                     children: [
-                      Text("Checklist", style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+                      Text("Checklist",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppTheme.fhTextSecondary,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ClipRRect(
@@ -316,36 +359,52 @@ class _SubmissionCardState extends State<SubmissionCard> {
                       final sss = widget.subTask.subSubTasks[index];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20), 
-                          border: Border.all(color: sss.completed ? AppTheme.fhAccentTeal.withValues(alpha: 0.3) : Colors.transparent)
-                        ),
+                            color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: sss.completed
+                                    ? AppTheme.fhAccentTeal
+                                        .withValues(alpha: 0.3)
+                                    : Colors.transparent)),
                         child: Row(
                           children: [
                             GestureDetector(
-                              onTap: () => provider.completeSubSubtask(widget.parentTask.id, widget.subTask.id, sss.id),
-                              child: Icon(
-                                MdiIcons.rhombusMedium, 
-                                size: 16, 
-                                color: sss.completed ? AppTheme.fhAccentTeal : AppTheme.fhTextDisabled
-                              ),
+                              onTap: () => provider.completeSubSubtask(
+                                  widget.parentTask.id,
+                                  widget.subTask.id,
+                                  sss.id),
+                              child: Icon(MdiIcons.rhombusMedium,
+                                  size: 16,
+                                  color: sss.completed
+                                      ? AppTheme.fhAccentTeal
+                                      : AppTheme.fhTextDisabled),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 sss.name,
                                 style: TextStyle(
-                                  color: sss.completed ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
-                                  decoration: sss.completed ? TextDecoration.lineThrough : null,
-                                  fontSize: 13
-                                ),
+                                    color: sss.completed
+                                        ? AppTheme.fhTextSecondary
+                                        : AppTheme.fhTextPrimary,
+                                    decoration: sss.completed
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    fontSize: 13),
                               ),
                             ),
                             InkWell(
-                              onTap: () => provider.deleteSubSubtask(widget.parentTask.id, widget.subTask.id, sss.id),
-                              child: Icon(MdiIcons.trashCanOutline, size: 16, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
+                              onTap: () => provider.deleteSubSubtask(
+                                  widget.parentTask.id,
+                                  widget.subTask.id,
+                                  sss.id),
+                              child: Icon(MdiIcons.trashCanOutline,
+                                  size: 16,
+                                  color: AppTheme.fhAccentRed
+                                      .withValues(alpha: 0.7)),
                             )
                           ],
                         ),
@@ -358,22 +417,26 @@ class _SubmissionCardState extends State<SubmissionCard> {
                   // --- ADD CHECKPOINT INPUT ---
                   Container(
                     decoration: BoxDecoration(
-                      color: AppTheme.fhBgDeepDark,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
-                    ),
+                        color: AppTheme.fhBgDeepDark,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color:
+                                AppTheme.fhBorderColor.withValues(alpha: 0.5))),
                     child: Row(
                       children: [
                         Expanded(
                           child: TextField(
                             controller: _checkpointController,
-                            style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                            style: const TextStyle(
+                                fontSize: 13, color: AppTheme.fhTextPrimary),
                             decoration: const InputDecoration(
-                              hintText: "Add a checkpoint...",
-                              hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12)
-                            ),
+                                hintText: "Add a checkpoint...",
+                                hintStyle: TextStyle(
+                                    color: AppTheme.fhTextDisabled,
+                                    fontSize: 13),
+                                border: InputBorder.none,
+                                contentPadding:
+                                    EdgeInsets.symmetric(horizontal: 12)),
                             onSubmitted: (_) => _handleAddCheckpoint(provider),
                           ),
                         ),
@@ -381,9 +444,10 @@ class _SubmissionCardState extends State<SubmissionCard> {
                         Transform.scale(
                           scale: 0.7,
                           child: Switch(
-                            value: _isCheckpointCountable, 
-                            onChanged: (val) => setState(() => _isCheckpointCountable = val),
-                            activeColor: AppTheme.fhAccentTeal,
+                            value: _isCheckpointCountable,
+                            onChanged: (val) =>
+                                setState(() => _isCheckpointCountable = val),
+                            activeThumbColor: AppTheme.fhAccentTeal,
                             inactiveThumbColor: AppTheme.fhTextDisabled,
                             inactiveTrackColor: AppTheme.fhBgMedium,
                           ),
@@ -395,18 +459,19 @@ class _SubmissionCardState extends State<SubmissionCard> {
                               controller: _checkpointCountController,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppTheme.fhTextPrimary),
                               decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none
-                              ),
+                                  isDense: true, border: InputBorder.none),
                             ),
                           ),
                         IconButton(
-                          icon:  Icon(MdiIcons.plusCircle, color: AppTheme.fhAccentGreen),
+                          icon: Icon(MdiIcons.plusCircle,
+                              color: AppTheme.fhAccentGreen),
                           onPressed: () => _handleAddCheckpoint(provider),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                          constraints:
+                              const BoxConstraints(minWidth: 40, minHeight: 40),
                         )
                       ],
                     ),
@@ -415,13 +480,16 @@ class _SubmissionCardState extends State<SubmissionCard> {
               ),
             )
           ] else ...[
-             Padding(
-               padding: const EdgeInsets.all(12.0),
-               child: Text(
-                 "Completed on ${widget.subTask.completedDate} • ${widget.subTask.currentTimeSpent}m logged",
-                 style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, fontStyle: FontStyle.italic),
-               ),
-             )
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Text(
+                "Completed on ${widget.subTask.completedDate} • ${widget.subTask.currentTimeSpent}m logged",
+                style: const TextStyle(
+                    color: AppTheme.fhTextDisabled,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic),
+              ),
+            )
           ]
         ],
       ),

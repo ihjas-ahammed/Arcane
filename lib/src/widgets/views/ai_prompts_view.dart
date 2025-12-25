@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -18,19 +17,23 @@ class _AiPromptsViewState extends State<AiPromptsView> {
   final List<Map<String, String>> _templates = [
     {
       "title": "Health & Fitness",
-      "prompt": "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
+      "prompt":
+          "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
     },
     {
       "title": "Creative Writing",
-      "prompt": "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
+      "prompt":
+          "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
     },
     {
       "title": "Coding & Tech",
-      "prompt": "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
+      "prompt":
+          "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
     },
     {
       "title": "Home Org",
-      "prompt": "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
+      "prompt":
+          "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
     }
   ];
 
@@ -38,7 +41,8 @@ class _AiPromptsViewState extends State<AiPromptsView> {
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+    _selectedMainTaskId =
+        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
   }
 
   @override
@@ -59,72 +63,111 @@ class _AiPromptsViewState extends State<AiPromptsView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Text("Describe your project idea...", style: theme.textTheme.titleMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+            Text("Describe your project idea...",
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(color: AppTheme.fhTextSecondary)),
             const SizedBox(height: 12),
-            
+
             // Text Input
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                border:
+                    Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
               ),
               child: TextField(
                 controller: _promptController,
                 maxLines: 5,
                 decoration: const InputDecoration.collapsed(
-                  hintText: "e.g., 'Learn Python in 90 days with a focus on web development.'",
+                  hintText:
+                      "e.g., 'Learn Python in 90 days with a focus on web development.'",
                   hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
                 ),
                 style: const TextStyle(color: AppTheme.fhTextPrimary),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Task Selector for AI Generation
-             DropdownButtonFormField<String>(
-               value: _selectedMainTaskId,
-               dropdownColor: AppTheme.fhBgDark,
-               decoration: InputDecoration(
-                 labelText: "Assign to Mission",
-                 fillColor: AppTheme.fhBgDark,
-                 filled: true,
-                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-               ),
-               items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
-               onChanged: (val) => setState(() => _selectedMainTaskId = val),
-             ),
-             
-             const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedMainTaskId,
+              dropdownColor: AppTheme.fhBgDark,
+              decoration: InputDecoration(
+                labelText: "Assign to Mission",
+                fillColor: AppTheme.fhBgDark,
+                filled: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+              ),
+              items: provider.mainTasks
+                  .map(
+                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedMainTaskId = val),
+            ),
+
+            const SizedBox(height: 24),
 
             // Generate Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: provider.isGeneratingSubquests ? null : () {
-                  if (_promptController.text.isNotEmpty && _selectedMainTaskId != null) {
-                    provider.projectActions.generateProjectStructure(_selectedMainTaskId!, _promptController.text);
-                    Navigator.pop(context); // Go back to projects view
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Generating project structure...")));
-                  }
-                },
+                onPressed: provider.isGeneratingSubquests
+                    ? null
+                    : () async {
+                        if (_promptController.text.isNotEmpty &&
+                            _selectedMainTaskId != null) {
+                          // Show loading dialog
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => const AlertDialog(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 16),
+                                  Text("Generating project structure..."),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          try {
+                            await provider.projectActions
+                                .generateProjectStructure(_selectedMainTaskId!,
+                                    _promptController.text);
+                          } finally {
+                            // Close loading dialog
+                            if (context.mounted) {
+                              Navigator.pop(context); // Pop dialog
+                              Navigator.pop(context); // Pop screen
+                            }
+                          }
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4A90E2),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                 ),
-                child: provider.isGeneratingSubquests 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text("Generate Project Plan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text("Generate Project Plan",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            Text("Prompt Templates", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text("Prompt Templates",
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            
+
             // Templates Grid
             GridView.builder(
               shrinkWrap: true,
@@ -149,17 +192,21 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                      border: Border.all(
+                          color: AppTheme.fhBorderColor.withOpacity(0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(t['title']!,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 8),
                         Expanded(
                           child: Text(
-                            t['prompt']!, 
-                            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                            t['prompt']!,
+                            style: const TextStyle(
+                                color: AppTheme.fhTextSecondary, fontSize: 12),
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -170,12 +217,18 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 );
               },
             ),
-            
+
             const SizedBox(height: 32),
             // Saved Prompts Section (Placeholder for future feature)
-            Text("Saved Prompts", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text("Saved Prompts",
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            const Center(child: Text("No saved prompts yet.", style: TextStyle(color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic))),
+            const Center(
+                child: Text("No saved prompts yet.",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontStyle: FontStyle.italic))),
           ],
         ),
       ),

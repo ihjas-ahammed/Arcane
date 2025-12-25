@@ -12,12 +12,12 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/skill_models.dart'; 
+import 'package:arcane/src/models/skill_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
 import 'actions/timer_actions.dart';
-import 'actions/project_actions.dart'; 
+import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
@@ -73,8 +73,8 @@ class AppProvider with ChangeNotifier {
   int get apiKeyIndex => _apiKeyIndex;
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
 
-  TimeOfDay get wakeupTime =>
-      TimeOfDay(hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
+  TimeOfDay get wakeupTime => TimeOfDay(
+      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
 
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   ChatbotMemory get chatbotMemory => _chatbotMemory;
@@ -104,12 +104,30 @@ class AppProvider with ChangeNotifier {
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
+        Skill(
+            id: 'wis',
+            name: 'Wisdom',
+            description: 'Good judgment, learning, perspective.'),
+        Skill(
+            id: 'cou',
+            name: 'Courage',
+            description: 'Bravery, persistence, integrity.'),
+        Skill(
+            id: 'hum',
+            name: 'Humanity',
+            description: 'Love, kindness, social intelligence.'),
+        Skill(
+            id: 'jus',
+            name: 'Justice',
+            description: 'Teamwork, fairness, leadership.'),
+        Skill(
+            id: 'tem',
+            name: 'Temperance',
+            description: 'Forgiveness, humility, self-regulation.'),
+        Skill(
+            id: 'tra',
+            name: 'Transcendence',
+            description: 'Appreciation of beauty, gratitude, hope.'),
       ];
     }
   }
@@ -130,7 +148,8 @@ class AppProvider with ChangeNotifier {
           _currentUser != null &&
           !_isManuallySaving &&
           !_isManuallyLoading &&
-          _settings.autoSaveEnabled) { // Respect user setting
+          _settings.autoSaveEnabled) {
+        // Respect user setting
         _performActualSave();
       }
     });
@@ -212,7 +231,7 @@ class AppProvider with ChangeNotifier {
         initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
 
     _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
-    
+
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
@@ -232,8 +251,8 @@ class AppProvider with ChangeNotifier {
     _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
 
     _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(
-                key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
+            (key, value) => MapEntry(key,
+                ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
         {};
 
     final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
@@ -243,7 +262,7 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = data['chatbotMemory'] != null
         ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
         : ChatbotMemory();
-    
+
     if (data['skills'] != null && data['skills'] is List) {
       _skills = (data['skills'] as List)
           .where((s) => s != null && s is Map<String, dynamic>)
@@ -286,8 +305,8 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      final success =
-          await _storageService.setUserData(_currentUser!.uid, _appStateToMap());
+      final success = await _storageService.setUserData(
+          _currentUser!.uid, _appStateToMap());
       if (success) {
         _lastSuccessfulSaveTimestamp = DateTime.now();
         _hasUnsavedChanges = false;
@@ -296,7 +315,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-   Future<void> manuallySaveToCloud() async {
+  Future<void> manuallySaveToCloud() async {
     if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
     _isManuallySaving = true;
     notifyListeners();
@@ -334,7 +353,7 @@ class AppProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   Future<void> loginUser(String email, String password) async {
     await fb_service.signInWithEmail(email, password);
   }
@@ -384,7 +403,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null) throw Exception("No user is currently signed in.");
+    if (_currentUser == null)
+      throw Exception("No user is currently signed in.");
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
     notifyListeners();
@@ -420,7 +440,7 @@ class AppProvider with ChangeNotifier {
     return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
         _mainTasks.firstOrNull;
   }
-  
+
   String _getWeekKey(DateTime date, int startOfWeek) {
     int day = date.weekday;
     DateTime adjustedDate =
@@ -445,7 +465,8 @@ class AppProvider with ChangeNotifier {
     final weekKey = _getWeekKey(today, _settings.startOfWeek);
     final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
 
-    task.weeklyCompletionStatus.putIfAbsent(weekKey, () => List.filled(7, false));
+    task.weeklyCompletionStatus
+        .putIfAbsent(weekKey, () => List.filled(7, false));
     if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
       task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
       _hasUnsavedChanges = true;
@@ -466,7 +487,7 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _handleDailyReset() async {
-     if (_currentUser == null) return;
+    if (_currentUser == null) return;
     final today = helper.getTodayDateString();
     bool hasResetRun = false;
 
@@ -484,21 +505,19 @@ class AppProvider with ChangeNotifier {
     if (hasResetRun) {
       _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
       _getCompletedGoalsForChatbotMemory();
-      setProviderState(
-          chatbotMemory: _chatbotMemory, doNotify: false);
+      setProviderState(chatbotMemory: _chatbotMemory, doNotify: false);
       notifyListeners();
     }
   }
 
   String _generateWeeklySummaryForChatbot() {
-      return "Summary placeholder";
-  }
-  
-  void _getCompletedGoalsForChatbotMemory() {
+    return "Summary placeholder";
   }
 
+  void _getCompletedGoalsForChatbotMemory() {}
+
   void initializeChatbotMemory() {
-     if (_isChatbotMemoryInitialized) return;
+    if (_isChatbotMemoryInitialized) return;
     _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
     _getCompletedGoalsForChatbotMemory();
     if (_chatbotMemory.conversationHistory.isEmpty) {
@@ -512,7 +531,7 @@ class AppProvider with ChangeNotifier {
     _isChatbotMemoryInitialized = true;
     notifyListeners();
   }
-  
+
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -520,16 +539,17 @@ class AppProvider with ChangeNotifier {
       sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
       sb.writeln("  Sub-missions:");
       for (var st in t.subTasks) {
-        sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+        sb.writeln(
+            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
       }
-      if(t.projects.isNotEmpty) {
+      if (t.projects.isNotEmpty) {
         sb.writeln("  Projects:");
-        for(var p in t.projects) {
+        for (var p in t.projects) {
           sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
         }
       }
     }
-    
+
     sb.writeln("\nLogs from Last 7 Days:");
     final today = DateTime.now();
     for (int i = 6; i >= 0; i--) {
@@ -538,10 +558,15 @@ class AppProvider with ChangeNotifier {
       if (_completedByDay.containsKey(dateStr)) {
         sb.writeln("Date: $dateStr");
         // Reflections
-        final reflections = _reflectionLogs.where((r) {
-           final rd = r.timestamp;
-           return rd.year == d.year && rd.month == d.month && rd.day == d.day;
-        }).map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}").join("\n");
+        final reflections = _reflectionLogs
+            .where((r) {
+              final rd = r.timestamp;
+              return rd.year == d.year &&
+                  rd.month == d.month &&
+                  rd.day == d.day;
+            })
+            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
+            .join("\n");
         if (reflections.isNotEmpty) sb.writeln(reflections);
       }
     }
@@ -549,7 +574,7 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> sendMessageToChatbot(String userMessageText) async {
-     if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
+    if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
     final userMessage = ChatbotMessage(
         id: 'user_${DateTime.now().millisecondsSinceEpoch}',
         text: userMessageText,
@@ -561,14 +586,14 @@ class AppProvider with ChangeNotifier {
 
     try {
       final dataContext = _buildUserDataContext();
-      
+
       final botResponseText = await _aiService.getChatbotResponse(
-        modelName: settings.aiModelName,
+        modelCandidates: settings.liteModels, // Chatbot uses Lite
         memory: _chatbotMemory,
         userMessage: userMessageText,
         dataContext: dataContext,
         currentApiKeyIndex: _apiKeyIndex,
-        customApiKey: settings.customApiKey, 
+        customApiKey: settings.customApiKey,
         systemInstruction: settings.customChatbotPrompt,
         onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
         onLog: (logMsg) => {},
@@ -581,7 +606,8 @@ class AppProvider with ChangeNotifier {
     } catch (e) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          text: "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
+          text:
+              "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
     }
@@ -590,10 +616,23 @@ class AppProvider with ChangeNotifier {
 
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
-    
+
     return _reflectionLogs.where((log) {
-       final logDt = log.timestamp;
-       return logDt.year == today.year && logDt.month == today.month && logDt.day == today.day;
+      final logDt = log.timestamp;
+      return logDt.year == today.year &&
+          logDt.month == today.month &&
+          logDt.day == today.day;
+    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
+  }
+
+  // Returns total XP gained for a skill in the last 7 days to show momentum
+  int get7DaySkillMomentum(String skillName) {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    return _reflectionLogs.where((log) {
+      return log.timestamp.isAfter(sevenDaysAgo) &&
+          log.timestamp.isBefore(now.add(const Duration(days: 1)));
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
@@ -601,12 +640,30 @@ class AppProvider with ChangeNotifier {
     required String trigger,
     required String emotion,
     required String reason,
+    DateTime? timestamp,
   }) async {
+    final actualTimestamp = timestamp ?? DateTime.now();
+
+    final dailyReflections = _reflectionLogs
+        .where((log) {
+          final logDt = log.timestamp;
+          return logDt.year == actualTimestamp.year &&
+              logDt.month == actualTimestamp.month &&
+              logDt.day == actualTimestamp.day;
+        })
+        .map((r) => {
+              'trigger': r.trigger,
+              'emotion': r.emotion,
+              'reason': r.reason,
+            })
+        .toList();
+
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
       emotion: emotion,
       reason: reason,
-      modelName: settings.aiModelName,
+      modelCandidates: settings.liteModels, // Reflection uses Lite (Insights)
+      dailyReflections: dailyReflections,
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
     );
@@ -620,7 +677,8 @@ class AppProvider with ChangeNotifier {
 
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
+      final skill = updatedSkills.firstWhereOrNull(
+          (s) => s.name.toLowerCase() == skillName.toLowerCase());
       if (skill != null) {
         skill.addXp(xp);
       }
@@ -628,7 +686,7 @@ class AppProvider with ChangeNotifier {
 
     final log = ReflectionLog(
       id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
-      timestamp: DateTime.now(),
+      timestamp: timestamp ?? DateTime.now(),
       trigger: trigger,
       emotion: emotion,
       reason: reason,
@@ -640,18 +698,19 @@ class AppProvider with ChangeNotifier {
     _skills = updatedSkills;
     _hasUnsavedChanges = true;
     notifyListeners();
-    
+
     return xpAllocation;
   }
 
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
+  void updateReflectionLog(String id,
+      {String? trigger, String? emotion, String? reason}) {
     final index = _reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
       final old = _reflectionLogs[index];
       if (trigger != null) old.trigger = trigger;
       if (emotion != null) old.emotion = emotion;
       if (reason != null) old.reason = reason;
-      
+
       _hasUnsavedChanges = true;
       notifyListeners();
     }
@@ -663,10 +722,11 @@ class AppProvider with ChangeNotifier {
       final log = _reflectionLogs[index];
       List<Skill> updatedSkills = List.from(_skills);
       log.xpGained.forEach((skillName, xp) {
-         final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
-         if (skill != null) {
-           skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
-         }
+        final skill = updatedSkills.firstWhereOrNull(
+            (s) => s.name.toLowerCase() == skillName.toLowerCase());
+        if (skill != null) {
+          skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
+        }
       });
       _skills = updatedSkills;
       _reflectionLogs.removeAt(index);
@@ -748,16 +808,33 @@ class AppProvider with ChangeNotifier {
           String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(
           mainTask, generationMode, userInput, numSubquests);
-  
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) =>
-      _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) =>
-      _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+
+  void addMainTask(
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.addMainTask(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void editMainTask(String taskId,
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.editMainTask(taskId,
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
   void logToDailySummary(String type, Map<String, dynamic> data) =>
       _taskActions.logToDailySummary(type, data);
   String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
       _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+  void updateSubtask(
+          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
   bool completeSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.completeSubtask(mainTaskId, subtaskId);
@@ -765,13 +842,19 @@ class AppProvider with ChangeNotifier {
       _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) =>
+  void addSubSubtask(String mainTaskId, String parentSubtaskId,
+          Map<String, dynamic> subSubtaskData) =>
       _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) =>
-      _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
-      _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
+          String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
       _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
 
   void startTimer(String id, String type, String mainTaskId) =>

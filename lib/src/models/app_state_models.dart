@@ -1,5 +1,5 @@
 // lib/src/models/app_state_models.dart
-import 'package:flutter/material.dart'; // For TimeOfDay
+// For TimeOfDay
 
 class AppSettings {
   bool descriptionsVisible;
@@ -7,10 +7,11 @@ class AppSettings {
   bool autoSaveEnabled; // New setting
   int wakeupTimeHour;
   int wakeupTimeMinute;
-  String aiModelName;
-  String? customApiKey; 
-  String? customChatbotPrompt; 
-  String? customReflectionPrompt; 
+  List<String> liteModels;
+  List<String> heavyModels;
+  String? customApiKey;
+  String? customChatbotPrompt;
+  String? customReflectionPrompt;
   int startOfWeek; // 1 for Monday, 7 for Sunday
 
   AppSettings({
@@ -19,24 +20,59 @@ class AppSettings {
     this.autoSaveEnabled = true, // Default to true
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
-    this.aiModelName = 'gemini-2.0-flash', 
+    this.liteModels = const [
+      'gemini-2.0-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ],
+    this.heavyModels = const [
+      'gemini-2.0-flash',
+      'gemini-2.0-pro-exp-02-05',
+      'gemini-1.5-pro'
+    ],
     this.customApiKey,
     this.customChatbotPrompt,
     this.customReflectionPrompt,
-    this.startOfWeek = 1, 
+    this.startOfWeek = 1,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     return AppSettings(
       descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
-          json['autoGenerateContent'] as bool? ?? 
+          json['autoGenerateContent'] as bool? ??
           true,
       autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
-      aiModelName:
-          json['aiModelName'] as String? ?? 'gemini-2.0-flash',
+      liteModels: (json['liteModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['aiModelName'] != null
+              ? [
+                  json['aiModelName'] as String,
+                  'gemini-2.0-flash-lite',
+                  'gemini-1.5-flash'
+                ]
+              : [
+                  'gemini-2.0-flash-lite',
+                  'gemini-2.0-flash',
+                  'gemini-1.5-flash'
+                ]),
+      heavyModels: (json['heavyModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['aiModelName'] != null
+              ? [
+                  json['aiModelName'] as String,
+                  'gemini-2.0-flash',
+                  'gemini-1.5-pro'
+                ]
+              : [
+                  'gemini-2.0-flash',
+                  'gemini-2.0-pro-exp-02-05',
+                  'gemini-1.5-pro'
+                ]),
       customApiKey: json['customApiKey'] as String?,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
@@ -50,7 +86,8 @@ class AppSettings {
       'autoSaveEnabled': autoSaveEnabled,
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,
-      'aiModelName': aiModelName,
+      'liteModels': liteModels,
+      'heavyModels': heavyModels,
       'customApiKey': customApiKey,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,

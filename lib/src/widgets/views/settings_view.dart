@@ -1,5 +1,6 @@
 // lib/src/widgets/views/settings_view.dart
 import 'package:flutter/material.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -19,11 +20,10 @@ class _SettingsViewState extends State<SettingsView> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
-  final _aiModelNameController = TextEditingController();
-  final _apiKeyController = TextEditingController(); 
-  final _customChatbotPromptController = TextEditingController(); 
-  final _customReflectionPromptController = TextEditingController(); 
-  
+  final _apiKeyController = TextEditingController();
+  final _customChatbotPromptController = TextEditingController();
+  final _customReflectionPromptController = TextEditingController();
+
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
@@ -32,22 +32,24 @@ class _SettingsViewState extends State<SettingsView> {
   String _usernameChangeSuccess = '';
   bool _logoutLoading = false;
 
-  final List<String> _availableModels = [
+  List<String> _availableModels = [
     'gemini-2.0-flash',
     'gemini-1.5-flash',
     'gemini-1.5-pro',
     'gemini-pro',
   ];
+  bool _fetchingModels = false;
 
   @override
   void initState() {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
-    _aiModelNameController.text = appProvider.settings.aiModelName;
     _apiKeyController.text = appProvider.settings.customApiKey ?? '';
-    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
-    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
+    _customChatbotPromptController.text =
+        appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text =
+        appProvider.settings.customReflectionPrompt ?? '';
   }
 
   @override
@@ -55,14 +57,13 @@ class _SettingsViewState extends State<SettingsView> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _newUsernameController.dispose();
-    _aiModelNameController.dispose();
     _apiKeyController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
     super.dispose();
   }
 
-   Future<void> _handleChangePassword(AppProvider appProvider) async {
+  Future<void> _handleChangePassword(AppProvider appProvider) async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
       setState(() => _passwordChangeError = "Passwords do not match.");
       return;
@@ -115,7 +116,8 @@ class _SettingsViewState extends State<SettingsView> {
       _usernameChangeSuccess = '';
     });
     try {
-      await appProvider.updateUserDisplayName(_newUsernameController.text.trim());
+      await appProvider
+          .updateUserDisplayName(_newUsernameController.text.trim());
       setState(() {
         _usernameChangeSuccess = "Username updated successfully!";
       });
@@ -149,12 +151,39 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
+  Future<void> _fetchModels(AppProvider appProvider) async {
+    setState(() => _fetchingModels = true);
+    try {
+      final aiService = AIService();
+      final models = await aiService.fetchAvailableModels(
+          customApiKey: appProvider.settings.customApiKey);
+      setState(() {
+        _availableModels = models;
+        // Optionally auto-populate defaults if lists are empty/invalid,
+        // but AppSettings already handles defaults.
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Fetched ${models.length} models.'),
+            backgroundColor: AppTheme.fhAccentGreen));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Failed to fetch models: $e'),
+            backgroundColor: AppTheme.fhAccentRed));
+      }
+    } finally {
+      if (mounted) setState(() => _fetchingModels = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-     String lastSavedString = "Not synced yet.";
+    String lastSavedString = "Not synced yet.";
     if (appProvider.lastSuccessfulSaveTimestamp != null) {
       lastSavedString =
           "Last synced: ${DateFormat('MMM d, yyyy, hh:mm:ss a').format(appProvider.lastSuccessfulSaveTimestamp!.toLocal())}";
@@ -165,22 +194,24 @@ class _SettingsViewState extends State<SettingsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           _buildSettingsSection(appProvider, theme,
+          _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.cloudSyncOutline,
               title: 'Cloud Synchronization',
               children: [
-                  SwitchListTile.adaptive(
-                    title: const Text('Auto-Sync Data'),
-                    subtitle: const Text('Automatically sync changes to cloud every minute.'),
-                    value: appProvider.settings.autoSaveEnabled,
-                    activeColor: AppTheme.fhAccentTeal,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (bool value) {
-                      appProvider.setSettings(appProvider.settings..autoSaveEnabled = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
+                SwitchListTile.adaptive(
+                  title: const Text('Auto-Sync Data'),
+                  subtitle: const Text(
+                      'Automatically sync changes to cloud every minute.'),
+                  value: appProvider.settings.autoSaveEnabled,
+                  activeColor: AppTheme.fhAccentTeal,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(
+                        appProvider.settings..autoSaveEnabled = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
                   icon: appProvider.isManuallySaving
                       ? const SizedBox(
                           width: 18,
@@ -213,8 +244,9 @@ class _SettingsViewState extends State<SettingsView> {
                         },
                   style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 44),
-                      backgroundColor: (appProvider.getSelectedTask()?.taskColor ??
-                          AppTheme.fhAccentTealFixed),
+                      backgroundColor:
+                          (appProvider.getSelectedTask()?.taskColor ??
+                              AppTheme.fhAccentTealFixed),
                       foregroundColor: AppTheme.fhBgDark),
                 ),
                 const SizedBox(height: 12),
@@ -231,11 +263,11 @@ class _SettingsViewState extends State<SettingsView> {
                           appProvider.isManuallyLoading
                       ? null
                       : () async {
-                           // ... confirm dialog
-                            final confirm = await showDialog<bool>(
+                          // ... confirm dialog
+                          final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title:  Row(children: [
+                              title: Row(children: [
                                 Icon(MdiIcons.cloudQuestionOutline,
                                     color: AppTheme.fhAccentOrange),
                                 SizedBox(width: 10),
@@ -280,11 +312,12 @@ class _SettingsViewState extends State<SettingsView> {
                               }
                             }
                           }
-                      },
+                        },
                   style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 44),
-                      backgroundColor: (appProvider.getSelectedTask()?.taskColor ??
-                          AppTheme.fhAccentTealFixed),
+                      backgroundColor:
+                          (appProvider.getSelectedTask()?.taskColor ??
+                              AppTheme.fhAccentTealFixed),
                       foregroundColor: AppTheme.fhBgDark),
                 ),
                 const SizedBox(height: 12),
@@ -298,67 +331,81 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ]),
-          
+
           // AI CONFIGURATION
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.robotHappyOutline,
               title: 'AI Configuration',
               children: [
-                DropdownButtonFormField<String>(
-                  value: _availableModels.contains(appProvider.settings.aiModelName) 
-                      ? appProvider.settings.aiModelName 
-                      : null,
-                  decoration:  InputDecoration(
-                    labelText: 'AI Model Selection',
-                    prefixIcon: Icon(MdiIcons.brain, size: 20),
-                  ),
-                  dropdownColor: AppTheme.fhBgLight,
-                  items: _availableModels.map((m) => DropdownMenuItem(
-                    value: m,
-                    child: Text(m),
-                  )).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                       appProvider.setSettings(appProvider.settings..aiModelName = val);
-                       _aiModelNameController.text = val;
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _aiModelNameController,
-                  decoration:   InputDecoration(
-                    labelText: 'Custom Model Name (Override)',
-                    hintText: 'e.g., gemini-1.5-pro-latest',
-                    prefixIcon:  Icon(MdiIcons.pencilOutline, size: 20),
-                  ),
-                  onChanged: (value) {
-                    appProvider
-                        .setSettings(appProvider.settings..aiModelName = value);
-                  },
+                // --- Lite Models Section ---
+                Text("Lite Models (Fast - for Sub-missions & Chat)",
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: AppTheme.fhAccentTeal)),
+                const SizedBox(height: 8),
+                _buildModelPriorityList(
+                    appProvider, "Lite", appProvider.settings.liteModels,
+                    (newList) {
+                  appProvider
+                      .setSettings(appProvider.settings..liteModels = newList);
+                }),
+                const SizedBox(height: 16),
+
+                // --- Heavy Models Section ---
+                Text("Pro Models (Advanced - for Projects)",
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: AppTheme.fhAccentPurple)),
+                const SizedBox(height: 8),
+                _buildModelPriorityList(
+                    appProvider, "Pro", appProvider.settings.heavyModels,
+                    (newList) {
+                  appProvider
+                      .setSettings(appProvider.settings..heavyModels = newList);
+                }),
+                const SizedBox(height: 16),
+
+                // --- Fetch Button ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: _fetchingModels
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(MdiIcons.refresh, size: 18),
+                      label: const Text("Refetch Available Models"),
+                      onPressed: _fetchingModels
+                          ? null
+                          : () => _fetchModels(appProvider),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _apiKeyController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    labelText: 'Custom Gemini API Key (Optional)',
-                    hintText: 'Paste your API Key here',
-                    prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(MdiIcons.contentSave, size: 20),
-                      onPressed: () {
-                         appProvider.setSettings(appProvider.settings..customApiKey = _apiKeyController.text.trim());
-                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key saved locally.")));
-                      },
-                    )
-                  ),
+                      labelText: 'Custom Gemini API Key (Optional)',
+                      hintText: 'Paste your API Key here',
+                      prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(MdiIcons.contentSave, size: 20),
+                        onPressed: () {
+                          appProvider.setSettings(appProvider.settings
+                            ..customApiKey = _apiKeyController.text.trim());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("API Key saved locally.")));
+                        },
+                      )),
                   onChanged: (val) {
                     // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
                   },
                 ),
                 const SizedBox(height: 16),
-                Text("Custom System Prompts", style: theme.textTheme.titleSmall),
+                Text("Custom System Prompts",
+                    style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _customChatbotPromptController,
@@ -369,7 +416,8 @@ class _SettingsViewState extends State<SettingsView> {
                     alignLabelWithHint: true,
                   ),
                   onChanged: (val) {
-                     appProvider.setSettings(appProvider.settings..customChatbotPrompt = val);
+                    appProvider.setSettings(
+                        appProvider.settings..customChatbotPrompt = val);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -378,29 +426,32 @@ class _SettingsViewState extends State<SettingsView> {
                   maxLines: 3,
                   decoration: const InputDecoration(
                     labelText: 'Reflection Analysis System Prompt',
-                    hintText: 'Define how reflections are analyzed and XP awarded.',
+                    hintText:
+                        'Define how reflections are analyzed and XP awarded.',
                     alignLabelWithHint: true,
                   ),
                   onChanged: (val) {
-                     appProvider.setSettings(appProvider.settings..customReflectionPrompt = val);
+                    appProvider.setSettings(
+                        appProvider.settings..customReflectionPrompt = val);
                   },
                 ),
                 const SizedBox(height: 8),
-                const Text("Leave blank to use built-in defaults.", 
-                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
+                const Text("Leave blank to use built-in defaults.",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]),
-              
+
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
               children: [
                 DropdownButtonFormField<int>(
-                  decoration:   InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Start Day of the Week',
                     prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
                   ),
                   dropdownColor: AppTheme.fhBgLight,
-                  value: appProvider.settings.startOfWeek,
+                  initialValue: appProvider.settings.startOfWeek,
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('Monday')),
                     DropdownMenuItem(value: 2, child: Text('Tuesday')),
@@ -422,9 +473,9 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.accountEditOutline,
               title: 'User Profile',
               children: [
-                  TextFormField(
+                TextFormField(
                   controller: _newUsernameController,
-                  decoration:  InputDecoration(
+                  decoration: InputDecoration(
                       labelText: 'Display Name',
                       prefixIcon: Icon(MdiIcons.accountBadgeOutline, size: 20)),
                   validator: (value) {
@@ -472,7 +523,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.eyeSettingsOutline,
               title: 'User Interface Config',
               children: [
-                 SwitchListTile.adaptive(
+                SwitchListTile.adaptive(
                   title: const Text('Verbose Data Display'),
                   subtitle: const Text(
                       'Show detailed descriptions for stats and items throughout the interface.'),
@@ -484,14 +535,14 @@ class _SettingsViewState extends State<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ]),
-           if (appProvider.currentUser != null)
+          if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
                 title: 'Access Credentials',
                 children: [
-                     TextFormField(
+                  TextFormField(
                     controller: _newPasswordController,
-                    decoration:  InputDecoration(
+                    decoration: InputDecoration(
                         labelText: 'New Passcode Sequence',
                         prefixIcon:
                             Icon(MdiIcons.formTextboxPassword, size: 20)),
@@ -500,7 +551,7 @@ class _SettingsViewState extends State<SettingsView> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _confirmPasswordController,
-                    decoration:  InputDecoration(
+                    decoration: InputDecoration(
                         labelText: 'Confirm Passcode Sequence',
                         prefixIcon:
                             Icon(MdiIcons.formTextboxPassword, size: 20)),
@@ -566,7 +617,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
               children: [
-                 Text(
+                Text(
                   'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
@@ -579,7 +630,7 @@ class _SettingsViewState extends State<SettingsView> {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title:  Row(children: [
+                        title: Row(children: [
                           Icon(MdiIcons.alertOutline,
                               color: AppTheme.fhAccentRed),
                           SizedBox(width: 10),
@@ -622,7 +673,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
   }
-  
+
   Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
       {required IconData icon,
       required String title,
@@ -654,6 +705,63 @@ class _SettingsViewState extends State<SettingsView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildModelPriorityList(AppProvider appProvider, String prefix,
+      List<String> currentList, Function(List<String>) onUpdate) {
+    return Column(
+      children: List.generate(3, (index) {
+        final label = index == 0
+            ? "Primary $prefix Model"
+            : "${prefix} Fallback ${index}";
+        // Ensure list has enough items, pad if necessary
+        if (currentList.length <= index) {
+          currentList.add(_availableModels.isNotEmpty
+              ? _availableModels.first
+              : 'gemini-2.0-flash');
+        }
+
+        final currentSelection = currentList[index];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: _availableModels.contains(currentSelection)
+                ? currentSelection
+                : null,
+            // If not in list, it might be a custom one or default. Show it if we can add it to items or handle null.
+            // Ideally we add it to the dropdown items if it's missing.
+            decoration: InputDecoration(
+              labelText: label,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: const OutlineInputBorder(),
+            ),
+            dropdownColor: AppTheme.fhBgLight,
+            items: [
+              ..._availableModels,
+              if (!_availableModels.contains(currentSelection)) currentSelection
+            ]
+                .toSet()
+                .map((m) => DropdownMenuItem(
+                      // toSet to remove dupes
+                      value: m,
+                      child:
+                          Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),
+                    ))
+                .toList(),
+            onChanged: (val) {
+              if (val != null) {
+                final newList = List<String>.from(currentList);
+                newList[index] = val;
+                onUpdate(newList);
+              }
+            },
+          ),
+        );
+      }),
     );
   }
 }

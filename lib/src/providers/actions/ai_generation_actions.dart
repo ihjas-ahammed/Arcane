@@ -2,7 +2,7 @@
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:flutter/foundation.dart'; 
+import 'package:flutter/foundation.dart';
 
 class AIGenerationActions {
   final AppProvider _provider;
@@ -25,7 +25,7 @@ class AIGenerationActions {
 
     try {
       final generatedSubquestsRaw = await _aiService.generateAISubquests(
-        modelName: _provider.settings.aiModelName,
+        modelCandidates: _provider.settings.liteModels, // Lite for sub-missions
         mainTaskName: mainTaskForSubquests.name,
         mainTaskDescription: mainTaskForSubquests.description,
         mainTaskTheme: mainTaskForSubquests.theme,
@@ -41,14 +41,9 @@ class AIGenerationActions {
 
       final List<SubTask> newSubTasksForParent = [];
       for (var subquestData in generatedSubquestsRaw) {
-        if (subquestData is! Map<String, dynamic>) {
-          continue;
-        }
-
         final List<Map<String, dynamic>> subSubTasksDataList =
             (subquestData['subSubTasksData'] as List<dynamic>? ?? [])
-                .map((item) =>
-                    item is Map<String, dynamic> ? item : null)
+                .map((item) => item is Map<String, dynamic> ? item : null)
                 .nonNulls
                 .toList();
 
@@ -56,8 +51,7 @@ class AIGenerationActions {
         for (int i = 0; i < subSubTasksDataList.length; i++) {
           final sssData = subSubTasksDataList[i];
           currentSubSubTasks.add(SubSubTask(
-            id:
-                'ssub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}_$i',
+            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}_$i',
             name: sssData['name'] as String? ?? 'Unnamed Sub-Sub-Task',
             isCountable: sssData['isCountable'] as bool? ?? false,
             targetCount: (sssData['isCountable'] as bool? ?? false)
@@ -67,8 +61,7 @@ class AIGenerationActions {
         }
 
         final newSubTask = SubTask(
-          id:
-              'sub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}',
+          id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}',
           name: subquestData['name'] as String? ?? 'Unnamed Sub-Task',
           isCountable: subquestData['isCountable'] as bool? ?? false,
           targetCount: (subquestData['isCountable'] as bool? ?? false)

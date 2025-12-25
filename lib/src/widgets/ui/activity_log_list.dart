@@ -3,7 +3,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:collection/collection.dart'; // for firstWhereOrNull
+import 'package:collection/collection.dart';
 
 class ActivityLogList extends StatelessWidget {
   final Map<String, dynamic> taskTimes;
@@ -16,7 +16,8 @@ class ActivityLogList extends StatelessWidget {
     required this.taskTimes,
     required this.subtasksCompleted,
     required this.checkpointsCompleted,
-    this.availableTasks = const [], // Default empty to avoid breaking change immediately
+    this.availableTasks =
+        const [], // Default empty to avoid breaking change immediately
   });
 
   @override
@@ -40,27 +41,6 @@ class ActivityLogList extends StatelessWidget {
 
     return Column(
       children: [
-        if (taskTimes.isNotEmpty)
-          _buildExpandableSection(
-            context,
-            title: "Time Logged",
-            icon: MdiIcons.clockOutline,
-            count: taskTimes.length,
-            children: taskTimes.entries.map((entry) {
-              final taskId = entry.key;
-              final taskName = availableTasks
-                      .firstWhereOrNull((t) => t.id == taskId)
-                      ?.name ??
-                  "Unknown Task (ID: ${taskId.substring(0, 5)})";
-
-              return _buildActivityCard(
-                icon: MdiIcons.clockTimeFourOutline,
-                title: taskName, 
-                subtitle: "${entry.value} minutes logged",
-                color: AppTheme.fhAccentTealFixed,
-              );
-            }).toList(),
-          ),
         if (subtasksCompleted.isNotEmpty)
           _buildExpandableSection(
             context,

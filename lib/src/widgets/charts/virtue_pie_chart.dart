@@ -6,8 +6,15 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 class VirtuePieChart extends StatefulWidget {
   final List<ReflectionLog> logs;
+  final String? selectedVirtue;
+  final Function(String?)? onVirtueSelected;
 
-  const VirtuePieChart({super.key, required this.logs});
+  const VirtuePieChart({
+    super.key,
+    required this.logs,
+    this.selectedVirtue,
+    this.onVirtueSelected,
+  });
 
   @override
   State<VirtuePieChart> createState() => _VirtuePieChartState();
@@ -22,7 +29,8 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       return const Center(
         child: Text(
           "No virtue data logged today.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -42,7 +50,8 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       return const Center(
         child: Text(
           "No XP gained yet.",
-          style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -51,12 +60,19 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     final entries = totals.entries.toList();
 
     // Determine what text to show in the center
+    // Priority: Hovered -> Selected -> Total
+    int highlightIndex = _touchedIndex;
+    if (highlightIndex == -1 && widget.selectedVirtue != null) {
+      highlightIndex =
+          entries.indexWhere((e) => e.key == widget.selectedVirtue);
+    }
+
     String centerTopText = "TOTAL";
     String centerBottomText = "$totalXpOfDay XP";
     Color centerColor = AppTheme.fhTextPrimary;
 
-    if (_touchedIndex != -1 && _touchedIndex < entries.length) {
-      final entry = entries[_touchedIndex];
+    if (highlightIndex != -1 && highlightIndex < entries.length) {
+      final entry = entries[highlightIndex];
       centerTopText = entry.key.toUpperCase();
       centerBottomText = "+${entry.value} XP";
       centerColor = _getVirtueColor(entry.key);
@@ -67,21 +83,25 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
       final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
-        final isTouched = i == _touchedIndex;
+      final List<PieChartSectionData> sections =
+          List.generate(entries.length, (i) {
         final entry = entries[i];
+        final isHovered = i == _touchedIndex;
+        final isSelected = entry.key == widget.selectedVirtue;
+        final showActive = isHovered || (isSelected && _touchedIndex == -1);
+
         final color = _getVirtueColor(entry.key);
-        
+
         // Pop out effect
-        final double radius = isTouched ? chartRadius + 8 : chartRadius;
-        
+        final double radius = showActive ? chartRadius + 8 : chartRadius;
+
         return PieChartSectionData(
-          color: color.withValues(alpha: isTouched ? 1.0 : 0.8),
+          color: color.withValues(alpha: showActive ? 1.0 : 0.8),
           value: entry.value.toDouble(),
           title: '', // Hiding title on the chart itself for cleanliness
           radius: radius,
           // Add a border to sections for better separation
-          badgeWidget: isTouched ? _buildBadge(entry.key, color) : null,
+          badgeWidget: showActive ? _buildBadge(entry.key, color) : null,
           badgePositionPercentageOffset: 1.4,
           borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
@@ -101,17 +121,30 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                           pieTouchResponse == null ||
                           pieTouchResponse.touchedSection == null) {
                         _touchedIndex = -1;
+                        if (widget.selectedVirtue != null) {
+                          widget.onVirtueSelected?.call(null);
+                        }
                         return;
                       }
-                      _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+
+                      final index =
+                          pieTouchResponse.touchedSection!.touchedSectionIndex;
+                      _touchedIndex = index;
+
+                      if (index >= 0 && index < entries.length) {
+                        final key = entries[index].key;
+                        if (widget.selectedVirtue != key) {
+                          widget.onVirtueSelected?.call(key);
+                        }
+                      }
                     });
                   },
                 ),
                 borderData: FlBorderData(show: false),
-                sectionsSpace: 0, 
+                sectionsSpace: 0,
                 centerSpaceRadius: centerRadius,
                 sections: sections,
-                startDegreeOffset: 270, 
+                startDegreeOffset: 270,
               ),
             ),
             // Center Info Display
@@ -133,17 +166,16 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                 Text(
                   centerBottomText,
                   style: TextStyle(
-                    color: centerColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    shadows: [
-                      Shadow(
-                        color: centerColor.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                      )
-                    ]
-                  ),
+                      color: centerColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                      shadows: [
+                        Shadow(
+                          color: centerColor.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        )
+                      ]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -159,26 +191,36 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)]
-      ),
-      child:  Icon(MdiIcons.arrowDownBold, size: 12, color: color), 
-      // Used an icon marker instead of text to avoid clutter, 
-      // since text is now in the center.
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
+          ]),
+      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
     );
   }
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
+      case 'wisdom':
+        return Colors.blueAccent;
+      case 'courage':
+        return AppTheme.fhAccentRed;
+      case 'humanity':
+        return const Color(0xFFE91E63);
+      case 'justice':
+        return AppTheme.fhAccentGold;
+      case 'temperance':
+        return AppTheme.fhAccentTeal;
+      case 'transcendence':
+        return AppTheme.fhAccentPurple;
+      case 'discipline': // Added this one just in case
+        return Colors.indigoAccent;
+      case 'curiosity':
+        return Colors.tealAccent;
+      default:
+        return Colors.grey;
     }
   }
 }

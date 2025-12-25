@@ -82,8 +82,7 @@ class TaskActions {
 
   String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
     final newSubtask = SubTask(
-      id:
-          'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
       name: subtaskData['name'] as String,
       isCountable: subtaskData['isCountable'] as bool? ?? false,
       targetCount: subtaskData['isCountable'] as bool? ?? false
@@ -92,8 +91,7 @@ class TaskActions {
       subSubTasks:
           (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
                   ?.map((sssData) => SubSubTask(
-                        id:
-                            'ssub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.fold<int>(0, (prevSt, st) => prevSt + st.subSubTasks.length)) + 1)}_${sssData['name']?.hashCode ?? 0}',
+                        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.fold<int>(0, (prevSt, st) => prevSt + st.subSubTasks.length)) + 1)}_${sssData['name']?.hashCode ?? 0}',
                         name: sssData['name'] as String,
                         isCountable: sssData['isCountable'] as bool? ?? false,
                         targetCount: sssData['isCountable'] as bool? ?? false
@@ -128,17 +126,22 @@ class TaskActions {
 
     final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
 
-    if (updates.containsKey('name'))
+    if (updates.containsKey('name')) {
       subtaskToUpdate.name = updates['name'] as String;
-    if (updates.containsKey('isCountable'))
+    }
+    if (updates.containsKey('isCountable')) {
       subtaskToUpdate.isCountable = updates['isCountable'] as bool;
-    if (updates.containsKey('targetCount'))
+    }
+    if (updates.containsKey('targetCount')) {
       subtaskToUpdate.targetCount = updates['targetCount'] as int;
-    if (updates.containsKey('currentCount'))
+    }
+    if (updates.containsKey('currentCount')) {
       subtaskToUpdate.currentCount = (updates['currentCount'] as int)
           .clamp(0, subtaskToUpdate.targetCount);
-    if (updates.containsKey('currentTimeSpent'))
+    }
+    if (updates.containsKey('currentTimeSpent')) {
       subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
+    }
 
     int timeDifference = 0;
     if (updates.containsKey('currentTimeSpent')) {
@@ -168,15 +171,17 @@ class TaskActions {
         mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
     if (subTask == null || subTask.completed) return false;
 
-    if (subTask.isCountable && subTask.currentCount < subTask.targetCount)
+    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) {
       return false;
+    }
 
     if (subTask.currentTimeSpent <= 0 && !subTask.isCountable) {
       bool allSubSubTasksDone =
           subTask.subSubTasks.every((sss) => sss.completed);
       if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
-      if (subTask.subSubTasks.isEmpty && subTask.currentTimeSpent <= 0)
+      if (subTask.subSubTasks.isEmpty && subTask.currentTimeSpent <= 0) {
         return false;
+      }
     }
 
     ActiveTimerInfo? timerForSubtask = _provider.activeTimers[subtaskId];
@@ -247,8 +252,7 @@ class TaskActions {
     if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
 
     final newSubtask = SubTask(
-      id:
-          'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
       name: subTaskToDuplicate.name,
       completed: false,
       currentTimeSpent: 0,
@@ -258,8 +262,7 @@ class TaskActions {
       currentCount: 0,
       subSubTasks: subTaskToDuplicate.subSubTasks
           .map((sss) => SubSubTask(
-                id:
-                    'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
+                id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
                 name: sss.name,
                 completed: false,
                 isCountable: sss.isCountable,
@@ -284,8 +287,7 @@ class TaskActions {
   void addSubSubtask(String mainTaskId, String parentSubtaskId,
       Map<String, dynamic> subSubtaskData) {
     final newSubSubtask = SubSubTask(
-      id:
-          'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
+      id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
       name: subSubtaskData['name'] as String,
       isCountable: subSubtaskData['isCountable'] as bool? ?? false,
       targetCount: subSubtaskData['isCountable'] as bool? ?? false
@@ -348,9 +350,9 @@ class TaskActions {
                           updates['targetCount'] as int? ?? sss.targetCount,
                       currentCount:
                           updates['currentCount'] as int? ?? sss.currentCount,
-                      completionTimestamp: updates['completionTimestamp']
-                              as String? ??
-                          sss.completionTimestamp,
+                      completionTimestamp:
+                          updates['completionTimestamp'] as String? ??
+                              sss.completionTimestamp,
                     );
                     if (updatedSss.isCountable) {
                       updatedSss.currentCount = updatedSss.currentCount

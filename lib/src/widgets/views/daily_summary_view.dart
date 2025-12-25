@@ -8,10 +8,13 @@ import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/activity_log_list.dart';
-import 'package:arcane/src/widgets/ui/chart_carousel.dart'; // New generic component
+import 'package:arcane/src/widgets/ui/chart_carousel.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/utils/helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
 
 class DailySummaryView extends StatefulWidget {
@@ -23,6 +26,9 @@ class DailySummaryView extends StatefulWidget {
 
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
+  bool _isLoading = false;
+  String? _selectedTaskFilter;
+  String? _selectedVirtueFilter;
 
   @override
   void didChangeDependencies() {
@@ -38,8 +44,35 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  void _navigateToReflectionEditor(BuildContext context,
+      {ReflectionLog? initialLog}) {
+    // If we have a selected date, pass it. Otherwise use today.
+    final dateStr =
+        _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReflectionEditorScreen(
+          initialLog: initialLog,
+          dateStr: dateStr,
+        ),
+      ),
+    );
+  }
+
   void _showEditDialog(BuildContext context, AppProvider provider, String type,
       int index, dynamic currentValue) {
+    if (type == 'Reflection') {
+      final logId = currentValue['id'];
+      final log =
+          provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log != null) {
+        _navigateToReflectionEditor(context, initialLog: log);
+      }
+      return;
+    }
+
     showDialog(
         context: context,
         builder: (ctx) => EditLogDialog(
@@ -48,20 +81,81 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               initialValue: currentValue,
               onDelete: () {
                 if (_selectedDate == null) return;
-                if (type == 'Reflection') {
-                  provider.deleteReflectionLog(currentValue['id']);
-                }
+                // Deletion for reflection is handled (or not) via editor or we could keep it here
+                // But for now, since we redirect reflections, this block won't run for reflections.
               },
               onSave: (val) {
                 if (_selectedDate == null) return;
-                if (type == 'Reflection') {
-                  provider.updateReflectionLog(currentValue['id'],
-                      trigger: val['trigger'],
-                      emotion: val['emotion'],
-                      reason: val['reason']);
-                }
+                // Update implementation
               },
             ));
+  }
+
+  Future<void> _generateDailySummary() async {
+    if (_selectedDate == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final aiService = Provider.of<AIService>(context, listen: false);
+
+      // Filter logs for the specific day passed in
+      final targetDate = DateTime.parse(_selectedDate!);
+      final dailyLogs = appProvider.reflectionLogs.where((l) {
+        return l.timestamp.year == targetDate.year &&
+            l.timestamp.month == targetDate.month &&
+            l.timestamp.day == targetDate.day;
+      }).toList();
+
+      if (dailyLogs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("No reflections to summarize for this day.")));
+        }
+        return;
+      }
+
+      final summary = await aiService.generateDailySummary(
+        reflections: dailyLogs
+            .map((l) => {
+                  'trigger': l.trigger,
+                  'emotion': l.emotion,
+                  'reason': l.reason,
+                })
+            .toList(),
+        modelCandidates: appProvider.settings.liteModels,
+        currentApiKeyIndex: appProvider.apiKeyIndex,
+        onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
+        onLog: (s) => (s), // Avoid print in production
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          title: const Text("Daily Summary",
+              style: TextStyle(color: AppTheme.fhTextPrimary)),
+          content: SingleChildScrollView(
+              child: Text(summary,
+                  style: const TextStyle(color: AppTheme.fhTextSecondary))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to generate summary: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // Helper to prepare data for charts
@@ -85,13 +179,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       if (dayData != null && dayData['taskTimes'] != null) {
         final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
         taskTimes.forEach((taskId, time) {
+          final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
+              orElse: () => MainTask(
+                  id: '', name: 'Unknown', description: '', theme: ''));
+
+          // Apply Filter
+          if (_selectedTaskFilter != null && task.name != _selectedTaskFilter) {
+            return;
+          }
+
           final mins = (time as num).toDouble();
           totalMins += mins;
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
-            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-                orElse: () => MainTask(
-                    id: '', name: '', description: '', theme: ''));
             dominantColor = task.taskColor;
           }
         });
@@ -110,9 +210,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       Map<String, int> virtueTotals = {};
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
+          // Apply Filter
+          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter) {
+            return;
+          }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
         });
-        totalXp += ref.xpGained.values.fold(0, (sum, x) => sum + x);
+
+        // Sum filtered XP
+        // Correctly sum only what passed filter
+        int xpForEntry = 0;
+        ref.xpGained.forEach((k, v) {
+          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter)
+            return;
+          xpForEntry += v;
+        });
+        totalXp += xpForEntry;
       }
       virtueData[i] = totalXp;
 
@@ -170,23 +283,24 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         !availableDates.contains(_selectedDate)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          setState(() =>
-              _selectedDate = availableDates.isNotEmpty ? availableDates.first : null);
+          setState(() => _selectedDate =
+              availableDates.isNotEmpty ? availableDates.first : null);
         }
       });
     } else if (availableDates.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _selectedDate != null) setState(() => _selectedDate = null);
+        if (mounted && _selectedDate != null)
+          setState(() => _selectedDate = null);
       });
     }
 
     // Prepare chart data
     final chartData = _prepareWeeklyData(appProvider);
 
-    final summaryData =
-        _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-    final taskTimes =
-        summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    final summaryData = _selectedDate != null
+        ? appProvider.completedByDay[_selectedDate!]
+        : null;
+    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
     final subtasksCompleted =
         summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted =
@@ -245,39 +359,102 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ))
             else ...[
               // --- DAILY DETAIL SELECTOR ---
-              DropdownButtonFormField<String>(
-                value: _selectedDate,
-                decoration: InputDecoration(
+              InkWell(
+                onTap: () async {
+                  if (availableDates.isEmpty) return;
+
+                  // Parse dates to find range
+                  final dates =
+                      availableDates.map((d) => DateTime.parse(d)).toList();
+                  dates.sort();
+                  final firstDate = dates.first;
+
+                  final initialDate = _selectedDate != null
+                      ? DateTime.parse(_selectedDate!)
+                      : dates.last;
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: firstDate.subtract(
+                        const Duration(days: 365)), // Allow looking back
+                    lastDate: DateTime.now().add(const Duration(days: 1)),
+                    selectableDayPredicate: (day) {
+                      final dateStr = DateFormat('yyyy-MM-dd').format(day);
+                      return availableDates.contains(dateStr);
+                    },
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.dark(
+                            primary: AppTheme.fhAccentTeal,
+                            onPrimary: AppTheme.fhTextPrimary,
+                            surface: AppTheme.fhBgMedium,
+                            onSurface: AppTheme.fhTextPrimary,
+                          ),
+                          // ignore: deprecated_member_use
+                          dialogBackgroundColor: AppTheme.fhBgDark,
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (picked != null) {
+                    setState(() {
+                      _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
                     labelText: 'Inspect Day',
                     prefixIcon: Icon(MdiIcons.calendarSearchOutline,
-                        color: AppTheme.fhAccentTeal)),
-                dropdownColor: AppTheme.fhBgMedium,
-                items: availableDates.map((date) {
-                  return DropdownMenuItem(
-                    value: date,
-                    child: Text(
-                        DateFormat('MMMM d, yyyy').format(DateTime.parse(date))),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedDate = value),
+                        color: AppTheme.fhAccentTeal),
+                    suffixIcon: const Icon(Icons.arrow_drop_down,
+                        color: AppTheme.fhTextSecondary),
+                    filled: true,
+                    fillColor: AppTheme.fhBgMedium,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  child: Text(
+                    _selectedDate != null
+                        ? DateFormat('MMMM d, yyyy')
+                            .format(DateTime.parse(_selectedDate!))
+                        : 'Select a date',
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 24),
 
               // --- DAILY STATS CAROUSEL (Mixed Focus & Virtue) ---
-              // This groups the daily charts together as requested
               ChartCarousel(
                 height: 320,
                 pages: [
                   ChartCarouselData(
                     title: "Daily Virtue Breakdown",
-                    chart: VirtuePieChart(logs: reflectionsForDate),
+                    chart: VirtuePieChart(
+                      logs: reflectionsForDate,
+                      selectedVirtue: _selectedVirtueFilter,
+                      onVirtueSelected: (val) {
+                        setState(() => _selectedVirtueFilter = val);
+                      },
+                    ),
                   ),
                   ChartCarouselData(
                     title: "Today's Mission Focus",
                     chart: TimePieChart(
                       taskData: chartData['dailyTaskTimeData'],
                       taskColors: chartData['taskColors'],
+                      selectedTask: _selectedTaskFilter,
+                      onTaskSelected: (val) {
+                        setState(() => _selectedTaskFilter = val);
+                      },
                     ),
                   ),
                 ],
@@ -291,12 +468,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   children: [
                     Expanded(
                       flex: 1,
-                      child: _buildActivitySection(
-                          theme,
-                          appProvider,
-                          taskTimes,
-                          subtasksCompleted,
-                          checkpointsCompleted),
+                      child: _buildActivitySection(theme, appProvider,
+                          taskTimes, subtasksCompleted, checkpointsCompleted),
                     ),
                     const SizedBox(width: 24),
                     Expanded(
@@ -335,22 +508,33 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           taskTimes: taskTimes,
           subtasksCompleted: subtasksCompleted,
           checkpointsCompleted: checkpointsCompleted,
-          // Pass available tasks to resolve IDs to Names
           availableTasks: provider.mainTasks,
         ),
       ],
     );
   }
 
-  Widget _buildReflectionsSection(
-      BuildContext context,
-      ThemeData theme,
-      AppProvider provider,
-      List<ReflectionLog> reflections) {
+  Widget _buildReflectionsSection(BuildContext context, ThemeData theme,
+      AppProvider provider, List<ReflectionLog> reflections) {
     return Column(
       children: [
         if (reflections.isNotEmpty) ...[
-          Text("Reflections (Tap to Edit)", style: theme.textTheme.headlineSmall),
+          Row(
+            children: [
+              IconButton(
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.robotHappyOutline,
+                          color: AppTheme.fhAccentGold),
+                  tooltip: "Generate Daily Summary",
+                  onPressed: _isLoading ? null : _generateDailySummary),
+              const SizedBox(width: 8),
+              Text("Reflections", style: theme.textTheme.headlineSmall),
+            ],
+          ),
           const SizedBox(height: 8),
           ListView.builder(
               shrinkWrap: true,
@@ -364,7 +548,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                          color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                          color:
+                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
                   child: ListTile(
                     title: Text(
                         log.trigger.isNotEmpty ? log.trigger : "Reflection",
@@ -385,6 +570,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 );
               }),
         ],
+        // Add a primary button to add a new reflection if none exist or just as an option
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: ElevatedButton.icon(
+            onPressed: () => _navigateToReflectionEditor(context),
+            icon: const Icon(Icons.add),
+            label: const Text("Add Reflection"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentPurple,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -406,11 +604,5 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       default:
         return Colors.grey;
     }
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }

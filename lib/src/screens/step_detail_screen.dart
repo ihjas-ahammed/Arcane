@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -31,7 +32,7 @@ class StepDetailScreen extends StatelessWidget {
     try {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
       final project = task.projects.firstWhere((p) => p.id == projectId);
-      
+
       // Recursive finder
       ProjectStep? findStep(List<ProjectStep> list) {
         for (var s in list) {
@@ -41,7 +42,7 @@ class StepDetailScreen extends StatelessWidget {
         }
         return null;
       }
-      
+
       var found = findStep(project.steps);
       if (found != null) currentStep = found;
     } catch (e) {
@@ -63,6 +64,51 @@ class StepDetailScreen extends StatelessWidget {
         title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
         actions: [
           IconButton(
+            tooltip: "Link to Submission",
+            icon: Icon(MdiIcons.linkVariant, size: 20),
+            onPressed: () async {
+              // 1. Find the MainTask
+              try {
+                final task =
+                    provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+
+                // 2. Show Dialog
+                final result = await showDialog<Map<String, dynamic>>(
+                  context: context,
+                  builder: (ctx) => LinkSubmissionDialog(
+                    initialName: currentStep.title,
+                    availableSubmissions: task.subTasks,
+                  ),
+                );
+
+                if (result != null && context.mounted) {
+                  final String name = result['name'];
+                  final String type = result['type'];
+
+                  if (type == 'submission') {
+                    provider.addSubtask(mainTaskId, {
+                      'name': name,
+                      'completed': currentStep.isCompleted,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Linked to new Sub-Mission: $name")));
+                  } else if (type == 'checkpoint') {
+                    final String parentId = result['parentId'];
+                    provider.addSubSubtask(mainTaskId, parentId, {
+                      'name': name,
+                      'completed': currentStep.isCompleted,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Linked to new Checkpoint: $name")));
+                  }
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Error linking: $e")));
+              }
+            },
+          ),
+          IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
             onPressed: () async {
               final result = await showDialog<Map<String, String>>(
@@ -77,31 +123,40 @@ class StepDetailScreen extends StatelessWidget {
                 final updated = currentStep
                   ..title = result['title']!
                   ..description = result['desc']!;
-                provider.projectActions.updateStep(mainTaskId, projectId, updated);
+                provider.projectActions
+                    .updateStep(mainTaskId, projectId, updated);
               }
             },
           ),
           IconButton(
-            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
+            icon: Icon(MdiIcons.deleteOutline,
+                size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
-               // Confirm Delete
-               showDialog(context: context, builder: (ctx) => AlertDialog(
-                 backgroundColor: AppTheme.fhBgMedium,
-                 title: const Text("Delete Step?", style: TextStyle(color: AppTheme.fhTextPrimary)),
-                 content: const Text("This will delete this step and all its sub-steps."),
-                 actions: [
-                   TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
-                   ElevatedButton(
-                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-                     onPressed: () {
-                       provider.projectActions.deleteStep(mainTaskId, projectId, currentStep.id);
-                       Navigator.pop(ctx); // Close dialog
-                       Navigator.pop(context); // Close screen
-                     }, 
-                     child: const Text("Delete")
-                   )
-                 ],
-               ));
+              // Confirm Delete
+              showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        title: const Text("Delete Step?",
+                            style: TextStyle(color: AppTheme.fhTextPrimary)),
+                        content: const Text(
+                            "This will delete this step and all its sub-steps."),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text("Cancel")),
+                          ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentRed),
+                              onPressed: () {
+                                provider.projectActions.deleteStep(
+                                    mainTaskId, projectId, currentStep.id);
+                                Navigator.pop(ctx); // Close dialog
+                                Navigator.pop(context); // Close screen
+                              },
+                              child: const Text("Delete"))
+                        ],
+                      ));
             },
           )
         ],
@@ -138,15 +193,21 @@ class StepDetailScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Step Progress", style: TextStyle(color: AppTheme.fhTextSecondary)),
-                      Text("$percentage%", style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhAccentTeal, fontSize: 18)),
+                      const Text("Step Progress",
+                          style: TextStyle(color: AppTheme.fhTextSecondary)),
+                      Text("$percentage%",
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 18)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -172,29 +233,24 @@ class StepDetailScreen extends StatelessWidget {
                 Text(
                   "Sub-steps",
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.fhTextPrimary
-                  ),
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.fhTextPrimary),
                 ),
                 TextButton.icon(
                   onPressed: () async {
-                     final result = await showDialog<Map<String, String>>(
-                        context: context,
-                        builder: (ctx) => const AddEditStepDialog(),
-                      );
-                      if (result != null) {
-                        provider.projectActions.addSubstep(
-                          mainTaskId, 
-                          projectId, 
-                          currentStep.id, 
-                          result['title']!, 
-                          result['desc']!
-                        );
-                      }
+                    final result = await showDialog<Map<String, String>>(
+                      context: context,
+                      builder: (ctx) => const AddEditStepDialog(),
+                    );
+                    if (result != null) {
+                      provider.projectActions.addSubstep(mainTaskId, projectId,
+                          currentStep.id, result['title']!, result['desc']!);
+                    }
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text("Add"),
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentTeal),
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.fhAccentTeal),
                 )
               ],
             ),
@@ -205,21 +261,23 @@ class StepDetailScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(style: BorderStyle.none)
-                ),
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(style: BorderStyle.none)),
                 child: Column(
                   children: [
-                    Icon(MdiIcons.fileTreeOutline, size: 32, color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
+                    Icon(MdiIcons.fileTreeOutline,
+                        size: 32,
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
                     const SizedBox(height: 8),
-                    const Text("No sub-steps yet.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                    const Text("No sub-steps yet.",
+                        style: TextStyle(color: AppTheme.fhTextSecondary)),
                     const SizedBox(height: 4),
                     const Text(
-                      "Break this step down further or mark it as complete.", 
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)
-                    ),
+                        "Break this step down further or mark it as complete.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppTheme.fhTextDisabled, fontSize: 12)),
                   ],
                 ),
               )
@@ -232,7 +290,7 @@ class StepDetailScreen extends StatelessWidget {
                   final substep = currentStep.substeps[index];
                   // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
-                  
+
                   return ProjectStepListTile(
                     step: substep,
                     mainTaskId: mainTaskId,
@@ -241,21 +299,25 @@ class StepDetailScreen extends StatelessWidget {
                   );
                 },
               ),
-              
+
             // Manual Completion Toggle (Only if leaf node)
             if (currentStep.substeps.isEmpty) ...[
               const SizedBox(height: 30),
               Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
               const SizedBox(height: 10),
               SwitchListTile(
-                title: const Text("Mark as Complete", style: TextStyle(color: AppTheme.fhTextPrimary)),
-                subtitle: const Text("This step has no sub-steps, so you can toggle it directly.", style: TextStyle(fontSize: 12)),
+                title: const Text("Mark as Complete",
+                    style: TextStyle(color: AppTheme.fhTextPrimary)),
+                subtitle: const Text(
+                    "This step has no sub-steps, so you can toggle it directly.",
+                    style: TextStyle(fontSize: 12)),
                 value: currentStep.isCompleted,
-                activeColor: AppTheme.fhAccentGreen,
+                activeThumbColor: AppTheme.fhAccentGreen,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (val) {
-                   final updated = currentStep..isCompleted = val;
-                   provider.projectActions.updateStep(mainTaskId, projectId, updated);
+                  final updated = currentStep..isCompleted = val;
+                  provider.projectActions
+                      .updateStep(mainTaskId, projectId, updated);
                 },
               )
             ]
