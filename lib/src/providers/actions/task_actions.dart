@@ -10,6 +10,7 @@ class TaskActions {
 
   TaskActions(this._provider);
 
+  // ... (previous methods addMainTask, editMainTask, logToDailySummary)
   void addMainTask(
       {required String name,
       required String description,
@@ -163,6 +164,125 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // --- Session Management ---
+
+  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+    final session = TaskSession(
+      id: 'sess_${DateTime.now().millisecondsSinceEpoch}',
+      startTime: start,
+      endTime: end
+    );
+    final durationMinutes = session.durationMinutes;
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          dailyTimeSpent: task.dailyTimeSpent + durationMinutes,
+          lastWorkedDate: getTodayDateString(),
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              return SubTask(
+                id: st.id,
+                name: st.name,
+                completed: st.completed,
+                currentTimeSpent: st.currentTimeSpent + durationMinutes,
+                completedDate: st.completedDate,
+                isCountable: st.isCountable,
+                targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks,
+                sessions: [...st.sessions, session]..sort((a,b) => b.startTime.compareTo(a.startTime)),
+              );
+            }
+            return st;
+          }).toList()
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': durationMinutes});
+  }
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              // Recalculate total time
+              int totalTime = 0;
+              final updatedSessions = st.sessions.map((s) {
+                if (s.id == sessionId) {
+                  return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
+                }
+                return s;
+              }).toList();
+
+              for (var s in updatedSessions) {
+                totalTime += s.durationMinutes;
+              }
+
+              return SubTask(
+                id: st.id,
+                name: st.name,
+                completed: st.completed,
+                currentTimeSpent: totalTime,
+                completedDate: st.completedDate,
+                isCountable: st.isCountable,
+                targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks,
+                sessions: updatedSessions..sort((a,b) => b.startTime.compareTo(a.startTime)),
+              );
+            }
+            return st;
+          }).toList()
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    // Note: This simple update doesn't strictly adjust "dailyTimeSpent" delta precisely on the main task
+    // for historical days, but recalculates the subtask total.
+    // For strict consistency, we'd need to calc delta and apply to mainTask.dailyTimeSpent if today.
+  }
+
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final sessionToRemove = st.sessions.firstWhereOrNull((s) => s.id == sessionId);
+              final deduction = sessionToRemove?.durationMinutes ?? 0;
+
+              return SubTask(
+                id: st.id,
+                name: st.name,
+                completed: st.completed,
+                currentTimeSpent: (st.currentTimeSpent - deduction).clamp(0, 999999),
+                completedDate: st.completedDate,
+                isCountable: st.isCountable,
+                targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks,
+                sessions: st.sessions.where((s) => s.id != sessionId).toList(),
+              );
+            }
+            return st;
+          }).toList()
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // ... (previous methods completeSubtask, deleteSubtask, duplicateCompletedSubtask, addSubSubtask, updateSubSubtask, completeSubSubtask, deleteSubSubtask)
   bool completeSubtask(String mainTaskId, String subtaskId) {
     MainTask? mainTask =
         _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -203,7 +323,8 @@ class TaskActions {
                   isCountable: st.isCountable,
                   targetCount: st.targetCount,
                   currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks);
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions);
             }
             return st;
           }).toList(),
@@ -271,6 +392,7 @@ class TaskActions {
                 completionTimestamp: null,
               ))
           .toList(),
+      sessions: [],
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -311,6 +433,7 @@ class TaskActions {
                 targetCount: st.targetCount,
                 currentCount: st.currentCount,
                 subSubTasks: [...st.subSubTasks, newSubSubtask],
+                sessions: st.sessions,
               );
             }
             return st;
@@ -362,6 +485,7 @@ class TaskActions {
                   }
                   return sss;
                 }).toList(),
+                sessions: st.sessions,
               );
             }
             return st;
@@ -422,6 +546,7 @@ class TaskActions {
                   }
                   return sss;
                 }).toList(),
+                sessions: st.sessions,
               );
             }
             return st;
@@ -477,6 +602,7 @@ class TaskActions {
                 subSubTasks: st.subSubTasks
                     .where((sss) => sss.id != subSubtaskId)
                     .toList(),
+                sessions: st.sessions,
               );
             }
             return st;

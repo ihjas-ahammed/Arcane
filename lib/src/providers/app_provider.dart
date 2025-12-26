@@ -837,6 +837,17 @@ class AppProvider with ChangeNotifier {
   void updateSubtask(
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  
+  // Delegated Session Methods
+  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => 
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) =>
+      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+
   bool completeSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.completeSubtask(mainTaskId, subtaskId);
   void deleteSubtask(String mainTaskId, String subtaskId) =>
