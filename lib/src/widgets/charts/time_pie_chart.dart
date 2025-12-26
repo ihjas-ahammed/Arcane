@@ -71,8 +71,9 @@ class _TimePieChartState extends State<TimePieChart> {
     if (highlightIndex != -1 && highlightIndex < entries.length) {
       final entry = entries[highlightIndex];
       centerTopText = entry.key.toUpperCase();
-      if (centerTopText.length > 10)
+      if (centerTopText.length > 10) {
         centerTopText = "${centerTopText.substring(0, 8)}..";
+      }
 
       centerBottomText = "${entry.value.toInt()}m";
       centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;

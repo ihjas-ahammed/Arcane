@@ -714,7 +714,7 @@ class _SettingsViewState extends State<SettingsView> {
       children: List.generate(3, (index) {
         final label = index == 0
             ? "Primary $prefix Model"
-            : "${prefix} Fallback ${index}";
+            : "$prefix Fallback $index";
         // Ensure list has enough items, pad if necessary
         if (currentList.length <= index) {
           currentList.add(_availableModels.isNotEmpty
@@ -728,7 +728,7 @@ class _SettingsViewState extends State<SettingsView> {
           padding: const EdgeInsets.only(bottom: 8.0),
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: _availableModels.contains(currentSelection)
+            initialValue: _availableModels.contains(currentSelection)
                 ? currentSelection
                 : null,
             // If not in list, it might be a custom one or default. Show it if we can add it to items or handle null.
@@ -740,11 +740,10 @@ class _SettingsViewState extends State<SettingsView> {
               border: const OutlineInputBorder(),
             ),
             dropdownColor: AppTheme.fhBgLight,
-            items: [
+            items: {
               ..._availableModels,
               if (!_availableModels.contains(currentSelection)) currentSelection
-            ]
-                .toSet()
+            }
                 .map((m) => DropdownMenuItem(
                       // toSet to remove dupes
                       value: m,

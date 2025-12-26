@@ -221,8 +221,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         // Correctly sum only what passed filter
         int xpForEntry = 0;
         ref.xpGained.forEach((k, v) {
-          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter)
+          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter) {
             return;
+          }
           xpForEntry += v;
         });
         totalXp += xpForEntry;
@@ -289,8 +290,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       });
     } else if (availableDates.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _selectedDate != null)
+        if (mounted && _selectedDate != null) {
           setState(() => _selectedDate = null);
+        }
       });
     }
 

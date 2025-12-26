@@ -403,8 +403,9 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null)
+    if (_currentUser == null) {
       throw Exception("No user is currently signed in.");
+    }
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
     notifyListeners();

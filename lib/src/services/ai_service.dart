@@ -68,8 +68,9 @@ class AIService {
         }
 
         try {
-          if (kDebugMode)
+          if (kDebugMode) {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
           final result = await requestFn(effectiveKey, model);
           if (customApiKey == null) onNewApiKeyIndex(effectiveIndex);
           return result;
@@ -79,8 +80,9 @@ class AIService {
           // Continue to next key, then next model
         }
 
-        if (customApiKey != null)
+        if (customApiKey != null) {
           break; // If custom key fails, don't try other keys (there aren't any), move to next model? Yes.
+        }
       }
     }
     throw Exception(

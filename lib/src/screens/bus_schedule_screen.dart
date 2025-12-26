@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/bus/bus_next_card.dart';
 import 'package:intl/intl.dart';
@@ -315,18 +314,24 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   }
 
   String _getRouteInfo() {
-    if (_origin == "S.S College" && _destination == "EDAVANNAPPARA")
+    if (_origin == "S.S College" && _destination == "EDAVANNAPPARA") {
       return "Direct - 18 min";
-    if (_origin == "S.S College" && _destination == "AREEKODE")
+    }
+    if (_origin == "S.S College" && _destination == "AREEKODE") {
       return "Direct - 2 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "S.S College")
+    }
+    if (_origin == "EDAVANNAPPARA" && _destination == "S.S College") {
       return "Direct - 18 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "AREEKODE")
+    }
+    if (_origin == "EDAVANNAPPARA" && _destination == "AREEKODE") {
       return "Direct - 20 min";
-    if (_origin == "AREEKODE" && _destination == "S.S College")
+    }
+    if (_origin == "AREEKODE" && _destination == "S.S College") {
       return "Direct - 2 min";
-    if (_origin == "AREEKODE" && _destination == "EDAVANNAPPARA")
+    }
+    if (_origin == "AREEKODE" && _destination == "EDAVANNAPPARA") {
       return "Direct - 20 min";
+    }
     return "Route info unavailable";
   }
 

@@ -3,7 +3,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:collection/collection.dart';
 
 class ActivityLogList extends StatelessWidget {
   final Map<String, dynamic> taskTimes;
