@@ -3,11 +3,12 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
+import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
+import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -28,22 +29,17 @@ class SubmissionDetailScreen extends StatefulWidget {
 
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   final TextEditingController _checkpointController = TextEditingController();
-  bool _isCheckpointCountable = false;
-  final TextEditingController _checkpointCountController =
-      TextEditingController(text: '5');
   DateTime _selectedDate = DateTime.now();
 
   @override
   void dispose() {
     _checkpointController.dispose();
-    _checkpointCountController.dispose();
     super.dispose();
   }
 
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
+      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
       return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
     } catch (e) {
       return null;
@@ -52,33 +48,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
   void _handleAddCheckpoint(AppProvider provider) {
     if (_checkpointController.text.trim().isEmpty) return;
-
-    final subSubData = {
+    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
       'name': _checkpointController.text.trim(),
-      'isCountable': _isCheckpointCountable,
-      'targetCount': _isCheckpointCountable
-          ? (int.tryParse(_checkpointCountController.text) ?? 1)
-          : 0,
-    };
-
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, subSubData);
-    _checkpointController.clear();
-    setState(() {
-      _isCheckpointCountable = false;
-      _checkpointCountController.text = '5';
+      'isCountable': false,
+      'targetCount': 0,
     });
+    _checkpointController.clear();
   }
 
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask textSubTask) async {
+  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
     final String? newName = await showDialog<String>(
       context: context,
       builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
     );
-
     if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, {'name': newName});
+      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
     }
   }
 
@@ -87,76 +71,27 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       context: context,
       builder: (ctx) => const AddSessionDialog(),
     );
-
     if (result != null) {
-      // Ensure the added session respects the selected day
       final startBase = result['start']!;
       final endBase = result['end']!;
-
-      final realStart = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day,
-        startBase.hour, startBase.minute
-      );
-      var realEnd = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day,
-        endBase.hour, endBase.minute
-      );
-      if (realEnd.isBefore(realStart)) {
-        realEnd = realEnd.add(const Duration(days: 1));
-      }
-
-      provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
+      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
+      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
+      if (realEnd.isBefore(realStart)) realEnd = realEnd.add(const Duration(days: 1));
+      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
-  void _handleSessionEdit(BuildContext context, AppProvider provider,
-      TaskSession session) async {
+  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => SessionEditDialog(
-        initialStart: session.startTime,
-        initialEnd: session.endTime,
-      ),
+      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
     );
-
     if (result != null) {
-      final action = result['action'];
-      if (action == 'delete') {
-        provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
-      } else if (action == 'save') {
-        final newStart = result['start'] as DateTime;
-        final newEnd = result['end'] as DateTime;
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, newStart, newEnd);
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
       }
-    }
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              onPrimary: AppTheme.fhBgDeepDark,
-              surface: AppTheme.fhBgMedium,
-              onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogBackgroundColor: AppTheme.fhBgDark,
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
     }
   }
 
@@ -167,345 +102,334 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final liveSubTask = _getLiveSubTask(provider);
 
     if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.of(context).pop(); });
       return const SizedBox.shrink();
     }
 
     final timerState = provider.activeTimers[liveSubTask.id];
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now().difference(timerState.startTime).inMilliseconds /
-                    1000)
+            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
             : timerState.accumulatedDisplayTime)
         : liveSubTask.currentTimeSpent * 60.0;
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
+    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
+    final int totalCheckpoints = liveSubTask.subSubTasks.length;
 
-    // Filter sessions by selected day
-    final filteredSessions = liveSubTask.sessions.where((s) {
-      return s.startTime.year == _selectedDate.year &&
-          s.startTime.month == _selectedDate.month &&
-          s.startTime.day == _selectedDate.day;
-    }).toList();
-
-    // Responsive Layout Check
-    final isLandscape = MediaQuery.of(context).size.width > 700;
+    // Filter sessions
+    final filteredSessions = liveSubTask.sessions.where((s) => s.startTime.year == _selectedDate.year && s.startTime.month == _selectedDate.month && s.startTime.day == _selectedDate.day).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // --- Header (Task Name) ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      liveSubTask.name,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(MdiIcons.pencilOutline,
-                        color: AppTheme.fhTextSecondary),
-                    onPressed: () =>
-                        _handleEditSubtask(context, provider, liveSubTask),
-                  ),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: isLandscape
-                  ? Row(
-                      children: [
-                        // Left Column: Timer & Checkpoints
-                        Expanded(
-                          flex: 4,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _buildTimerBox(context, provider, liveSubTask,
-                                    formattedTime, isRunning),
-                                const SizedBox(height: 24),
-                                _buildCheckpointsSection(
-                                    context, provider, liveSubTask, theme),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Vertical Divider
-                        Container(
-                            width: 1,
-                            color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                        // Right Column: Timeline
-                        Expanded(
-                          flex: 5,
-                          child: _buildTimelineSection(context, provider,
-                              filteredSessions, theme),
-                        ),
-                      ],
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildTimerBox(context, provider, liveSubTask,
-                              formattedTime, isRunning),
-                          const SizedBox(height: 24),
-
-                          // Checkpoints Section
-                          _buildCheckpointsSection(
-                              context, provider, liveSubTask, theme),
-
-                          const SizedBox(height: 32),
-                          const Divider(),
-                          const SizedBox(height: 16),
-
-                          // Timeline Section (Vertical stack on mobile)
-                          SizedBox(
-                            height: 400,
-                            child: _buildTimelineSection(context, provider,
-                                filteredSessions, theme),
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimerBox(BuildContext context, AppProvider provider,
-      SubTask subTask, String time, bool isRunning) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isRunning
-                ? AppTheme.fhAccentTeal
-                : AppTheme.fhBorderColor.withOpacity(0.3),
-            width: 2),
-        boxShadow: isRunning
-            ? [
-                BoxShadow(
-                    color: AppTheme.fhAccentTeal.withOpacity(0.2),
-                    blurRadius: 15)
-              ]
-            : [],
-      ),
-      child: Column(
+      body: Stack(
         children: [
-          Text(
-            time,
-            style: const TextStyle(
-              fontFamily: "RobotoCondensed",
-              fontSize: 56,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 2,
+          // Layer 1: Background Watermark
+          Positioned(
+            right: -50,
+            top: 50,
+            child: Opacity(
+              opacity: 0.05,
+              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
             ),
           ),
-          const SizedBox(height: 16),
-          // Controls
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                iconSize: 48,
-                icon: Icon(
-                    isRunning ? MdiIcons.pauseCircle : MdiIcons.playCircle,
-                    color: isRunning
-                        ? AppTheme.fhAccentOrange
-                        : AppTheme.fhAccentGreen),
-                onPressed: () {
-                  if (isRunning) {
-                    provider.pauseTimer(subTask.id);
-                    // provider.logTimerAndReset(subTask.id); // Handled by pauseTimer now for session logic
-                  } else {
-                    provider.startTimer(
-                        subTask.id, 'subtask', widget.parentTask.id);
-                  }
-                },
-              ),
-              if (isRunning) ...[
-                const SizedBox(width: 16),
-                IconButton(
-                  iconSize: 32,
-                  icon: const Icon(Icons.stop_circle_outlined,
-                      color: AppTheme.fhAccentRed),
-                  onPressed: () {
-                    // provider.pauseTimer(subTask.id);
-                    provider.logTimerAndReset(subTask.id);
-                  },
+          
+          // Layer 2: Main Content
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // --- Header ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
+                        onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
+                      ),
+                    ],
+                  ),
                 ),
-              ]
-            ],
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.parentTask.name.toUpperCase(), // "INITIATOR" style
+                        style: const TextStyle(
+                          color: AppTheme.fhAccentTealFixed,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          fontSize: 14,
+                          fontFamily: AppTheme.fontDisplay,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        liveSubTask.name.toUpperCase(), // "BREACH" style
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 48,
+                          height: 0.9,
+                          fontFamily: AppTheme.fontDisplay,
+                          letterSpacing: 2.0,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // --- Ability/Stat Row ---
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      ValorantAbilitySlot(
+                        hotkey: "Q",
+                        label: "TIME",
+                        value: formattedTime,
+                        icon: MdiIcons.clockFast,
+                        isActive: isRunning,
+                      ),
+                      const SizedBox(width: 16),
+                      ValorantAbilitySlot(
+                        hotkey: "E",
+                        label: "STEPS",
+                        value: "$completedCheckpoints/$totalCheckpoints",
+                        icon: MdiIcons.formatListChecks,
+                        isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
+                      ),
+                      const SizedBox(width: 16),
+                      ValorantAbilitySlot(
+                        hotkey: "C",
+                        label: "LOGS",
+                        value: "${liveSubTask.sessions.length}",
+                        icon: MdiIcons.history,
+                      ),
+                      const SizedBox(width: 16),
+                      ValorantAbilitySlot(
+                        hotkey: "X",
+                        label: "STATUS",
+                        value: liveSubTask.completed ? "DONE" : "ACTIVE",
+                        icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
+                        isActive: liveSubTask.completed,
+                        onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white10),
+
+                // --- Main Content Area ---
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column (Controls & Checkpoints)
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          children: [
+                            // Timer Control Area (The "Centerpiece")
+                            Container(
+                              margin: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isRunning 
+                                    ? [AppTheme.fhAccentRed.withValues(alpha: 0.2), Colors.transparent]
+                                    : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
+                                  begin: Alignment.bottomLeft,
+                                  end: Alignment.topRight,
+                                ),
+                                border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
+                                        style: TextStyle(
+                                          color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        formattedTime,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 32,
+                                          fontFamily: AppTheme.fontDisplay,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  FloatingActionButton.small(
+                                    backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
+                                    foregroundColor: Colors.black,
+                                    onPressed: () {
+                                       if (isRunning) {
+                                          provider.pauseTimer(liveSubTask.id);
+                                          provider.logTimerAndReset(liveSubTask.id);
+                                       } else {
+                                          provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                       }
+                                    },
+                                    child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Checkpoints List
+                            Expanded(
+                              child: ListView(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Text(
+                                      "TACTICAL OBJECTIVES",
+                                      style: TextStyle(
+                                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.5), 
+                                        fontWeight: FontWeight.bold, 
+                                        fontSize: 10, 
+                                        letterSpacing: 1.5
+                                      ),
+                                    ),
+                                  ),
+                                  ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
+                                    title: sss.name,
+                                    isCompleted: sss.completed,
+                                    onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                                    onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                                  )),
+                                  // Quick Add Field
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.2),
+                                      border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+                                    ),
+                                    child: TextField(
+                                      controller: _checkpointController,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                                      decoration: const InputDecoration(
+                                        hintText: "+ Add Objective",
+                                        hintStyle: TextStyle(color: Colors.white24),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                      ),
+                                      onSubmitted: (_) => _handleAddCheckpoint(provider),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Vertical Divider
+                      Container(width: 1, color: Colors.white10),
+
+                      // Right Column (Timeline) - Hidden on very small screens if needed, but flex handles it
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _selectedDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                                        builder: (context, child) => Theme(
+                                          data: Theme.of(context).copyWith(
+                                            colorScheme: ColorScheme.dark(
+                                              primary: AppTheme.fhAccentTealFixed,
+                                              onPrimary: Colors.black,
+                                              surface: AppTheme.fhBgDark,
+                                              onSurface: Colors.white,
+                                            ),
+                                            dialogBackgroundColor: AppTheme.fhBgDark,
+                                          ),
+                                          child: child!,
+                                        ),
+                                      );
+                                      if (picked != null) setState(() => _selectedDate = picked);
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                                          style: const TextStyle(color: AppTheme.fhAccentTealFixed, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, fontSize: 16),
+                                        ),
+                                        const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 20, color: Colors.white54),
+                                    onPressed: () => _showAddSessionDialog(context, provider),
+                                    tooltip: "Log Manual Session",
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                child: ScheduleTimeline(
+                                  sessions: filteredSessions,
+                                  onAddSession: () => _showAddSessionDialog(context, provider),
+                                  onEditSession: (s) => _handleSessionEdit(context, provider, s),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCheckpointsSection(BuildContext context, AppProvider provider,
-      SubTask subTask, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("Checkpoints",
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: AppTheme.fhTextSecondary)),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // List
-        ...subTask.subSubTasks.map((sss) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgMedium.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  RhombusCheckbox(
-                    checked: sss.completed,
-                    size: CheckboxSize.small,
-                    onChanged: (_) => provider.completeSubSubtask(
-                        widget.parentTask.id, subTask.id, sss.id),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      sss.name,
-                      style: TextStyle(
-                        decoration:
-                            sss.completed ? TextDecoration.lineThrough : null,
-                        color: sss.completed
-                            ? AppTheme.fhTextSecondary
-                            : AppTheme.fhTextPrimary,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close,
-                        size: 16, color: AppTheme.fhTextSecondary),
-                    onPressed: () => provider.deleteSubSubtask(
-                        widget.parentTask.id, subTask.id, sss.id),
-                  )
-                ],
-              ),
-            )),
-
-        // Input Area
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _checkpointController,
-                  decoration: const InputDecoration(
-                    hintText: "New checkpoint...",
-                    border: InputBorder.none,
-                    hintStyle:
-                        TextStyle(fontSize: 13, color: AppTheme.fhTextSecondary),
-                  ),
-                  style: const TextStyle(
-                      fontSize: 14, color: AppTheme.fhTextPrimary),
-                  onSubmitted: (_) => _handleAddCheckpoint(provider),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add,
-                    size: 20, color: AppTheme.fhAccentTeal),
-                onPressed: () => _handleAddCheckpoint(provider),
-              )
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimelineSection(BuildContext context, AppProvider provider,
-      List<TaskSession> sessions, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkWell(
-              onTap: _pickDate,
-              child: Row(
-                children: [
-                  Text(
-                    DateFormat('EEE, MMM d').format(_selectedDate),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: AppTheme.fhTextSecondary)
-                ],
-              ),
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text("Log Time"),
-              onPressed: () => _showAddSessionDialog(context, provider),
-              style:
-                  TextButton.styleFrom(foregroundColor: AppTheme.fhAccentPurple),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ScheduleTimeline(
-                sessions: sessions,
-                onAddSession: () => _showAddSessionDialog(context, provider),
-                onEditSession: (session) =>
-                    _handleSessionEdit(context, provider, session),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
