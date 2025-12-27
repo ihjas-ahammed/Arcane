@@ -76,108 +76,150 @@ class SubmissionCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                RhombusCheckbox(
-                  checked: subTask.completed,
-                  onChanged: (val) =>
-                      provider.completeSubtask(parentTask.id, subTask.id),
-                  disabled: subTask.completed,
-                  size: CheckboxSize.small,
-                ),
-                const SizedBox(width: 12),
-
-                // Name
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        subTask.name.toUpperCase(),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                            color: subTask.completed
-                                ? AppTheme.fhTextDisabled
-                                : AppTheme.fhTextPrimary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subTask.completed)
+                if (subTask.completed) ...[
+                  // --- COMPLETED STATE ---
+                  // Name (Left Aligned)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          subTask.name.toUpperCase(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              decoration: TextDecoration
+                                  .lineThrough, // Optional: strikethrough for completed
+                              color: AppTheme.fhTextDisabled),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         Text("COMPLETED",
                             style: TextStyle(
                                 fontSize: 10,
                                 color: AppTheme.fhAccentGreen,
                                 letterSpacing: 1,
                                 fontWeight: FontWeight.bold))
+                      ],
+                    ),
+                  ),
+
+                  // Actions: Duplicate & Delete
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(MdiIcons.contentCopy,
+                            size: 20, color: AppTheme.fhTextSecondary),
+                        tooltip: "Duplicate Sub-mission",
+                        onPressed: () => provider.duplicateCompletedSubtask(
+                            parentTask.id, subTask.id),
+                      ),
+                      IconButton(
+                        icon: Icon(MdiIcons.trashCanOutline,
+                            size: 20, color: AppTheme.fhAccentRed),
+                        tooltip: "Delete Sub-mission",
+                        onPressed: () =>
+                            provider.deleteSubtask(parentTask.id, subTask.id),
+                      ),
                     ],
                   ),
-                ),
-
-                // Time Display
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: AppTheme.fhBgDeepDark,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color:
-                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
-                  child: Text(
-                    formattedTime,
-                    style: TextStyle(
-                        fontFamily: "RobotoCondensed",
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color:
-                            isRunning ? AppTheme.fhAccentTeal : Colors.white),
+                ] else ...[
+                  // --- ACTIVE STATE ---
+                  RhombusCheckbox(
+                    checked: subTask.completed,
+                    onChanged: (val) =>
+                        provider.completeSubtask(parentTask.id, subTask.id),
+                    disabled: subTask.completed,
+                    size: CheckboxSize.small,
                   ),
-                ),
+                  const SizedBox(width: 12),
 
-                const SizedBox(width: 12),
-
-                // Play/Open Button
-                InkWell(
-                      onTap: () {
-                        if (isRunning) {
-                          provider.pauseTimer(subTask.id);
-                          provider.logTimerAndReset(subTask.id);
-                        } else {
-                          provider.startTimer(
-                              subTask.id, 'subtask', subTask.id);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(60),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: isRunning
-                                    ? AppTheme.fhAccentOrange
-                                    : AppTheme.fhAccentGreen,
-                                width: 3),
-                            color: (isRunning
-                                    ? AppTheme.fhAccentOrange
-                                    : AppTheme.fhAccentGreen)
-                                .withValues(alpha: 0.1),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: (isRunning
-                                          ? AppTheme.fhAccentOrange
-                                          : AppTheme.fhAccentGreen)
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 2)
-                            ]),
-                        child: Icon(
-                          isRunning ? MdiIcons.pause : MdiIcons.play,
-                          color: isRunning
-                              ? AppTheme.fhAccentOrange
-                              : AppTheme.fhAccentGreen,
-                          size: 16,
+                  // Name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          subTask.name.toUpperCase(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              color: AppTheme.fhTextPrimary),
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                    ),
+                  ),
+
+                  // Time Display
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: AppTheme.fhBgDeepDark,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                    child: Text(
+                      formattedTime,
+                      style: TextStyle(
+                          fontFamily: "RobotoCondensed",
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              isRunning ? AppTheme.fhAccentTeal : Colors.white),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Play/Open Button
+                  InkWell(
+                    onTap: () {
+                      if (isRunning) {
+                        provider.pauseTimer(subTask.id);
+                        provider.logTimerAndReset(subTask.id);
+                      } else {
+                        // FIXED: Pass parentTask.id as the mainTaskId
+                        provider.startTimer(
+                            subTask.id, 'subtask', parentTask.id);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(60),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: isRunning
+                                  ? AppTheme.fhAccentOrange
+                                  : AppTheme.fhAccentGreen,
+                              width: 3),
+                          color: (isRunning
+                                  ? AppTheme.fhAccentOrange
+                                  : AppTheme.fhAccentGreen)
+                              .withValues(alpha: 0.1),
+                          boxShadow: [
+                            BoxShadow(
+                                color: (isRunning
+                                        ? AppTheme.fhAccentOrange
+                                        : AppTheme.fhAccentGreen)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                spreadRadius: 2)
+                          ]),
+                      child: Icon(
+                        isRunning ? MdiIcons.pause : MdiIcons.play,
+                        color: isRunning
+                            ? AppTheme.fhAccentOrange
+                            : AppTheme.fhAccentGreen,
+                        size: 16,
                       ),
                     ),
+                  ),
+                ],
               ],
             ),
           ),

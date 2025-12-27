@@ -41,6 +41,38 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       actions: <Widget>[
         // Settings Button moved here
+        if (appProvider.loadingTaskName != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.fhBorderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(currentAccentColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _getLoadingIcon(appProvider.loadingTaskName!),
+                  size: 16,
+                  color: AppTheme.fhTextSecondary,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+
         IconButton(
           icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
           tooltip: 'Settings',
@@ -74,4 +106,12 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  IconData _getLoadingIcon(String taskName) {
+    if (taskName.contains("Syncing")) return MdiIcons.cloudSync;
+    if (taskName.contains("Analyzing")) return MdiIcons.brain;
+    if (taskName.contains("Consulting")) return MdiIcons.robot;
+    if (taskName.contains("Authenticating")) return MdiIcons.accountKey;
+    return MdiIcons.loading;
+  }
 }

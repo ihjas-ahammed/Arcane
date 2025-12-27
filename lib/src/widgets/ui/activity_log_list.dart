@@ -40,23 +40,6 @@ class ActivityLogList extends StatelessWidget {
 
     return Column(
       children: [
-        if (subtasksCompleted.isNotEmpty)
-          _buildExpandableSection(
-            context,
-            title: "Completed Missions",
-            icon: MdiIcons.checkCircleOutline,
-            count: subtasksCompleted.length,
-            children: subtasksCompleted.map((st) {
-              final map = st as Map<String, dynamic>;
-              return _buildActivityCard(
-                icon: MdiIcons.target,
-                title: map['name'] ?? 'Unknown Subtask',
-                subtitle:
-                    "Logged: ${map['timeLogged']}m | Count: ${map['currentCount']}/${map['targetCount']}",
-                color: AppTheme.fhAccentGreen,
-              );
-            }).toList(),
-          ),
         if (checkpointsCompleted.isNotEmpty)
           _buildExpandableSection(
             context,

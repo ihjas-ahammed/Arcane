@@ -171,30 +171,47 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
 
       // Activity Data
-      final dayData = provider.completedByDay[dateStr];
+      // Activity Data
+      final isToday =
+          dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
       double totalMins = 0;
       Color dominantColor = AppTheme.fhBgLight;
       double maxMinsForTask = 0;
 
-      if (dayData != null && dayData['taskTimes'] != null) {
-        final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
-        taskTimes.forEach((taskId, time) {
-          final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-              orElse: () => MainTask(
-                  id: '', name: 'Unknown', description: '', theme: ''));
-
-          // Apply Filter
-          if (_selectedTaskFilter != null && task.name != _selectedTaskFilter) {
-            return;
-          }
-
-          final mins = (time as num).toDouble();
+      if (isToday) {
+        // Use live data from task sessions for today
+        for (var task in provider.mainTasks) {
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
           totalMins += mins;
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
             dominantColor = task.taskColor;
           }
-        });
+        }
+      } else {
+        // Use stored data for past days
+        final dayData = provider.completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+          taskTimes.forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
+                orElse: () => MainTask(
+                    id: '', name: 'Unknown', description: '', theme: ''));
+
+            // Apply Filter
+            if (_selectedTaskFilter != null &&
+                task.name != _selectedTaskFilter) {
+              return;
+            }
+
+            final mins = (time as num).toDouble();
+            totalMins += mins;
+            if (mins > maxMinsForTask) {
+              maxMinsForTask = mins;
+              dominantColor = task.taskColor;
+            }
+          });
+        }
       }
       activityData[i] = totalMins;
       activityColors[i] = dominantColor;
@@ -243,17 +260,32 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     // Prepare Daily Time Data for Pie Chart
     Map<String, double> dailyTaskTimeData = {};
     Map<String, Color> taskColors = {};
+
     if (_selectedDate != null) {
-      final summaryData = provider.completedByDay[_selectedDate!];
-      if (summaryData != null && summaryData['taskTimes'] != null) {
-        (summaryData['taskTimes'] as Map<String, dynamic>)
-            .forEach((taskId, time) {
-          final task =
-              provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
-          final String name = task?.name ?? "Unknown";
-          dailyTaskTimeData[name] = (time as num).toDouble();
-          taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
-        });
+      final isToday =
+          _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      if (isToday) {
+        final today = DateTime.now();
+        for (var task in provider.mainTasks) {
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
+          if (mins > 0) {
+            dailyTaskTimeData[task.name] = mins;
+            taskColors[task.name] = task.taskColor;
+          }
+        }
+      } else {
+        final summaryData = provider.completedByDay[_selectedDate!];
+        if (summaryData != null && summaryData['taskTimes'] != null) {
+          (summaryData['taskTimes'] as Map<String, dynamic>)
+              .forEach((taskId, time) {
+            final task =
+                provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+            final String name = task?.name ?? "Unknown";
+            dailyTaskTimeData[name] = (time as num).toDouble();
+            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+          });
+        }
       }
     }
 
@@ -302,7 +334,20 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final summaryData = _selectedDate != null
         ? appProvider.completedByDay[_selectedDate!]
         : null;
-    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+
+    Map<String, dynamic> taskTimes = {};
+    if (_selectedDate != null &&
+        _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      final today = DateTime.now();
+      for (var task in appProvider.mainTasks) {
+        final val = _calculateDailyTimeFromSessions(task, today);
+        if (val > 0) {
+          taskTimes[task.id] = val;
+        }
+      }
+    } else {
+      taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    }
     final subtasksCompleted =
         summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted =
@@ -606,5 +651,20 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       default:
         return Colors.grey;
     }
+  }
+
+  int _calculateDailyTimeFromSessions(MainTask task, DateTime startOfDay) {
+    int totalMinutes = 0;
+    // Iterate all subtasks and their sessions to find ones impacting today
+    for (var sub in task.subTasks) {
+      for (var session in sub.sessions) {
+        if (session.startTime.year == startOfDay.year &&
+            session.startTime.month == startOfDay.month &&
+            session.startTime.day == startOfDay.day) {
+          totalMinutes += session.durationMinutes;
+        }
+      }
+    }
+    return totalMinutes;
   }
 }

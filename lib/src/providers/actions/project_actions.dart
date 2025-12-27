@@ -182,6 +182,7 @@ class ProjectActions {
   Future<void> generateProjectStructure(
       String mainTaskId, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
         modelCandidates: _provider.settings.heavyModels, // Heavy for projects
@@ -201,6 +202,7 @@ class ProjectActions {
       debugPrint("Error generating project: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
     }
   }
 }

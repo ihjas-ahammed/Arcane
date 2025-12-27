@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
+import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -15,31 +16,42 @@ class MoreScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text("UTILITIES", style: theme.textTheme.labelMedium?.copyWith(color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
+          Text("UTILITIES",
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
-          
-          _buildMenuTile(
-            context,
-            icon: MdiIcons.busClock,
-            title: "Bus Time",
-            subtitle: "Schedule: S.S College - Areekode - Edavannappara",
-            onTap: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const BusScheduleScreen())
-              );
-            }
-          ),
-          
+
+          _buildMenuTile(context,
+              icon: MdiIcons.busClock,
+              title: "Bus Time",
+              subtitle: "Schedule: S.S College - Areekode - Edavannappara",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const BusScheduleScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.databaseEdit,
+              title: "Database Editor",
+              subtitle: "Manual edits & JSON Export/Import", onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const DatabaseEditorScreen()));
+          }),
+
           // Future items can be added here
         ],
       ),
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, {
-    required IconData icon, 
-    required String title, 
+  Widget _buildMenuTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
@@ -48,9 +60,9 @@ class MoreScreen extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
-      ),
+          borderRadius: BorderRadius.circular(12),
+          side:
+              BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
@@ -61,8 +73,12 @@ class MoreScreen extends StatelessWidget {
           ),
           child: Icon(icon, color: AppTheme.fhAccentTeal),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-        subtitle: Text(subtitle, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+        title: Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+        subtitle: Text(subtitle,
+            style:
+                const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
         trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
         onTap: onTap,
       ),

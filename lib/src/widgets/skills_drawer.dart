@@ -80,20 +80,18 @@ class SkillsDrawer extends StatelessWidget {
                     ].map((name) {
                       final xp7d = appProvider.get7DaySkillMomentum(name);
 
+                      final int momentumLevel = (xp7d / 50).floor() + 1;
+                      final double momentumProgress = (xp7d % 50) / 50.0;
+
                       // Create a temporary skill object for display purposes
                       final skill = Skill(
                           id: name.substring(0, 3).toLowerCase(),
                           name: name,
                           description: "A core Stoic virtue.",
-                          currentXp: xp7d,
-                          maxXp: 100, // Arbitrary for momentum view
-                          level: (xp7d / 50).floor() + 1);
-
-                      // Define Momentum: Level = xp / 50 (approx), Progress = (xp % 50) / 50
-                      // This makes "Level 1" = 50 XP in last 7 days.
-                      final int momentumLevel =
-                          (xp7d / 50).floor() + 1; // Start at level 1
-                      final double momentumProgress = (xp7d % 50) / 50.0;
+                          currentXp:
+                              (xp7d % 50), // Current progress in this level
+                          maxXp: 50, // Each momentum level is 50 XP wide
+                          level: momentumLevel);
 
                       return VirtueCircle(
                         skill: skill,
@@ -117,7 +115,6 @@ class SkillsDrawer extends StatelessWidget {
 
                   const SizedBox(height: 12),
                   Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-                  
 
                   ElevatedButton.icon(
                     icon: Icon(MdiIcons.notebookEditOutline),

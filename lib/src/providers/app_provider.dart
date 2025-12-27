@@ -23,8 +23,13 @@ import 'package:arcane/src/services/ai_service.dart';
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
+
   Timer? _periodicUiTimer;
   Timer? _autoSaveTimer;
+
+  // Global Loading State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
 
   User? _currentUser;
   User? get currentUser => _currentUser;
@@ -99,6 +104,13 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void setLoadingTask(String? taskName) {
+    if (_loadingTaskName != taskName) {
+      _loadingTaskName = taskName;
+      notifyListeners();
+    }
   }
 
   void _initializeSkills() {
@@ -223,6 +235,14 @@ class AppProvider with ChangeNotifier {
     };
   }
 
+  Map<String, dynamic> getAppStateAsMap() => _appStateToMap();
+
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    _loadStateFromMap(data);
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
   void _loadStateFromMap(Map<String, dynamic> data) {
     _lastLoginDate = data['lastLoginDate'] as String?;
     _mainTasks = (data['mainTasks'] as List<dynamic>?)
@@ -305,11 +325,25 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      final success = await _storageService.setUserData(
-          _currentUser!.uid, _appStateToMap());
-      if (success) {
-        _lastSuccessfulSaveTimestamp = DateTime.now();
-        _hasUnsavedChanges = false;
+      // Only show loading if we are manually saving or if it's a significant sync
+      // For background auto-save, we generally don't want to disturb the UI unless requested
+      // But user asked for "inc database sync" to show indicator.
+      // We'll use a subtle indicator for auto-save if needed, or rely on manual saves.
+      // Let's check: if it's auto-save, maybe we set a "Syncing..." state but don't block UI?
+      // The user wants to "use the app without loading".
+
+      bool isAutoSave = !_isManuallySaving;
+      if (!isAutoSave) setLoadingTask("Syncing Database...");
+
+      try {
+        final success = await _storageService.setUserData(
+            _currentUser!.uid, _appStateToMap());
+        if (success) {
+          _lastSuccessfulSaveTimestamp = DateTime.now();
+          _hasUnsavedChanges = false;
+        }
+      } finally {
+        if (!isAutoSave) setLoadingTask(null);
         notifyListeners();
       }
     }
@@ -584,6 +618,7 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory.conversationHistory.add(userMessage);
 
     notifyListeners();
+    setLoadingTask("Consulting Advisor...");
 
     try {
       final dataContext = _buildUserDataContext();
@@ -611,8 +646,10 @@ class AppProvider with ChangeNotifier {
               "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
+    } finally {
+      setLoadingTask(null);
+      setProviderState(chatbotMemory: _chatbotMemory);
     }
-    setProviderState(chatbotMemory: _chatbotMemory);
   }
 
   int getXpGainedForSkillToday(String skillName) {
@@ -659,6 +696,8 @@ class AppProvider with ChangeNotifier {
             })
         .toList();
 
+    setLoadingTask("Analyzing Reflection...");
+
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
       emotion: emotion,
@@ -668,6 +707,8 @@ class AppProvider with ChangeNotifier {
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
     );
+
+    setLoadingTask(null);
 
     Map<String, int> xpAllocation = {};
     if (result['xp_allocation'] is Map) {
@@ -837,15 +878,19 @@ class AppProvider with ChangeNotifier {
   void updateSubtask(
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  
-  // Delegated Session Methods
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => 
-      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) =>
-      _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
 
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) =>
+  // Delegated Session Methods
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
       _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
 
   bool completeSubtask(String mainTaskId, String subtaskId) =>
