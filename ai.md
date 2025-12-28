@@ -2,14 +2,13 @@ Make the following changes:
 
   * update the design based on VALORANT
       You have been given a sample screenshoot from the game ui, inspire from it and apply to the following screen and widgets in the screen
-         - Projects Screen
-         - Project Detail Screen 
-         - AI prompts screen
+         - Login screen
+          - Especially change the title from arcane to primus 
 
    * Fix: 
-      - Make it possible to generate tactical briefing for all days
-         - Save them to db after generation
-         - Add button to delete them if needed
+      - Change the main protocol heading in missions, sub-mission label in sub-misison list, submision heading in submssion screen:
+         - Make them smaller
+         - Enable correct text wrapping
 
 Remember this is a major update so clearly focus on impilemneting this on given screens
 This is only a design update so do not effect major functioning of app, make it work as it used to be, what we are applying is a seasonal theme update

@@ -32,14 +32,14 @@ class TaskHeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark, // Dark backdrop
+        color: AppTheme.fhBgDeepDark,
         image: const DecorationImage(
-          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"), // Placeholder abstract bg
+          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
           fit: BoxFit.cover,
-          opacity: 0.1,
+          opacity: 0.05,
         ),
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.fhAccentTealFixed, width: 2),
+        border: Border(
+          bottom: BorderSide(color: task.taskColor, width: 2),
         ),
       ),
       child: Column(
@@ -49,11 +49,11 @@ class TaskHeaderCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                color: task.taskColor,
+                color: task.taskColor.withOpacity(0.2),
                 child: Text(
                   task.theme.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.black, // High contrast on color
+                  style: TextStyle(
+                    color: task.taskColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                     letterSpacing: 2.0
@@ -61,30 +61,33 @@ class TaskHeaderCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary),
+              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary, size: 18),
             ],
           ),
           const SizedBox(height: 16),
-          // Giant Title
+          // Resized Main Title for better wrapping
           Text(
             task.name.toUpperCase(),
             style: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
-              fontSize: 48,
-              height: 0.9,
-              fontWeight: FontWeight.bold,
+              fontSize: 32, // Reduced from 48
+              height: 1.0,
+              fontWeight: FontWeight.w900,
               color: AppTheme.fhTextPrimary,
-              letterSpacing: 1.5
+              letterSpacing: 1.2
             ),
+            softWrap: true,
           ),
           const SizedBox(height: 8),
           Text(
             task.description,
             style: const TextStyle(
               color: AppTheme.fhTextSecondary,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.4,
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 24),
           
@@ -96,13 +99,15 @@ class TaskHeaderCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("SESSION TIME", style: TextStyle(color: AppTheme.fhAccentTealFixed, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  const Text("SESSION DURATION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
                   Text(
                     "$timeSpentFormatted / $maxTimeFormatted",
                     style: const TextStyle(
                       fontFamily: "RobotoMono",
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold
                     ),
                   ),
                 ],
@@ -113,9 +118,9 @@ class TaskHeaderCard extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 24, bottom: 6),
                   child: LinearProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.white10,
+                    backgroundColor: AppTheme.fhBgMedium,
                     color: task.taskColor,
-                    minHeight: 2,
+                    minHeight: 4,
                   ),
                 ),
               )

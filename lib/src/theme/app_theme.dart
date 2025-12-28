@@ -64,7 +64,7 @@ class AppTheme {
           fontFamily: fontDisplay,
           color: fhTextPrimary,
           fontWeight: FontWeight.bold,
-          fontSize: 24,
+          fontSize: 20, // Reduced from 24
           letterSpacing: 2.0, // Wide tracking for headers
         ),
       ),
@@ -74,36 +74,36 @@ class AppTheme {
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.bold,
-            fontSize: 56,
+            fontSize: 42, // Reduced from 56
             letterSpacing: 1.5),
         displayMedium: TextStyle(
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.bold,
-            fontSize: 40,
+            fontSize: 32, // Reduced from 40
             letterSpacing: 1.2),
         displaySmall: TextStyle(
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.bold,
-            fontSize: 32,
+            fontSize: 24, // Reduced from 32
             letterSpacing: 1.0),
         headlineLarge: TextStyle(
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.bold,
-            fontSize: 24),
+            fontSize: 22), // Reduced from 24
         headlineMedium: TextStyle(
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 18, // Reduced from 20
             letterSpacing: 0.5),
         headlineSmall: TextStyle(
             fontFamily: fontDisplay,
             color: fhTextPrimary,
             fontWeight: FontWeight.w600,
-            fontSize: 18),
+            fontSize: 16), // Reduced from 18
         titleLarge: TextStyle(
             fontFamily: fontBody,
             color: fhTextPrimary,

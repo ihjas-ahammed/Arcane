@@ -15,139 +15,119 @@ class JsonEditorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const textStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhTextPrimary);
+    const keyStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold);
+
     if (data is Map) {
-      return _buildMapNode(context, data as Map, label);
+      final map = data as Map;
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text(label, style: keyStyle),
+          subtitle: Text("{ ${map.length} entries }", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
+          collapsedIconColor: AppTheme.fhTextSecondary,
+          iconColor: AppTheme.fhAccentTeal,
+          childrenPadding: const EdgeInsets.only(left: 16),
+          children: map.entries.map((entry) {
+            return JsonEditorWidget(
+              label: entry.key.toString(),
+              data: entry.value,
+              onChanged: (newValue) {
+                final newMap = Map.from(map);
+                newMap[entry.key] = newValue;
+                onChanged(newMap);
+              },
+            );
+          }).toList(),
+        ),
+      );
     } else if (data is List) {
-      return _buildListNode(context, data as List, label);
+      final list = data as List;
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text(label, style: keyStyle),
+          subtitle: Text("[ ${list.length} items ]", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
+          collapsedIconColor: AppTheme.fhTextSecondary,
+          iconColor: AppTheme.fhAccentTeal,
+          childrenPadding: const EdgeInsets.only(left: 16),
+          children: list.asMap().entries.map((entry) {
+            return JsonEditorWidget(
+              label: "[${entry.key}]",
+              data: entry.value,
+              onChanged: (newValue) {
+                final newList = List.from(list);
+                newList[entry.key] = newValue;
+                onChanged(newList);
+              },
+            );
+          }).toList(),
+        ),
+      );
     } else {
-      return _buildLeafNode(context, data, label);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          children: [
+            Text("$label: ", style: const TextStyle(color: AppTheme.fhTextSecondary, fontFamily: 'RobotoMono', fontSize: 12)),
+            Expanded(
+              child: InkWell(
+                onTap: () => _editValue(context, data),
+                child: Text(
+                  data?.toString() ?? "null",
+                  style: textStyle.copyWith(color: AppTheme.fhTextPrimary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: () => _editValue(context, data),
+              child: const Icon(Icons.edit, size: 14, color: AppTheme.fhAccentGold),
+            )
+          ],
+        ),
+      );
     }
   }
 
-  Widget _buildMapNode(BuildContext context, Map map, String keyLabel) {
-    return ExpansionTile(
-      title: Text(keyLabel,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-      subtitle: Text("Map (${map.length} items)",
-          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-      childrenPadding: const EdgeInsets.only(left: 16),
-      collapsedIconColor: AppTheme.fhTextSecondary,
-      iconColor: AppTheme.fhAccentTeal,
-      children: [
-        ...map.entries.map((entry) {
-          return JsonEditorWidget(
-            label: entry.key.toString(),
-            data: entry.value,
-            onChanged: (newValue) {
-              final newMap = Map.from(map);
-              newMap[entry.key] = newValue;
-              onChanged(newMap);
-            },
-          );
-        }),
-        // Add capability could be here
-      ],
-    );
-  }
-
-  Widget _buildListNode(BuildContext context, List list, String keyLabel) {
-    return ExpansionTile(
-      title: Text(keyLabel,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-      subtitle: Text("List (${list.length} items)",
-          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-      childrenPadding: const EdgeInsets.only(left: 16),
-      collapsedIconColor: AppTheme.fhTextSecondary,
-      iconColor: AppTheme.fhAccentTeal,
-      children: [
-        ...list.asMap().entries.map((entry) {
-          return JsonEditorWidget(
-            label: "[${entry.key}]",
-            data: entry.value,
-            onChanged: (newValue) {
-              final newList = List.from(list);
-              newList[entry.key] = newValue;
-              onChanged(newList);
-            },
-          );
-        }),
-        // Add item capability could be here
-      ],
-    );
-  }
-
-  Widget _buildLeafNode(BuildContext context, dynamic value, String keyLabel) {
-    return ListTile(
-      title: Text(keyLabel,
-          style:
-              const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-      subtitle: Text(value?.toString() ?? "null",
-          style: const TextStyle(
-              color: AppTheme.fhTextPrimary,
-              fontFamily: 'RobotoMono',
-              fontSize: 14)),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit, size: 16, color: AppTheme.fhAccentGold),
-        onPressed: () => _editValue(context, value),
-      ),
-    );
-  }
-
   Future<void> _editValue(BuildContext context, dynamic currentValue) async {
-    final controller =
-        TextEditingController(text: currentValue?.toString() ?? "");
-    dynamic newValue;
-
+    final controller = TextEditingController(text: currentValue?.toString() ?? "");
+    
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.fhBgDark,
-        title: Text("Edit $label",
-            style: const TextStyle(color: AppTheme.fhTextPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: AppTheme.fhBgMedium,
-                border: OutlineInputBorder(),
-              ),
-              maxLines: null,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Original Type: ${currentValue.runtimeType}",
-              style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-            ),
-          ],
+        backgroundColor: AppTheme.fhBgMedium,
+        title: Text("EDIT VALUE", style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
+          decoration: const InputDecoration(
+            filled: true,
+            fillColor: Colors.black,
+            border: OutlineInputBorder(),
+          ),
+          maxLines: null,
         ),
         actions: [
           TextButton(
-            child: const Text("Cancel"),
+            child: const Text("CANCEL"),
             onPressed: () => Navigator.pop(context),
           ),
-          TextButton(
-            child: const Text("Save",
-                style: TextStyle(color: AppTheme.fhAccentTeal)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
             onPressed: () {
-              final text = controller.text;
-              if (currentValue is int) {
-                newValue = int.tryParse(text) ?? currentValue;
-              } else if (currentValue is double) {
-                newValue = double.tryParse(text) ?? currentValue;
-              } else if (currentValue is bool) {
-                newValue = text.toLowerCase() == 'true';
-              } else {
-                newValue = text;
-              }
+              // Simple type preservation logic
+              dynamic newValue = controller.text;
+              if (currentValue is int) newValue = int.tryParse(controller.text) ?? currentValue;
+              if (currentValue is double) newValue = double.tryParse(controller.text) ?? currentValue;
+              if (currentValue is bool) newValue = controller.text.toLowerCase() == 'true';
+              
               Navigator.pop(context);
               onChanged(newValue);
             },
+            child: const Text("COMMIT"),
           ),
         ],
       ),
