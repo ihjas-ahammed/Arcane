@@ -34,15 +34,9 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Custom API Key + First Model (or rotate models for custom key? Usually custom key is one user, one account)
-    // Let's iterate models for custom key too, just in case a model is deprecated/unavailable for that key.
-
-    // 2. Fallback to built-in keys
+    // 1. Prioritize Custom API Key
     final apiKeysToTry = (customApiKey != null && customApiKey.isNotEmpty)
-        ? [
-            customApiKey
-          ] // Try custom key only if provided. If it fails, do we fall back to builtin? Usually yes if we want robustness, but maybe no if user specified custom.
-        // Let's stick to: Custom Key -> If provided, ONLY use Custom Key.
+        ? [customApiKey]
         : geminiApiKeys;
 
     if (apiKeysToTry.isEmpty) {
@@ -51,13 +45,6 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        // If using built-in keys, rotate. If custom, just index 0.
-        // For strict rotation updates, we only update if we succeed.
-
-        // Optimization: If custom key, we don't really have an index to update in provider.
-        // If built-in, we ideally want to start from `currentApiKeyIndex` but for simplicity in dual-loop, we just iterate all.
-        // Re-implementing start-from-offset logic:
-
         String effectiveKey = apiKeysToTry[i];
         int effectiveIndex = i;
 
@@ -68,19 +55,20 @@ class AIService {
         }
 
         try {
-          if (kDebugMode)
+          if (kDebugMode) {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
           final result = await requestFn(effectiveKey, model);
           if (customApiKey == null) onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-          // Continue to next key, then next model
         }
 
-        if (customApiKey != null)
-          break; // If custom key fails, don't try other keys (there aren't any), move to next model? Yes.
+        if (customApiKey != null) {
+          break; // If custom key fails, move to next model
+        }
       }
     }
     throw Exception(
@@ -121,18 +109,114 @@ class AIService {
     );
   }
 
+  // --- Value Analysis ---
+  Future<int> analyzeValueAlignment({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    You are a life coach analyzing a user's alignment with their personal value: "$valueName".
+    
+    Here are their answers to reflective questions:
+    ${buffer.toString()}
+    
+    Task: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
+    - 0 means they have no clear idea or haven't answered.
+    - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
+    
+    Output strictly JSON:
+    {
+      "score": int
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return result['score'] as int? ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    Based on the user's definition of the value "$valueName", suggest 3-5 actionable tasks or 'sub-missions' they can do to embody this value.
+    
+    User's Answers:
+    ${buffer.toString()}
+    
+    Output strictly JSON with this structure:
+    {
+      "tasks": [
+        {
+          "name": "string (short actionable title)",
+          "isCountable": boolean (true if it's something like 'Read 10 pages', false if it's 'Call Mom'),
+          "targetCount": number (0 if not countable, otherwise e.g. 10)
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['tasks'] as List?)
+            ?.map((t) => t as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  // --- Existing Methods ---
+
   Future<Map<String, dynamic>> evaluateReflection({
     required String trigger,
     required String emotion,
     required String reason,
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     List<Map<String, String>>? dailyReflections,
     String? customApiKey,
     String? systemInstruction,
   }) async {
     final String baseSystemPrompt = systemInstruction ??
         """
-    You are a wise stoic mentor. A user has submitted a reflection log.
+    You are a wise mentor. A user has submitted a reflection log.
     Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
     Determine a total XP score between 20 and 100 based on the depth, honesty, and effort of the reflection. 
     Distribute this total XP amount among these 6 virtues: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
@@ -170,22 +254,20 @@ class AIService {
         "Transcendence": int
       }
     }
-    Ensure the sum of xp_allocation values equals the total XP you determined (20-100).
     """;
 
-    // We propagate errors here to allow the UI to show a 'Retry' button
     return await makeAICall(
       prompt: prompt,
-      modelCandidates: modelCandidates, // Changed
+      modelCandidates: modelCandidates,
       customApiKey: customApiKey,
-      currentApiKeyIndex: 0, // This will be managed by the calling context
-      onNewApiKeyIndex: (_) {}, // This will be managed by the calling context
-      onLog: (_) {}, // This will be managed by the calling context
+      currentApiKeyIndex: 0,
+      onNewApiKeyIndex: (_) {},
+      onLog: (_) {},
     );
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required String mainTaskName,
     required String mainTaskDescription,
     String? mainTaskTheme,
@@ -229,9 +311,8 @@ Return ONLY the JSON object.
         [];
   }
 
-  // --- Projects Generation ---
   Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required String userPrompt,
     required int currentApiKeyIndex,
     String? customApiKey,
@@ -258,12 +339,11 @@ Return ONLY the JSON object.
         }
       ]
     }
-    Go at least 2 levels deep if the topic implies complexity.
     """;
 
     return await makeAICall(
       prompt: prompt,
-      modelCandidates: modelCandidates, // Changed
+      modelCandidates: modelCandidates,
       customApiKey: customApiKey,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
@@ -291,15 +371,14 @@ Return ONLY the JSON object.
     }
 
     final prompt = """
-    You are a wise Stoic mentor.
+    You are a wise mentor.
     
     Here are the user's reflection logs for today:
     $reflectionsText
     
     Based on these entries, provide a concise, insightful daily summary (max 100 words).
-    Highlight the key emotional themes, acknowledge any progress in stoic virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence), and offer one clear, actionable thought for tomorrow.
-    
-    Tone: Empathetic, encouraging, profound but grounded.
+    Highlight the key emotional themes, acknowledge any progress in stoic virtues, and offer one clear, actionable thought for tomorrow.
+    Note: Never use markdown and any type of formatting
     """;
 
     return await _executeWithModelAndKeyRotation(
@@ -317,7 +396,7 @@ Return ONLY the JSON object.
   }
 
   Future<String> getChatbotResponse({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required ChatbotMemory memory,
     required String userMessage,
     required String dataContext,
@@ -327,7 +406,6 @@ Return ONLY the JSON object.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // Construct context from memory (last 10 messages)
     String historyStr = "";
     final recentHistory = memory.conversationHistory.length > 10
         ? memory.conversationHistory
@@ -341,21 +419,19 @@ Return ONLY the JSON object.
     final String baseSystemPrompt = systemInstruction ??
         """
     You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app called Arcane.
-    You have access to the user's data context below. Use it to answer questions about their progress, tasks, and reflections.
+    You have access to the user's data context below.
     """;
 
     final prompt = """
     $baseSystemPrompt
     
-    USER DATA CONTEXT (LAST 7 DAYS & CURRENT STATUS):
+    USER DATA CONTEXT:
     $dataContext
     
     CONVERSATION HISTORY:
     $historyStr
     
     CURRENT USER MESSAGE: "$userMessage"
-    
-    Respond helpfully and concisely based on the provided data context if relevant.
     """;
 
     return await _executeWithModelAndKeyRotation(

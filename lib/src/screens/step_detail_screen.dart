@@ -81,7 +81,8 @@ class StepDetailScreen extends StatelessWidget {
                   ),
                 );
 
-                if (result != null && context.mounted) {
+                if (!context.mounted) return;
+                if (result != null) {
                   final String name = result['name'];
                   final String type = result['type'];
 
@@ -119,6 +120,7 @@ class StepDetailScreen extends StatelessWidget {
                   isEditing: true,
                 ),
               );
+              if (!context.mounted) return;
               if (result != null) {
                 final updated = currentStep
                   ..title = result['title']!
@@ -242,6 +244,7 @@ class StepDetailScreen extends StatelessWidget {
                       context: context,
                       builder: (ctx) => const AddEditStepDialog(),
                     );
+                    if (!context.mounted) return;
                     if (result != null) {
                       provider.projectActions.addSubstep(mainTaskId, projectId,
                           currentStep.id, result['title']!, result['desc']!);
@@ -282,20 +285,35 @@ class StepDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ListView.builder(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
+                      currentStep.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
                   // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
 
-                  return ProjectStepListTile(
-                    step: substep,
-                    mainTaskId: mainTaskId,
-                    projectId: projectId,
-                    indexPrefix: displayPrefix,
+                  return KeyedSubtree(
+                    key: ValueKey(substep.id),
+                    child: ProjectStepListTile(
+                      step: substep,
+                      mainTaskId: mainTaskId,
+                      projectId: projectId,
+                      indexPrefix: displayPrefix,
+                    ),
                   );
                 },
               ),

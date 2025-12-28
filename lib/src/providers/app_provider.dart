@@ -1,3 +1,4 @@
+// [EXISTING IMPORTS]
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
@@ -13,6 +14,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/value_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -21,10 +23,16 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
+  // ... [KEEP ALL EXISTING VARIABLES AND GETTERS] ...
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
+
   Timer? _periodicUiTimer;
   Timer? _autoSaveTimer;
+
+  // Global Loading State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
 
   User? _currentUser;
   User? get currentUser => _currentUser;
@@ -40,11 +48,13 @@ class AppProvider with ChangeNotifier {
       initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
   Map<String, dynamic> _completedByDay = {};
 
-  // Skills and Reflections
   List<Skill> _skills = [];
   List<Skill> get skills => _skills;
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+
+  List<LifeValue> _lifeValues = [];
+  List<LifeValue> get lifeValues => _lifeValues;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
@@ -85,12 +95,14 @@ class AppProvider with ChangeNotifier {
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
 
+  // ... [KEEP CONSTRUCTOR AND INIT] ...
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _initializeSkills();
+    _initializeValues();
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -99,6 +111,14 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  // ... [KEEP ALL EXISTING METHODS UNTIL saveDailySummary] ...
+  void setLoadingTask(String? taskName) {
+    if (_loadingTaskName != taskName) {
+      _loadingTaskName = taskName;
+      notifyListeners();
+    }
   }
 
   void _initializeSkills() {
@@ -132,6 +152,12 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  void _initializeValues() {
+    if (_lifeValues.isEmpty) {
+      _lifeValues = LifeValue.getDefaults();
+    }
+  }
+
   @override
   void dispose() {
     _periodicUiTimer?.cancel();
@@ -142,14 +168,12 @@ class AppProvider with ChangeNotifier {
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
-    // Check autoSaveEnabled settings before saving
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (_hasUnsavedChanges &&
           _currentUser != null &&
           !_isManuallySaving &&
           !_isManuallyLoading &&
           _settings.autoSaveEnabled) {
-        // Respect user setting
         _performActualSave();
       }
     });
@@ -205,6 +229,7 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ... [KEEP SAVE/LOAD STATE LOGIC] ...
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -220,7 +245,16 @@ class AppProvider with ChangeNotifier {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
     };
+  }
+
+  Map<String, dynamic> getAppStateAsMap() => _appStateToMap();
+
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    _loadStateFromMap(data);
+    _hasUnsavedChanges = true;
+    notifyListeners();
   }
 
   void _loadStateFromMap(Map<String, dynamic> data) {
@@ -239,6 +273,7 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
+        // Ensure aiSummary key exists if present in data, otherwise it's null/absent
       }
     });
 
@@ -282,9 +317,91 @@ class AppProvider with ChangeNotifier {
           .toList();
     }
 
+    if (data['lifeValues'] != null && data['lifeValues'] is List) {
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
+    } else {
+      _initializeValues();
+    }
+    if (_lifeValues.length < 10) {
+      final defaults = LifeValue.getDefaults();
+      for (var def in defaults) {
+        if (!_lifeValues.any((v) => v.id == def.id)) {
+          _lifeValues.add(def);
+        }
+      }
+    }
+
     _isChatbotMemoryInitialized = true;
+
+    if (_settings.dataVersion < 1) {
+      _migrateDataToSeconds();
+      _settings.dataVersion = 1;
+      _hasUnsavedChanges = true;
+    }
+    notifyListeners();
   }
 
+  void _migrateDataToSeconds() {
+    List<MainTask> migratedTasks = [];
+    for (var task in _mainTasks) {
+      int newTaskTotalTime = 0;
+      List<SubTask> migratedSubtasks = [];
+      for (var sub in task.subTasks) {
+        int newSubTime = 0;
+        if (sub.sessions.isNotEmpty) {
+          for (var s in sub.sessions) {
+            newSubTime += s.durationSeconds;
+          }
+        } else {
+          if (sub.currentTimeSpent > 0) {
+            newSubTime = sub.currentTimeSpent * 60;
+          }
+        }
+        migratedSubtasks.add(SubTask(
+          id: sub.id,
+          name: sub.name,
+          completed: sub.completed,
+          currentTimeSpent: newSubTime,
+          completedDate: sub.completedDate,
+          isCountable: sub.isCountable,
+          targetCount: sub.targetCount,
+          currentCount: sub.currentCount,
+          subSubTasks: sub.subSubTasks,
+          sessions: sub.sessions,
+        ));
+        newTaskTotalTime += newSubTime;
+      }
+      migratedTasks.add(task.copyWith(
+          subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
+    }
+    _mainTasks = migratedTasks;
+
+    Map<String, dynamic> migratedHistory = {};
+    _completedByDay.forEach((dateKey, dayData) {
+      if (dayData is Map<String, dynamic>) {
+        final newDayData = Map<String, dynamic>.from(dayData);
+        if (newDayData['taskTimes'] != null) {
+          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
+          final Map<String, int> newTimes = {};
+          oldTimes.forEach((taskId, timeVal) {
+            if (timeVal is num) {
+              newTimes[taskId] = (timeVal * 60).toInt();
+            }
+          });
+          newDayData['taskTimes'] = newTimes;
+        }
+        migratedHistory[dateKey] = newDayData;
+      } else {
+        migratedHistory[dateKey] = dayData;
+      }
+    });
+    _completedByDay = migratedHistory;
+  }
+
+  // ... [KEEP ALL OTHER METHODS: reset, save, load, login, signup, etc.] ...
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -299,17 +416,25 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = ChatbotMemory();
     _isChatbotMemoryInitialized = true;
     _initializeSkills();
+    _initializeValues();
     _reflectionLogs = [];
     _hasUnsavedChanges = true;
   }
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      final success = await _storageService.setUserData(
-          _currentUser!.uid, _appStateToMap());
-      if (success) {
-        _lastSuccessfulSaveTimestamp = DateTime.now();
-        _hasUnsavedChanges = false;
+      bool isAutoSave = !_isManuallySaving;
+      if (!isAutoSave) setLoadingTask("Syncing Database...");
+
+      try {
+        final success = await _storageService.setUserData(
+            _currentUser!.uid, _appStateToMap());
+        if (success) {
+          _lastSuccessfulSaveTimestamp = DateTime.now();
+          _hasUnsavedChanges = false;
+        }
+      } finally {
+        if (!isAutoSave) setLoadingTask(null);
         notifyListeners();
       }
     }
@@ -403,8 +528,9 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null)
+    if (_currentUser == null) {
       throw Exception("No user is currently signed in.");
+    }
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
     notifyListeners();
@@ -532,6 +658,106 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // --- NEW: Daily Summary Management ---
+  
+  void saveDailySummary(String date, String summary) {
+    if (!_completedByDay.containsKey(date)) {
+      _completedByDay[date] = {};
+    }
+    if (_completedByDay[date] is! Map) {
+       _completedByDay[date] = <String, dynamic>{};
+    }
+    _completedByDay[date]['aiSummary'] = summary;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  void deleteDailySummary(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      _completedByDay[date].remove('aiSummary');
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  String? getDailySummary(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      return _completedByDay[date]['aiSummary'] as String?;
+    }
+    return null;
+  }
+
+  // ... [KEEP REST OF METHODS] ...
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex = _lifeValues[valueIndex]
+          .questions
+          .indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+
+    setLoadingTask("Analyzing Value...");
+    try {
+      final score = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+
+      value.score = score;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error analyzing value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(
+      String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+
+    setLoadingTask("Generating Actions...");
+    try {
+      final tasks = await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      return tasks;
+    } catch (e) {
+      debugPrint("Error generating tasks from value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -583,12 +809,13 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory.conversationHistory.add(userMessage);
 
     notifyListeners();
+    setLoadingTask("Consulting Advisor...");
 
     try {
       final dataContext = _buildUserDataContext();
 
       final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels, // Chatbot uses Lite
+        modelCandidates: settings.liteModels,
         memory: _chatbotMemory,
         userMessage: userMessageText,
         dataContext: dataContext,
@@ -610,8 +837,10 @@ class AppProvider with ChangeNotifier {
               "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
+    } finally {
+      setLoadingTask(null);
+      setProviderState(chatbotMemory: _chatbotMemory);
     }
-    setProviderState(chatbotMemory: _chatbotMemory);
   }
 
   int getXpGainedForSkillToday(String skillName) {
@@ -625,7 +854,6 @@ class AppProvider with ChangeNotifier {
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
-  // Returns total XP gained for a skill in the last 7 days to show momentum
   int get7DaySkillMomentum(String skillName) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
@@ -658,15 +886,19 @@ class AppProvider with ChangeNotifier {
             })
         .toList();
 
+    setLoadingTask("Analyzing Reflection...");
+
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
       emotion: emotion,
       reason: reason,
-      modelCandidates: settings.liteModels, // Reflection uses Lite (Insights)
+      modelCandidates: settings.liteModels,
       dailyReflections: dailyReflections,
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
     );
+
+    setLoadingTask(null);
 
     Map<String, int> xpAllocation = {};
     if (result['xp_allocation'] is Map) {
@@ -836,6 +1068,20 @@ class AppProvider with ChangeNotifier {
   void updateSubtask(
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
+      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+
   bool completeSubtask(String mainTaskId, String subtaskId) =>
       _taskActions.completeSubtask(mainTaskId, subtaskId);
   void deleteSubtask(String mainTaskId, String subtaskId) =>

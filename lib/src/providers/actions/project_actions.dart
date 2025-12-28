@@ -151,6 +151,45 @@ class ProjectActions {
     return false;
   }
 
+  // New: Reorder Root Steps
+  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
+        final ProjectStep item = project.steps.removeAt(oldIndex);
+        project.steps.insert(newIndex, item);
+      }
+    });
+  }
+
+  // New: Reorder Sub-steps (needs recursion to find the parent list)
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      _reorderSubStepRecursive(project.steps, parentStepId, oldIndex, newIndex);
+    });
+  }
+
+  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
+          final ProjectStep item = s.substeps.removeAt(oldIndex);
+          s.substeps.insert(newIndex, item);
+          return true;
+        }
+      }
+      if (_reorderSubStepRecursive(s.substeps, parentId, oldIndex, newIndex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _performStepAction(
       String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
@@ -182,6 +221,7 @@ class ProjectActions {
   Future<void> generateProjectStructure(
       String mainTaskId, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
         modelCandidates: _provider.settings.heavyModels, // Heavy for projects
@@ -201,6 +241,7 @@ class ProjectActions {
       debugPrint("Error generating project: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
     }
   }
 }

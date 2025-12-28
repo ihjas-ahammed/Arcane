@@ -74,7 +74,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                   onChanged: (val) => setState(() => _type = val!),
                   activeColor: AppTheme.fhAccentTeal,
                 ),
-                const Text("Sub-Mission",
+                const Text("Task",
                     style: TextStyle(color: AppTheme.fhTextPrimary)),
                 if (canBeCheckpoint) ...[
                   const SizedBox(width: 16),
@@ -84,7 +84,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                     onChanged: (val) => setState(() => _type = val!),
                     activeColor: AppTheme.fhAccentTeal,
                   ),
-                  const Text("Checkpoint",
+                  const Text("Step",
                       style: TextStyle(color: AppTheme.fhTextPrimary)),
                 ],
               ],

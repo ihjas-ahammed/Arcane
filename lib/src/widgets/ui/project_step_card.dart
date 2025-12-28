@@ -37,7 +37,9 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
         color: AppTheme.fhBgMedium.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: widget.step.isCompleted ? AppTheme.fhAccentGreen.withOpacity(0.5) : AppTheme.fhBorderColor.withOpacity(0.3)
+          color: widget.step.isCompleted
+              ? AppTheme.fhAccentGreen.withValues(alpha: 0.5)
+              : AppTheme.fhBorderColor.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -46,37 +48,53 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             leading: IconButton(
               icon: Icon(
-                widget.step.isCompleted ? MdiIcons.checkboxMarkedCircleOutline : MdiIcons.checkboxBlankCircleOutline,
-                color: widget.step.isCompleted ? AppTheme.fhAccentGreen : AppTheme.fhTextSecondary,
+                widget.step.isCompleted
+                    ? MdiIcons.checkboxMarkedCircleOutline
+                    : MdiIcons.checkboxBlankCircleOutline,
+                color: widget.step.isCompleted
+                    ? AppTheme.fhAccentGreen
+                    : AppTheme.fhTextSecondary,
               ),
               onPressed: () {
                 // Toggle completion manually
-                final updatedStep = widget.step..isCompleted = !widget.step.isCompleted;
-                provider.projectActions.updateStep(widget.mainTaskId, widget.projectId, updatedStep);
+                final updatedStep = widget.step
+                  ..isCompleted = !widget.step.isCompleted;
+                provider.projectActions.updateStep(
+                    widget.mainTaskId, widget.projectId, updatedStep);
               },
             ),
             title: Text(
               widget.step.title,
               style: TextStyle(
-                decoration: widget.step.isCompleted ? TextDecoration.lineThrough : null,
-                color: widget.step.isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
+                decoration:
+                    widget.step.isCompleted ? TextDecoration.lineThrough : null,
+                color: widget.step.isCompleted
+                    ? AppTheme.fhTextSecondary
+                    : AppTheme.fhTextPrimary,
               ),
             ),
-            subtitle: progress > 0 && progress < 1.0 
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: LinearProgressIndicator(value: progress, minHeight: 4, color: AppTheme.fhAccentTeal, backgroundColor: AppTheme.fhBgDeepDark),
-                )
-              : null,
+            subtitle: progress > 0 && progress < 1.0
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        color: AppTheme.fhAccentTeal,
+                        backgroundColor: AppTheme.fhBgDeepDark),
+                  )
+                : null,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                 IconButton(
-                  icon: Icon(MdiIcons.targetVariant, size: 18, color: AppTheme.fhAccentPurple),
+                IconButton(
+                  icon: Icon(MdiIcons.targetVariant,
+                      size: 18, color: AppTheme.fhAccentPurple),
                   tooltip: "Promote to Mission Submission",
                   onPressed: () {
-                     provider.projectActions.promoteStepToSubmission(widget.mainTaskId, widget.step);
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Added as Submission to Mission")));
+                    provider.projectActions.promoteStepToSubmission(
+                        widget.mainTaskId, widget.step);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("Added as Submission to Mission")));
                   },
                 ),
                 IconButton(
@@ -85,12 +103,16 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
                   onPressed: () => _showAddSubstepDialog(context, provider),
                 ),
                 IconButton(
-                  icon: Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhAccentRed),
-                  onPressed: () => provider.projectActions.deleteStep(widget.mainTaskId, widget.projectId, widget.step.id),
+                  icon: Icon(MdiIcons.deleteOutline,
+                      size: 18, color: AppTheme.fhAccentRed),
+                  onPressed: () => provider.projectActions.deleteStep(
+                      widget.mainTaskId, widget.projectId, widget.step.id),
                 ),
                 if (widget.step.substeps.isNotEmpty)
                   IconButton(
-                    icon: Icon(_isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown),
+                    icon: Icon(_isExpanded
+                        ? MdiIcons.chevronUp
+                        : MdiIcons.chevronDown),
                     onPressed: () => setState(() => _isExpanded = !_isExpanded),
                   ),
               ],
@@ -103,7 +125,8 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
                   step: substep,
                   mainTaskId: widget.mainTaskId,
                   projectId: widget.projectId,
-                  depth: 1, // Indent relative to parent container, logical depth handled by widget recursive placement
+                  depth:
+                      1, // Indent relative to parent container, logical depth handled by widget recursive placement
                 );
               }).toList(),
             ),
@@ -114,24 +137,35 @@ class _ProjectStepCardState extends State<ProjectStepCard> {
 
   void _showAddSubstepDialog(BuildContext context, AppProvider provider) {
     final controller = TextEditingController();
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        title: const Text("Add Substep"),
-        content: TextField(controller: controller, decoration: const InputDecoration(labelText: "Substep Title")),
-        actions: [
-          TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                provider.projectActions.addSubstep(widget.mainTaskId, widget.projectId, widget.step.id, controller.text, widget.step.description);
-                Navigator.pop(context);
-                setState(() => _isExpanded = true);
-              }
-            },
-            child: const Text("Add"),
-          )
-        ],
-      );
-    });
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Add Substep"),
+            content: TextField(
+                controller: controller,
+                decoration: const InputDecoration(labelText: "Substep Title")),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel")),
+              ElevatedButton(
+                onPressed: () {
+                  if (controller.text.isNotEmpty) {
+                    provider.projectActions.addSubstep(
+                        widget.mainTaskId,
+                        widget.projectId,
+                        widget.step.id,
+                        controller.text,
+                        widget.step.description);
+                    Navigator.pop(context);
+                    setState(() => _isExpanded = true);
+                  }
+                },
+                child: const Text("Add"),
+              )
+            ],
+          );
+        });
   }
 }

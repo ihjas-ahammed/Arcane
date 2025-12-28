@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class EditSubtaskDialog extends StatefulWidget {
   final String initialName;
@@ -28,21 +29,18 @@ class _EditSubtaskDialogState extends State<EditSubtaskDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: const Text("Edit Sub-Mission",
-          style: TextStyle(color: AppTheme.fhTextPrimary)),
+      title: const Text("EDIT OBJECTIVE"),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _controller,
-              autofocus: false, // Prevents keyboard layout issues on some mobile devices
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18),
               decoration: const InputDecoration(
-                labelText: "Mission Name",
-                border: OutlineInputBorder(),
+                labelText: "MISSION NAME",
+                filled: true,
+                border: UnderlineInputBorder(),
               ),
               onSubmitted: (_) => _submit(),
             ),
@@ -52,15 +50,11 @@ class _EditSubtaskDialogState extends State<EditSubtaskDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, null),
-          child: const Text("Cancel"),
+          child: const Text("CANCEL"),
         ),
-        ElevatedButton(
+        ValorantButton(
+          label: "UPDATE",
           onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.fhAccentTeal,
-            foregroundColor: AppTheme.fhBgDeepDark,
-          ),
-          child: const Text("Save"),
         ),
       ],
     );
@@ -69,7 +63,6 @@ class _EditSubtaskDialogState extends State<EditSubtaskDialog> {
   void _submit() {
     if (_controller.text.trim().isNotEmpty) {
       Navigator.pop(context, _controller.text.trim());
-      
     }
   }
 }

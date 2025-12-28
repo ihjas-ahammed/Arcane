@@ -3,7 +3,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:collection/collection.dart';
 
 class ActivityLogList extends StatelessWidget {
   final Map<String, dynamic> taskTimes;
@@ -41,23 +40,6 @@ class ActivityLogList extends StatelessWidget {
 
     return Column(
       children: [
-        if (subtasksCompleted.isNotEmpty)
-          _buildExpandableSection(
-            context,
-            title: "Completed Missions",
-            icon: MdiIcons.checkCircleOutline,
-            count: subtasksCompleted.length,
-            children: subtasksCompleted.map((st) {
-              final map = st as Map<String, dynamic>;
-              return _buildActivityCard(
-                icon: MdiIcons.target,
-                title: map['name'] ?? 'Unknown Subtask',
-                subtitle:
-                    "Logged: ${map['timeLogged']}m | Count: ${map['currentCount']}/${map['targetCount']}",
-                color: AppTheme.fhAccentGreen,
-              );
-            }).toList(),
-          ),
         if (checkpointsCompleted.isNotEmpty)
           _buildExpandableSection(
             context,
@@ -93,7 +75,8 @@ class ActivityLogList extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+          side:
+              BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Icon(icon, color: AppTheme.fhTextSecondary),
@@ -126,16 +109,17 @@ class ActivityLogList extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8.0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withOpacity(0.3),
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.1)),
+        border:
+            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: isSmall ? 14 : 18),
@@ -151,6 +135,15 @@ class ActivityLogList extends StatelessWidget {
                     color: AppTheme.fhTextPrimary,
                     fontSize: isSmall ? 13 : 14,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  "OVERALL PROGRESS",
+                  style: TextStyle(
+                    color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
                   ),
                 ),
                 Text(

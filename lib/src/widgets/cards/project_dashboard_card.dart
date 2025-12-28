@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ProjectDashboardCard extends StatelessWidget {
@@ -19,27 +20,16 @@ class ProjectDashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Force recalc to update UI
     final progress = project.calculateProgress();
     final totalSteps = project.steps.length;
     final completedSteps = project.completedStepsCount;
+    final int progressPercentage = (progress * 100).toInt();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark, // Dark card background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ]
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+    // Use ValorantCard for styling
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: ValorantCard(
+        borderColor: accentColor.withValues(alpha: 0.3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -48,57 +38,81 @@ class ProjectDashboardCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    project.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
+                    project.title.toUpperCase(),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontFamily: AppTheme.fontDisplay,
+                        letterSpacing: 1.0,
+                        color: AppTheme.fhTextPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  color: accentColor.withValues(alpha: 0.2),
+                  child: Text(
+                    "$progressPercentage%",
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay
+                    ),
+                  ),
+                )
               ],
             ),
+            const SizedBox(height: 4),
+            Text(
+              mainTaskName.toUpperCase(),
+              style: TextStyle(
+                color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
+                fontSize: 10,
+                letterSpacing: 1.0,
+                fontWeight: FontWeight.bold
+              ),
+            ),
             const SizedBox(height: 12),
+
+            // Custom Linear Progress Bar (Sharp)
+            Container(
+              height: 4,
+              width: double.infinity,
+              color: AppTheme.fhBgDeepDark,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: progress,
+                child: Container(color: accentColor),
+              ),
+            ),
             
-            // Progress Row
+            const SizedBox(height: 8),
+            
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Circular Progress
-                SizedBox(
-                  width: 40, 
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: accentColor,
-                    strokeWidth: 4,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "$completedSteps/$totalSteps Steps Completed",
-                        style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      if (project.description.isNotEmpty)
-                        Text(
-                          project.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                        )
-                      else 
-                          Text(
-                          "Linked to: $mainTaskName",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
-                        ),
-                    ],
-                  ),
+                if (project.description.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      project.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: AppTheme.fhTextSecondary, fontSize: 11),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                  
+                Text(
+                  "$completedSteps / $totalSteps OBJECTIVES",
+                  style: TextStyle(
+                      color: AppTheme.fhTextSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5),
                 ),
               ],
             )

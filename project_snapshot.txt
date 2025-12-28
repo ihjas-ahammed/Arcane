@@ -1,840 +1,1409 @@
---- START OF FILE lib/src/screens/home_screen.dart ---
+--- START OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class ValorantFormField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData? prefixIcon;
+  final Widget? suffixIcon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final void Function(String?)? onSaved;
+
+  const ValorantFormField({
+    super.key,
+    required this.controller,
+    required this.label,
+    this.prefixIcon,
+    this.suffixIcon,
+    this.obscureText = false,
+    this.keyboardType,
+    this.validator,
+    this.onSaved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: AppTheme.fhTextSecondary,
+            fontFamily: AppTheme.fontDisplay,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          validator: validator,
+          onSaved: onSaved,
+          style: const TextStyle(
+            color: AppTheme.fhTextPrimary,
+            fontFamily: AppTheme.fontBody,
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            contentPadding: const EdgeInsets.all(16),
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.fhTextSecondary) : null,
+            suffixIcon: suffixIcon,
+            border: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhBorderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhAccentRed, width: 1.0),
+            ),
+            errorBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhAccentRed),
+            ),
+            errorStyle: const TextStyle(
+              color: AppTheme.fhAccentRed,
+              fontFamily: AppTheme.fontBody,
+              fontSize: 11
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
+
+--- START OF FILE lib/src/screens/login_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; 
-import 'package:arcane/src/widgets/header_widget.dart';
-import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/skills_drawer.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/valorant/valorant_form_field.dart';
 import 'package:provider/provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  late AppProvider _appProvider;
-  bool _isUsernameDialogShowing = false;
-  int _selectedIndex = 0;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  static const List<String> _viewTitles = <String>[
-    'MISSIONS',
-    'LOGBOOK',
-    'ADVISOR', 
-    'PROJECTS',
-    'MORE', // New Title
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _appProvider = Provider.of<AppProvider>(context, listen: false);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_appProvider.selectedTaskId == null &&
-          _appProvider.mainTasks.isNotEmpty) {
-        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
-      }
-      _checkAndPromptForUsername(_appProvider);
-    });
-    _appProvider.addListener(_handleProviderForUsernamePrompt);
-  }
-
-  void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(Provider.of<AppProvider>(context, listen: false));
-  }
-
-  void _checkAndPromptForUsername(AppProvider appProvider) {
-    if (mounted &&
-        appProvider.isUsernameMissing &&
-        appProvider.currentUser != null &&
-        !_isUsernameDialogShowing &&
-        !appProvider.authLoading &&
-        !appProvider.isDataLoadingAfterLogin) {
-      setState(() => _isUsernameDialogShowing = true);
-      _showUsernameDialog(context, appProvider).then((_) {
-        if (mounted) setState(() => _isUsernameDialogShowing = false);
-      });
-    }
-  }
-
-  Future<void> _showUsernameDialog(
-      BuildContext context, AppProvider appProvider) async {
-    final TextEditingController usernameController = TextEditingController();
-    final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    final Color currentAccentColor =
-        appProvider.getSelectedTask()?.taskColor ??
-            Theme.of(context).colorScheme.secondary;
-
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Set Your Callsign',
-              style: TextStyle(color: currentAccentColor)),
-          content: Form(
-            key: dialogFormKey,
-            child: TextFormField(
-              controller: usernameController,
-              decoration:
-                  const InputDecoration(hintText: "Enter callsign (username)"),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Callsign cannot be empty.';
-                }
-                if (value.trim().length < 3) {
-                  return 'Must be at least 3 characters.';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: <Widget>[
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: currentAccentColor),
-              child: Text('CONFIRM CALLSIGN',
-                  style: TextStyle(
-                      color: ThemeData.estimateBrightnessForColor(
-                                  currentAccentColor) ==
-                              Brightness.dark
-                          ? AppTheme.fhTextPrimary
-                          : AppTheme.fhBgDeepDark)),
-              onPressed: () async {
-                if (dialogFormKey.currentState!.validate()) {
-                  String newUsername = usernameController.text.trim();
-                  Navigator.of(dialogContext).pop();
-                  await appProvider.updateUserDisplayName(newUsername);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Callsign updated!'),
-                          backgroundColor: AppTheme.fhAccentGreen),
-                    );
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  String _email = '';
+  String _password = '';
+  String _username = '';
+  bool _isLogin = true;
+  bool _isLoading = false;
+  String _error = '';
+  bool _obscurePassword = true;
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _appProvider.removeListener(_handleProviderForUsernamePrompt);
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isLargeScreen = screenWidth > 900;
-
-    final appProvider = context.watch<AppProvider>();
-    final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
-    final ThemeData dynamicTheme =
-        AppTheme.getThemeData(primaryAccent: currentTaskColor);
-
-    // Tabs Content
-    final List<Widget> widgetOptions = <Widget>[
-      Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const TaskDetailsView(),
-        ),
-      ),
-      const LogbookScreen(),
-      const ChatbotScreen(),
-      Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
-        ),
-      ),
-      const MoreScreen(), // New Tab
-    ];
-
-    return Theme(
-      data: dynamicTheme,
-      child: Scaffold(
-        key: _scaffoldKey,
-        appBar: HeaderWidget(
-          currentViewLabel: _viewTitles[_selectedIndex],
-          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
-        ),
-        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(),
-        body: SafeArea(
-          child: Row(
-            children: [
-              if (isLargeScreen)
-                Container(
-                  width: 280,
-                  decoration: BoxDecoration(
-                    color: dynamicTheme.cardTheme.color,
-                    border: Border(
-                        right: BorderSide(
-                            color: dynamicTheme.dividerTheme.color ??
-                                AppTheme.fhBorderColor,
-                            width: 1)),
-                  ),
-                  child: const TaskNavigationDrawer(),
-                ),
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: widgetOptions,
-                ),
-              ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.targetAccount),
-              label: 'Missions',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.bookOpenVariant),
-              label: 'Logbook',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.robotHappyOutline),
-              label: 'Advisor',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.rocketLaunchOutline),
-              label: 'Projects',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.dotsHorizontal),
-              label: 'More',
-            ),
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/home_screen.dart ---
-
---- START OF FILE lib/src/screens/more_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/screens/bus_schedule_screen.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      color: AppTheme.fhBgDeepDark,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text("UTILITIES", style: theme.textTheme.labelMedium?.copyWith(color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
-          const SizedBox(height: 12),
-          
-          _buildMenuTile(
-            context,
-            icon: MdiIcons.busClock,
-            title: "Bus Time",
-            subtitle: "Schedule: S.S College - Areekode - Edavannappara",
-            onTap: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const BusScheduleScreen())
-              );
-            }
-          ),
-          
-          // Future items can be added here
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuTile(BuildContext context, {
-    required IconData icon, 
-    required String title, 
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      color: AppTheme.fhBgDark,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgMedium,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: AppTheme.fhAccentTeal),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-        subtitle: Text(subtitle, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-        trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
-        onTap: onTap,
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/more_screen.dart ---
-
---- START OF FILE lib/src/screens/bus_schedule_screen.dart ---
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/widgets/bus/bus_next_card.dart';
-import 'package:intl/intl.dart';
-
-class BusScheduleScreen extends StatefulWidget {
-  const BusScheduleScreen({super.key});
-
-  @override
-  State<BusScheduleScreen> createState() => _BusScheduleScreenState();
-}
-
-class _BusScheduleScreenState extends State<BusScheduleScreen> {
-  String _origin = "S.S College";
-  String _destination = "EDAVANNAPPARA";
-  late Timer _timer;
-  String _currentTimeStr = "";
-
-  final List<String> _locations = ["S.S College", "EDAVANNAPPARA", "AREEKODE"];
-  
-  // Data Structure
-  Map<String, Map<String, List<String>>> _schedules = {
-    "S.S College": {
-      "EDAVANNAPPARA": [
-        "06:30 AM", "06:35 AM", "06:40 AM", "06:55 AM", "07:20 AM", "07:40 AM", "07:55 AM",
-        "08:10 AM", "08:15 AM", "08:30 AM", "08:40 AM", "08:50 AM", "09:05 AM", "09:25 AM",
-        "09:40 AM", "10:05 AM", "10:13 AM", "10:18 AM", "10:40 AM", "10:50 AM", "11:05 AM",
-        "11:20 AM", "11:38 AM", "11:55 AM", "12:03 PM", "12:18 PM", "12:30 PM", "12:40 PM",
-        "01:08 PM", "01:32 PM", "01:42 PM", "01:50 PM", "01:55 PM", "02:05 PM", "02:15 PM",
-        "02:25 PM", "02:48 PM", "03:00 PM", "03:10 PM", "03:25 PM", "03:40 PM", "04:05 PM",
-        "04:20 PM", "04:37 PM", "04:50 PM", "04:55 PM", "05:10 PM", "05:22 PM", "05:35 PM",
-        "05:45 PM", "05:53 PM", "05:55 PM", "06:03 PM", "06:13 PM", "06:23 PM", "06:35 PM"
-      ],
-      "AREEKODE": [
-        "07:06 AM", "07:28 AM", "07:43 AM", "07:53 AM", "08:03 AM", "08:20 AM", "08:35 AM", 
-        "08:50 AM", "09:13 AM", "09:23 AM", "09:35 AM", "09:43 AM", "10:02 AM", "10:20 AM", 
-        "10:31 AM", "10:35 AM", "10:53 AM", "11:03 AM", "11:20 AM", "11:30 AM", "11:38 AM", 
-        "11:58 AM", "12:18 PM", "12:28 PM", "12:33 PM", "12:43 PM", "12:50 PM", "01:03 PM",
-        "01:11 PM", "01:18 PM", "01:31 PM", "01:48 PM", "02:03 PM", "02:16 PM", "02:33 PM", 
-        "02:48 PM", "03:10 PM", "03:38 PM", "03:48 PM", "03:58 PM", "04:08 PM", "04:16 PM", 
-        "04:33 PM", "04:50 PM", "04:58 PM", "05:10 PM", "05:18 PM", "05:38 PM", "05:43 PM", 
-        "06:01 PM", "06:10 PM", "06:18 PM", "06:23 PM", "06:38 PM", "06:48 PM", "07:08 PM"
-      ]
-    },
-    "EDAVANNAPPARA": {
-      "S.S College": [
-        "08:00 AM", "08:15 AM", "08:35 AM", "08:55 AM", "09:15 AM", "09:30 AM", "09:45 AM",
-        "10:05 AM", "10:20 AM", "10:35 AM", "10:50 AM", "11:10 AM", "11:25 AM", "11:40 AM",
-        "12:00 PM", "12:15 PM", "12:30 PM", "12:45 PM", "01:00 PM", "01:15 PM", "01:30 PM",
-        "01:45 PM", "02:00 PM", "02:15 PM", "02:30 PM", "02:45 PM", "03:00 PM", "03:15 PM",
-        "03:30 PM", "03:45 PM", "04:00 PM", "04:15 PM", "04:30 PM", "04:45 PM", "05:00 PM",
-        "05:15 PM", "05:30 PM", "05:45 PM", "06:00 PM", "06:15 PM", "06:30 PM"
-      ],
-      "AREEKODE": [] // Calculated
-    },
-    "AREEKODE": {
-      "S.S College": [], // Calculated
-      "EDAVANNAPPARA": [] // Calculated
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    _calculateDerivedRoutes();
-    _updateTime();
-    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _updateTime();
+    _formKey.currentState!.save();
+    setState(() {
+      _isLoading = true;
+      _error = '';
     });
-  }
-  
-  void _updateTime() {
-    if (mounted) {
+
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      if (_isLogin) {
+        await appProvider.loginUser(_email, _password);
+      } else {
+        await appProvider.signupUser(_email, _password, _username);
+      }
+    } catch (e) {
       setState(() {
-        _currentTimeStr = DateFormat("hh:mm a").format(DateTime.now());
+        if (e is FirebaseAuthException) {
+          _error = e.message ?? "Authentication failed.";
+        } else {
+          _error = "Connection error. Retrying...";
+        }
       });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  // --- Logic Translation ---
-
-  void _calculateDerivedRoutes() {
-    // EDAVANNAPPARA -> AREEKODE (+0 logic from source?) 
-    // Source: busSchedules["EDAVANNAPPARA"]["AREEKODE"] = busSchedules["EDAVANNAPPARA"]["S.S College"].map... addMinutes(0)
-    _schedules["EDAVANNAPPARA"]!["AREEKODE"] = _schedules["EDAVANNAPPARA"]!["S.S College"]!
-        .map((t) => _addMinutesToTime(t, 0)).toList();
-
-    // AREEKODE -> S.S College (-2 min from S.S -> EDAVANNAPPARA logic? Code says: addMinutesToTime(time, -2))
-    // Note: JS code uses busSchedules["S.S College"]["EDAVANNAPPARA"] as source for Areekode -> SS.
-    _schedules["AREEKODE"]!["S.S College"] = _schedules["S.S College"]!["EDAVANNAPPARA"]!
-        .map((t) => _addMinutesToTime(t, -2)).toList();
-        
-    // AREEKODE -> EDAVANNAPPARA
-    _schedules["AREEKODE"]!["EDAVANNAPPARA"] = _schedules["S.S College"]!["EDAVANNAPPARA"]!
-        .map((t) => _addMinutesToTime(t, -2)).toList();
-  }
-
-  String _addMinutesToTime(String timeStr, int minutesToAdd) {
-    try {
-      // timeStr is "HH:mm AM"
-      // DateFormat parsing requires handling the space correctly or using loose parsing
-      // 'hh:mm a' matches "06:30 AM"
-      DateTime parsed = DateFormat("hh:mm a").parse(timeStr); 
-      // DateFormat.parse returns a date in 1970. We just manipulate time.
-      DateTime newTime = parsed.add(Duration(minutes: minutesToAdd));
-      return DateFormat("hh:mm a").format(newTime);
-    } catch (e) {
-      return timeStr;
-    }
-  }
-
-  int _timeToMinutes(String timeStr) {
-    try {
-      DateTime now = DateTime.now();
-      DateTime parsed = DateFormat("hh:mm a").parse(timeStr);
-      // Construct a DateTime for *today* with that time
-      DateTime combined = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
-      return combined.hour * 60 + combined.minute;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  Map<String, dynamic>? _findNextBus() {
-    final routes = _schedules[_origin]?[_destination];
-    if (routes == null || routes.isEmpty) return null;
-
-    final now = DateTime.now();
-    final currentMinutes = now.hour * 60 + now.minute;
-    
-    // Sort times just in case, though source list looks sorted.
-    // Logic: Find first time > currentMinutes. 
-    // Since lists cross AM/PM, raw minute comparison works if 00:00 is start.
-    // The lists start at morning. 
-    
-    // We need to handle 12 AM vs 12 PM sorting correctly if logic relies on simple int.
-    // _timeToMinutes uses 24h format so sorting is safe.
-
-    String? nextBusTime;
-    int smallestDiff = 99999;
-    bool isTomorrow = false;
-
-    for (String time in routes) {
-      int busMin = _timeToMinutes(time);
-      int diff = busMin - currentMinutes;
-      
-      if (diff >= 0 && diff < smallestDiff) {
-        smallestDiff = diff;
-        nextBusTime = time;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
-
-    if (nextBusTime == null && routes.isNotEmpty) {
-      // Loop to tomorrow
-      nextBusTime = routes.first;
-      isTomorrow = true;
-      int busMin = _timeToMinutes(nextBusTime);
-      smallestDiff = (busMin + 24 * 60) - currentMinutes;
-    }
-
-    if (nextBusTime != null) {
-      return {
-        "time": nextBusTime,
-        "minutes": smallestDiff,
-        "tomorrow": isTomorrow
-      };
-    }
-    return null;
-  }
-
-  String _getRouteInfo() {
-    if (_origin == "S.S College" && _destination == "EDAVANNAPPARA") return "Direct - 18 min";
-    if (_origin == "S.S College" && _destination == "AREEKODE") return "Direct - 2 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "S.S College") return "Direct - 18 min";
-    if (_origin == "EDAVANNAPPARA" && _destination == "AREEKODE") return "Direct - 20 min";
-    if (_origin == "AREEKODE" && _destination == "S.S College") return "Direct - 2 min";
-    if (_origin == "AREEKODE" && _destination == "EDAVANNAPPARA") return "Direct - 20 min";
-    return "Route info unavailable";
-  }
-
-  void _swapLocations() {
-    setState(() {
-      final temp = _origin;
-      _origin = _destination;
-      _destination = temp;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final nextBus = _findNextBus();
-    final scheduleList = _schedules[_origin]?[_destination] ?? [];
-    
-    // Background Image
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1741016825495-1faf2afc19d6?q=80&w=1888&auto=format&fit=crop',
-              fit: BoxFit.cover,
-              errorBuilder: (c,e,s) => Container(color: const Color(0xFF1A1A2E)),
-            ),
-          ),
-          // Gradient Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.black.withValues(alpha: 0.7), const Color(0xFF141428).withValues(alpha: 0.9)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
-          ),
-          // Content
-          SafeArea(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Header Logo Area
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Column(
                     children: [
-                      const Text("BusTime", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16)),
-                        child: Text(_currentTimeStr, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                      )
+                      Icon(MdiIcons.triangleOutline, size: 64, color: AppTheme.fhAccentRed),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'PRIMUS',
+                        style: TextStyle(
+                          color: AppTheme.fhTextPrimary,
+                          fontFamily: AppTheme.fontDisplay,
+                          fontSize: 56,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4.0,
+                          height: 0.9,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(width: 20, height: 2, color: AppTheme.fhAccentRed),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'OPERATIVE ACCESS',
+                            style: TextStyle(
+                              color: AppTheme.fhTextSecondary,
+                              fontFamily: 'RobotoMono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(width: 20, height: 2, color: AppTheme.fhAccentRed),
+                        ],
+                      ),
                     ],
                   ),
                 ),
 
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                // Form Card
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withOpacity(0.8),
+                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                  ),
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Selection Card
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12)
+                      children: <Widget>[
+                        if (!_isLogin) ...[
+                          ValorantFormField(
+                            controller: _usernameController,
+                            label: 'CALLSIGN',
+                            prefixIcon: MdiIcons.accountOutline,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'REQUIRED';
+                              if (value.trim().length < 3) return 'TOO SHORT';
+                              return null;
+                            },
+                            onSaved: (value) => _username = value!.trim(),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("From", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: _locations.map((loc) => _buildLocationChip(loc, _origin, (val) {
-                                    if (val == _destination) _swapLocations();
-                                    else setState(() => _origin = val);
-                                  })).toList(),
-                                ),
-                              ),
-                              
-                              Center(
-                                child: IconButton(
-                                  onPressed: _swapLocations,
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                                    child: Icon(MdiIcons.swapVertical, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              
-                              const Text("To", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: _locations.map((loc) => _buildLocationChip(loc, _destination, (val) {
-                                     if (val == _origin) _swapLocations();
-                                     else setState(() => _destination = val);
-                                  }, isDisabled: loc == _origin)).toList(),
-                                ),
-                              ),
-                            ],
-                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        ValorantFormField(
+                          controller: _emailController,
+                          label: 'EMAIL IDENTIFIER',
+                          prefixIcon: MdiIcons.emailOutline,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || !value.contains('@')) return 'INVALID FORMAT';
+                            return null;
+                          },
+                          onSaved: (value) => _email = value!,
                         ),
-                        
                         const SizedBox(height: 20),
-                        
-                        // Next Bus Card (Modularized)
-                        BusNextCard(
-                          nextBusData: nextBus, 
-                          routeInfo: _getRouteInfo(),
+                        ValorantFormField(
+                          controller: _passwordController,
+                          label: 'PASSCODE',
+                          prefixIcon: MdiIcons.lockOutline,
+                          obscureText: _obscurePassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? MdiIcons.eyeOutline : MdiIcons.eyeOffOutline,
+                              color: AppTheme.fhTextSecondary,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.length < 6) return 'MIN 6 CHARS';
+                            return null;
+                          },
+                          onSaved: (value) => _password = value!,
                         ),
                         
-                        const SizedBox(height: 20),
-                        
-                        // Schedule List
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12)
+                        if (_error.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 20.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.fhAccentRed.withOpacity(0.1),
+                                border: Border(left: BorderSide(color: AppTheme.fhAccentRed, width: 3))
+                              ),
+                              child: Text(
+                                _error.toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppTheme.fhAccentRed,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'RobotoMono'
+                                ),
+                              ),
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Today's Schedule", style: TextStyle(color: Colors.grey, fontSize: 16)),
-                              const SizedBox(height: 12),
-                              if (scheduleList.isEmpty)
-                                const Center(child: Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: Text("No schedule available", style: TextStyle(color: Colors.white)),
-                                ))
-                              else
-                                ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: scheduleList.length,
-                                  separatorBuilder: (c,i) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
-                                  itemBuilder: (context, index) {
-                                    final time = scheduleList[index];
-                                    final nowMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
-                                    final itemMinutes = _timeToMinutes(time);
-                                    
-                                    // Handle wrapping logic loosely for display styling
-                                    final bool isPassed = itemMinutes < nowMinutes; 
-                                    final bool isNext = nextBus != null && nextBus['time'] == time;
-                                    
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                      decoration: BoxDecoration(
-                                        color: isNext ? const Color(0xFF3F51B5).withValues(alpha: 0.2) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8)
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            time,
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(alpha: isPassed ? 0.5 : 1.0),
-                                              fontSize: 16,
-                                              decoration: isPassed ? TextDecoration.lineThrough : null,
-                                              fontWeight: isNext ? FontWeight.bold : FontWeight.normal
-                                            ),
-                                          ),
-                                          if (isNext)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(color: const Color(0xFF3F51B5), borderRadius: BorderRadius.circular(4)),
-                                              child: const Text("NEXT", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                            )
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                )
-                            ],
+
+                        const SizedBox(height: 32),
+
+                        if (_isLoading)
+                          const Center(
+                            child: CircularProgressIndicator(color: AppTheme.fhAccentRed),
+                          )
+                        else
+                          ValorantButton(
+                            label: _isLogin ? 'AUTHENTICATE' : 'INITIATE',
+                            onPressed: _submit,
+                            isPrimary: true,
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _isLogin = !_isLogin;
+                                _error = '';
+                                _formKey.currentState?.reset();
+                                _usernameController.clear();
+                                _emailController.clear();
+                                _passwordController.clear();
+                              });
+                            },
+                            child: Text(
+                              _isLogin
+                                  ? 'REQUEST ACCESS ID'
+                                  : 'RETURN TO LOGIN',
+                              style: const TextStyle(
+                                color: AppTheme.fhTextSecondary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                                fontSize: 12
+                              ),
+                            ),
                           ),
                         ),
-                        
-                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationChip(String label, String selectedValue, Function(String) onTap, {bool isDisabled = false}) {
-    final bool isSelected = label == selectedValue;
-    return GestureDetector(
-      onTap: isDisabled ? null : () => onTap(label),
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3F51B5) : (isDisabled ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.1)),
-          borderRadius: BorderRadius.circular(8)
-        ),
-        child: Text(
-          label, 
-          style: TextStyle(
-            color: isDisabled ? Colors.white.withValues(alpha: 0.3) : Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500
-          )
+          ),
         ),
       ),
     );
   }
 }
---- END OF FILE lib/src/screens/bus_schedule_screen.dart ---
+--- END OF FILE lib/src/screens/login_screen.dart ---
 
---- START OF FILE lib/src/widgets/bus/bus_next_card.dart ---
+--- START OF FILE lib/src/widgets/cards/task_header_card.dart ---
 import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class BusNextCard extends StatelessWidget {
-  final Map<String, dynamic>? nextBusData;
-  final String routeInfo;
+class TaskHeaderCard extends StatelessWidget {
+  final MainTask task;
+  final int yesterdayTime;
+  final List<bool> weeklyCompletion;
 
-  const BusNextCard({
+  const TaskHeaderCard({
     super.key,
-    required this.nextBusData,
-    required this.routeInfo,
+    required this.task,
+    required this.yesterdayTime,
+    required this.weeklyCompletion,
   });
 
-  String _formatTimeRemaining(int minutes) {
-    if (minutes < 60) {
-      return "$minutes min";
-    } else {
-      final h = (minutes / 60).floor();
-      final m = minutes % 60;
-      return "${h}h ${m}m";
-    }
+  String _formatMinutesToHHMM(int totalMinutes) {
+    final hours = (totalMinutes / 3600).floor().round();
+    final minutes = ((totalMinutes/60) % 60).floor().round();
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 60.0;
+    final double progress = task.dailyTimeSpent / maxTime;
+    final String timeSpentFormatted = _formatMinutesToHHMM(task.dailyTimeSpent);
+    final String maxTimeFormatted = _formatMinutesToHHMM(maxTime.toInt());
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF3F51B5).withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12)
+        color: AppTheme.fhBgDeepDark,
+        image: const DecorationImage(
+          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
+          fit: BoxFit.cover,
+          opacity: 0.05,
+        ),
+        border: Border(
+          bottom: BorderSide(color: task.taskColor, width: 2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Next Bus", style: TextStyle(color: Colors.grey, fontSize: 16)),
-          const SizedBox(height: 8),
-          
-          if (nextBusData != null) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  nextBusData!['time'], 
-                  style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)
-                ),
-                if (nextBusData!['tomorrow'] == true)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4)
-                    ),
-                    child: const Text("Tomorrow", style: TextStyle(color: Colors.orange, fontSize: 10)),
-                  )
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8)
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(MdiIcons.clockOutline, color: Colors.white, size: 20),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${_formatTimeRemaining(nextBusData!['minutes'])} remaining",
-                        style: const TextStyle(color: Colors.white)
-                      )
-                    ],
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                color: task.taskColor.withOpacity(0.2),
+                child: Text(
+                  task.theme.toUpperCase(),
+                  style: TextStyle(
+                    color: task.taskColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 2.0
                   ),
-                  Row(
-                    children: [
-                      Icon(MdiIcons.sourceBranch, color: Colors.white, size: 20),
-                      const SizedBox(width: 4),
-                      Text(routeInfo, style: const TextStyle(color: Colors.white))
-                    ],
-                  )
+                ),
+              ),
+              const Spacer(),
+              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary, size: 18),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Resized Main Title for better wrapping
+          Text(
+            task.name.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              fontSize: 32, // Reduced from 48
+              height: 1.0,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.fhTextPrimary,
+              letterSpacing: 1.2
+            ),
+            softWrap: true,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            task.description,
+            style: const TextStyle(
+              color: AppTheme.fhTextSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 24),
+          
+          // Stat Bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("SESSION DURATION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    "$timeSpentFormatted / $maxTimeFormatted",
+                    style: const TextStyle(
+                      fontFamily: "RobotoMono",
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
                 ],
               ),
-            )
-          ] else 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(
-                child: Text("No bus schedule available", style: TextStyle(color: Colors.white)),
-              ),
-            )
+              // Progress Bar Visual
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 24, bottom: 6),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: AppTheme.fhBgMedium,
+                    color: task.taskColor,
+                    minHeight: 4,
+                  ),
+                ),
+              )
+            ],
+          )
         ],
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/bus/bus_next_card.dart ---
+--- END OF FILE lib/src/widgets/cards/task_header_card.dart ---
+
+--- START OF FILE lib/src/widgets/cards/submission_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class SubmissionCard extends StatelessWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionCard({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  void _openDetailScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SubmissionDetailScreen(
+          parentTask: parentTask,
+          subTask: subTask,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final timerState = provider.activeTimers[subTask.id];
+
+    final double displayTimeSeconds = timerState != null
+        ? (timerState.isRunning
+            ? timerState.accumulatedDisplayTime +
+                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+            : timerState.accumulatedDisplayTime)
+        : subTask.currentTimeSpent.toDouble();
+
+    final String formattedTime = helper.formatTime(displayTimeSeconds);
+    final bool isRunning = timerState?.isRunning ?? false;
+
+    Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
+    if (isRunning) borderColor = AppTheme.fhAccentRed;
+    if (subTask.completed) borderColor = AppTheme.fhAccentTeal;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: ValorantCard(
+        borderColor: borderColor,
+        isSelected: isRunning,
+        onTap: () => _openDetailScreen(context),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Checkbox
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: subTask.completed
+                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal, size: 20)
+                  : RhombusCheckbox(
+                      checked: subTask.completed,
+                      onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
+                      size: CheckboxSize.small,
+                    ),
+            ),
+
+            // Name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subTask.name.toUpperCase(),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                      height: 1.1,
+                      decoration: subTask.completed ? TextDecoration.lineThrough : null,
+                      color: subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (isRunning)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        "// ACTIVE COMBAT",
+                        style: TextStyle(
+                          color: AppTheme.fhAccentRed, 
+                          fontSize: 9, 
+                          fontWeight: FontWeight.bold, 
+                          letterSpacing: 1.5
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Time & Controls
+            const SizedBox(width: 8),
+            if (!subTask.completed) ...[
+              Text(
+                formattedTime,
+                style: TextStyle(
+                  fontFamily: "RobotoMono",
+                  color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Play/Pause
+              InkWell(
+                onTap: () {
+                  if (isRunning) {
+                    provider.pauseTimer(subTask.id);
+                    provider.logTimerAndReset(subTask.id);
+                  } else {
+                    provider.startTimer(subTask.id, 'subtask', parentTask.id);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isRunning ? AppTheme.fhAccentRed.withOpacity(0.1) : Colors.transparent,
+                    border: Border.all(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary.withOpacity(0.5)),
+                  ),
+                  child: Icon(
+                    isRunning ? MdiIcons.pause : MdiIcons.play,
+                    size: 16,
+                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
+                  ),
+                ),
+              ),
+            ],
+            
+            // Context Menu
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 18),
+              color: AppTheme.fhBgDark,
+              onSelected: (value) {
+                if (value == 'delete') {
+                  // _confirmDelete(context, provider); // Needs method logic
+                  provider.deleteSubtask(parentTask.id, subTask.id); // Direct for now or add confirm
+                } else if (value == 'duplicate') {
+                  provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
+                }
+              },
+              itemBuilder: (context) => [
+                if (subTask.completed)
+                  const PopupMenuItem(value: 'duplicate', child: Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                const PopupMenuItem(value: 'delete', child: Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/cards/submission_card.dart ---
+
+--- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
+import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
+import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+class SubmissionDetailScreen extends StatefulWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionDetailScreen({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  @override
+  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+}
+
+class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
+  final TextEditingController _checkpointController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  void dispose() {
+    _checkpointController.dispose();
+    super.dispose();
+  }
+
+  // ... (Keep existing methods: _getLiveSubTask, _handleAddCheckpoint, _handleEditSubtask, _showAddSessionDialog, _handleSessionEdit, _buildTimelineEntries)
+  SubTask? _getLiveSubTask(AppProvider provider) {
+    try {
+      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
+      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  void _handleAddCheckpoint(AppProvider provider) {
+    if (_checkpointController.text.trim().isEmpty) return;
+    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
+      'name': _checkpointController.text.trim(),
+      'isCountable': false,
+      'targetCount': 0,
+    });
+    _checkpointController.clear();
+  }
+
+  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
+    );
+    if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
+      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
+    }
+  }
+
+  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => const AddSessionDialog(),
+    );
+    if (result != null) {
+      final startBase = result['start']!;
+      final endBase = result['end']!;
+      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
+      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
+      if (realEnd.isBefore(realStart)) {
+        realEnd = realEnd.add(const Duration(days: 1));
+      }
+      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
+    }
+  }
+
+  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
+    );
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
+      }
+    }
+  }
+
+  List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
+    final List<TimelineEntry> entries = [];
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.year == _selectedDate.year &&
+              session.startTime.month == _selectedDate.month &&
+              session.startTime.day == _selectedDate.day) {
+            final bool isCurrentSubTask = sub.id == currentSubTaskId;
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: isCurrentSubTask,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+    return entries;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final liveSubTask = _getLiveSubTask(provider);
+
+    if (liveSubTask == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+      return const SizedBox.shrink();
+    }
+
+    final timerState = provider.activeTimers[liveSubTask.id];
+    final double displayTimeSeconds = timerState != null
+        ? (timerState.isRunning
+            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+            : timerState.accumulatedDisplayTime)
+        : liveSubTask.currentTimeSpent.toDouble();
+
+    final String formattedTime = helper.formatTime(displayTimeSeconds);
+    final bool isRunning = timerState?.isRunning ?? false;
+    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
+    final int totalCheckpoints = liveSubTask.subSubTasks.length;
+    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: Stack(
+        children: [
+          // Background Watermark
+          Positioned(
+            right: -50, top: 50,
+            child: Opacity(
+              opacity: 0.05,
+              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+            ),
+          ),
+
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Top Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
+                          onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Header Info - Resized
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.parentTask.name.toUpperCase(), 
+                          style: TextStyle(
+                            color: widget.parentTask.taskColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            fontSize: 12,
+                            fontFamily: AppTheme.fontDisplay,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          liveSubTask.name.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 36, // Reduced from 48
+                            height: 1.0,
+                            fontFamily: AppTheme.fontDisplay,
+                            letterSpacing: 1.0,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Ability/Stat Row
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        ValorantAbilitySlot(
+                          hotkey: "Q",
+                          label: "TIME",
+                          value: formattedTime,
+                          icon: MdiIcons.clockFast,
+                          isActive: isRunning,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "E",
+                          label: "STEPS",
+                          value: "$completedCheckpoints/$totalCheckpoints",
+                          icon: MdiIcons.formatListChecks,
+                          isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "C",
+                          label: "LOGS",
+                          value: "${liveSubTask.sessions.length}",
+                          icon: MdiIcons.history,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "X",
+                          label: "STATUS",
+                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
+                          icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
+                          isActive: liveSubTask.completed,
+                          onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Divider(color: Colors.white10),
+
+                  // Main Content
+                  Column(
+                    children: [
+                      // Timer Control
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isRunning
+                                ? [AppTheme.fhAccentRed.withOpacity(0.2), Colors.transparent]
+                                : [Colors.white.withOpacity(0.05), Colors.transparent],
+                            begin: Alignment.bottomLeft, end: Alignment.topRight,
+                          ),
+                          border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
+                                  style: TextStyle(
+                                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  formattedTime,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            FloatingActionButton.small(
+                              backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
+                              foregroundColor: Colors.black,
+                              onPressed: () {
+                                if (isRunning) {
+                                  provider.pauseTimer(liveSubTask.id);
+                                  provider.logTimerAndReset(liveSubTask.id);
+                                } else {
+                                  provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                }
+                              },
+                              child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Checkpoints & Timeline
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "TACTICAL OBJECTIVES",
+                              style: TextStyle(
+                                color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                letterSpacing: 1.5
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
+                              title: sss.name,
+                              isCompleted: sss.completed,
+                              onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                              onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                            )),
+                            
+                            // Quick Add
+                            Container(
+                              margin: const EdgeInsets.only(top: 8, bottom: 24),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.2),
+                                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                              ),
+                              child: TextField(
+                                controller: _checkpointController,
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                decoration: const InputDecoration(
+                                  hintText: "+ ADD OBJECTIVE",
+                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                onSubmitted: (_) => _handleAddCheckpoint(provider),
+                              ),
+                            ),
+
+                            // Timeline
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _selectedDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      builder: (context, child) => Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: const ColorScheme.dark(
+                                            primary: AppTheme.fhAccentTealFixed,
+                                            onPrimary: Colors.black,
+                                            surface: AppTheme.fhBgDark,
+                                            onSurface: Colors.white,
+                                          ),
+                                          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+                                        ),
+                                        child: child!,
+                                      ),
+                                    );
+                                    if (picked != null) {
+                                      setState(() => _selectedDate = picked);
+                                    }
+                                  },
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                                        style: const TextStyle(
+                                          color: AppTheme.fhAccentTealFixed,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: AppTheme.fontDisplay,
+                                          fontSize: 16
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add, size: 20, color: Colors.white54),
+                                  onPressed: () => _showAddSessionDialog(context, provider),
+                                  tooltip: "Log Manual Session",
+                                ),
+                              ],
+                            ),
+                            Container(
+                              height: 300,
+                              margin: const EdgeInsets.only(top: 8),
+                              color: Colors.black.withOpacity(0.2),
+                              child: ScheduleTimeline(
+                                entries: timelineEntries,
+                                onAddSession: () => _showAddSessionDialog(context, provider),
+                                onEditEntry: (entry) {
+                                  if (entry.originalObject is TaskSession) {
+                                    _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+
+--- START OF FILE lib/src/widgets/views/task_details_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:arcane/src/widgets/cards/task_header_card.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class TaskDetailsView extends StatefulWidget {
+  const TaskDetailsView({super.key});
+
+  @override
+  State<TaskDetailsView> createState() => _TaskDetailsViewState();
+}
+
+class _TaskDetailsViewState extends State<TaskDetailsView> {
+  String _aiGenerationMode = 'text_list';
+  final _aiUserInputController = TextEditingController();
+  final _aiNumSubquestsController = TextEditingController(text: '3');
+  final _newSubTaskController = TextEditingController();
+
+  late AppProvider appProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    appProvider = Provider.of<AppProvider>(context, listen: false);
+  }
+
+  @override
+  void dispose() {
+    _aiUserInputController.dispose();
+    _aiNumSubquestsController.dispose();
+    _newSubTaskController.dispose();
+    super.dispose();
+  }
+
+  void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
+    if (_aiUserInputController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please provide input for the AI."), backgroundColor: AppTheme.fhAccentOrange),
+      );
+      return;
+    }
+    appProvider.triggerAISubquestGeneration(
+        task,
+        _aiGenerationMode,
+        _aiUserInputController.text.trim(),
+        int.tryParse(_aiNumSubquestsController.text) ?? 3);
+    _aiUserInputController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProviderConsumer, child) {
+        final task = appProviderConsumer.getSelectedTask();
+        final theme = Theme.of(context);
+
+        if (task == null) {
+          return Center(
+              child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(MdiIcons.targetVariant, size: 56, color: AppTheme.fhAccentTealFixed),
+                const SizedBox(height: 16),
+                const Text('NO PROTOCOL SELECTED',
+                    style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.fhAccentTealFixed)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Select a mission from the menu to view details.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ));
+        }
+
+        final weeklyCompletion = appProviderConsumer.getCompletionStatusForCurrentWeek(task);
+        final int yesterdayTime = appProviderConsumer.getYesterdaysTimeForTask(task.id);
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TaskHeaderCard(
+                task: task,
+                yesterdayTime: yesterdayTime,
+                weeklyCompletion: weeklyCompletion,
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                child: Row(
+                  children: [
+                    Container(width: 4, height: 16, color: task.taskColor),
+                    const SizedBox(width: 8),
+                    Text('SUB-MISSIONS',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                            fontFamily: AppTheme.fontDisplay,
+                            color: AppTheme.fhTextPrimary,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0
+                        )),
+                  ],
+                ),
+              ),
+
+              if (task.subTasks.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                    color: AppTheme.fhBgDark.withOpacity(0.3)
+                  ),
+                  child: const Text(
+                      'NO ACTIVE SUB-MISSIONS.\nADD MANUALLY OR INITIALIZE AI PROTOCOL.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 0.5)
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: task.subTasks.length,
+                  itemBuilder: (ctx, index) {
+                    final st = task.subTasks[index];
+                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
+                  },
+                ),
+
+              _buildAddNewSubTaskButton(context, appProviderConsumer, task),
+              _buildAISubQuestCard(theme, appProviderConsumer, task),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _newSubTaskController,
+            decoration: const InputDecoration(
+              hintText: "NEW SUB-MISSION TITLE...",
+              hintStyle: TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary),
+              filled: true,
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            style: const TextStyle(fontSize: 14, color: AppTheme.fhTextPrimary),
+            onSubmitted: (value) {
+              if (value.trim().isNotEmpty) {
+                provider.addSubtask(task.id, {'name': value.trim(), 'isCountable': false});
+                _newSubTaskController.clear();
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: Icon(MdiIcons.plus, size: 18),
+            label: const Text("ADD OBJECTIVE"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.fhBgDark,
+                foregroundColor: AppTheme.fhAccentTeal,
+                minimumSize: const Size(double.infinity, 44),
+                shape: const BeveledRectangleBorder(),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
+            onPressed: () {
+              if (_newSubTaskController.text.trim().isNotEmpty) {
+                provider.addSubtask(task.id, {
+                  'name': _newSubTaskController.text.trim(),
+                  'isCountable': false
+                });
+                _newSubTaskController.clear();
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAISubQuestCard(ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
+    return Card(
+      color: AppTheme.fhBgDark.withOpacity(0.5),
+      margin: const EdgeInsets.only(top: 24),
+      shape: const BeveledRectangleBorder(
+        side: BorderSide(color: AppTheme.fhAccentPurple, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 20),
+                const SizedBox(width: 10),
+                const Text('AI GENERATION PROTOCOL',
+                    style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        fontSize: 14
+                    )),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _aiUserInputController,
+              decoration: const InputDecoration(
+                labelText: 'INPUT PARAMETERS',
+                labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0),
+                hintText: "e.g. 'Read chapters 1-3 of Design Patterns'",
+                hintStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                filled: true,
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                        labelText: 'MODE',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    dropdownColor: AppTheme.fhBgMedium,
+                    value: _aiGenerationMode,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                    items: const [
+                      DropdownMenuItem(value: 'text_list', child: Text('List')),
+                      DropdownMenuItem(value: 'book_chapter', child: Text('Chapter')),
+                      DropdownMenuItem(value: 'general_plan', child: Text('General')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _aiGenerationMode = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: _aiNumSubquestsController,
+                    decoration: const InputDecoration(
+                        labelText: 'COUNT',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: appProviderConsumer.isGeneratingSubquests
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(MdiIcons.check, size: 16),
+              label: Text(appProviderConsumer.isGeneratingSubquests ? 'PROCESSING...' : 'EXECUTE'),
+              onPressed: appProviderConsumer.isGeneratingSubquests
+                  ? null
+                  : () => _handleAiGenerateSubquests(appProviderConsumer, task),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.fhAccentPurple,
+                  foregroundColor: Colors.white,
+                  shape: const BeveledRectangleBorder(),
+                  minimumSize: const Size(double.infinity, 40)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/task_details_view.dart ---

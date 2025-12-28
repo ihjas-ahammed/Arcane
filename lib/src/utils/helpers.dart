@@ -6,8 +6,9 @@ String getTodayDateString() {
 
 String romanize(int num) {
   if (num.isNaN || num == 0) return "0";
-  if (num > 3999 || num < 1)
+  if (num > 3999 || num < 1) {
     return num.toString(); // Simplified for typical game levels
+  }
 
   const List<String> rnOnes = [
     "",

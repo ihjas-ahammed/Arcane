@@ -51,7 +51,7 @@ class RhombusCheckbox extends StatelessWidget {
               AppTheme.fhAccentTealFixed)
           .withValues(alpha: 0.6);
     } else if (disabled && !checked) {
-      bgColor = AppTheme.fhBgLight.withValues(alpha: 0.4);
+      bgColor = AppTheme.fhBgMedium.withValues(alpha: 0.4);
     }
 
     return InkWell(

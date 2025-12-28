@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -16,22 +19,22 @@ class _AiPromptsViewState extends State<AiPromptsView> {
 
   final List<Map<String, String>> _templates = [
     {
-      "title": "Health & Fitness",
+      "title": "HEALTH & FITNESS",
       "prompt":
           "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
     },
     {
-      "title": "Creative Writing",
+      "title": "CREATIVE WRITING",
       "prompt":
           "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
     },
     {
-      "title": "Coding & Tech",
+      "title": "CODING & TECH",
       "prompt":
           "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
     },
     {
-      "title": "Home Org",
+      "title": "HOME ORGANIZATION",
       "prompt":
           "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
     }
@@ -45,6 +48,21 @@ class _AiPromptsViewState extends State<AiPromptsView> {
         provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
   }
 
+  void _saveCurrentPrompt(AppProvider provider) {
+    if (_promptController.text.trim().isEmpty) return;
+
+    final currentPrompts = List<String>.from(provider.settings.savedPrompts);
+    final newPrompt = _promptController.text.trim();
+
+    if (!currentPrompts.contains(newPrompt)) {
+      currentPrompts.add(newPrompt);
+      provider.setSettings(provider.settings..savedPrompts = currentPrompts);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Prompt Saved!"),
+          backgroundColor: AppTheme.fhAccentGreen));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -53,59 +71,78 @@ class _AiPromptsViewState extends State<AiPromptsView> {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("AI Prompts"),
+        title: const Text("AI PROTOCOLS"),
         backgroundColor: AppTheme.fhBgDeepDark,
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Text("Describe your project idea...",
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: AppTheme.fhTextSecondary)),
+            Row(
+              children: [
+                Icon(MdiIcons.consoleLine, color: AppTheme.fhAccentTeal),
+                const SizedBox(width: 8),
+                Text("INPUT PARAMETERS",
+                    style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: AppTheme.fhTextPrimary)),
+              ],
+            ),
             const SizedBox(height: 12),
 
-            // Text Input
+            // Text Input (Valorant Style)
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                border: Border.all(color: AppTheme.fhBorderColor),
               ),
-              child: TextField(
-                controller: _promptController,
-                maxLines: 5,
-                decoration: const InputDecoration.collapsed(
-                  hintText:
-                      "e.g., 'Learn Python in 90 days with a focus on web development.'",
-                  hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
-                ),
-                style: const TextStyle(color: AppTheme.fhTextPrimary),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _promptController,
+                    maxLines: 5,
+                    decoration: const InputDecoration.collapsed(
+                      hintText:
+                          "DEFINE MISSION PARAMETERS...\ne.g., 'Learn Python in 90 days with a focus on web development.'",
+                      hintStyle: TextStyle(color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
+                    ),
+                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: InkWell(
+                      onTap: () => _saveCurrentPrompt(provider),
+                      child: Text("[ SAVE PROMPT ]", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
+                    ),
+                  )
+                ],
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            // Task Selector for AI Generation
+            // Task Selector
             DropdownButtonFormField<String>(
               initialValue: _selectedMainTaskId,
               dropdownColor: AppTheme.fhBgDark,
               decoration: InputDecoration(
-                labelText: "Assign to Mission",
+                labelText: "ASSIGN TO PROTOCOL",
                 fillColor: AppTheme.fhBgDark,
                 filled: true,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
+                    borderSide: BorderSide(color: AppTheme.fhBorderColor)),
               ),
               items: provider.mainTasks
                   .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase())))
                   .toList(),
               onChanged: (val) => setState(() => _selectedMainTaskId = val),
             ),
@@ -115,57 +152,37 @@ class _AiPromptsViewState extends State<AiPromptsView> {
             // Generate Button
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ValorantButton(
+                label: provider.isGeneratingSubquests ? "PROCESSING..." : "EXECUTE GENERATION",
+                isPrimary: true,
                 onPressed: provider.isGeneratingSubquests
                     ? null
                     : () async {
                         if (_promptController.text.isNotEmpty &&
                             _selectedMainTaskId != null) {
-                          // Show loading dialog
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => const AlertDialog(
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 16),
-                                  Text("Generating project structure..."),
-                                ],
-                              ),
-                            ),
-                          );
-
                           try {
                             await provider.projectActions
                                 .generateProjectStructure(_selectedMainTaskId!,
                                     _promptController.text);
-                          } finally {
-                            // Close loading dialog
-                            if (context.mounted) {
-                              Navigator.pop(context); // Pop dialog
-                              Navigator.pop(context); // Pop screen
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          "PROJECT STRUCTURE GENERATED. CHECK PROJECTS TAB.")));
                             }
+                          } finally {
+                            //
                           }
                         }
                       },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4A90E2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30)),
-                ),
-                child: const Text("Generate Project Plan",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
 
-            const SizedBox(height: 32),
-            Text("Prompt Templates",
+            const SizedBox(height: 40),
+            
+            Text("TEMPLATES",
                 style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+                    ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
             const SizedBox(height: 16),
 
             // Templates Grid
@@ -176,7 +193,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.1,
+                childAspectRatio: 1.2,
               ),
               itemCount: _templates.length,
               itemBuilder: (context, index) {
@@ -191,7 +208,6 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark,
-                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                           color: AppTheme.fhBorderColor.withOpacity(0.2)),
                     ),
@@ -200,13 +216,13 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                       children: [
                         Text(t['title']!,
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
+                                fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.fhAccentTeal)),
                         const SizedBox(height: 8),
                         Expanded(
                           child: Text(
                             t['prompt']!,
                             style: const TextStyle(
-                                color: AppTheme.fhTextSecondary, fontSize: 12),
+                                color: AppTheme.fhTextSecondary, fontSize: 11),
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -219,16 +235,11 @@ class _AiPromptsViewState extends State<AiPromptsView> {
             ),
 
             const SizedBox(height: 32),
-            // Saved Prompts Section (Placeholder for future feature)
-            Text("Saved Prompts",
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            const Center(
-                child: Text("No saved prompts yet.",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic))),
+            // Saved Prompts Section
+            SavedPromptsList(
+              onSelect: (prompt) =>
+                  setState(() => _promptController.text = prompt),
+            ),
           ],
         ),
       ),

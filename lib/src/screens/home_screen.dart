@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; 
+import 'package:arcane/src/screens/values_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
+import 'package:arcane/src/screens/more_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -28,9 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'ADVISOR', 
+    'VALUES',
     'PROJECTS',
-    'MORE', // New Title
+    'SYSTEM',
   ];
 
   void _onItemTapped(int index) {
@@ -55,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(Provider.of<AppProvider>(context, listen: false));
+    _checkAndPromptForUsername(
+        Provider.of<AppProvider>(context, listen: false));
   }
 
   void _checkAndPromptForUsername(AppProvider appProvider) {
@@ -76,9 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
       BuildContext context, AppProvider appProvider) async {
     final TextEditingController usernameController = TextEditingController();
     final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    final Color currentAccentColor =
-        appProvider.getSelectedTask()?.taskColor ??
-            Theme.of(context).colorScheme.secondary;
+    final Color currentAccentColor = appProvider.getSelectedTask()?.taskColor ??
+        Theme.of(context).colorScheme.secondary;
 
     return showDialog<void>(
       context: context,
@@ -120,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   String newUsername = usernameController.text.trim();
                   Navigator.of(dialogContext).pop();
                   await appProvider.updateUserDisplayName(newUsername);
+                  if (!mounted) return;
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -153,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
-    // Tabs Content
     final List<Widget> widgetOptions = <Widget>[
       Center(
         child: ConstrainedBox(
@@ -162,14 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ChatbotScreen(),
+      const ValuesScreen(),
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
-      const MoreScreen(), // New Tab
+      const MoreScreen(),
     ];
 
     return Theme(
@@ -207,32 +207,56 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.targetAccount),
-              label: 'Missions',
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppTheme.fhBorderColor, width: 1.0),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.bookOpenVariant),
-              label: 'Logbook',
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: AppTheme.fhBgDeepDark,
+            selectedItemColor: AppTheme.fhAccentRed,
+            unselectedItemColor: AppTheme.fhTextSecondary,
+            selectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              fontSize: 10, // Reduced font size
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.robotHappyOutline),
-              label: 'Advisor',
+            unselectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              letterSpacing: 0.5,
+              fontSize: 10, // Reduced font size
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.rocketLaunchOutline),
-              label: 'Projects',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.dotsHorizontal),
-              label: 'More',
-            ),
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
+            // Fix overflow by hiding labels on unselected items on small screens if needed,
+            // or just rely on fixed type with smaller fonts.
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            items: <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.targetAccount),
+                label: 'MISSIONS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.notebookOutline),
+                label: 'LOGBOOK',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.diamondStone),
+                label: 'VALUES',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.rocketLaunchOutline),
+                label: 'PROJECTS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.dotsGrid),
+                label: 'SYSTEM',
+              ),
+            ],
+          ),
         ),
       ),
     );

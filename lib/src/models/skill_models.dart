@@ -27,18 +27,21 @@ class Skill {
     String id = json['id'] as String? ?? 'unknown_skill';
     if (id == 'unknown_skill') {
       final n = name.toLowerCase();
-      if (n.contains('wisdom') || n.contains('tech') || n.contains('learning'))
+      if (n.contains('wisdom') ||
+          n.contains('tech') ||
+          n.contains('learning')) {
         id = 'wis';
-      else if (n.contains('courage') || n.contains('health'))
+      } else if (n.contains('courage') || n.contains('health')) {
         id = 'cou';
-      else if (n.contains('humanity') || n.contains('social'))
+      } else if (n.contains('humanity') || n.contains('social')) {
         id = 'hum';
-      else if (n.contains('justice') || n.contains('work'))
+      } else if (n.contains('justice') || n.contains('work')) {
         id = 'jus';
-      else if (n.contains('temperance') || n.contains('order'))
+      } else if (n.contains('temperance') || n.contains('order')) {
         id = 'tem';
-      else if (n.contains('transcendence') || n.contains('creative'))
+      } else if (n.contains('transcendence') || n.contains('creative')) {
         id = 'tra';
+      }
     }
 
     return Skill(
