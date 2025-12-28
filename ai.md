@@ -1,7 +1,6 @@
 Make the following changes:
 
-   - Update the sub-mission screen:
-     - Make it look better, prettier keeping the features based on the screenshot given
+   * Disable rounding of time in project timer, make the time logged absolute to the seconds
      
 
 

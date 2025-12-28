@@ -13,6 +13,7 @@ class AppSettings {
   String? customChatbotPrompt;
   String? customReflectionPrompt;
   int startOfWeek; // 1 for Monday, 7 for Sunday
+  int dataVersion; // 0 for minutes, 1 for seconds
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -34,6 +35,7 @@ class AppSettings {
     this.customChatbotPrompt,
     this.customReflectionPrompt,
     this.startOfWeek = 1,
+    this.dataVersion = 0,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -77,6 +79,7 @@ class AppSettings {
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
       startOfWeek: json['startOfWeek'] as int? ?? 1,
+      dataVersion: json['dataVersion'] as int? ?? 0,
     );
   }
   Map<String, dynamic> toJson() {
@@ -92,6 +95,7 @@ class AppSettings {
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
       'startOfWeek': startOfWeek,
+      'dataVersion': dataVersion,
     };
   }
 }

@@ -173,12 +173,12 @@ class TaskActions {
         id: 'sess_${DateTime.now().millisecondsSinceEpoch}',
         startTime: start,
         endTime: end);
-    final durationMinutes = session.durationMinutes;
+    final durationSeconds = session.durationSeconds;
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-            dailyTimeSpent: task.dailyTimeSpent + durationMinutes,
+            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
             lastWorkedDate: getTodayDateString(),
             subTasks: task.subTasks.map((st) {
               if (st.id == subTaskId) {
@@ -186,7 +186,7 @@ class TaskActions {
                   id: st.id,
                   name: st.name,
                   completed: st.completed,
-                  currentTimeSpent: st.currentTimeSpent + durationMinutes,
+                  currentTimeSpent: st.currentTimeSpent + durationSeconds,
                   completedDate: st.completedDate,
                   isCountable: st.isCountable,
                   targetCount: st.targetCount,
@@ -236,7 +236,7 @@ class TaskActions {
             }).toList();
 
             for (var s in updatedSessions) {
-              totalTime += s.durationMinutes;
+              totalTime += s.durationSeconds;
             }
 
             return SubTask(
@@ -291,7 +291,7 @@ class TaskActions {
           if (st.id == subTaskId) {
             final sessionToRemove =
                 st.sessions.firstWhereOrNull((s) => s.id == sessionId);
-            final deduction = sessionToRemove?.durationMinutes ?? 0;
+            final deduction = sessionToRemove?.durationSeconds ?? 0;
 
             return SubTask(
               id: st.id,
@@ -345,7 +345,7 @@ class TaskActions {
           if (session.startTime.year == date.year &&
               session.startTime.month == date.month &&
               session.startTime.day == date.day) {
-            taskTotal += session.durationMinutes;
+            taskTotal += session.durationSeconds;
           }
         }
       }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 
 class JsonEditorWidget extends StatelessWidget {

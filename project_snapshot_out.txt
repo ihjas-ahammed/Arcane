@@ -1112,6 +1112,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  charcode:
+    dependency: transitive
+    description:
+      name: charcode
+      sha256: fb0f1107cac15a5ea6ef0a6ef71a807b9e4267c713bb93e00e92d737cc8dbd8a
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
   checked_yaml:
     dependency: transitive
     description:
@@ -1184,6 +1192,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: "701dcfc06da0882883a2657c445103380e53e647060ad8d9dfb710c100996608"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5+1"
   crypto:
     dependency: transitive
     description:
@@ -1192,6 +1208,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  csslib:
+    dependency: transitive
+    description:
+      name: csslib
+      sha256: "09bad715f418841f976c77db72d5398dc1253c21fb9c0c7f0b0b985860b2d58e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   cupertino_icons:
     dependency: "direct main"
     description:
@@ -1240,6 +1264,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: ab13ae8ef5580a411c458d6207b6774a6c237d77ac37011b13994879f68a8810
+      url: "https://pub.dev"
+    source: hosted
+    version: "8.3.7"
   firebase_auth:
     dependency: "direct main"
     description:
@@ -1333,6 +1365,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: ee8068e0e1cd16c4a82714119918efdeed33b3ba7772c54b5d094ab53f9b7fd1
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.33"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -1359,6 +1399,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.7"
+  html:
+    dependency: transitive
+    description:
+      name: html
+      sha256: "6d1264f2dffa1b1101c25a91dff0dc2daee4c18e87cd8538729773c073dbf602"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.6"
   http:
     dependency: "direct main"
     description:
@@ -1471,6 +1519,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.17.0"
+  mime:
+    dependency: transitive
+    description:
+      name: mime
+      sha256: "41a20518f0cb1256669420fdba0cd90d21561e560ac240f26ef8322e45bb7ed6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
   mockito:
     dependency: "direct dev"
     description:
@@ -1503,6 +1559,54 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
+  path_provider:
+    dependency: "direct main"
+    description:
+      name: path_provider
+      sha256: "50c5dd5b6e1aaf6fb3a78b33f6aa3afca52bf903a8a5298f53101fdaee55bbcd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.5"
+  path_provider_android:
+    dependency: transitive
+    description:
+      name: path_provider_android
+      sha256: f2c65e21139ce2c3dad46922be8272bb5963516045659e71bb16e151c93b580e
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.22"
+  path_provider_foundation:
+    dependency: transitive
+    description:
+      name: path_provider_foundation
+      sha256: "6d13aece7b3f5c5a9731eaf553ff9dcbc2eff41087fd2df587fd0fed9a3eb0c4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.5.1"
+  path_provider_linux:
+    dependency: transitive
+    description:
+      name: path_provider_linux
+      sha256: f7a1fe3a634fe7734c8d3f2766ad746ae2a2884abe22e241a8b301bf5cac3279
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.1"
+  path_provider_platform_interface:
+    dependency: transitive
+    description:
+      name: path_provider_platform_interface
+      sha256: "88f5779f72ba699763fa3a3b06aa4bf6de76c8e5de842cf6f29e2e06476c2334"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.2"
+  path_provider_windows:
+    dependency: transitive
+    description:
+      name: path_provider_windows
+      sha256: bd6f00dbd873bfb70d0761682da2b3a2c2fccc2b9e84c495821639601d81afe7
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
   petitparser:
     dependency: transitive
     description:
@@ -1511,6 +1615,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  platform:
+    dependency: transitive
+    description:
+      name: platform
+      sha256: "5d6b1b0036a5f331ebc77c850ebc8506cbc1e9416c27e59b439f917a902a4984"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.6"
   plugin_platform_interface:
     dependency: transitive
     description:
@@ -1543,6 +1655,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  share_plus:
+    dependency: "direct main"
+    description:
+      name: share_plus
+      sha256: fce43200aa03ea87b91ce4c3ac79f0cecd52e2a7a56c7a4185023c271fbfa6da
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.1.4"
+  share_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: share_plus_platform_interface
+      sha256: cc012a23fc2d479854e6c80150696c4a5f5bb62cb89af4de1c505cf78d0a5d0b
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.0.2"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -1620,6 +1748,54 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  universal_html:
+    dependency: "direct main"
+    description:
+      name: universal_html
+      sha256: c0bcae5c733c60f26c7dfc88b10b0fd27cbcc45cb7492311cdaa6067e21c9cd4
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
+  universal_io:
+    dependency: transitive
+    description:
+      name: universal_io
+      sha256: f63cbc48103236abf48e345e07a03ce5757ea86285ed313a6a032596ed9301e2
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.1"
+  url_launcher_linux:
+    dependency: transitive
+    description:
+      name: url_launcher_linux
+      sha256: d5e14138b3bc193a0f63c10a53c94b91d399df0512b1f29b94a043db7482384a
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
+  url_launcher_platform_interface:
+    dependency: transitive
+    description:
+      name: url_launcher_platform_interface
+      sha256: "552f8a1e663569be95a8190206a38187b531910283c3e982193e4f2733f01029"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.2"
+  url_launcher_web:
+    dependency: transitive
+    description:
+      name: url_launcher_web
+      sha256: "4bd2b7b4dc4d4d0b94e5babfffbca8eac1a126c7f3d6ecbc1a11013faa3abba2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.1"
+  url_launcher_windows:
+    dependency: transitive
+    description:
+      name: url_launcher_windows
+      sha256: "712c70ab1b99744ff066053cbe3e80c73332b38d46e5e945c98689b2e66fc15f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.5"
   uuid:
     dependency: "direct main"
     description:
@@ -1660,6 +1836,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  win32:
+    dependency: transitive
+    description:
+      name: win32
+      sha256: d7cb55e04cd34096cd3a79b3330245f54cb96a370a1c27adb3c84b917de8b08e
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.15.0"
+  xdg_directories:
+    dependency: transitive
+    description:
+      name: xdg_directories
+      sha256: "7a3f37b05d989967cdddcbb571f1ea834867ae2faa29725fd085180e0883aa15"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   xml:
     dependency: transitive
     description:
@@ -1677,8 +1869,8 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.8.0-0 <4.0.0"
-  flutter: ">=3.27.4"
+  dart: ">=3.9.0 <4.0.0"
+  flutter: ">=3.35.0"
 
 --- END OF FILE pubspec.lock ---
 
@@ -1719,6 +1911,10 @@ dependencies:
   smooth_page_indicator: ^1.2.1
   uuid: ^4.5.2
   http: ^1.6.0
+  file_picker: ^8.1.4
+  universal_html: ^2.2.4
+  path_provider: ^2.1.2
+  share_plus: ^10.1.2
 
 
 dev_dependencies:
@@ -1786,7 +1982,7 @@ flutter:
 # This file should be version controlled and should not be manually edited.
 
 version:
-  revision: "66dd93f9a27ffe2a9bfc8297506ce066ff51265f"
+  revision: "f6ff1529fd6d8af5f706051d9251ac9231c83407"
   channel: "stable"
 
 project_type: app
@@ -1795,11 +1991,11 @@ project_type: app
 migration:
   platforms:
     - platform: root
-      create_revision: 66dd93f9a27ffe2a9bfc8297506ce066ff51265f
-      base_revision: 66dd93f9a27ffe2a9bfc8297506ce066ff51265f
+      create_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
+      base_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
     - platform: web
-      create_revision: 66dd93f9a27ffe2a9bfc8297506ce066ff51265f
-      base_revision: 66dd93f9a27ffe2a9bfc8297506ce066ff51265f
+      create_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
+      base_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
 
   # User provided section
 
@@ -2955,8 +3151,13 @@ import 'package:arcane/src/services/ai_service.dart';
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
+
   Timer? _periodicUiTimer;
   Timer? _autoSaveTimer;
+
+  // Global Loading State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
 
   User? _currentUser;
   User? get currentUser => _currentUser;
@@ -3031,6 +3232,13 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void setLoadingTask(String? taskName) {
+    if (_loadingTaskName != taskName) {
+      _loadingTaskName = taskName;
+      notifyListeners();
+    }
   }
 
   void _initializeSkills() {
@@ -3155,6 +3363,14 @@ class AppProvider with ChangeNotifier {
     };
   }
 
+  Map<String, dynamic> getAppStateAsMap() => _appStateToMap();
+
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    _loadStateFromMap(data);
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
   void _loadStateFromMap(Map<String, dynamic> data) {
     _lastLoginDate = data['lastLoginDate'] as String?;
     _mainTasks = (data['mainTasks'] as List<dynamic>?)
@@ -3237,11 +3453,25 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      final success = await _storageService.setUserData(
-          _currentUser!.uid, _appStateToMap());
-      if (success) {
-        _lastSuccessfulSaveTimestamp = DateTime.now();
-        _hasUnsavedChanges = false;
+      // Only show loading if we are manually saving or if it's a significant sync
+      // For background auto-save, we generally don't want to disturb the UI unless requested
+      // But user asked for "inc database sync" to show indicator.
+      // We'll use a subtle indicator for auto-save if needed, or rely on manual saves.
+      // Let's check: if it's auto-save, maybe we set a "Syncing..." state but don't block UI?
+      // The user wants to "use the app without loading".
+
+      bool isAutoSave = !_isManuallySaving;
+      if (!isAutoSave) setLoadingTask("Syncing Database...");
+
+      try {
+        final success = await _storageService.setUserData(
+            _currentUser!.uid, _appStateToMap());
+        if (success) {
+          _lastSuccessfulSaveTimestamp = DateTime.now();
+          _hasUnsavedChanges = false;
+        }
+      } finally {
+        if (!isAutoSave) setLoadingTask(null);
         notifyListeners();
       }
     }
@@ -3516,6 +3746,7 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory.conversationHistory.add(userMessage);
 
     notifyListeners();
+    setLoadingTask("Consulting Advisor...");
 
     try {
       final dataContext = _buildUserDataContext();
@@ -3543,8 +3774,10 @@ class AppProvider with ChangeNotifier {
               "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
+    } finally {
+      setLoadingTask(null);
+      setProviderState(chatbotMemory: _chatbotMemory);
     }
-    setProviderState(chatbotMemory: _chatbotMemory);
   }
 
   int getXpGainedForSkillToday(String skillName) {
@@ -3591,6 +3824,8 @@ class AppProvider with ChangeNotifier {
             })
         .toList();
 
+    setLoadingTask("Analyzing Reflection...");
+
     final result = await _aiService.evaluateReflection(
       trigger: trigger,
       emotion: emotion,
@@ -3600,6 +3835,8 @@ class AppProvider with ChangeNotifier {
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
     );
+
+    setLoadingTask(null);
 
     Map<String, int> xpAllocation = {};
     if (result['xp_allocation'] is Map) {
@@ -3769,15 +4006,19 @@ class AppProvider with ChangeNotifier {
   void updateSubtask(
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  
-  // Delegated Session Methods
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => 
-      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) =>
-      _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
 
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) =>
+  // Delegated Session Methods
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
       _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
 
   bool completeSubtask(String mainTaskId, String subtaskId) =>
@@ -4098,6 +4339,7 @@ class ProjectActions {
   Future<void> generateProjectStructure(
       String mainTaskId, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
         modelCandidates: _provider.settings.heavyModels, // Heavy for projects
@@ -4117,6 +4359,7 @@ class ProjectActions {
       debugPrint("Error generating project: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
     }
   }
 }
@@ -4130,6 +4373,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
 
 class TaskActions {
   final AppProvider _provider;
@@ -4292,120 +4536,206 @@ class TaskActions {
 
   // --- Session Management ---
 
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+  void addSessionToSubtask(
+      String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     final session = TaskSession(
-      id: 'sess_${DateTime.now().millisecondsSinceEpoch}',
-      startTime: start,
-      endTime: end
-    );
+        id: 'sess_${DateTime.now().millisecondsSinceEpoch}',
+        startTime: start,
+        endTime: end);
     final durationMinutes = session.durationMinutes;
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-          dailyTimeSpent: task.dailyTimeSpent + durationMinutes,
-          lastWorkedDate: getTodayDateString(),
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subTaskId) {
-              return SubTask(
-                id: st.id,
-                name: st.name,
-                completed: st.completed,
-                currentTimeSpent: st.currentTimeSpent + durationMinutes,
-                completedDate: st.completedDate,
-                isCountable: st.isCountable,
-                targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks,
-                sessions: [...st.sessions, session]..sort((a,b) => b.startTime.compareTo(a.startTime)),
-              );
-            }
-            return st;
-          }).toList()
-        );
-      }
-      return task;
-    }).toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-    logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': durationMinutes});
-  }
-
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subTaskId) {
-              // Recalculate total time
-              int totalTime = 0;
-              final updatedSessions = st.sessions.map((s) {
-                if (s.id == sessionId) {
-                  return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
-                }
-                return s;
-              }).toList();
-
-              for (var s in updatedSessions) {
-                totalTime += s.durationMinutes;
+            dailyTimeSpent: task.dailyTimeSpent + durationMinutes,
+            lastWorkedDate: getTodayDateString(),
+            subTasks: task.subTasks.map((st) {
+              if (st.id == subTaskId) {
+                return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  completed: st.completed,
+                  currentTimeSpent: st.currentTimeSpent + durationMinutes,
+                  completedDate: st.completedDate,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: [...st.sessions, session]
+                    ..sort((a, b) => b.startTime.compareTo(a.startTime)),
+                );
               }
-
-              return SubTask(
-                id: st.id,
-                name: st.name,
-                completed: st.completed,
-                currentTimeSpent: totalTime,
-                completedDate: st.completedDate,
-                isCountable: st.isCountable,
-                targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks,
-                sessions: updatedSessions..sort((a,b) => b.startTime.compareTo(a.startTime)),
-              );
-            }
-            return st;
-          }).toList()
-        );
+              return st;
+            }).toList());
       }
       return task;
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
-    // Note: This simple update doesn't strictly adjust "dailyTimeSpent" delta precisely on the main task
-    // for historical days, but recalculates the subtask total.
-    // For strict consistency, we'd need to calc delta and apply to mainTask.dailyTimeSpent if today.
+    // Sync for the specific day
+    _syncDateWithSessions(start);
   }
 
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+      String sessionId, DateTime newStart, DateTime newEnd) {
+    // Lookup old session date to sync it too
+    DateTime? oldDate;
+    final oldTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession =
+        oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) {
+      oldDate = oldSession.startTime;
+    }
+
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subTaskId) {
-              final sessionToRemove = st.sessions.firstWhereOrNull((s) => s.id == sessionId);
-              final deduction = sessionToRemove?.durationMinutes ?? 0;
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            // Recalculate total time
+            int totalTime = 0;
+            final updatedSessions = st.sessions.map((s) {
+              if (s.id == sessionId) {
+                return TaskSession(
+                    id: s.id, startTime: newStart, endTime: newEnd);
+              }
+              return s;
+            }).toList();
 
-              return SubTask(
-                id: st.id,
-                name: st.name,
-                completed: st.completed,
-                currentTimeSpent: (st.currentTimeSpent - deduction).clamp(0, 999999),
-                completedDate: st.completedDate,
-                isCountable: st.isCountable,
-                targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks,
-                sessions: st.sessions.where((s) => s.id != sessionId).toList(),
-              );
+            for (var s in updatedSessions) {
+              totalTime += s.durationMinutes;
             }
-            return st;
-          }).toList()
-        );
+
+            return SubTask(
+              id: st.id,
+              name: st.name,
+              completed: st.completed,
+              currentTimeSpent: totalTime,
+              completedDate: st.completedDate,
+              isCountable: st.isCountable,
+              targetCount: st.targetCount,
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks,
+              sessions: updatedSessions
+                ..sort((a, b) => b.startTime.compareTo(a.startTime)),
+            );
+          }
+          return st;
+        }).toList());
       }
       return task;
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
+
+    // Sync for both old and new dates if they differ, or just one if same
+    _syncDateWithSessions(newStart);
+    if (oldDate != null &&
+        (oldDate.year != newStart.year ||
+            oldDate.month != newStart.month ||
+            oldDate.day != newStart.day)) {
+      _syncDateWithSessions(oldDate);
+    }
+  }
+
+  void deleteSessionFromSubtask(
+      String mainTaskId, String subTaskId, String sessionId) {
+    // Lookup old session date to sync
+    DateTime? oldDate;
+    final oldTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession =
+        oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) {
+      oldDate = oldSession.startTime;
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            final sessionToRemove =
+                st.sessions.firstWhereOrNull((s) => s.id == sessionId);
+            final deduction = sessionToRemove?.durationMinutes ?? 0;
+
+            return SubTask(
+              id: st.id,
+              name: st.name,
+              completed: st.completed,
+              currentTimeSpent:
+                  (st.currentTimeSpent - deduction).clamp(0, 999999),
+              completedDate: st.completedDate,
+              isCountable: st.isCountable,
+              targetCount: st.targetCount,
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks,
+              sessions: st.sessions.where((s) => s.id != sessionId).toList(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+
+    // We don't know the date of the deleted session easily without lookup.
+    // But usually we are looking at a specific day in UI.
+    // If we want to be safe, we should traverse everything? No that's expensive.
+    // For now, let's assume the user is usually on "Today" or we accept we might need to refresh if they delete from history.
+    // But wait, we can just sync "Today" if we assume mostly current ops?
+    // Or better: The caller likely knows the date.
+    // But the signature is fixed.
+    // Let's rely on the fact that if it was "Today", we want it updated.
+    _syncDateWithSessions(DateTime.now());
+    if (oldDate != null &&
+        (oldDate.year != DateTime.now().year ||
+            oldDate.month != DateTime.now().month ||
+            oldDate.day != DateTime.now().day)) {
+      _syncDateWithSessions(oldDate);
+    }
+  }
+
+  void _syncDateWithSessions(DateTime date) {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+
+    // Prepare map for task times on this day
+    final Map<String, int> taskTimes = {};
+
+    for (var task in _provider.mainTasks) {
+      int taskTotal = 0;
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.year == date.year &&
+              session.startTime.month == date.month &&
+              session.startTime.day == date.day) {
+            taskTotal += session.durationMinutes;
+          }
+        }
+      }
+      if (taskTotal > 0) {
+        taskTimes[task.id] = taskTotal;
+      }
+    }
+
+    final newCompletedByDay =
+        Map<String, dynamic>.from(_provider.completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ??
+        {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+        });
+
+    dayData['taskTimes'] = taskTimes;
+    newCompletedByDay[dateStr] = dayData;
+
+    _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
   // ... (previous methods completeSubtask, deleteSubtask, duplicateCompletedSubtask, addSubSubtask, updateSubSubtask, completeSubSubtask, deleteSubSubtask)
@@ -6029,6 +6359,7 @@ class _LoginScreenState extends State<LoginScreen> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
+import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -6043,31 +6374,42 @@ class MoreScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text("UTILITIES", style: theme.textTheme.labelMedium?.copyWith(color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
+          Text("UTILITIES",
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
-          
-          _buildMenuTile(
-            context,
-            icon: MdiIcons.busClock,
-            title: "Bus Time",
-            subtitle: "Schedule: S.S College - Areekode - Edavannappara",
-            onTap: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const BusScheduleScreen())
-              );
-            }
-          ),
-          
+
+          _buildMenuTile(context,
+              icon: MdiIcons.busClock,
+              title: "Bus Time",
+              subtitle: "Schedule: S.S College - Areekode - Edavannappara",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const BusScheduleScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.databaseEdit,
+              title: "Database Editor",
+              subtitle: "Manual edits & JSON Export/Import", onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const DatabaseEditorScreen()));
+          }),
+
           // Future items can be added here
         ],
       ),
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, {
-    required IconData icon, 
-    required String title, 
+  Widget _buildMenuTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
@@ -6076,9 +6418,9 @@ class MoreScreen extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))
-      ),
+          borderRadius: BorderRadius.circular(12),
+          side:
+              BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
@@ -6089,14 +6431,19 @@ class MoreScreen extends StatelessWidget {
           ),
           child: Icon(icon, color: AppTheme.fhAccentTeal),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-        subtitle: Text(subtitle, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+        title: Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+        subtitle: Text(subtitle,
+            style:
+                const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
         trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
         onTap: onTap,
       ),
     );
   }
 }
+
 --- END OF FILE lib/src/screens/more_screen.dart ---
 
 --- START OF FILE lib/src/screens/project_detail_screen.dart ---
@@ -6664,6 +7011,239 @@ class StepDetailScreen extends StatelessWidget {
 }
 
 --- END OF FILE lib/src/screens/step_detail_screen.dart ---
+
+--- START OF FILE lib/src/screens/database_editor_screen.dart ---
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:universal_html/html.dart' as html;
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/json_editor_widget.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DatabaseEditorScreen extends StatefulWidget {
+  const DatabaseEditorScreen({super.key});
+
+  @override
+  State<DatabaseEditorScreen> createState() => _DatabaseEditorScreenState();
+}
+
+class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
+  Map<String, dynamic> _localData = {};
+  bool _isInit = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInit) {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      _localData = Map.from(provider.getAppStateAsMap());
+      _isInit = false;
+    }
+  }
+
+  void _saveChanges() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    // Safety check: Ensure essential keys exist
+    if (!_localData.containsKey('mainTasks')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                "Error: 'mainTasks' key is missing! Cannot save invalid state.")),
+      );
+      return;
+    }
+
+    try {
+      provider.loadAppStateFromMap(_localData);
+      await provider.manuallySaveToCloud();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Database updated & saved successfully!",
+                  style: TextStyle(color: Colors.white)),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Error saving data: $e"),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportJson() async {
+    try {
+      final jsonStr = jsonEncode(_localData);
+
+      if (kIsWeb) {
+        // Web: Trigger download via anchor tag
+        final bytes = utf8.encode(jsonStr);
+        final blob = html.Blob([bytes]);
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.document.createElement('a') as html.AnchorElement
+          ..href = url
+          ..style.display = 'none'
+          ..download =
+              'arcane_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        html.document.body!.children.add(anchor);
+        anchor.click();
+        html.document.body!.children.remove(anchor);
+        html.Url.revokeObjectUrl(url);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text("Download started..."),
+                backgroundColor: Colors.green),
+          );
+        }
+      } else if (Platform.isAndroid || Platform.isIOS) {
+        // Mobile: Share file (works best across scoped storage)
+        final directory = await getTemporaryDirectory();
+        final file = File('${directory.path}/arcane_backup.json');
+        await file.writeAsString(jsonStr);
+
+        await Share.shareXFiles([XFile(file.path)],
+            text: 'Arcane Database Backup');
+      } else {
+        // Desktop: File Picker Save (if supported) or Output File Path Dialog (fallback)
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save Backup',
+          fileName: 'arcane_backup.json',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsString(jsonStr);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text("Exported to $outputFile"),
+                  backgroundColor: Colors.green),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Export failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _importJson() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        withData: kIsWeb, // Web needs bytes directly
+      );
+
+      if (result != null) {
+        String content;
+        if (kIsWeb) {
+          final bytes = result.files.single.bytes;
+          if (bytes == null) throw Exception("No data read from file");
+          content = utf8.decode(bytes);
+        } else {
+          final path = result.files.single.path;
+          if (path == null) throw Exception("No path returned");
+          final file = File(path);
+          content = await file.readAsString();
+        }
+
+        final data = jsonDecode(content);
+        if (data is Map<String, dynamic>) {
+          setState(() {
+            _localData = data;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text("JSON Loaded. Click 'Save Changes' to apply."),
+                  backgroundColor: Colors.orange),
+            );
+          }
+        } else {
+          throw Exception("Invalid JSON format");
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Import failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("Database Editor",
+            style: TextStyle(
+                fontFamily: 'Tungsten', fontSize: 24, letterSpacing: 1.5)),
+        backgroundColor: AppTheme.fhBgDeepDark,
+        actions: [
+          IconButton(
+            icon: Icon(MdiIcons.upload, color: AppTheme.fhTextSecondary),
+            tooltip: "Export JSON",
+            onPressed: _exportJson,
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.download, color: AppTheme.fhTextSecondary),
+            tooltip: "Import JSON",
+            onPressed: _importJson,
+          ),
+          IconButton(
+            icon: const Icon(Icons.save, color: AppTheme.fhAccentTeal),
+            tooltip: "Save Changes",
+            onPressed: _saveChanges,
+          ),
+        ],
+      ),
+      body: _localData.isEmpty
+          ? const Center(
+              child: Text("No Data", style: TextStyle(color: Colors.white)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: JsonEditorWidget(
+                label: "App State",
+                data: _localData,
+                onChanged: (newValue) {
+                  if (newValue is Map) {
+                    setState(() {
+                      _localData = Map<String, dynamic>.from(newValue);
+                    });
+                  }
+                },
+              ),
+            ),
+    );
+  }
+}
+
+--- END OF FILE lib/src/screens/database_editor_screen.dart ---
 
 --- START OF FILE lib/src/services/ai_service.dart ---
 import 'dart:convert';
@@ -7662,6 +8242,38 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       actions: <Widget>[
         // Settings Button moved here
+        if (appProvider.loadingTaskName != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.fhBorderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(currentAccentColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _getLoadingIcon(appProvider.loadingTaskName!),
+                  size: 16,
+                  color: AppTheme.fhTextSecondary,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+
         IconButton(
           icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
           tooltip: 'Settings',
@@ -7695,6 +8307,14 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  IconData _getLoadingIcon(String taskName) {
+    if (taskName.contains("Syncing")) return MdiIcons.cloudSync;
+    if (taskName.contains("Analyzing")) return MdiIcons.brain;
+    if (taskName.contains("Consulting")) return MdiIcons.robot;
+    if (taskName.contains("Authenticating")) return MdiIcons.accountKey;
+    return MdiIcons.loading;
+  }
 }
 
 --- END OF FILE lib/src/widgets/header_widget.dart ---
@@ -7847,20 +8467,18 @@ class SkillsDrawer extends StatelessWidget {
                     ].map((name) {
                       final xp7d = appProvider.get7DaySkillMomentum(name);
 
+                      final int momentumLevel = (xp7d / 50).floor() + 1;
+                      final double momentumProgress = (xp7d % 50) / 50.0;
+
                       // Create a temporary skill object for display purposes
                       final skill = Skill(
                           id: name.substring(0, 3).toLowerCase(),
                           name: name,
                           description: "A core Stoic virtue.",
-                          currentXp: xp7d,
-                          maxXp: 100, // Arbitrary for momentum view
-                          level: (xp7d / 50).floor() + 1);
-
-                      // Define Momentum: Level = xp / 50 (approx), Progress = (xp % 50) / 50
-                      // This makes "Level 1" = 50 XP in last 7 days.
-                      final int momentumLevel =
-                          (xp7d / 50).floor() + 1; // Start at level 1
-                      final double momentumProgress = (xp7d % 50) / 50.0;
+                          currentXp:
+                              (xp7d % 50), // Current progress in this level
+                          maxXp: 50, // Each momentum level is 50 XP wide
+                          level: momentumLevel);
 
                       return VirtueCircle(
                         skill: skill,
@@ -7884,7 +8502,6 @@ class SkillsDrawer extends StatelessWidget {
 
                   const SizedBox(height: 12),
                   Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-                  
 
                   ElevatedButton.icon(
                     icon: Icon(MdiIcons.notebookEditOutline),
@@ -9024,108 +9641,150 @@ class SubmissionCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                RhombusCheckbox(
-                  checked: subTask.completed,
-                  onChanged: (val) =>
-                      provider.completeSubtask(parentTask.id, subTask.id),
-                  disabled: subTask.completed,
-                  size: CheckboxSize.small,
-                ),
-                const SizedBox(width: 12),
-
-                // Name
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        subTask.name.toUpperCase(),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                            color: subTask.completed
-                                ? AppTheme.fhTextDisabled
-                                : AppTheme.fhTextPrimary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subTask.completed)
+                if (subTask.completed) ...[
+                  // --- COMPLETED STATE ---
+                  // Name (Left Aligned)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          subTask.name.toUpperCase(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              decoration: TextDecoration
+                                  .lineThrough, // Optional: strikethrough for completed
+                              color: AppTheme.fhTextDisabled),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         Text("COMPLETED",
                             style: TextStyle(
                                 fontSize: 10,
                                 color: AppTheme.fhAccentGreen,
                                 letterSpacing: 1,
                                 fontWeight: FontWeight.bold))
+                      ],
+                    ),
+                  ),
+
+                  // Actions: Duplicate & Delete
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(MdiIcons.contentCopy,
+                            size: 20, color: AppTheme.fhTextSecondary),
+                        tooltip: "Duplicate Sub-mission",
+                        onPressed: () => provider.duplicateCompletedSubtask(
+                            parentTask.id, subTask.id),
+                      ),
+                      IconButton(
+                        icon: Icon(MdiIcons.trashCanOutline,
+                            size: 20, color: AppTheme.fhAccentRed),
+                        tooltip: "Delete Sub-mission",
+                        onPressed: () =>
+                            provider.deleteSubtask(parentTask.id, subTask.id),
+                      ),
                     ],
                   ),
-                ),
-
-                // Time Display
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: AppTheme.fhBgDeepDark,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color:
-                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
-                  child: Text(
-                    formattedTime,
-                    style: TextStyle(
-                        fontFamily: "RobotoCondensed",
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color:
-                            isRunning ? AppTheme.fhAccentTeal : Colors.white),
+                ] else ...[
+                  // --- ACTIVE STATE ---
+                  RhombusCheckbox(
+                    checked: subTask.completed,
+                    onChanged: (val) =>
+                        provider.completeSubtask(parentTask.id, subTask.id),
+                    disabled: subTask.completed,
+                    size: CheckboxSize.small,
                   ),
-                ),
+                  const SizedBox(width: 12),
 
-                const SizedBox(width: 12),
-
-                // Play/Open Button
-                InkWell(
-                      onTap: () {
-                        if (isRunning) {
-                          provider.pauseTimer(subTask.id);
-                          provider.logTimerAndReset(subTask.id);
-                        } else {
-                          provider.startTimer(
-                              subTask.id, 'subtask', subTask.id);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(60),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: isRunning
-                                    ? AppTheme.fhAccentOrange
-                                    : AppTheme.fhAccentGreen,
-                                width: 3),
-                            color: (isRunning
-                                    ? AppTheme.fhAccentOrange
-                                    : AppTheme.fhAccentGreen)
-                                .withValues(alpha: 0.1),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: (isRunning
-                                          ? AppTheme.fhAccentOrange
-                                          : AppTheme.fhAccentGreen)
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 2)
-                            ]),
-                        child: Icon(
-                          isRunning ? MdiIcons.pause : MdiIcons.play,
-                          color: isRunning
-                              ? AppTheme.fhAccentOrange
-                              : AppTheme.fhAccentGreen,
-                          size: 16,
+                  // Name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          subTask.name.toUpperCase(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              color: AppTheme.fhTextPrimary),
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                    ),
+                  ),
+
+                  // Time Display
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: AppTheme.fhBgDeepDark,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                    child: Text(
+                      formattedTime,
+                      style: TextStyle(
+                          fontFamily: "RobotoCondensed",
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              isRunning ? AppTheme.fhAccentTeal : Colors.white),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Play/Open Button
+                  InkWell(
+                    onTap: () {
+                      if (isRunning) {
+                        provider.pauseTimer(subTask.id);
+                        provider.logTimerAndReset(subTask.id);
+                      } else {
+                        // FIXED: Pass parentTask.id as the mainTaskId
+                        provider.startTimer(
+                            subTask.id, 'subtask', parentTask.id);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(60),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: isRunning
+                                  ? AppTheme.fhAccentOrange
+                                  : AppTheme.fhAccentGreen,
+                              width: 3),
+                          color: (isRunning
+                                  ? AppTheme.fhAccentOrange
+                                  : AppTheme.fhAccentGreen)
+                              .withValues(alpha: 0.1),
+                          boxShadow: [
+                            BoxShadow(
+                                color: (isRunning
+                                        ? AppTheme.fhAccentOrange
+                                        : AppTheme.fhAccentGreen)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                spreadRadius: 2)
+                          ]),
+                      child: Icon(
+                        isRunning ? MdiIcons.pause : MdiIcons.play,
+                        color: isRunning
+                            ? AppTheme.fhAccentOrange
+                            : AppTheme.fhAccentGreen,
+                        size: 16,
                       ),
                     ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -9341,6 +10000,183 @@ class _TimePieChartState extends State<TimePieChart> {
 }
 
 --- END OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
+
+--- START OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:intl/intl.dart';
+
+class WeeklyActivityBarChart extends StatelessWidget {
+  final Map<int, double> weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
+  final Map<int, Color> dominantColors; // Key matches above, Value: Color of focused task
+
+  const WeeklyActivityBarChart({
+    super.key,
+    required this.weeklyData,
+    required this.dominantColors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final double maxY = weeklyData.values.isEmpty 
+        ? 60.0 
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '${rod.toY.toInt()}m',
+                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final dayIndex = value.toInt();
+                final daysAgo = 6 - dayIndex;
+                final date = today.subtract(Duration(days: daysAgo));
+                return SideTitleWidget(
+                  meta: meta,
+                  space: 4,
+                  child: Text(
+                    DateFormat('E').format(date).substring(0, 1),
+                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), 
+        ),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(show: false),
+        barGroups: List.generate(7, (index) {
+          final daysAgo = 6 - index;
+          final value = weeklyData[daysAgo] ?? 0.0;
+          final color = dominantColors[daysAgo] ?? AppTheme.fhBgLight;
+
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: value,
+                color: color,
+                width: 12,
+                borderRadius: BorderRadius.circular(4),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: maxY,
+                  color: AppTheme.fhBgDark,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class WeeklyVirtueBarChart extends StatelessWidget {
+  final Map<int, double> weeklyXp; // Key: 0 (Today) -> 6
+  final Map<int, Color> dominantVirtueColors; // Key: 0 (Today) -> 6
+
+  const WeeklyVirtueBarChart({
+    super.key, 
+    required this.weeklyXp,
+    this.dominantVirtueColors = const {},
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final double maxY = weeklyXp.values.isEmpty 
+        ? 50.0 
+        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(50.0, double.infinity);
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '+${rod.toY.toInt()} XP',
+                const TextStyle(color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final dayIndex = value.toInt();
+                final daysAgo = 6 - dayIndex;
+                final date = today.subtract(Duration(days: daysAgo));
+                return SideTitleWidget(
+                  meta: meta,
+                  space: 4,
+                  child: Text(
+                    DateFormat('E').format(date).substring(0, 1),
+                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(show: false),
+        barGroups: List.generate(7, (index) {
+          final daysAgo = 6 - index;
+          final value = weeklyXp[daysAgo] ?? 0.0;
+          final color = dominantVirtueColors[daysAgo] ?? AppTheme.fhAccentGold;
+
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: value,
+                color: color,
+                width: 12,
+                borderRadius: BorderRadius.circular(4),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: maxY,
+                  color: AppTheme.fhBgDark,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
 
 --- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
 import 'package:flutter/material.dart';
@@ -9571,183 +10407,6 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
 }
 
 --- END OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
-
---- START OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-
-class WeeklyActivityBarChart extends StatelessWidget {
-  final Map<int, double> weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
-  final Map<int, Color> dominantColors; // Key matches above, Value: Color of focused task
-
-  const WeeklyActivityBarChart({
-    super.key,
-    required this.weeklyData,
-    required this.dominantColors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final double maxY = weeklyData.values.isEmpty 
-        ? 60.0 
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                '${rod.toY.toInt()}m',
-                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                final dayIndex = value.toInt();
-                final daysAgo = 6 - dayIndex;
-                final date = today.subtract(Duration(days: daysAgo));
-                return SideTitleWidget(
-                  meta: meta,
-                  space: 4,
-                  child: Text(
-                    DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), 
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
-        barGroups: List.generate(7, (index) {
-          final daysAgo = 6 - index;
-          final value = weeklyData[daysAgo] ?? 0.0;
-          final color = dominantColors[daysAgo] ?? AppTheme.fhBgLight;
-
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: value,
-                color: color,
-                width: 12,
-                borderRadius: BorderRadius.circular(4),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxY,
-                  color: AppTheme.fhBgDark,
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class WeeklyVirtueBarChart extends StatelessWidget {
-  final Map<int, double> weeklyXp; // Key: 0 (Today) -> 6
-  final Map<int, Color> dominantVirtueColors; // Key: 0 (Today) -> 6
-
-  const WeeklyVirtueBarChart({
-    super.key, 
-    required this.weeklyXp,
-    this.dominantVirtueColors = const {},
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final double maxY = weeklyXp.values.isEmpty 
-        ? 50.0 
-        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(50.0, double.infinity);
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                '+${rod.toY.toInt()} XP',
-                const TextStyle(color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                final dayIndex = value.toInt();
-                final daysAgo = 6 - dayIndex;
-                final date = today.subtract(Duration(days: daysAgo));
-                return SideTitleWidget(
-                  meta: meta,
-                  space: 4,
-                  child: Text(
-                    DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
-        barGroups: List.generate(7, (index) {
-          final daysAgo = 6 - index;
-          final value = weeklyXp[daysAgo] ?? 0.0;
-          final color = dominantVirtueColors[daysAgo] ?? AppTheme.fhAccentGold;
-
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: value,
-                color: color,
-                width: 12,
-                borderRadius: BorderRadius.circular(4),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxY,
-                  color: AppTheme.fhBgDark,
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
@@ -10020,7 +10679,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                   onChanged: (val) => setState(() => _type = val!),
                   activeColor: AppTheme.fhAccentTeal,
                 ),
-                const Text("Sub-Mission",
+                const Text("Task",
                     style: TextStyle(color: AppTheme.fhTextPrimary)),
                 if (canBeCheckpoint) ...[
                   const SizedBox(width: 16),
@@ -10030,7 +10689,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                     onChanged: (val) => setState(() => _type = val!),
                     activeColor: AppTheme.fhAccentTeal,
                   ),
-                  const Text("Checkpoint",
+                  const Text("Step",
                       style: TextStyle(color: AppTheme.fhTextPrimary)),
                 ],
               ],
@@ -10316,55 +10975,71 @@ class ProjectGenerationDialog extends StatefulWidget {
   const ProjectGenerationDialog({super.key, required this.mainTaskId});
 
   @override
-  State<ProjectGenerationDialog> createState() => _ProjectGenerationDialogState();
+  State<ProjectGenerationDialog> createState() =>
+      _ProjectGenerationDialogState();
 }
 
 class _ProjectGenerationDialogState extends State<ProjectGenerationDialog> {
   final TextEditingController _promptController = TextEditingController();
-  
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    
+
     return AlertDialog(
       backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("Generate Project with AI", style: TextStyle(color: AppTheme.fhTextPrimary)),
+      title: const Text("Generate Project with AI",
+          style: TextStyle(color: AppTheme.fhTextPrimary)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("Describe the project goal. The AI will break it down into recursive steps.", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+          const Text(
+              "Describe the project goal. The AI will break it down into recursive steps.",
+              style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
           const SizedBox(height: 12),
           TextField(
             controller: _promptController,
             maxLines: 3,
             decoration: const InputDecoration(
-              hintText: "e.g., Build a personal website with portfolio and blog.",
-              border: OutlineInputBorder()
-            ),
+                hintText:
+                    "e.g., Build a personal website with portfolio and blog.",
+                border: OutlineInputBorder()),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: provider.isGeneratingSubquests ? null : () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+            onPressed: provider.isGeneratingSubquests
+                ? null
+                : () => Navigator.pop(context),
+            child: const Text("Cancel")),
         ElevatedButton(
-          onPressed: provider.isGeneratingSubquests 
-            ? null 
-            : () async {
-              if (_promptController.text.isNotEmpty) {
-                // Using existing loading flag for simplicity, or create a new one
-                await provider.projectActions.generateProjectStructure(widget.mainTaskId, _promptController.text);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple),
-          child: provider.isGeneratingSubquests 
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text("Generate"),
+          onPressed: provider.isGeneratingSubquests
+              ? null
+              : () async {
+                  if (_promptController.text.isNotEmpty) {
+                    final prompt = _promptController.text;
+                    Navigator.pop(context); // Close immediately
+
+                    // Fire and forget
+                    provider.projectActions
+                        .generateProjectStructure(widget.mainTaskId, prompt);
+                  }
+                },
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentPurple),
+          child: provider.isGeneratingSubquests
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text("Generate"),
         )
       ],
     );
   }
 }
+
 --- END OF FILE lib/src/widgets/dialogs/project_generation_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
@@ -10869,8 +11544,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                       onPrimary: AppTheme.fhBgDeepDark,
                       surface: AppTheme.fhBgDark,
                       onSurface: AppTheme.fhTextPrimary,
-                    ),
-                    dialogBackgroundColor: AppTheme.fhBgDark,
+                    ), dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
                   ),
                   child: child!,
                 );
@@ -10932,8 +11606,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
               onPrimary: AppTheme.fhBgDeepDark,
               surface: AppTheme.fhBgDark,
               onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogBackgroundColor: AppTheme.fhBgDark,
+            ), dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
           ),
           child: child!,
         );
@@ -11263,11 +11936,12 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
+import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
+import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -11288,15 +11962,11 @@ class SubmissionDetailScreen extends StatefulWidget {
 
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   final TextEditingController _checkpointController = TextEditingController();
-  bool _isCheckpointCountable = false;
-  final TextEditingController _checkpointCountController =
-      TextEditingController(text: '5');
   DateTime _selectedDate = DateTime.now();
 
   @override
   void dispose() {
     _checkpointController.dispose();
-    _checkpointCountController.dispose();
     super.dispose();
   }
 
@@ -11312,21 +11982,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
   void _handleAddCheckpoint(AppProvider provider) {
     if (_checkpointController.text.trim().isEmpty) return;
-
-    final subSubData = {
+    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
       'name': _checkpointController.text.trim(),
-      'isCountable': _isCheckpointCountable,
-      'targetCount': _isCheckpointCountable
-          ? (int.tryParse(_checkpointCountController.text) ?? 1)
-          : 0,
-    };
-
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, subSubData);
-    _checkpointController.clear();
-    setState(() {
-      _isCheckpointCountable = false;
-      _checkpointCountController.text = '5';
+      'isCountable': false,
+      'targetCount': 0,
     });
+    _checkpointController.clear();
   }
 
   Future<void> _handleEditSubtask(
@@ -11335,7 +11996,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       context: context,
       builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
     );
-
     if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
       provider.updateSubtask(
           widget.parentTask.id, widget.subTask.id, {'name': newName});
@@ -11347,76 +12007,36 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       context: context,
       builder: (ctx) => const AddSessionDialog(),
     );
-
     if (result != null) {
-      // Ensure the added session respects the selected day
       final startBase = result['start']!;
       final endBase = result['end']!;
-
-      final realStart = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day,
-        startBase.hour, startBase.minute
-      );
-      var realEnd = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day,
-        endBase.hour, endBase.minute
-      );
+      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
+          _selectedDate.day, startBase.hour, startBase.minute);
+      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
+          _selectedDate.day, endBase.hour, endBase.minute);
       if (realEnd.isBefore(realStart)) {
         realEnd = realEnd.add(const Duration(days: 1));
       }
-
       provider.addSessionToSubtask(
           widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
-  void _handleSessionEdit(BuildContext context, AppProvider provider,
-      TaskSession session) async {
+  void _handleSessionEdit(
+      BuildContext context, AppProvider provider, TaskSession session) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => SessionEditDialog(
-        initialStart: session.startTime,
-        initialEnd: session.endTime,
-      ),
+          initialStart: session.startTime, initialEnd: session.endTime),
     );
-
     if (result != null) {
-      final action = result['action'];
-      if (action == 'delete') {
+      if (result['action'] == 'delete') {
         provider.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
-      } else if (action == 'save') {
-        final newStart = result['start'] as DateTime;
-        final newEnd = result['end'] as DateTime;
+      } else if (result['action'] == 'save') {
         provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, newStart, newEnd);
+            session.id, result['start'], result['end']);
       }
-    }
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              onPrimary: AppTheme.fhBgDeepDark,
-              surface: AppTheme.fhBgMedium,
-              onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogBackgroundColor: AppTheme.fhBgDark,
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
     }
   }
 
@@ -11437,335 +12057,421 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
             ? timerState.accumulatedDisplayTime +
-                (DateTime.now().difference(timerState.startTime).inMilliseconds /
+                (DateTime.now()
+                        .difference(timerState.startTime)
+                        .inMilliseconds /
                     1000)
             : timerState.accumulatedDisplayTime)
         : liveSubTask.currentTimeSpent * 60.0;
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
+    final int completedCheckpoints =
+        liveSubTask.subSubTasks.where((s) => s.completed).length;
+    final int totalCheckpoints = liveSubTask.subSubTasks.length;
 
-    // Filter sessions by selected day
-    final filteredSessions = liveSubTask.sessions.where((s) {
-      return s.startTime.year == _selectedDate.year &&
-          s.startTime.month == _selectedDate.month &&
-          s.startTime.day == _selectedDate.day;
-    }).toList();
-
-    // Responsive Layout Check
-    final isLandscape = MediaQuery.of(context).size.width > 700;
+    // Filter sessions
+    final filteredSessions = liveSubTask.sessions
+        .where((s) =>
+            s.startTime.year == _selectedDate.year &&
+            s.startTime.month == _selectedDate.month &&
+            s.startTime.day == _selectedDate.day)
+        .toList();
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // --- Header (Task Name) ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
+      body: Stack(
+        children: [
+          // Layer 1: Background Watermark
+          Positioned(
+            right: -50,
+            top: 50,
+            child: Opacity(
+              opacity: 0.05,
+              child:
+                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+            ),
+          ),
+
+          // Layer 2: Main Content
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      liveSubTask.name,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
+                  // --- Header ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new,
+                              color: Colors.white70),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(MdiIcons.pencilOutline,
+                              color: Colors.white70),
+                          onPressed: () => _handleEditSubtask(
+                              context, provider, liveSubTask),
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(MdiIcons.pencilOutline,
-                        color: AppTheme.fhTextSecondary),
-                    onPressed: () =>
-                        _handleEditSubtask(context, provider, liveSubTask),
-                  ),
-                ],
-              ),
-            ),
 
-            Expanded(
-              child: isLandscape
-                  ? Row(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Left Column: Timer & Checkpoints
-                        Expanded(
-                          flex: 4,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                        Text(
+                          widget.parentTask.name
+                              .toUpperCase(), // "INITIATOR" style
+                          style: const TextStyle(
+                            color: AppTheme.fhAccentTealFixed,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            fontSize: 14,
+                            fontFamily: AppTheme.fontDisplay,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          liveSubTask.name.toUpperCase(), // "BREACH" style
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 48,
+                            height: 0.9,
+                            fontFamily: AppTheme.fontDisplay,
+                            letterSpacing: 2.0,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // --- Ability/Stat Row ---
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        ValorantAbilitySlot(
+                          hotkey: "Q",
+                          label: "TIME",
+                          value: formattedTime,
+                          icon: MdiIcons.clockFast,
+                          isActive: isRunning,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "E",
+                          label: "STEPS",
+                          value: "$completedCheckpoints/$totalCheckpoints",
+                          icon: MdiIcons.formatListChecks,
+                          isActive: completedCheckpoints > 0 &&
+                              completedCheckpoints == totalCheckpoints,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "C",
+                          label: "LOGS",
+                          value: "${liveSubTask.sessions.length}",
+                          icon: MdiIcons.history,
+                        ),
+                        const SizedBox(width: 16),
+                        ValorantAbilitySlot(
+                          hotkey: "X",
+                          label: "STATUS",
+                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
+                          icon: liveSubTask.completed
+                              ? MdiIcons.checkAll
+                              : MdiIcons.target,
+                          isActive: liveSubTask.completed,
+                          onTap: () => provider.completeSubtask(
+                              widget.parentTask.id, liveSubTask.id),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Divider(color: Colors.white10),
+
+                  // --- Main Content Area ---
+                  // Removed Expanded to allow full screen scrolling
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column (Controls & Checkpoints)
+                      // Formerly Expanded flex: 5
+                      Column(
+                        children: [
+                          // Timer Control Area (The "Centerpiece")
+                          Container(
+                            margin: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isRunning
+                                    ? [
+                                        AppTheme.fhAccentRed
+                                            .withValues(alpha: 0.2),
+                                        Colors.transparent
+                                      ]
+                                    : [
+                                        Colors.white.withValues(alpha: 0.05),
+                                        Colors.transparent
+                                      ],
+                                begin: Alignment.bottomLeft,
+                                end: Alignment.topRight,
+                              ),
+                              border: Border(
+                                  left: BorderSide(
+                                      color: isRunning
+                                          ? AppTheme.fhAccentRed
+                                          : AppTheme.fhTextSecondary,
+                                      width: 2)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildTimerBox(context, provider, liveSubTask,
-                                    formattedTime, isRunning),
-                                const SizedBox(height: 24),
-                                _buildCheckpointsSection(
-                                    context, provider, liveSubTask, theme),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isRunning
+                                          ? "SESSION ACTIVE"
+                                          : "READY TO DEPLOY",
+                                      style: TextStyle(
+                                        color: isRunning
+                                            ? AppTheme.fhAccentRed
+                                            : AppTheme.fhTextSecondary,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.0,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      formattedTime,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 32,
+                                        fontFamily: AppTheme.fontDisplay,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                FloatingActionButton.small(
+                                  backgroundColor: isRunning
+                                      ? AppTheme.fhAccentRed
+                                      : AppTheme.fhAccentTealFixed,
+                                  foregroundColor: Colors.black,
+                                  onPressed: () {
+                                    if (isRunning) {
+                                      provider.pauseTimer(liveSubTask.id);
+                                      provider.logTimerAndReset(liveSubTask.id);
+                                    } else {
+                                      provider.startTimer(liveSubTask.id,
+                                          'subtask', widget.parentTask.id);
+                                    }
+                                  },
+                                  child: Icon(isRunning
+                                      ? MdiIcons.pause
+                                      : MdiIcons.play),
+                                ),
                               ],
                             ),
                           ),
-                        ),
-                        // Vertical Divider
-                        Container(
-                            width: 1,
-                            color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                        // Right Column: Timeline
-                        Expanded(
-                          flex: 5,
-                          child: _buildTimelineSection(context, provider,
-                              filteredSessions, theme),
-                        ),
-                      ],
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildTimerBox(context, provider, liveSubTask,
-                              formattedTime, isRunning),
-                          const SizedBox(height: 24),
 
-                          // Checkpoints Section
-                          _buildCheckpointsSection(
-                              context, provider, liveSubTask, theme),
-
-                          const SizedBox(height: 32),
-                          const Divider(),
-                          const SizedBox(height: 16),
-
-                          // Timeline Section (Vertical stack on mobile)
+                          // Checkpoints List
+                          // Replaced Expanded with SizedBox/height
                           SizedBox(
-                            height: 400,
-                            child: _buildTimelineSection(context, provider,
-                                filteredSessions, theme),
+                            height: 250, // Max height for checkpoints
+                            child: ListView(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Text(
+                                    "TACTICAL OBJECTIVES",
+                                    style: TextStyle(
+                                        color: AppTheme.fhTextSecondary
+                                            .withValues(alpha: 0.5),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                        letterSpacing: 1.5),
+                                  ),
+                                ),
+                                ...liveSubTask.subSubTasks
+                                    .map((sss) => ValorantListItem(
+                                          title: sss.name,
+                                          isCompleted: sss.completed,
+                                          onToggle: () =>
+                                              provider.completeSubSubtask(
+                                                  widget.parentTask.id,
+                                                  liveSubTask.id,
+                                                  sss.id),
+                                          onDelete: () =>
+                                              provider.deleteSubSubtask(
+                                                  widget.parentTask.id,
+                                                  liveSubTask.id,
+                                                  sss.id),
+                                        )),
+                                // Quick Add Field
+                                Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    border: Border(
+                                        bottom: BorderSide(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.1))),
+                                  ),
+                                  child: TextField(
+                                    controller: _checkpointController,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 13),
+                                    decoration: const InputDecoration(
+                                      hintText: "+ Add Objective",
+                                      hintStyle:
+                                          TextStyle(color: Colors.white24),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding:
+                                          EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onSubmitted: (_) =>
+                                        _handleAddCheckpoint(provider),
+                                  ),
+                                ),
+                                Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () async {
+                                              final picked =
+                                                  await showDatePicker(
+                                                context: context,
+                                                initialDate: _selectedDate,
+                                                firstDate: DateTime(2020),
+                                                lastDate: DateTime.now().add(
+                                                    const Duration(days: 365)),
+                                                builder: (context, child) =>
+                                                    Theme(
+                                                  data: Theme.of(context)
+                                                      .copyWith(
+                                                    colorScheme:
+                                                        ColorScheme.dark(
+                                                      primary: AppTheme
+                                                          .fhAccentTealFixed,
+                                                      onPrimary: Colors.black,
+                                                      surface:
+                                                          AppTheme.fhBgDark,
+                                                      onSurface: Colors.white,
+                                                    ), dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+                                                  ),
+                                                  child: child!,
+                                                ),
+                                              );
+                                              if (picked != null) {
+                                                setState(() =>
+                                                    _selectedDate = picked);
+                                              }
+                                            },
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  DateFormat('MMM dd')
+                                                      .format(_selectedDate)
+                                                      .toUpperCase(),
+                                                  style: const TextStyle(
+                                                      color: AppTheme
+                                                          .fhAccentTealFixed,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontFamily:
+                                                          AppTheme.fontDisplay,
+                                                      fontSize: 16),
+                                                ),
+                                                const Icon(
+                                                    Icons.arrow_drop_down,
+                                                    color: AppTheme
+                                                        .fhAccentTealFixed,
+                                                    size: 16),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.add,
+                                                size: 20,
+                                                color: Colors.white54),
+                                            onPressed: () =>
+                                                _showAddSessionDialog(
+                                                    context, provider),
+                                            tooltip: "Log Manual Session",
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox( 
+                                      child: Container(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.2),
+                                        child: ScheduleTimeline(
+                                          sessions: filteredSessions,
+                                          onAddSession: () =>
+                                              _showAddSessionDialog(
+                                                  context, provider),
+                                          onEditSession: (s) =>
+                                              _handleSessionEdit(
+                                                  context, provider, s),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildTimerBox(BuildContext context, AppProvider provider,
-      SubTask subTask, String time, bool isRunning) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isRunning
-                ? AppTheme.fhAccentTeal
-                : AppTheme.fhBorderColor.withOpacity(0.3),
-            width: 2),
-        boxShadow: isRunning
-            ? [
-                BoxShadow(
-                    color: AppTheme.fhAccentTeal.withOpacity(0.2),
-                    blurRadius: 15)
-              ]
-            : [],
-      ),
-      child: Column(
-        children: [
-          Text(
-            time,
-            style: const TextStyle(
-              fontFamily: "RobotoCondensed",
-              fontSize: 56,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Controls
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                iconSize: 48,
-                icon: Icon(
-                    isRunning ? MdiIcons.pauseCircle : MdiIcons.playCircle,
-                    color: isRunning
-                        ? AppTheme.fhAccentOrange
-                        : AppTheme.fhAccentGreen),
-                onPressed: () {
-                  if (isRunning) {
-                    provider.pauseTimer(subTask.id);
-                    // provider.logTimerAndReset(subTask.id); // Handled by pauseTimer now for session logic
-                  } else {
-                    provider.startTimer(
-                        subTask.id, 'subtask', widget.parentTask.id);
-                  }
-                },
+                      // Vertical Divider
+                      const SizedBox(height: 16),
+                      Container(
+                          height: 1,
+                          color:
+                              Colors.white10), // Changed to horizonal divider
+                      const SizedBox(height: 16),
+
+                      // Right Column (Timeline)
+                      // Formerly Expanded flex: 4
+                    ],
+                  ),
+                ],
               ),
-              if (isRunning) ...[
-                const SizedBox(width: 16),
-                IconButton(
-                  iconSize: 32,
-                  icon: const Icon(Icons.stop_circle_outlined,
-                      color: AppTheme.fhAccentRed),
-                  onPressed: () {
-                    // provider.pauseTimer(subTask.id);
-                    provider.logTimerAndReset(subTask.id);
-                  },
-                ),
-              ]
-            ],
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCheckpointsSection(BuildContext context, AppProvider provider,
-      SubTask subTask, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("Checkpoints",
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: AppTheme.fhTextSecondary)),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // List
-        ...subTask.subSubTasks.map((sss) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgMedium.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  RhombusCheckbox(
-                    checked: sss.completed,
-                    size: CheckboxSize.small,
-                    onChanged: (_) => provider.completeSubSubtask(
-                        widget.parentTask.id, subTask.id, sss.id),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      sss.name,
-                      style: TextStyle(
-                        decoration:
-                            sss.completed ? TextDecoration.lineThrough : null,
-                        color: sss.completed
-                            ? AppTheme.fhTextSecondary
-                            : AppTheme.fhTextPrimary,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close,
-                        size: 16, color: AppTheme.fhTextSecondary),
-                    onPressed: () => provider.deleteSubSubtask(
-                        widget.parentTask.id, subTask.id, sss.id),
-                  )
-                ],
-              ),
-            )),
-
-        // Input Area
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _checkpointController,
-                  decoration: const InputDecoration(
-                    hintText: "New checkpoint...",
-                    border: InputBorder.none,
-                    hintStyle:
-                        TextStyle(fontSize: 13, color: AppTheme.fhTextSecondary),
-                  ),
-                  style: const TextStyle(
-                      fontSize: 14, color: AppTheme.fhTextPrimary),
-                  onSubmitted: (_) => _handleAddCheckpoint(provider),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add,
-                    size: 20, color: AppTheme.fhAccentTeal),
-                onPressed: () => _handleAddCheckpoint(provider),
-              )
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimelineSection(BuildContext context, AppProvider provider,
-      List<TaskSession> sessions, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkWell(
-              onTap: _pickDate,
-              child: Row(
-                children: [
-                  Text(
-                    DateFormat('EEE, MMM d').format(_selectedDate),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: AppTheme.fhTextSecondary)
-                ],
-              ),
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text("Log Time"),
-              onPressed: () => _showAddSessionDialog(context, provider),
-              style:
-                  TextButton.styleFrom(foregroundColor: AppTheme.fhAccentPurple),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ScheduleTimeline(
-                sessions: sessions,
-                onAddSession: () => _showAddSessionDialog(context, provider),
-                onEditSession: (session) =>
-                    _handleSessionEdit(context, provider, session),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -12142,23 +12848,6 @@ class ActivityLogList extends StatelessWidget {
 
     return Column(
       children: [
-        if (subtasksCompleted.isNotEmpty)
-          _buildExpandableSection(
-            context,
-            title: "Completed Missions",
-            icon: MdiIcons.checkCircleOutline,
-            count: subtasksCompleted.length,
-            children: subtasksCompleted.map((st) {
-              final map = st as Map<String, dynamic>;
-              return _buildActivityCard(
-                icon: MdiIcons.target,
-                title: map['name'] ?? 'Unknown Subtask',
-                subtitle:
-                    "Logged: ${map['timeLogged']}m | Count: ${map['currentCount']}/${map['targetCount']}",
-                color: AppTheme.fhAccentGreen,
-              );
-            }).toList(),
-          ),
         if (checkpointsCompleted.isNotEmpty)
           _buildExpandableSection(
             context,
@@ -13139,8 +13828,8 @@ class ScheduleTimeline extends StatefulWidget {
 
 class _ScheduleTimelineState extends State<ScheduleTimeline> {
   // Base scale: 60px per hour.
-  // Scale factor allows zooming from 0.5x (30px/hr) to 3x (180px/hr)
-  double _scale = 1.0;
+  // Scale factor allows zooming from 0.5x (30px/hr) to 10x (600px/hr)
+  double _scale = 2.0;
   final double _basePixelsPerHour = 60.0;
 
   @override
@@ -13149,89 +13838,157 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final sortedSessions = List<TaskSession>.from(widget.sessions)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
+    // Determine bounds
+    DateTime startBoundary;
+    DateTime endBoundary;
+    final now = DateTime.now();
+
+    if (sortedSessions.isEmpty) {
+      // Default to 00:00 - 24:00 if no sessions
+      // Or if we want to default to "Now" centered?
+      // User said "save space", but with 0 sessions we have no anchor.
+      // Let's stick to a safe 08:00 - 18:00 or similar default if empty?
+      // Or just 0-24 for full day freedom until initialized.
+      startBoundary = DateTime(now.year, now.month, now.day, 0, 0);
+      endBoundary = DateTime(now.year, now.month, now.day, 23, 59);
+    } else {
+      startBoundary = sortedSessions.first.startTime;
+
+      // Determine end boundary (Last session end vs Now)
+      // Check if sessions are for "Today" to decide if "Now" is relevant
+      final reference = sortedSessions.first.startTime;
+      final isToday = reference.year == now.year &&
+          reference.month == now.month &&
+          reference.day == now.day;
+
+      DateTime lastSessionEnd = sortedSessions.last.endTime;
+      // Find the absolute latest end time among all sessions
+      for (var s in sortedSessions) {
+        if (s.endTime.isAfter(lastSessionEnd)) {
+          lastSessionEnd = s.endTime;
+        }
+      }
+
+      if (isToday && now.isAfter(lastSessionEnd)) {
+        endBoundary = now;
+      } else {
+        endBoundary = lastSessionEnd;
+      }
+    }
+
+    final startHour = startBoundary.hour;
+    // For end hour, we want to include the full hour of the end time.
+    // e.g. if end is 10:15, we need to show up to 11:00 (index 10) or cover index 10 fully?
+    // We render grid lines for hours.
+    // If range is 10:00 to 12:00 -> Hours 10, 11, 12.
+    int endHour = endBoundary.hour;
+    if (endBoundary.minute > 0) {
+      endHour++;
+    }
+    // Ensure endHour doesn't exceed 24 (next day start)
+    if (endHour > 24) endHour = 24;
+    // Ensure endHour >= startHour
+    if (endHour <= startHour) endHour = startHour + 1;
+
+    final int hoursCount = endHour - startHour;
+
     final double pixelsPerHour = _basePixelsPerHour * _scale;
-    final double totalHeight = pixelsPerHour * 24;
+    final double totalHeight = pixelsPerHour * hoursCount;
 
     return GestureDetector(
       onScaleUpdate: (details) {
         setState(() {
-          _scale = (_scale * details.scale).clamp(0.5, 4.0);
+          _scale = (_scale * details.scale).clamp(0.5, 10.0);
         });
       },
-      child: SingleChildScrollView(
-        child: SizedBox(
-          height: totalHeight,
-          child: Stack(
-            children: [
-              // Background Grid & Time Labels
-              Column(
-                children: List.generate(24, (index) {
-                  return Container(
-                    height: pixelsPerHour,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: AppTheme.fhBorderColor.withOpacity(0.1),
-                          width: 1,
-                        ),
+      child: Container(
+        height: totalHeight,
+        width: double.infinity,
+        color: Colors.transparent, // Ensure hits
+        child: Stack(
+          children: [
+            // Background Grid & Time Labels
+            Column(
+              children: List.generate(hoursCount, (index) {
+                final currentHour = startHour + index;
+                // If we go past 24, it's next day? (simplified for single day view)
+                // View assumes single day mostly.
+                final displayHour = currentHour % 24;
+
+                return Container(
+                  height: pixelsPerHour,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: AppTheme.fhBorderColor.withOpacity(0.1),
+                        width: 1,
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 50,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2.0, right: 8.0),
-                            child: Text(
-                              "${index.toString().padLeft(2, '0')}:00",
-                              style: TextStyle(
-                                color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                fontSize: 10,
-                              ),
-                              textAlign: TextAlign.right,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 50,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+                          child: Text(
+                            "${displayHour.toString().padLeft(2, '0')}:00",
+                            style: TextStyle(
+                              color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                              fontSize: 10,
                             ),
+                            textAlign: TextAlign.right,
                           ),
                         ),
-                        Expanded(child: Container()), // Grid line area
-                      ],
-                    ),
-                  );
-                }),
-              ),
-
-              // Sessions
-              ...sortedSessions.map((session) {
-                // Calculate position relative to 00:00 of the session's day
-                // We assume filtered sessions are for the same day or we project time onto 0-24h
-                final startMinutes = session.startTime.hour * 60 + session.startTime.minute;
-                final durationMinutes = session.durationMinutes;
-
-                final double top = (startMinutes / 60.0) * pixelsPerHour;
-                final double height = (durationMinutes / 60.0) * pixelsPerHour;
-
-                // Min visual height to be clickable
-                final double visualHeight = height < 2 ? 2 : height;
-
-                return Positioned(
-                  top: top,
-                  left: 60, // Offset for time labels
-                  right: 16,
-                  height: visualHeight,
-                  child: GestureDetector(
-                    onTap: () => widget.onEditSession(session),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.fhAccentTeal.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: AppTheme.fhAccentTeal.withOpacity(0.6),
-                          width: 1,
-                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      alignment: Alignment.centerLeft,
-                      child: visualHeight > 20
+                      Expanded(child: Container()), // Grid line area
+                    ],
+                  ),
+                );
+              }),
+            ),
+
+            // Sessions
+            ...sortedSessions.map((session) {
+              // Calculate position relative to startHour
+              final startMinutesVal =
+                  session.startTime.hour * 60 + session.startTime.minute;
+              final offsetMinutes = startHour * 60;
+              final relativeStartMinutes = startMinutesVal - offsetMinutes;
+
+              final durationMinutes = session.durationMinutes;
+
+              final double top = (relativeStartMinutes / 60.0) * pixelsPerHour;
+              final double height = (durationMinutes / 60.0) * pixelsPerHour;
+
+              // Min visual height to be clickable
+              final double visualHeight = height < 2 ? 2 : height;
+
+              // Check if session is roughly within view bounds (simple clipping check)
+              if (top + visualHeight < 0 || top > totalHeight) {
+                return const SizedBox.shrink();
+              }
+
+              return Positioned(
+                top: top,
+                left: 60, // Offset for time labels
+                right: 16,
+                height: visualHeight,
+                child: GestureDetector(
+                  onTap: () => widget.onEditSession(session),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhAccentTeal.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: AppTheme.fhAccentTeal.withOpacity(0.6),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.centerLeft,
+                    child: visualHeight > 20
                         ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -13257,21 +14014,376 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                             ],
                           )
                         : null, // Hide text if too small
-                    ),
                   ),
-                );
-              }),
+                ),
+              );
+            }),
 
-              // Current Time Indicator (if today)
-              // Optional: Calculate current time line if it falls within view
-            ],
-          ),
+            // Optional: Current Time Indicator could be added here if needed
+            // But logic needs to account for relative positioning
+          ],
         ),
       ),
     );
   }
 }
+
 --- END OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
+
+--- START OF FILE lib/src/widgets/ui/valorant_ability_slot.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class ValorantAbilitySlot extends StatelessWidget {
+  final String label; // e.g. "TIME"
+  final String value; // e.g. "01:45"
+  final IconData icon;
+  final String hotkey; // e.g. "Q"
+  final bool isActive;
+  final VoidCallback? onTap;
+
+  const ValorantAbilitySlot({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.hotkey,
+    this.isActive = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = isActive 
+        ? AppTheme.fhAccentTealFixed 
+        : AppTheme.fhBorderColor.withValues(alpha: 0.5);
+    final bgColor = isActive 
+        ? AppTheme.fhAccentTealFixed.withValues(alpha: 0.1) 
+        : Colors.black.withValues(alpha: 0.3);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The Icon Box
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: bgColor,
+              border: Border.all(color: borderColor, width: 1.5),
+              borderRadius: BorderRadius.zero, // Sharp edges for Valorant style
+            ),
+            child: Stack(
+              children: [
+                // Hotkey Label (Top Left)
+                Positioned(
+                  top: 2,
+                  left: 4,
+                  child: Text(
+                    hotkey,
+                    style: TextStyle(
+                      color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                    ),
+                  ),
+                ),
+                // Main Icon
+                Center(
+                  child: Icon(
+                    icon,
+                    color: isActive ? Colors.white : AppTheme.fhTextSecondary,
+                    size: 24,
+                  ),
+                ),
+                // Bottom Value Overlay (Optional, if we want value inside)
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Label and Value Text
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: AppTheme.fhTextSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppTheme.fhTextPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              fontFamily: AppTheme.fontDisplay,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/valorant_ability_slot.dart ---
+
+--- START OF FILE lib/src/widgets/ui/valorant_list_item.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+
+class ValorantListItem extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool isCompleted;
+  final VoidCallback? onToggle;
+  final VoidCallback? onDelete;
+  final bool isCompact;
+
+  const ValorantListItem({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.isCompleted = false,
+    this.onToggle,
+    this.onDelete,
+    this.isCompact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isCompact ? 8 : 12),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark.withValues(alpha: 0.6),
+        border: Border(
+          left: BorderSide(
+            color: isCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor,
+            width: 4,
+          ),
+          bottom: BorderSide(
+            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (onToggle != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: RhombusCheckbox(
+                checked: isCompleted,
+                onChanged: (_) => onToggle!(),
+                size: CheckboxSize.small,
+              ),
+            ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    color: isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontBody,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                    fontSize: isCompact ? 13 : 14,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      color: AppTheme.fhTextSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (onDelete != null)
+            IconButton(
+              icon: Icon(Icons.close, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
+              onPressed: onDelete,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8),
+            ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/valorant_list_item.dart ---
+
+--- START OF FILE lib/src/widgets/ui/json_editor_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class JsonEditorWidget extends StatelessWidget {
+  final dynamic data;
+  final ValueChanged<dynamic> onChanged;
+  final String label;
+
+  const JsonEditorWidget({
+    super.key,
+    required this.data,
+    required this.onChanged,
+    this.label = 'Root',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (data is Map) {
+      return _buildMapNode(context, data as Map, label);
+    } else if (data is List) {
+      return _buildListNode(context, data as List, label);
+    } else {
+      return _buildLeafNode(context, data, label);
+    }
+  }
+
+  Widget _buildMapNode(BuildContext context, Map map, String keyLabel) {
+    return ExpansionTile(
+      title: Text(keyLabel,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+      subtitle: Text("Map (${map.length} items)",
+          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+      childrenPadding: const EdgeInsets.only(left: 16),
+      collapsedIconColor: AppTheme.fhTextSecondary,
+      iconColor: AppTheme.fhAccentTeal,
+      children: [
+        ...map.entries.map((entry) {
+          return JsonEditorWidget(
+            label: entry.key.toString(),
+            data: entry.value,
+            onChanged: (newValue) {
+              final newMap = Map.from(map);
+              newMap[entry.key] = newValue;
+              onChanged(newMap);
+            },
+          );
+        }),
+        // Add capability could be here
+      ],
+    );
+  }
+
+  Widget _buildListNode(BuildContext context, List list, String keyLabel) {
+    return ExpansionTile(
+      title: Text(keyLabel,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+      subtitle: Text("List (${list.length} items)",
+          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+      childrenPadding: const EdgeInsets.only(left: 16),
+      collapsedIconColor: AppTheme.fhTextSecondary,
+      iconColor: AppTheme.fhAccentTeal,
+      children: [
+        ...list.asMap().entries.map((entry) {
+          return JsonEditorWidget(
+            label: "[${entry.key}]",
+            data: entry.value,
+            onChanged: (newValue) {
+              final newList = List.from(list);
+              newList[entry.key] = newValue;
+              onChanged(newList);
+            },
+          );
+        }),
+        // Add item capability could be here
+      ],
+    );
+  }
+
+  Widget _buildLeafNode(BuildContext context, dynamic value, String keyLabel) {
+    return ListTile(
+      title: Text(keyLabel,
+          style:
+              const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+      subtitle: Text(value?.toString() ?? "null",
+          style: const TextStyle(
+              color: AppTheme.fhTextPrimary,
+              fontFamily: 'RobotoMono',
+              fontSize: 14)),
+      trailing: IconButton(
+        icon: const Icon(Icons.edit, size: 16, color: AppTheme.fhAccentGold),
+        onPressed: () => _editValue(context, value),
+      ),
+    );
+  }
+
+  Future<void> _editValue(BuildContext context, dynamic currentValue) async {
+    final controller =
+        TextEditingController(text: currentValue?.toString() ?? "");
+    dynamic newValue;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: Text("Edit $label",
+            style: const TextStyle(color: AppTheme.fhTextPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: AppTheme.fhBgMedium,
+                border: OutlineInputBorder(),
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Original Type: ${currentValue.runtimeType}",
+              style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context),
+          ),
+          TextButton(
+            child: const Text("Save",
+                style: TextStyle(color: AppTheme.fhAccentTeal)),
+            onPressed: () {
+              final text = controller.text;
+              if (currentValue is int) {
+                newValue = int.tryParse(text) ?? currentValue;
+              } else if (currentValue is double) {
+                newValue = double.tryParse(text) ?? currentValue;
+              } else if (currentValue is bool) {
+                newValue = text.toLowerCase() == 'true';
+              } else {
+                newValue = text;
+              }
+              Navigator.pop(context);
+              onChanged(newValue);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+--- END OF FILE lib/src/widgets/ui/json_editor_widget.dart ---
 
 --- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
 import 'package:flutter/material.dart';
@@ -14023,30 +15135,47 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
 
       // Activity Data
-      final dayData = provider.completedByDay[dateStr];
+      // Activity Data
+      final isToday =
+          dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
       double totalMins = 0;
       Color dominantColor = AppTheme.fhBgLight;
       double maxMinsForTask = 0;
 
-      if (dayData != null && dayData['taskTimes'] != null) {
-        final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
-        taskTimes.forEach((taskId, time) {
-          final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-              orElse: () => MainTask(
-                  id: '', name: 'Unknown', description: '', theme: ''));
-
-          // Apply Filter
-          if (_selectedTaskFilter != null && task.name != _selectedTaskFilter) {
-            return;
-          }
-
-          final mins = (time as num).toDouble();
+      if (isToday) {
+        // Use live data from task sessions for today
+        for (var task in provider.mainTasks) {
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
           totalMins += mins;
           if (mins > maxMinsForTask) {
             maxMinsForTask = mins;
             dominantColor = task.taskColor;
           }
-        });
+        }
+      } else {
+        // Use stored data for past days
+        final dayData = provider.completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+          taskTimes.forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
+                orElse: () => MainTask(
+                    id: '', name: 'Unknown', description: '', theme: ''));
+
+            // Apply Filter
+            if (_selectedTaskFilter != null &&
+                task.name != _selectedTaskFilter) {
+              return;
+            }
+
+            final mins = (time as num).toDouble();
+            totalMins += mins;
+            if (mins > maxMinsForTask) {
+              maxMinsForTask = mins;
+              dominantColor = task.taskColor;
+            }
+          });
+        }
       }
       activityData[i] = totalMins;
       activityColors[i] = dominantColor;
@@ -14095,17 +15224,32 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     // Prepare Daily Time Data for Pie Chart
     Map<String, double> dailyTaskTimeData = {};
     Map<String, Color> taskColors = {};
+
     if (_selectedDate != null) {
-      final summaryData = provider.completedByDay[_selectedDate!];
-      if (summaryData != null && summaryData['taskTimes'] != null) {
-        (summaryData['taskTimes'] as Map<String, dynamic>)
-            .forEach((taskId, time) {
-          final task =
-              provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
-          final String name = task?.name ?? "Unknown";
-          dailyTaskTimeData[name] = (time as num).toDouble();
-          taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
-        });
+      final isToday =
+          _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      if (isToday) {
+        final today = DateTime.now();
+        for (var task in provider.mainTasks) {
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
+          if (mins > 0) {
+            dailyTaskTimeData[task.name] = mins;
+            taskColors[task.name] = task.taskColor;
+          }
+        }
+      } else {
+        final summaryData = provider.completedByDay[_selectedDate!];
+        if (summaryData != null && summaryData['taskTimes'] != null) {
+          (summaryData['taskTimes'] as Map<String, dynamic>)
+              .forEach((taskId, time) {
+            final task =
+                provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+            final String name = task?.name ?? "Unknown";
+            dailyTaskTimeData[name] = (time as num).toDouble();
+            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+          });
+        }
       }
     }
 
@@ -14154,7 +15298,20 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final summaryData = _selectedDate != null
         ? appProvider.completedByDay[_selectedDate!]
         : null;
-    final taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+
+    Map<String, dynamic> taskTimes = {};
+    if (_selectedDate != null &&
+        _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      final today = DateTime.now();
+      for (var task in appProvider.mainTasks) {
+        final val = _calculateDailyTimeFromSessions(task, today);
+        if (val > 0) {
+          taskTimes[task.id] = val;
+        }
+      }
+    } else {
+      taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    }
     final subtasksCompleted =
         summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted =
@@ -14458,6 +15615,21 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       default:
         return Colors.grey;
     }
+  }
+
+  int _calculateDailyTimeFromSessions(MainTask task, DateTime startOfDay) {
+    int totalMinutes = 0;
+    // Iterate all subtasks and their sessions to find ones impacting today
+    for (var sub in task.subTasks) {
+      for (var session in sub.sessions) {
+        if (session.startTime.year == startOfDay.year &&
+            session.startTime.month == startOfDay.month &&
+            session.startTime.day == startOfDay.day) {
+          totalMinutes += session.durationMinutes;
+        }
+      }
+    }
+    return totalMinutes;
   }
 }
 

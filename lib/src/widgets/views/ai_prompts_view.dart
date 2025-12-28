@@ -122,20 +122,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                         if (_promptController.text.isNotEmpty &&
                             _selectedMainTaskId != null) {
                           // Show loading dialog
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => const AlertDialog(
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 16),
-                                  Text("Generating project structure..."),
-                                ],
-                              ),
-                            ),
-                          );
+                          
 
                           try {
                             await provider.projectActions
@@ -143,10 +130,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                                     _promptController.text);
                           } finally {
                             // Close loading dialog
-                            if (context.mounted) {
-                              Navigator.pop(context); // Pop dialog
-                              Navigator.pop(context); // Pop screen
-                            }
+                            
                           }
                         }
                       },

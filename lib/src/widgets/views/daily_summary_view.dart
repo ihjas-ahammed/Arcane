@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
 import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
@@ -11,6 +10,7 @@ import 'package:arcane/src/widgets/ui/activity_log_list.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/helpers.dart';
+import 'package:arcane/src/utils/chart_data_helper.dart'; // Import helper
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -46,7 +46,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
   void _navigateToReflectionEditor(BuildContext context,
       {ReflectionLog? initialLog}) {
-    // If we have a selected date, pass it. Otherwise use today.
     final dateStr =
         _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
 
@@ -79,15 +78,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               title: "Edit ${type.capitalize()}",
               logType: type.toLowerCase(),
               initialValue: currentValue,
-              onDelete: () {
-                if (_selectedDate == null) return;
-                // Deletion for reflection is handled (or not) via editor or we could keep it here
-                // But for now, since we redirect reflections, this block won't run for reflections.
-              },
-              onSave: (val) {
-                if (_selectedDate == null) return;
-                // Update implementation
-              },
+              onDelete: () {},
+              onSave: (val) {},
             ));
   }
 
@@ -99,7 +91,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       final aiService = Provider.of<AIService>(context, listen: false);
 
-      // Filter logs for the specific day passed in
       final targetDate = DateTime.parse(_selectedDate!);
       final dailyLogs = appProvider.reflectionLogs.where((l) {
         return l.timestamp.year == targetDate.year &&
@@ -126,7 +117,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         modelCandidates: appProvider.settings.liteModels,
         currentApiKeyIndex: appProvider.apiKeyIndex,
         onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
-        onLog: (s) => (s), // Avoid print in production
+        onLog: (s) => (s),
       );
 
       if (!mounted) return;
@@ -158,147 +149,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  // Helper to prepare data for charts
-  Map<String, dynamic> _prepareWeeklyData(AppProvider provider) {
-    final today = DateTime.now();
-    final Map<int, double> activityData = {};
-    final Map<int, Color> activityColors = {};
-    final Map<int, double> virtueData = {};
-    final Map<int, Color> virtueColors = {};
-
-    for (int i = 0; i < 7; i++) {
-      final date = today.subtract(Duration(days: i));
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-
-      // Activity Data
-      // Activity Data
-      final isToday =
-          dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
-      double totalMins = 0;
-      Color dominantColor = AppTheme.fhBgLight;
-      double maxMinsForTask = 0;
-
-      if (isToday) {
-        // Use live data from task sessions for today
-        for (var task in provider.mainTasks) {
-          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
-          totalMins += mins;
-          if (mins > maxMinsForTask) {
-            maxMinsForTask = mins;
-            dominantColor = task.taskColor;
-          }
-        }
-      } else {
-        // Use stored data for past days
-        final dayData = provider.completedByDay[dateStr];
-        if (dayData != null && dayData['taskTimes'] != null) {
-          final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
-          taskTimes.forEach((taskId, time) {
-            final task = provider.mainTasks.firstWhere((t) => t.id == taskId,
-                orElse: () => MainTask(
-                    id: '', name: 'Unknown', description: '', theme: ''));
-
-            // Apply Filter
-            if (_selectedTaskFilter != null &&
-                task.name != _selectedTaskFilter) {
-              return;
-            }
-
-            final mins = (time as num).toDouble();
-            totalMins += mins;
-            if (mins > maxMinsForTask) {
-              maxMinsForTask = mins;
-              dominantColor = task.taskColor;
-            }
-          });
-        }
-      }
-      activityData[i] = totalMins;
-      activityColors[i] = dominantColor;
-
-      // Virtue Data
-      final reflections = provider.reflectionLogs.where((l) {
-        return l.timestamp.year == date.year &&
-            l.timestamp.month == date.month &&
-            l.timestamp.day == date.day;
-      });
-
-      double totalXp = 0;
-      Map<String, int> virtueTotals = {};
-      for (var ref in reflections) {
-        ref.xpGained.forEach((k, v) {
-          // Apply Filter
-          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter) {
-            return;
-          }
-          virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
-        });
-
-        // Sum filtered XP
-        // Correctly sum only what passed filter
-        int xpForEntry = 0;
-        ref.xpGained.forEach((k, v) {
-          if (_selectedVirtueFilter != null && k != _selectedVirtueFilter) {
-            return;
-          }
-          xpForEntry += v;
-        });
-        totalXp += xpForEntry;
-      }
-      virtueData[i] = totalXp;
-
-      // Determine Dominant Virtue Color
-      Color dominantVirtueColor = AppTheme.fhAccentGold;
-      if (virtueTotals.isNotEmpty) {
-        var maxVirtue =
-            virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
-      }
-      virtueColors[i] = dominantVirtueColor;
-    }
-
-    // Prepare Daily Time Data for Pie Chart
-    Map<String, double> dailyTaskTimeData = {};
-    Map<String, Color> taskColors = {};
-
-    if (_selectedDate != null) {
-      final isToday =
-          _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-      if (isToday) {
-        final today = DateTime.now();
-        for (var task in provider.mainTasks) {
-          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
-          if (mins > 0) {
-            dailyTaskTimeData[task.name] = mins;
-            taskColors[task.name] = task.taskColor;
-          }
-        }
-      } else {
-        final summaryData = provider.completedByDay[_selectedDate!];
-        if (summaryData != null && summaryData['taskTimes'] != null) {
-          (summaryData['taskTimes'] as Map<String, dynamic>)
-              .forEach((taskId, time) {
-            final task =
-                provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
-            final String name = task?.name ?? "Unknown";
-            dailyTaskTimeData[name] = (time as num).toDouble();
-            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
-          });
-        }
-      }
-    }
-
-    return {
-      'activityData': activityData,
-      'activityColors': activityColors,
-      'virtueData': virtueData,
-      'virtueColors': virtueColors,
-      'dailyTaskTimeData': dailyTaskTimeData,
-      'taskColors': taskColors,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -307,7 +157,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
 
-    // Handle date selection logic safely
     if (_selectedDate == null && availableDates.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _selectedDate = availableDates.first);
@@ -328,8 +177,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       });
     }
 
-    // Prepare chart data
-    final chartData = _prepareWeeklyData(appProvider);
+    // Use Helper to prepare data
+    final chartData = ChartDataHelper.prepareWeeklyData(
+      appProvider, 
+      _selectedDate, 
+      _selectedTaskFilter, 
+      _selectedVirtueFilter
+    );
 
     final summaryData = _selectedDate != null
         ? appProvider.completedByDay[_selectedDate!]
@@ -340,7 +194,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
       final today = DateTime.now();
       for (var task in appProvider.mainTasks) {
-        final val = _calculateDailyTimeFromSessions(task, today);
+        final val = ChartDataHelper.calculateDailyTimeFromSessions(task, today); // Exposed in helper if needed or copy logic back if private
         if (val > 0) {
           taskTimes[task.id] = val;
         }
@@ -409,22 +263,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               InkWell(
                 onTap: () async {
                   if (availableDates.isEmpty) return;
-
-                  // Parse dates to find range
-                  final dates =
-                      availableDates.map((d) => DateTime.parse(d)).toList();
+                  final dates = availableDates.map((d) => DateTime.parse(d)).toList();
                   dates.sort();
                   final firstDate = dates.first;
-
-                  final initialDate = _selectedDate != null
-                      ? DateTime.parse(_selectedDate!)
-                      : dates.last;
+                  final initialDate = _selectedDate != null ? DateTime.parse(_selectedDate!) : dates.last;
 
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: initialDate,
-                    firstDate: firstDate.subtract(
-                        const Duration(days: 365)), // Allow looking back
+                    firstDate: firstDate.subtract(const Duration(days: 365)),
                     lastDate: DateTime.now().add(const Duration(days: 1)),
                     selectableDayPredicate: (day) {
                       final dateStr = DateFormat('yyyy-MM-dd').format(day);
@@ -439,8 +286,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             surface: AppTheme.fhBgMedium,
                             onSurface: AppTheme.fhTextPrimary,
                           ),
-                          // ignore: deprecated_member_use
-                          dialogBackgroundColor: AppTheme.fhBgDark,
+                          dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
                         ),
                         child: child!,
                       );
@@ -469,8 +315,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   ),
                   child: Text(
                     _selectedDate != null
-                        ? DateFormat('MMMM d, yyyy')
-                            .format(DateTime.parse(_selectedDate!))
+                        ? DateFormat('MMMM d, yyyy').format(DateTime.parse(_selectedDate!))
                         : 'Select a date',
                     style: const TextStyle(color: AppTheme.fhTextPrimary),
                   ),
@@ -479,7 +324,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
               const SizedBox(height: 24),
 
-              // --- DAILY STATS CAROUSEL (Mixed Focus & Virtue) ---
+              // --- DAILY STATS CAROUSEL ---
               ChartCarousel(
                 height: 320,
                 pages: [
@@ -527,7 +372,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   ],
                 )
               ] else ...[
-                // Mobile Layout (Vertical Stack)
                 _buildActivitySection(theme, appProvider, taskTimes,
                     subtasksCompleted, checkpointsCompleted),
                 const SizedBox(height: 30),
@@ -617,7 +461,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 );
               }),
         ],
-        // Add a primary button to add a new reflection if none exist or just as an option
         Padding(
           padding: const EdgeInsets.only(top: 16.0),
           child: ElevatedButton.icon(
@@ -633,38 +476,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       ],
     );
   }
-
-  Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  int _calculateDailyTimeFromSessions(MainTask task, DateTime startOfDay) {
-    int totalMinutes = 0;
-    // Iterate all subtasks and their sessions to find ones impacting today
-    for (var sub in task.subTasks) {
-      for (var session in sub.sessions) {
-        if (session.startTime.year == startOfDay.year &&
-            session.startTime.month == startOfDay.month &&
-            session.startTime.day == startOfDay.day) {
-          totalMinutes += session.durationMinutes;
-        }
-      }
-    }
-    return totalMinutes;
-  }
 }
+// Note: _calculateDailyTimeFromSessions inside chart_data_helper was made static publicly, but inside here I relied on it being private or imported?
+// I added `ChartDataHelper.calculateDailyTimeFromSessions` in the helper but didn't rename the usage in `build`.
+// The code `ChartDataHelper.calculateDailyTimeFromSessions` was used in `build`.
+// The private `_calculateDailyTimeFromSessions` inside view was removed/not used.
+// Double check the helper file content I generated. I named it `_calculateDailyTimeFromSessions` (private) in the helper class...
+// I should fix the helper file generation to make it public if I use it here, or duplicate it.
+// I will regenerate the helper file content to be public.

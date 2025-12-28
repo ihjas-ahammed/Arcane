@@ -40,8 +40,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
               onPrimary: AppTheme.fhBgDeepDark,
               surface: AppTheme.fhBgDark,
               onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogBackgroundColor: AppTheme.fhBgDark,
+            ), dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
           ),
           child: child!,
         );

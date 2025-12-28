@@ -303,6 +303,87 @@ class AppProvider with ChangeNotifier {
     }
 
     _isChatbotMemoryInitialized = true;
+
+    // --- MIGRATION LOGIC (Minutes -> Seconds) ---
+    if (_settings.dataVersion < 1) {
+      _migrateDataToSeconds();
+      _settings.dataVersion = 1;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void _migrateDataToSeconds() {
+    print("MIGRATING DATA TO SECONDS...");
+    List<MainTask> migratedTasks = [];
+
+    // 1. Migrate Main Tasks & Subtasks
+    for (var task in _mainTasks) {
+      int newTaskTotalTime = 0;
+      List<SubTask> migratedSubtasks = [];
+
+      for (var sub in task.subTasks) {
+        int newSubTime = 0;
+        // If we have sessions, recalculate from sessions (which are now interpreted as seconds by durationSeconds accessor,
+        // BUT wait, existing sessions have start/end times.
+        // The start/end times are absolute.
+        // So 'durationSeconds' will correcty return seconds.
+        // We just need to sum them up.
+
+        if (sub.sessions.isNotEmpty) {
+          for (var s in sub.sessions) {
+            newSubTime += s.durationSeconds;
+          }
+        } else {
+          // If no sessions but we have time, it was manually entered or legacy.
+          // Assume it was minutes, convert to seconds.
+          if (sub.currentTimeSpent > 0) {
+            newSubTime = sub.currentTimeSpent * 60;
+          }
+        }
+
+        migratedSubtasks.add(SubTask(
+          id: sub.id,
+          name: sub.name,
+          completed: sub.completed,
+          currentTimeSpent: newSubTime,
+          completedDate: sub.completedDate,
+          isCountable: sub.isCountable,
+          targetCount: sub.targetCount,
+          currentCount: sub.currentCount,
+          subSubTasks: sub.subSubTasks,
+          sessions: sub.sessions,
+        ));
+        newTaskTotalTime += newSubTime;
+      }
+
+      migratedTasks.add(task.copyWith(
+          subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
+    }
+    _mainTasks = migratedTasks;
+
+    // 2. Migrate Daily History (_completedByDay)
+    // The 'taskTimes' in history are simple integers. We must assume they are minutes.
+    Map<String, dynamic> migratedHistory = {};
+    _completedByDay.forEach((dateKey, dayData) {
+      if (dayData is Map<String, dynamic>) {
+        final newDayData = Map<String, dynamic>.from(dayData);
+        if (newDayData['taskTimes'] != null) {
+          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
+          final Map<String, int> newTimes = {};
+          oldTimes.forEach((taskId, timeVal) {
+            if (timeVal is num) {
+              newTimes[taskId] = (timeVal * 60).toInt();
+            }
+          });
+          newDayData['taskTimes'] = newTimes;
+        }
+        migratedHistory[dateKey] = newDayData;
+      } else {
+        migratedHistory[dateKey] = dayData;
+      }
+    });
+    _completedByDay = migratedHistory;
   }
 
   Future<void> _resetToInitialState() async {

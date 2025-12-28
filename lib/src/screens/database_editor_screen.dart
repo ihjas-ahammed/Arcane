@@ -180,6 +180,26 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
     }
   }
 
+  Map<String, dynamic> _ensureStringMap(Map map) {
+    final Map<String, dynamic> newMap = {};
+    map.forEach((key, value) {
+      if (value is Map) {
+        newMap[key.toString()] = _ensureStringMap(value);
+      } else if (value is List) {
+        newMap[key.toString()] = value.map((e) {
+          if (e is Map) {
+            return _ensureStringMap(e);
+          } else {
+            return e;
+          }
+        }).toList();
+      } else {
+        newMap[key.toString()] = value;
+      }
+    });
+    return newMap;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -218,7 +238,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
                 onChanged: (newValue) {
                   if (newValue is Map) {
                     setState(() {
-                      _localData = Map<String, dynamic>.from(newValue);
+                      _localData = _ensureStringMap(newValue);
                     });
                   }
                 },

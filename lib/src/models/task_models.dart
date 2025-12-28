@@ -1,7 +1,7 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart'; 
+import 'package:arcane/src/models/project_models.dart';
 
 class TaskSession {
   String id;
@@ -31,6 +31,7 @@ class TaskSession {
   }
 
   int get durationMinutes => endTime.difference(startTime).inMinutes;
+  int get durationSeconds => endTime.difference(startTime).inSeconds;
 }
 
 class MainTask {
@@ -43,7 +44,7 @@ class MainTask {
   String? lastWorkedDate;
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
-  List<Project> projects; 
+  List<Project> projects;
 
   MainTask({
     required this.id,
@@ -55,7 +56,7 @@ class MainTask {
     this.lastWorkedDate,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects, 
+    List<Project>? projects,
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
         subTasks = subTasks ?? [],
         projects = projects ?? [];
@@ -80,7 +81,8 @@ class MainTask {
       colorHex: colorHex ?? this.colorHex,
       dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
       lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
-      weeklyCompletionStatus: weeklyCompletionStatus ?? this.weeklyCompletionStatus,
+      weeklyCompletionStatus:
+          weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
       projects: projects ?? this.projects,
     );
@@ -98,11 +100,8 @@ class MainTask {
 
   factory MainTask.fromJson(Map<String, dynamic> json) {
     var weeklyStatusFromJson = (json['weeklyCompletionStatus'] as Map?)?.map(
-        (key, value) => MapEntry(
-            key as String,
-            (value as List<dynamic>)
-                .map((item) => item as bool)
-                .toList()));
+        (key, value) => MapEntry(key as String,
+            (value as List<dynamic>).map((item) => item as bool).toList()));
 
     return MainTask(
       id: json['id'] as String,
@@ -120,8 +119,9 @@ class MainTask {
               .toList() ??
           [],
       projects: (json['projects'] as List<dynamic>?)
-          ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [], 
+              ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -136,7 +136,7 @@ class MainTask {
       'lastWorkedDate': lastWorkedDate,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
-      'projects': projects.map((p) => p.toJson()).toList(), 
+      'projects': projects.map((p) => p.toJson()).toList(),
     };
   }
 
@@ -172,8 +172,8 @@ class SubTask {
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
-  }) : subSubTasks = subSubTasks ?? [],
-       sessions = sessions ?? [];
+  })  : subSubTasks = subSubTasks ?? [],
+        sessions = sessions ?? [];
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(

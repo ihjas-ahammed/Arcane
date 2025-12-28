@@ -81,8 +81,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           _selectedDate.day, startBase.hour, startBase.minute);
       var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
           _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart))
+      if (realEnd.isBefore(realStart)) {
         realEnd = realEnd.add(const Duration(days: 1));
+      }
       provider.addSessionToSubtask(
           widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
@@ -128,7 +129,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         .inMilliseconds /
                     1000)
             : timerState.accumulatedDisplayTime)
-        : liveSubTask.currentTimeSpent * 60.0;
+        : liveSubTask.currentTimeSpent.toDouble();
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
@@ -362,7 +363,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           // Checkpoints List
                           // Replaced Expanded with SizedBox/height
                           SizedBox(
-                            height: 300, // Max height for checkpoints
+                            height: 250, // Max height for checkpoints
                             child: ListView(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
@@ -453,15 +454,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                                           AppTheme.fhBgDark,
                                                       onSurface: Colors.white,
                                                     ),
-                                                    dialogBackgroundColor:
-                                                        AppTheme.fhBgDark,
+                                                    dialogTheme:
+                                                        DialogThemeData(
+                                                            backgroundColor:
+                                                                AppTheme
+                                                                    .fhBgDark),
                                                   ),
                                                   child: child!,
                                                 ),
                                               );
-                                              if (picked != null)
+                                              if (picked != null) {
                                                 setState(() =>
                                                     _selectedDate = picked);
+                                              }
                                             },
                                             child: Row(
                                               children: [
@@ -498,7 +503,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                         ],
                                       ),
                                     ),
-                                    SizedBox( 
+                                    SizedBox(
                                       child: Container(
                                         color:
                                             Colors.black.withValues(alpha: 0.2),

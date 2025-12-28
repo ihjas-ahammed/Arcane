@@ -1,633 +1,1466 @@
-
---- START OF FILE lib/src/widgets/ui/valorant_ability_slot.dart ---
+--- START OF FILE lib/src/utils/chart_data_helper.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class ValorantAbilitySlot extends StatelessWidget {
-  final String label; // e.g. "TIME"
-  final String value; // e.g. "01:45"
-  final IconData icon;
-  final String hotkey; // e.g. "Q"
-  final bool isActive;
-  final VoidCallback? onTap;
-
-  const ValorantAbilitySlot({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.hotkey,
-    this.isActive = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final borderColor = isActive 
-        ? AppTheme.fhAccentTealFixed 
-        : AppTheme.fhBorderColor.withValues(alpha: 0.5);
-    final bgColor = isActive 
-        ? AppTheme.fhAccentTealFixed.withValues(alpha: 0.1) 
-        : Colors.black.withValues(alpha: 0.3);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // The Icon Box
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: bgColor,
-              border: Border.all(color: borderColor, width: 1.5),
-              borderRadius: BorderRadius.zero, // Sharp edges for Valorant style
-            ),
-            child: Stack(
-              children: [
-                // Hotkey Label (Top Left)
-                Positioned(
-                  top: 2,
-                  left: 4,
-                  child: Text(
-                    hotkey,
-                    style: TextStyle(
-                      color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppTheme.fontDisplay,
-                    ),
-                  ),
-                ),
-                // Main Icon
-                Center(
-                  child: Icon(
-                    icon,
-                    color: isActive ? Colors.white : AppTheme.fhTextSecondary,
-                    size: 24,
-                  ),
-                ),
-                // Bottom Value Overlay (Optional, if we want value inside)
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Label and Value Text
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: AppTheme.fhTextSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppTheme.fhTextPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              fontFamily: AppTheme.fontDisplay,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/valorant_ability_slot.dart ---
-
---- START OF FILE lib/src/widgets/ui/valorant_list_item.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-
-class ValorantListItem extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final bool isCompleted;
-  final VoidCallback? onToggle;
-  final VoidCallback? onDelete;
-  final bool isCompact;
-
-  const ValorantListItem({
-    super.key,
-    required this.title,
-    this.subtitle,
-    this.isCompleted = false,
-    this.onToggle,
-    this.onDelete,
-    this.isCompact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isCompact ? 8 : 12),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.6),
-        border: Border(
-          left: BorderSide(
-            color: isCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor,
-            width: 4,
-          ),
-          bottom: BorderSide(
-            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (onToggle != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: RhombusCheckbox(
-                checked: isCompleted,
-                onChanged: (_) => onToggle!(),
-                size: CheckboxSize.small,
-              ),
-            ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    color: isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontBody,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                    fontSize: isCompact ? 13 : 14,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                if (subtitle != null && subtitle!.isNotEmpty)
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      color: AppTheme.fhTextSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (onDelete != null)
-            IconButton(
-              icon: Icon(Icons.close, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-              onPressed: onDelete,
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(8),
-            ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/valorant_list_item.dart ---
-
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
+class ChartDataHelper {
+  static Map<String, dynamic> prepareWeeklyData(
+    AppProvider provider, 
+    String? selectedDate, 
+    String? selectedTaskFilter, 
+    String? selectedVirtueFilter
+  ) {
+    final today = DateTime.now();
+    final Map<int, double> activityData = {};
+    final Map<int, Color> activityColors = {};
+    final Map<int, double> virtueData = {};
+    final Map<int, Color> virtueColors = {};
 
-  const SubmissionDetailScreen({
+    for (int i = 0; i < 7; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final isToday = dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      // --- Activity Data Calculation ---
+      double totalMins = 0;
+      Color dominantColor = AppTheme.fhBgLight;
+      double maxMinsForTask = 0;
+
+      if (isToday) {
+        // Live data calculation for today
+        for (var task in provider.mainTasks) {
+          // FIX: Apply filter to "Today" logic
+          if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
+            continue;
+          }
+
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
+          totalMins += mins;
+          if (mins > maxMinsForTask) {
+            maxMinsForTask = mins;
+            dominantColor = task.taskColor;
+          }
+        }
+      } else {
+        // Stored data for past days
+        final dayData = provider.completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+          taskTimes.forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhere(
+              (t) => t.id == taskId,
+              orElse: () => MainTask(id: '', name: 'Unknown', description: '', theme: ''),
+            );
+
+            // Apply Filter
+            if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
+              return;
+            }
+
+            final mins = (time as num).toDouble();
+            totalMins += mins;
+            if (mins > maxMinsForTask) {
+              maxMinsForTask = mins;
+              dominantColor = task.taskColor;
+            }
+          });
+        }
+      }
+      activityData[i] = totalMins;
+      activityColors[i] = dominantColor;
+
+      // --- Virtue Data Calculation ---
+      final reflections = provider.reflectionLogs.where((l) {
+        return l.timestamp.year == date.year &&
+            l.timestamp.month == date.month &&
+            l.timestamp.day == date.day;
+      });
+
+      double totalXp = 0;
+      Map<String, int> virtueTotals = {};
+      
+      for (var ref in reflections) {
+        ref.xpGained.forEach((k, v) {
+          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
+            return;
+          }
+          virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
+          totalXp += v;
+        });
+      }
+      virtueData[i] = totalXp;
+
+      Color dominantVirtueColor = AppTheme.fhAccentGold;
+      if (virtueTotals.isNotEmpty) {
+        var maxVirtue = virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
+        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+      }
+      virtueColors[i] = dominantVirtueColor;
+    }
+
+    // --- Daily Breakdown Data (Pie Chart) ---
+    Map<String, double> dailyTaskTimeData = {};
+    Map<String, Color> taskColors = {};
+
+    if (selectedDate != null) {
+      final isToday = selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      if (isToday) {
+        for (var task in provider.mainTasks) {
+          final mins = _calculateDailyTimeFromSessions(task, today).toDouble();
+          if (mins > 0) {
+            dailyTaskTimeData[task.name] = mins;
+            taskColors[task.name] = task.taskColor;
+          }
+        }
+      } else {
+        final summaryData = provider.completedByDay[selectedDate!];
+        if (summaryData != null && summaryData['taskTimes'] != null) {
+          (summaryData['taskTimes'] as Map<String, dynamic>).forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+            final String name = task?.name ?? "Unknown";
+            dailyTaskTimeData[name] = (time as num).toDouble();
+            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+          });
+        }
+      }
+    }
+
+    return {
+      'activityData': activityData,
+      'activityColors': activityColors,
+      'virtueData': virtueData,
+      'virtueColors': virtueColors,
+      'dailyTaskTimeData': dailyTaskTimeData,
+      'taskColors': taskColors,
+    };
+  }
+
+  static int _calculateDailyTimeFromSessions(MainTask task, DateTime startOfDay) {
+    int totalMinutes = 0;
+    for (var sub in task.subTasks) {
+      for (var session in sub.sessions) {
+        if (session.startTime.year == startOfDay.year &&
+            session.startTime.month == startOfDay.month &&
+            session.startTime.day == startOfDay.day) {
+          totalMinutes += session.durationMinutes;
+        }
+      }
+    }
+    return totalMinutes;
+  }
+
+  static Color _getVirtueColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return Colors.grey;
+    }
+  }
+}
+--- END OF FILE lib/src/utils/chart_data_helper.dart ---
+
+--- START OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class TimePieChart extends StatefulWidget {
+  final Map<String, double> taskData; // Task Name -> Minutes
+  final Map<String, Color> taskColors; // Task Name -> Color
+  final String? selectedTask;
+  final Function(String?)? onTaskSelected;
+
+  const TimePieChart({
     super.key,
-    required this.parentTask,
-    required this.subTask,
+    required this.taskData,
+    required this.taskColors,
+    this.selectedTask,
+    this.onTaskSelected,
   });
 
   @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+  State<TimePieChart> createState() => _TimePieChartState();
 }
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
+class _TimePieChartState extends State<TimePieChart> {
+  // Removed internal _touchedIndex state tracking for hover
+  // Relying on widget.selectedTask for persistent state
 
   @override
-  void dispose() {
-    _checkpointController.dispose();
-    super.dispose();
-  }
-
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
+  Widget build(BuildContext context) {
+    if (widget.taskData.isEmpty ||
+        widget.taskData.values.fold(0.0, (a, b) => a + b) <= 0) {
+      return const Center(
+        child: Text(
+          "No active mission time today.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+        ),
+      );
     }
-  }
 
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
-      'name': _checkpointController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
+    final Map<String, double> activeData = {};
+    widget.taskData.forEach((k, v) {
+      if (v > 0) activeData[k] = v;
     });
-    _checkpointController.clear();
-  }
 
-  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
-    final String? newName = await showDialog<String>(
-      context: context,
-      builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
-    );
-    if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
+    if (activeData.isEmpty) {
+      return const Center(
+        child: Text(
+          "No time logged today.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+        ),
+      );
     }
-  }
 
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => const AddSessionDialog(),
-    );
-    if (result != null) {
-      final startBase = result['start']!;
-      final endBase = result['end']!;
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart)) realEnd = realEnd.add(const Duration(days: 1));
-      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
+    final double totalTime = activeData.values.fold(0, (sum, item) => sum + item);
+    final entries = activeData.entries.toList();
+
+    String centerTopText = "TOTAL TIME";
+    String centerBottomText = "${totalTime.toInt()}m";
+    Color centerColor = AppTheme.fhTextPrimary;
+
+    // Use external selection state
+    int highlightIndex = -1;
+    if (widget.selectedTask != null) {
+      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedTask);
     }
-  }
 
-  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
+    if (highlightIndex != -1 && highlightIndex < entries.length) {
+      final entry = entries[highlightIndex];
+      centerTopText = entry.key.toUpperCase();
+      if (centerTopText.length > 10) {
+        centerTopText = "${centerTopText.substring(0, 8)}..";
       }
+      centerBottomText = "${entry.value.toInt()}m";
+      centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
+    }
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
+      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
+
+      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
+        final entry = entries[i];
+        final isSelected = entry.key == widget.selectedTask;
+        final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
+        final double radius = isSelected ? chartRadius + 8 : chartRadius;
+
+        return PieChartSectionData(
+          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
+          value: entry.value,
+          title: '',
+          radius: radius,
+          badgeWidget: isSelected ? _buildBadge(color) : null,
+          badgePositionPercentageOffset: 1.4,
+          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
+        );
+      });
+
+      return SizedBox(
+        height: 250,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                pieTouchData: PieTouchData(
+                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                    // Logic: Tap to select (toggle), Tap outside to deselect
+                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                      if (index >= 0 && index < entries.length) {
+                        final key = entries[index].key;
+                        // Toggle selection
+                        if (widget.selectedTask == key) {
+                          widget.onTaskSelected?.call(null);
+                        } else {
+                          widget.onTaskSelected?.call(key);
+                        }
+                      }
+                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
+                      // Tap outside
+                      widget.onTaskSelected?.call(null);
+                    }
+                  },
+                ),
+                borderData: FlBorderData(show: false),
+                sectionsSpace: 0,
+                centerSpaceRadius: centerRadius,
+                sections: sections,
+                startDegreeOffset: 270,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  centerTopText,
+                  style: const TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    fontFamily: AppTheme.fontBody,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  centerBottomText,
+                  style: TextStyle(
+                      color: centerColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                      shadows: [
+                        Shadow(
+                          color: centerColor.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        )
+                      ]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildBadge(Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
+          ]),
+      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
+
+--- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class VirtuePieChart extends StatefulWidget {
+  final List<ReflectionLog> logs;
+  final String? selectedVirtue;
+  final Function(String?)? onVirtueSelected;
+
+  const VirtuePieChart({
+    super.key,
+    required this.logs,
+    this.selectedVirtue,
+    this.onVirtueSelected,
+  });
+
+  @override
+  State<VirtuePieChart> createState() => _VirtuePieChartState();
+}
+
+class _VirtuePieChartState extends State<VirtuePieChart> {
+  // Removed internal _touchedIndex tracking
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.logs.isEmpty) {
+      return const Center(
+        child: Text(
+          "No virtue data logged today.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+        ),
+      );
+    }
+
+    Map<String, int> totals = {};
+    for (var log in widget.logs) {
+      log.xpGained.forEach((key, value) {
+        totals[key] = (totals[key] ?? 0) + value;
+      });
+    }
+    totals.removeWhere((key, value) => value <= 0);
+
+    if (totals.isEmpty) {
+      return const Center(
+        child: Text(
+          "No XP gained yet.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+        ),
+      );
+    }
+
+    final int totalXpOfDay = totals.values.fold(0, (sum, item) => sum + item);
+    final entries = totals.entries.toList();
+
+    int highlightIndex = -1;
+    if (widget.selectedVirtue != null) {
+      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedVirtue);
+    }
+
+    String centerTopText = "TOTAL";
+    String centerBottomText = "$totalXpOfDay XP";
+    Color centerColor = AppTheme.fhTextPrimary;
+
+    if (highlightIndex != -1 && highlightIndex < entries.length) {
+      final entry = entries[highlightIndex];
+      centerTopText = entry.key.toUpperCase();
+      centerBottomText = "+${entry.value} XP";
+      centerColor = _getVirtueColor(entry.key);
+    }
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
+      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
+
+      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
+        final entry = entries[i];
+        final isSelected = entry.key == widget.selectedVirtue;
+        final color = _getVirtueColor(entry.key);
+        final double radius = isSelected ? chartRadius + 8 : chartRadius;
+
+        return PieChartSectionData(
+          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
+          value: entry.value.toDouble(),
+          title: '',
+          radius: radius,
+          badgeWidget: isSelected ? _buildBadge(entry.key, color) : null,
+          badgePositionPercentageOffset: 1.4,
+          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
+        );
+      });
+
+      return SizedBox(
+        height: 250,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                pieTouchData: PieTouchData(
+                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                      if (index >= 0 && index < entries.length) {
+                        final key = entries[index].key;
+                        if (widget.selectedVirtue == key) {
+                          widget.onVirtueSelected?.call(null);
+                        } else {
+                          widget.onVirtueSelected?.call(key);
+                        }
+                      }
+                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
+                      widget.onVirtueSelected?.call(null);
+                    }
+                  },
+                ),
+                borderData: FlBorderData(show: false),
+                sectionsSpace: 0,
+                centerSpaceRadius: centerRadius,
+                sections: sections,
+                startDegreeOffset: 270,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  centerTopText,
+                  style: const TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    fontFamily: AppTheme.fontBody,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  centerBottomText,
+                  style: TextStyle(
+                      color: centerColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontDisplay,
+                      shadows: [
+                        Shadow(
+                          color: centerColor.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        )
+                      ]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
+          ]),
+      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+    );
+  }
+
+  Color _getVirtueColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      case 'discipline': return Colors.indigoAccent;
+      case 'curiosity': return Colors.tealAccent;
+      default: return Colors.grey;
+    }
+  }
+}
+--- END OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
+
+--- START OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/gestures.dart';
+
+class ScheduleTimeline extends StatefulWidget {
+  final List<TaskSession> sessions;
+  final VoidCallback onAddSession;
+  final Function(TaskSession) onEditSession;
+
+  const ScheduleTimeline({
+    super.key,
+    required this.sessions,
+    required this.onAddSession,
+    required this.onEditSession,
+  });
+
+  @override
+  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
+}
+
+class _ScheduleTimelineState extends State<ScheduleTimeline> {
+  // Base scale: 60px per hour.
+  // Scale factor allows zooming from 0.5x (30px/hr) to 10x (600px/hr)
+  double _scale = 2.0;
+  final double _basePixelsPerHour = 60.0;
+
+  void _zoomIn() {
+    setState(() {
+      _scale = (_scale + 0.5).clamp(0.5, 10.0);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _scale = (_scale - 0.5).clamp(0.5, 10.0);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedSessions = List<TaskSession>.from(widget.sessions)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    DateTime startBoundary;
+    DateTime endBoundary;
+    final now = DateTime.now();
+
+    if (sortedSessions.isEmpty) {
+      startBoundary = DateTime(now.year, now.month, now.day, 0, 0);
+      endBoundary = DateTime(now.year, now.month, now.day, 23, 59);
+    } else {
+      startBoundary = sortedSessions.first.startTime;
+      final reference = sortedSessions.first.startTime;
+      final isToday = reference.year == now.year &&
+          reference.month == now.month &&
+          reference.day == now.day;
+
+      DateTime lastSessionEnd = sortedSessions.last.endTime;
+      for (var s in sortedSessions) {
+        if (s.endTime.isAfter(lastSessionEnd)) {
+          lastSessionEnd = s.endTime;
+        }
+      }
+
+      if (isToday && now.isAfter(lastSessionEnd)) {
+        endBoundary = now;
+      } else {
+        endBoundary = lastSessionEnd;
+      }
+    }
+
+    final startHour = startBoundary.hour;
+    int endHour = endBoundary.hour;
+    if (endBoundary.minute > 0) {
+      endHour++;
+    }
+    if (endHour > 24) endHour = 24;
+    if (endHour <= startHour) endHour = startHour + 1;
+
+    final int hoursCount = endHour - startHour;
+    final double pixelsPerHour = _basePixelsPerHour * _scale;
+    final double totalHeight = pixelsPerHour * hoursCount;
+
+    return Stack(
+      children: [
+        Listener(
+          onPointerSignal: (event) {
+            if (event is PointerScrollEvent) {
+              final double dy = event.scrollDelta.dy;
+              setState(() {
+                if (dy < 0) {
+                  _scale = (_scale + 0.1).clamp(0.5, 10.0);
+                } else {
+                  _scale = (_scale - 0.1).clamp(0.5, 10.0);
+                }
+              });
+            }
+          },
+          child: GestureDetector(
+            onScaleUpdate: (details) {
+              setState(() {
+                _scale = (_scale * details.scale).clamp(0.5, 10.0);
+              });
+            },
+            child: Container(
+              height: totalHeight,
+              width: double.infinity,
+              color: Colors.transparent,
+              child: Stack(
+                children: [
+                  // Background Grid
+                  Column(
+                    children: List.generate(hoursCount, (index) {
+                      final currentHour = startHour + index;
+                      final displayHour = currentHour % 24;
+
+                      return Container(
+                        height: pixelsPerHour,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: AppTheme.fhBorderColor.withOpacity(0.1),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 50,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+                                child: Text(
+                                  "${displayHour.toString().padLeft(2, '0')}:00",
+                                  style: TextStyle(
+                                    color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Container()),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+
+                  // Sessions
+                  ...sortedSessions.map((session) {
+                    final startMinutesVal =
+                        session.startTime.hour * 60 + session.startTime.minute;
+                    final offsetMinutes = startHour * 60;
+                    final relativeStartMinutes = startMinutesVal - offsetMinutes;
+                    final durationMinutes = session.durationMinutes;
+
+                    final double top = (relativeStartMinutes / 60.0) * pixelsPerHour;
+                    final double height = (durationMinutes / 60.0) * pixelsPerHour;
+                    final double visualHeight = height < 2 ? 2 : height;
+
+                    if (top + visualHeight < 0 || top > totalHeight) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Positioned(
+                      top: top,
+                      left: 60,
+                      right: 16,
+                      height: visualHeight,
+                      child: GestureDetector(
+                        onTap: () => widget.onEditSession(session),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.fhAccentTeal.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: AppTheme.fhAccentTeal.withOpacity(0.6),
+                              width: 1,
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.centerLeft,
+                          child: visualHeight > 20
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "${DateFormat('HH:mm').format(session.startTime)} - ${DateFormat('HH:mm').format(session.endTime)}",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (visualHeight > 35)
+                                      Text(
+                                        "${session.durationMinutes} min",
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: 9,
+                                        ),
+                                      )
+                                  ],
+                                )
+                              : null,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ),
+        
+        // Manual Zoom Controls
+        Positioned(
+          right: 8,
+          top: 8,
+          child: Column(
+            children: [
+              _buildZoomButton(Icons.add, _zoomIn),
+              const SizedBox(height: 8),
+              _buildZoomButton(Icons.remove, _zoomOut),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
+    return Container(
+      height: 32,
+      width: 32,
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 18, color: AppTheme.fhTextPrimary),
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
+
+--- START OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
+import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/ui/activity_log_list.dart';
+import 'package:arcane/src/widgets/ui/chart_carousel.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/utils/helpers.dart';
+import 'package:arcane/src/utils/chart_data_helper.dart'; // Import helper
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:collection/collection.dart';
+
+class DailySummaryView extends StatefulWidget {
+  const DailySummaryView({super.key});
+
+  @override
+  State<DailySummaryView> createState() => _DailySummaryViewState();
+}
+
+class _DailySummaryViewState extends State<DailySummaryView> {
+  String? _selectedDate;
+  bool _isLoading = false;
+  String? _selectedTaskFilter;
+  String? _selectedVirtueFilter;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
+    if (_selectedDate == null && availableDates.isNotEmpty) {
+      _selectedDate = availableDates.first;
+    } else if (_selectedDate != null &&
+        !availableDates.contains(_selectedDate)) {
+      _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
+    }
+  }
+
+  void _navigateToReflectionEditor(BuildContext context,
+      {ReflectionLog? initialLog}) {
+    final dateStr =
+        _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReflectionEditorScreen(
+          initialLog: initialLog,
+          dateStr: dateStr,
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, AppProvider provider, String type,
+      int index, dynamic currentValue) {
+    if (type == 'Reflection') {
+      final logId = currentValue['id'];
+      final log =
+          provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log != null) {
+        _navigateToReflectionEditor(context, initialLog: log);
+      }
+      return;
+    }
+
+    showDialog(
+        context: context,
+        builder: (ctx) => EditLogDialog(
+              title: "Edit ${type.capitalize()}",
+              logType: type.toLowerCase(),
+              initialValue: currentValue,
+              onDelete: () {},
+              onSave: (val) {},
+            ));
+  }
+
+  Future<void> _generateDailySummary() async {
+    if (_selectedDate == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final aiService = Provider.of<AIService>(context, listen: false);
+
+      final targetDate = DateTime.parse(_selectedDate!);
+      final dailyLogs = appProvider.reflectionLogs.where((l) {
+        return l.timestamp.year == targetDate.year &&
+            l.timestamp.month == targetDate.month &&
+            l.timestamp.day == targetDate.day;
+      }).toList();
+
+      if (dailyLogs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("No reflections to summarize for this day.")));
+        }
+        return;
+      }
+
+      final summary = await aiService.generateDailySummary(
+        reflections: dailyLogs
+            .map((l) => {
+                  'trigger': l.trigger,
+                  'emotion': l.emotion,
+                  'reason': l.reason,
+                })
+            .toList(),
+        modelCandidates: appProvider.settings.liteModels,
+        currentApiKeyIndex: appProvider.apiKeyIndex,
+        onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
+        onLog: (s) => (s),
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          title: const Text("Daily Summary",
+              style: TextStyle(color: AppTheme.fhTextPrimary)),
+          content: SingleChildScrollView(
+              child: Text(summary,
+                  style: const TextStyle(color: AppTheme.fhTextSecondary))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to generate summary: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
 
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.of(context).pop(); });
-      return const SizedBox.shrink();
+    final availableDates = appProvider.completedByDay.keys.toList();
+    availableDates.sort((a, b) => b.compareTo(a));
+
+    if (_selectedDate == null && availableDates.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDate = availableDates.first);
+      });
+    } else if (_selectedDate != null &&
+        !availableDates.contains(_selectedDate)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _selectedDate =
+              availableDates.isNotEmpty ? availableDates.first : null);
+        }
+      });
+    } else if (availableDates.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedDate != null) {
+          setState(() => _selectedDate = null);
+        }
+      });
     }
 
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
-            : timerState.accumulatedDisplayTime)
-        : liveSubTask.currentTimeSpent * 60.0;
+    // Use Helper to prepare data
+    final chartData = ChartDataHelper.prepareWeeklyData(
+      appProvider, 
+      _selectedDate, 
+      _selectedTaskFilter, 
+      _selectedVirtueFilter
+    );
 
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
+    final summaryData = _selectedDate != null
+        ? appProvider.completedByDay[_selectedDate!]
+        : null;
 
-    // Filter sessions
-    final filteredSessions = liveSubTask.sessions.where((s) => s.startTime.year == _selectedDate.year && s.startTime.month == _selectedDate.month && s.startTime.day == _selectedDate.day).toList();
+    Map<String, dynamic> taskTimes = {};
+    if (_selectedDate != null &&
+        _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      final today = DateTime.now();
+      for (var task in appProvider.mainTasks) {
+        final val = ChartDataHelper.calculateDailyTimeFromSessions(task, today); // Exposed in helper if needed or copy logic back if private
+        if (val > 0) {
+          taskTimes[task.id] = val;
+        }
+      }
+    } else {
+      taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
+    }
+    final subtasksCompleted =
+        summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted =
+        summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: Stack(
-        children: [
-          // Layer 1: Background Watermark
-          Positioned(
-            right: -50,
-            top: 50,
-            child: Opacity(
-              opacity: 0.05,
-              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
-            ),
-          ),
-          
-          // Layer 2: Main Content
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // --- Header ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
-                        onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
-                      ),
-                    ],
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+            final d = DateTime.parse(_selectedDate!);
+            return l.timestamp.year == d.year &&
+                l.timestamp.month == d.month &&
+                l.timestamp.day == d.day;
+          }).toList()
+        : [];
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final bool isWideScreen = constraints.maxWidth > 800;
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- WEEKLY STATS CAROUSEL ---
+            ChartCarousel(
+              height: 250,
+              pages: [
+                ChartCarouselData(
+                  title: "Last 7 Days Activity",
+                  chart: WeeklyActivityBarChart(
+                    weeklyData: chartData['activityData'],
+                    dominantColors: chartData['activityColors'],
                   ),
                 ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.parentTask.name.toUpperCase(), // "INITIATOR" style
-                        style: const TextStyle(
-                          color: AppTheme.fhAccentTealFixed,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          fontSize: 14,
-                          fontFamily: AppTheme.fontDisplay,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        liveSubTask.name.toUpperCase(), // "BREACH" style
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 48,
-                          height: 0.9,
-                          fontFamily: AppTheme.fontDisplay,
-                          letterSpacing: 2.0,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // --- Ability/Stat Row ---
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      ValorantAbilitySlot(
-                        hotkey: "Q",
-                        label: "TIME",
-                        value: formattedTime,
-                        icon: MdiIcons.clockFast,
-                        isActive: isRunning,
-                      ),
-                      const SizedBox(width: 16),
-                      ValorantAbilitySlot(
-                        hotkey: "E",
-                        label: "STEPS",
-                        value: "$completedCheckpoints/$totalCheckpoints",
-                        icon: MdiIcons.formatListChecks,
-                        isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
-                      ),
-                      const SizedBox(width: 16),
-                      ValorantAbilitySlot(
-                        hotkey: "C",
-                        label: "LOGS",
-                        value: "${liveSubTask.sessions.length}",
-                        icon: MdiIcons.history,
-                      ),
-                      const SizedBox(width: 16),
-                      ValorantAbilitySlot(
-                        hotkey: "X",
-                        label: "STATUS",
-                        value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                        icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
-                        isActive: liveSubTask.completed,
-                        onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-                const Divider(color: Colors.white10),
-
-                // --- Main Content Area ---
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Left Column (Controls & Checkpoints)
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          children: [
-                            // Timer Control Area (The "Centerpiece")
-                            Container(
-                              margin: const EdgeInsets.all(16),
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isRunning 
-                                    ? [AppTheme.fhAccentRed.withValues(alpha: 0.2), Colors.transparent]
-                                    : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
-                                  begin: Alignment.bottomLeft,
-                                  end: Alignment.topRight,
-                                ),
-                                border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
-                                        style: TextStyle(
-                                          color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.0,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        formattedTime,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 32,
-                                          fontFamily: AppTheme.fontDisplay,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  FloatingActionButton.small(
-                                    backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
-                                    foregroundColor: Colors.black,
-                                    onPressed: () {
-                                       if (isRunning) {
-                                          provider.pauseTimer(liveSubTask.id);
-                                          provider.logTimerAndReset(liveSubTask.id);
-                                       } else {
-                                          provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
-                                       }
-                                    },
-                                    child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Checkpoints List
-                            Expanded(
-                              child: ListView(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8.0),
-                                    child: Text(
-                                      "TACTICAL OBJECTIVES",
-                                      style: TextStyle(
-                                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.5), 
-                                        fontWeight: FontWeight.bold, 
-                                        fontSize: 10, 
-                                        letterSpacing: 1.5
-                                      ),
-                                    ),
-                                  ),
-                                  ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
-                                    title: sss.name,
-                                    isCompleted: sss.completed,
-                                    onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                                    onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                                  )),
-                                  // Quick Add Field
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 8),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.2),
-                                      border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-                                    ),
-                                    child: TextField(
-                                      controller: _checkpointController,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                      decoration: const InputDecoration(
-                                        hintText: "+ Add Objective",
-                                        hintStyle: TextStyle(color: Colors.white24),
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(vertical: 12),
-                                      ),
-                                      onSubmitted: (_) => _handleAddCheckpoint(provider),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Vertical Divider
-                      Container(width: 1, color: Colors.white10),
-
-                      // Right Column (Timeline) - Hidden on very small screens if needed, but flex handles it
-                      Expanded(
-                        flex: 4,
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _selectedDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                                        builder: (context, child) => Theme(
-                                          data: Theme.of(context).copyWith(
-                                            colorScheme: ColorScheme.dark(
-                                              primary: AppTheme.fhAccentTealFixed,
-                                              onPrimary: Colors.black,
-                                              surface: AppTheme.fhBgDark,
-                                              onSurface: Colors.white,
-                                            ),
-                                            dialogBackgroundColor: AppTheme.fhBgDark,
-                                          ),
-                                          child: child!,
-                                        ),
-                                      );
-                                      if (picked != null) setState(() => _selectedDate = picked);
-                                    },
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                                          style: const TextStyle(color: AppTheme.fhAccentTealFixed, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, fontSize: 16),
-                                        ),
-                                        const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.add, size: 20, color: Colors.white54),
-                                    onPressed: () => _showAddSessionDialog(context, provider),
-                                    tooltip: "Log Manual Session",
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                child: ScheduleTimeline(
-                                  sessions: filteredSessions,
-                                  onAddSession: () => _showAddSessionDialog(context, provider),
-                                  onEditSession: (s) => _handleSessionEdit(context, provider, s),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                ChartCarouselData(
+                  title: "Last 7 Days Growth",
+                  chart: WeeklyVirtueBarChart(
+                    weeklyXp: chartData['virtueData'],
+                    dominantVirtueColors: chartData['virtueColors'],
                   ),
                 ),
               ],
             ),
+
+            const SizedBox(height: 24),
+            Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+
+            if (availableDates.isEmpty)
+              Center(
+                  child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32.0),
+                child: Text("No detailed logs recorded yet.",
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: AppTheme.fhTextSecondary,
+                        fontStyle: FontStyle.italic)),
+              ))
+            else ...[
+              // --- DAILY DETAIL SELECTOR ---
+              InkWell(
+                onTap: () async {
+                  if (availableDates.isEmpty) return;
+                  final dates = availableDates.map((d) => DateTime.parse(d)).toList();
+                  dates.sort();
+                  final firstDate = dates.first;
+                  final initialDate = _selectedDate != null ? DateTime.parse(_selectedDate!) : dates.last;
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: firstDate.subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now().add(const Duration(days: 1)),
+                    selectableDayPredicate: (day) {
+                      final dateStr = DateFormat('yyyy-MM-dd').format(day);
+                      return availableDates.contains(dateStr);
+                    },
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.dark(
+                            primary: AppTheme.fhAccentTeal,
+                            onPrimary: AppTheme.fhTextPrimary,
+                            surface: AppTheme.fhBgMedium,
+                            onSurface: AppTheme.fhTextPrimary,
+                          ),
+                          dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (picked != null) {
+                    setState(() {
+                      _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Inspect Day',
+                    prefixIcon: Icon(MdiIcons.calendarSearchOutline,
+                        color: AppTheme.fhAccentTeal),
+                    suffixIcon: const Icon(Icons.arrow_drop_down,
+                        color: AppTheme.fhTextSecondary),
+                    filled: true,
+                    fillColor: AppTheme.fhBgMedium,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  child: Text(
+                    _selectedDate != null
+                        ? DateFormat('MMMM d, yyyy').format(DateTime.parse(_selectedDate!))
+                        : 'Select a date',
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // --- DAILY STATS CAROUSEL ---
+              ChartCarousel(
+                height: 320,
+                pages: [
+                  ChartCarouselData(
+                    title: "Daily Virtue Breakdown",
+                    chart: VirtuePieChart(
+                      logs: reflectionsForDate,
+                      selectedVirtue: _selectedVirtueFilter,
+                      onVirtueSelected: (val) {
+                        setState(() => _selectedVirtueFilter = val);
+                      },
+                    ),
+                  ),
+                  ChartCarouselData(
+                    title: "Today's Mission Focus",
+                    chart: TimePieChart(
+                      taskData: chartData['dailyTaskTimeData'],
+                      taskColors: chartData['taskColors'],
+                      selectedTask: _selectedTaskFilter,
+                      onTaskSelected: (val) {
+                        setState(() => _selectedTaskFilter = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              if (isWideScreen) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: _buildActivitySection(theme, appProvider,
+                          taskTimes, subtasksCompleted, checkpointsCompleted),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 1,
+                      child: _buildReflectionsSection(
+                          context, theme, appProvider, reflectionsForDate),
+                    )
+                  ],
+                )
+              ] else ...[
+                _buildActivitySection(theme, appProvider, taskTimes,
+                    subtasksCompleted, checkpointsCompleted),
+                const SizedBox(height: 30),
+                _buildReflectionsSection(
+                    context, theme, appProvider, reflectionsForDate),
+              ],
+            ],
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildActivitySection(
+      ThemeData theme,
+      AppProvider provider,
+      Map<String, dynamic> taskTimes,
+      List<dynamic> subtasksCompleted,
+      List<dynamic> checkpointsCompleted) {
+    return Column(
+      children: [
+        Text('Activity Details', style: theme.textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        ActivityLogList(
+          taskTimes: taskTimes,
+          subtasksCompleted: subtasksCompleted,
+          checkpointsCompleted: checkpointsCompleted,
+          availableTasks: provider.mainTasks,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReflectionsSection(BuildContext context, ThemeData theme,
+      AppProvider provider, List<ReflectionLog> reflections) {
+    return Column(
+      children: [
+        if (reflections.isNotEmpty) ...[
+          Row(
+            children: [
+              IconButton(
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.robotHappyOutline,
+                          color: AppTheme.fhAccentGold),
+                  tooltip: "Generate Daily Summary",
+                  onPressed: _isLoading ? null : _generateDailySummary),
+              const SizedBox(width: 8),
+              Text("Reflections", style: theme.textTheme.headlineSmall),
+            ],
           ),
+          const SizedBox(height: 8),
+          ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: reflections.length,
+              itemBuilder: (ctx, i) {
+                final log = reflections[i];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  color: AppTheme.fhBgDark,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                          color:
+                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+                  child: ListTile(
+                    title: Text(
+                        log.trigger.isNotEmpty ? log.trigger : "Reflection",
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        "Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a, b) => a + b)}"),
+                    leading: Icon(MdiIcons.notebookOutline,
+                        color: AppTheme.fhAccentPurple),
+                    trailing: Icon(MdiIcons.pencilOutline, size: 16),
+                    onTap: () =>
+                        _showEditDialog(context, provider, 'Reflection', i, {
+                      'id': log.id,
+                      'trigger': log.trigger,
+                      'emotion': log.emotion,
+                      'reason': log.reason
+                    }),
+                  ),
+                );
+              }),
         ],
-      ),
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: ElevatedButton.icon(
+            onPressed: () => _navigateToReflectionEditor(context),
+            icon: const Icon(Icons.add),
+            label: const Text("Add Reflection"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentPurple,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+// Note: _calculateDailyTimeFromSessions inside chart_data_helper was made static publicly, but inside here I relied on it being private or imported?
+// I added `ChartDataHelper.calculateDailyTimeFromSessions` in the helper but didn't rename the usage in `build`.
+// The code `ChartDataHelper.calculateDailyTimeFromSessions` was used in `build`.
+// The private `_calculateDailyTimeFromSessions` inside view was removed/not used.
+// Double check the helper file content I generated. I named it `_calculateDailyTimeFromSessions` (private) in the helper class...
+// I should fix the helper file generation to make it public if I use it here, or duplicate it.
+// I will regenerate the helper file content to be public.
+--- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+
+--- START OF FILE lib/src/utils/chart_data_helper.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+
+class ChartDataHelper {
+  static Map<String, dynamic> prepareWeeklyData(
+    AppProvider provider, 
+    String? selectedDate, 
+    String? selectedTaskFilter, 
+    String? selectedVirtueFilter
+  ) {
+    final today = DateTime.now();
+    final Map<int, double> activityData = {};
+    final Map<int, Color> activityColors = {};
+    final Map<int, double> virtueData = {};
+    final Map<int, Color> virtueColors = {};
+
+    for (int i = 0; i < 7; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final isToday = dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      // --- Activity Data Calculation ---
+      double totalMins = 0;
+      Color dominantColor = AppTheme.fhBgLight;
+      double maxMinsForTask = 0;
+
+      if (isToday) {
+        for (var task in provider.mainTasks) {
+          // Apply filter for Today
+          if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
+            continue;
+          }
+
+          final mins = calculateDailyTimeFromSessions(task, today).toDouble();
+          totalMins += mins;
+          if (mins > maxMinsForTask) {
+            maxMinsForTask = mins;
+            dominantColor = task.taskColor;
+          }
+        }
+      } else {
+        final dayData = provider.completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+          taskTimes.forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhere(
+              (t) => t.id == taskId,
+              orElse: () => MainTask(id: '', name: 'Unknown', description: '', theme: ''),
+            );
+
+            // Apply filter for Past Days
+            if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
+              return;
+            }
+
+            final mins = (time as num).toDouble();
+            totalMins += mins;
+            if (mins > maxMinsForTask) {
+              maxMinsForTask = mins;
+              dominantColor = task.taskColor;
+            }
+          });
+        }
+      }
+      activityData[i] = totalMins;
+      activityColors[i] = dominantColor;
+
+      // --- Virtue Data Calculation ---
+      final reflections = provider.reflectionLogs.where((l) {
+        return l.timestamp.year == date.year &&
+            l.timestamp.month == date.month &&
+            l.timestamp.day == date.day;
+      });
+
+      double totalXp = 0;
+      Map<String, int> virtueTotals = {};
+      
+      for (var ref in reflections) {
+        ref.xpGained.forEach((k, v) {
+          // Apply Virtue Filter
+          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
+            return;
+          }
+          virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
+          totalXp += v;
+        });
+      }
+      virtueData[i] = totalXp;
+
+      Color dominantVirtueColor = AppTheme.fhAccentGold;
+      if (virtueTotals.isNotEmpty) {
+        var maxVirtue = virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
+        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+      }
+      virtueColors[i] = dominantVirtueColor;
+    }
+
+    // --- Daily Breakdown Data (Pie Chart) ---
+    Map<String, double> dailyTaskTimeData = {};
+    Map<String, Color> taskColors = {};
+
+    if (selectedDate != null) {
+      final isToday = selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      if (isToday) {
+        for (var task in provider.mainTasks) {
+          final mins = calculateDailyTimeFromSessions(task, today).toDouble();
+          if (mins > 0) {
+            dailyTaskTimeData[task.name] = mins;
+            taskColors[task.name] = task.taskColor;
+          }
+        }
+      } else {
+        final summaryData = provider.completedByDay[selectedDate!];
+        if (summaryData != null && summaryData['taskTimes'] != null) {
+          (summaryData['taskTimes'] as Map<String, dynamic>).forEach((taskId, time) {
+            final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+            final String name = task?.name ?? "Unknown";
+            dailyTaskTimeData[name] = (time as num).toDouble();
+            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+          });
+        }
+      }
+    }
+
+    return {
+      'activityData': activityData,
+      'activityColors': activityColors,
+      'virtueData': virtueData,
+      'virtueColors': virtueColors,
+      'dailyTaskTimeData': dailyTaskTimeData,
+      'taskColors': taskColors,
+    };
+  }
+
+  static int calculateDailyTimeFromSessions(MainTask task, DateTime startOfDay) {
+    int totalMinutes = 0;
+    for (var sub in task.subTasks) {
+      for (var session in sub.sessions) {
+        if (session.startTime.year == startOfDay.year &&
+            session.startTime.month == startOfDay.month &&
+            session.startTime.day == startOfDay.day) {
+          totalMinutes += session.durationMinutes;
+        }
+      }
+    }
+    return totalMinutes;
+  }
+
+  static Color _getVirtueColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return Colors.grey;
+    }
+  }
+}
+--- END OF FILE lib/src/utils/chart_data_helper.dart ---

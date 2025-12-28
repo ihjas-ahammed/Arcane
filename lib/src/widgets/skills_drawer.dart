@@ -82,12 +82,26 @@ class SkillsDrawer extends StatelessWidget {
 
                       final int momentumLevel = (xp7d / 50).floor() + 1;
                       final double momentumProgress = (xp7d % 50) / 50.0;
+                      final Map<String, String> virtuesDescription = {
+                        'Wisdom':
+                            'Cognitive strengths related to acquiring and using knowledge (creativity, curiosity, perspective).',
+                        'Courage':
+                            'Emotional strengths involving the exercise of will to achieve goals despite opposition (bravery, honesty, perseverance).',
+                        'Humanity':
+                            'Interpersonal strengths related to caring for and befriending others (kindness, love, social intelligence).',
+                        'Justice':
+                            'Civic strengths that support healthy community life (fairness, leadership, teamwork).',
+                        'Temperance':
+                            'Strengths that protect against excess and assist in self-regulation (forgiveness, modesty, prudence).',
+                        'Transcendence':
+                            'Strengths that connect individuals to the larger universe and provide meaning (gratitude, hope, humor, appreciation of beauty).',
+                      };
 
                       // Create a temporary skill object for display purposes
                       final skill = Skill(
                           id: name.substring(0, 3).toLowerCase(),
                           name: name,
-                          description: "A core Stoic virtue.",
+                          description: virtuesDescription[name]??"",
                           currentXp:
                               (xp7d % 50), // Current progress in this level
                           maxXp: 50, // Each momentum level is 50 XP wide

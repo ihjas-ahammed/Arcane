@@ -45,7 +45,7 @@ class SubmissionCard extends StatelessWidget {
                         .inMilliseconds /
                     1000)
             : timerState.accumulatedDisplayTime)
-        : subTask.currentTimeSpent * 60.0;
+        : subTask.currentTimeSpent.toDouble();
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;

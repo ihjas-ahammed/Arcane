@@ -22,7 +22,8 @@ class TimePieChart extends StatefulWidget {
 }
 
 class _TimePieChartState extends State<TimePieChart> {
-  int _touchedIndex = -1;
+  // Removed internal _touchedIndex state tracking for hover
+  // Relying on widget.selectedTask for persistent state
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +38,6 @@ class _TimePieChartState extends State<TimePieChart> {
       );
     }
 
-    // Filter zero values
     final Map<String, double> activeData = {};
     widget.taskData.forEach((k, v) {
       if (v > 0) activeData[k] = v;
@@ -53,18 +53,16 @@ class _TimePieChartState extends State<TimePieChart> {
       );
     }
 
-    final double totalTime =
-        activeData.values.fold(0, (sum, item) => sum + item);
+    final double totalTime = activeData.values.fold(0, (sum, item) => sum + item);
     final entries = activeData.entries.toList();
 
     String centerTopText = "TOTAL TIME";
     String centerBottomText = "${totalTime.toInt()}m";
     Color centerColor = AppTheme.fhTextPrimary;
 
-    // Determine what to show in center
-    // Priority: Hovered -> Selected -> Total
-    int highlightIndex = _touchedIndex;
-    if (highlightIndex == -1 && widget.selectedTask != null) {
+    // Use external selection state
+    int highlightIndex = -1;
+    if (widget.selectedTask != null) {
       highlightIndex = entries.indexWhere((e) => e.key == widget.selectedTask);
     }
 
@@ -74,7 +72,6 @@ class _TimePieChartState extends State<TimePieChart> {
       if (centerTopText.length > 10) {
         centerTopText = "${centerTopText.substring(0, 8)}..";
       }
-
       centerBottomText = "${entry.value.toInt()}m";
       centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
     }
@@ -83,23 +80,18 @@ class _TimePieChartState extends State<TimePieChart> {
       final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
       final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
-      final List<PieChartSectionData> sections =
-          List.generate(entries.length, (i) {
+      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
         final entry = entries[i];
-        final isHovered = i == _touchedIndex;
         final isSelected = entry.key == widget.selectedTask;
-        final showActive = isHovered || (isSelected && _touchedIndex == -1);
-
         final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-
-        final double radius = showActive ? chartRadius + 8 : chartRadius;
+        final double radius = isSelected ? chartRadius + 8 : chartRadius;
 
         return PieChartSectionData(
-          color: color.withValues(alpha: showActive ? 1.0 : 0.8),
+          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
           value: entry.value,
           title: '',
           radius: radius,
-          badgeWidget: showActive ? _buildBadge(color) : null,
+          badgeWidget: isSelected ? _buildBadge(color) : null,
           badgePositionPercentageOffset: 1.4,
           borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
@@ -114,30 +106,22 @@ class _TimePieChartState extends State<TimePieChart> {
               PieChartData(
                 pieTouchData: PieTouchData(
                   touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          pieTouchResponse == null ||
-                          pieTouchResponse.touchedSection == null) {
-                        _touchedIndex = -1;
-                        // Clear selection on hover exit / touch release
-                        if (widget.selectedTask != null) {
-                          widget.onTaskSelected?.call(null);
-                        }
-                        return;
-                      }
-
-                      final index =
-                          pieTouchResponse.touchedSection!.touchedSectionIndex;
-                      _touchedIndex = index;
-
-                      // Update selection on hover/touch
+                    // Logic: Tap to select (toggle), Tap outside to deselect
+                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
                       if (index >= 0 && index < entries.length) {
                         final key = entries[index].key;
-                        if (widget.selectedTask != key) {
+                        // Toggle selection
+                        if (widget.selectedTask == key) {
+                          widget.onTaskSelected?.call(null);
+                        } else {
                           widget.onTaskSelected?.call(key);
                         }
                       }
-                    });
+                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
+                      // Tap outside
+                      widget.onTaskSelected?.call(null);
+                    }
                   },
                 ),
                 borderData: FlBorderData(show: false),

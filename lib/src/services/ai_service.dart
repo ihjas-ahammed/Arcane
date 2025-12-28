@@ -134,7 +134,7 @@ class AIService {
   }) async {
     final String baseSystemPrompt = systemInstruction ??
         """
-    You are a wise stoic mentor. A user has submitted a reflection log.
+    You are a wise mentor. A user has submitted a reflection log.
     Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
     Determine a total XP score between 20 and 100 based on the depth, honesty, and effort of the reflection. 
     Distribute this total XP amount among these 6 virtues: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
@@ -293,7 +293,7 @@ Return ONLY the JSON object.
     }
 
     final prompt = """
-    You are a wise Stoic mentor.
+    You are a wise mentor.
     
     Here are the user's reflection logs for today:
     $reflectionsText
@@ -302,6 +302,7 @@ Return ONLY the JSON object.
     Highlight the key emotional themes, acknowledge any progress in stoic virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence), and offer one clear, actionable thought for tomorrow.
     
     Tone: Empathetic, encouraging, profound but grounded.
+    Note: Never use markdown and any type of formatting
     """;
 
     return await _executeWithModelAndKeyRotation(

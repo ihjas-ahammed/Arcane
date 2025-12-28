@@ -17,8 +17,8 @@ class TaskHeaderCard extends StatelessWidget {
   });
 
   String _formatMinutesToHHMM(int totalMinutes) {
-    final hours = (totalMinutes / 60).floor();
-    final minutes = totalMinutes % 60;
+    final hours = (totalMinutes / 3600).floor().round();
+    final minutes = ((totalMinutes/60) % 60).floor().round();
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 

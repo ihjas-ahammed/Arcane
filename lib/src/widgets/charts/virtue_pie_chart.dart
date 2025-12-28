@@ -21,7 +21,7 @@ class VirtuePieChart extends StatefulWidget {
 }
 
 class _VirtuePieChartState extends State<VirtuePieChart> {
-  int _touchedIndex = -1;
+  // Removed internal _touchedIndex tracking
 
   @override
   Widget build(BuildContext context) {
@@ -35,15 +35,12 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       );
     }
 
-    // Aggregate totals
     Map<String, int> totals = {};
     for (var log in widget.logs) {
       log.xpGained.forEach((key, value) {
         totals[key] = (totals[key] ?? 0) + value;
       });
     }
-
-    // Filter out zero values
     totals.removeWhere((key, value) => value <= 0);
 
     if (totals.isEmpty) {
@@ -59,12 +56,9 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     final int totalXpOfDay = totals.values.fold(0, (sum, item) => sum + item);
     final entries = totals.entries.toList();
 
-    // Determine what text to show in the center
-    // Priority: Hovered -> Selected -> Total
-    int highlightIndex = _touchedIndex;
-    if (highlightIndex == -1 && widget.selectedVirtue != null) {
-      highlightIndex =
-          entries.indexWhere((e) => e.key == widget.selectedVirtue);
+    int highlightIndex = -1;
+    if (widget.selectedVirtue != null) {
+      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedVirtue);
     }
 
     String centerTopText = "TOTAL";
@@ -79,29 +73,21 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     }
 
     return LayoutBuilder(builder: (context, constraints) {
-      // Responsive sizing
       final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
       final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
 
-      final List<PieChartSectionData> sections =
-          List.generate(entries.length, (i) {
+      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
         final entry = entries[i];
-        final isHovered = i == _touchedIndex;
         final isSelected = entry.key == widget.selectedVirtue;
-        final showActive = isHovered || (isSelected && _touchedIndex == -1);
-
         final color = _getVirtueColor(entry.key);
-
-        // Pop out effect
-        final double radius = showActive ? chartRadius + 8 : chartRadius;
+        final double radius = isSelected ? chartRadius + 8 : chartRadius;
 
         return PieChartSectionData(
-          color: color.withValues(alpha: showActive ? 1.0 : 0.8),
+          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
           value: entry.value.toDouble(),
-          title: '', // Hiding title on the chart itself for cleanliness
+          title: '',
           radius: radius,
-          // Add a border to sections for better separation
-          badgeWidget: showActive ? _buildBadge(entry.key, color) : null,
+          badgeWidget: isSelected ? _buildBadge(entry.key, color) : null,
           badgePositionPercentageOffset: 1.4,
           borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
         );
@@ -116,28 +102,19 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
               PieChartData(
                 pieTouchData: PieTouchData(
                   touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          pieTouchResponse == null ||
-                          pieTouchResponse.touchedSection == null) {
-                        _touchedIndex = -1;
-                        if (widget.selectedVirtue != null) {
-                          widget.onVirtueSelected?.call(null);
-                        }
-                        return;
-                      }
-
-                      final index =
-                          pieTouchResponse.touchedSection!.touchedSectionIndex;
-                      _touchedIndex = index;
-
+                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
                       if (index >= 0 && index < entries.length) {
                         final key = entries[index].key;
-                        if (widget.selectedVirtue != key) {
+                        if (widget.selectedVirtue == key) {
+                          widget.onVirtueSelected?.call(null);
+                        } else {
                           widget.onVirtueSelected?.call(key);
                         }
                       }
-                    });
+                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
+                      widget.onVirtueSelected?.call(null);
+                    }
                   },
                 ),
                 borderData: FlBorderData(show: false),
@@ -147,7 +124,6 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
                 startDegreeOffset: 270,
               ),
             ),
-            // Center Info Display
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -186,7 +162,6 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     });
   }
 
-  // Optional badge that appears outside the circle on hover
   Widget _buildBadge(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -203,24 +178,15 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      case 'discipline': // Added this one just in case
-        return Colors.indigoAccent;
-      case 'curiosity':
-        return Colors.tealAccent;
-      default:
-        return Colors.grey;
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      case 'discipline': return Colors.indigoAccent;
+      case 'curiosity': return Colors.tealAccent;
+      default: return Colors.grey;
     }
   }
 }
