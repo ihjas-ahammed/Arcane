@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 
+// REPLACED BY ValorantValueCard BUT KEPT FOR BACKWARD COMPATIBILITY OR REFERENCE
 class LifeValueCard extends StatelessWidget {
   final LifeValue value;
   final VoidCallback onTap;
@@ -10,6 +11,10 @@ class LifeValueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Redirect to the new design
+    // Ideally, this file should be deleted or completely replaced.
+    // For now, I'll return the old design but with updated colors just in case it's used elsewhere.
+    
     final double progress = value.score / 100.0;
     
     return GestureDetector(
@@ -19,13 +24,6 @@ class LifeValueCard extends StatelessWidget {
           color: AppTheme.fhBgDark,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ]
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -58,15 +56,6 @@ class LifeValueCard extends StatelessWidget {
                 fontSize: 14,
                 color: AppTheme.fhTextPrimary,
                 letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "${value.score}% Aligned",
-              style: TextStyle(
-                color: _getScoreColor(value.score),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

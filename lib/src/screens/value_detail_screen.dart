@@ -3,6 +3,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -23,145 +24,198 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final value = provider.lifeValues.firstWhere((v) => v.id == widget.valueId);
+    final Color scoreColor = _getScoreColor(value.score);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        elevation: 0,
-        title: Text(value.title.toUpperCase(),
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: _getScoreColor(value.score).withValues(alpha: 0.5)),
-            ),
-            child: Center(
-              child: Text(
-                "${value.score}%",
-                style: TextStyle(
-                  color: _getScoreColor(value.score),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 80),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- HEADER ---
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
+              decoration: const BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: AppTheme.fhBorderColor, width: 1.0)),
               ),
               child: Row(
                 children: [
-                  Icon(value.icon, size: 40, color: AppTheme.fhAccentTeal),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back,
+                        color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(width: 16),
+                  Text("${value.title.toUpperCase()}",
+                      style: const TextStyle(
+                          fontFamily: AppTheme.fontDisplay,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: AppTheme.fhTextPrimary)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: scoreColor),
+                      color: scoreColor.withOpacity(0.1),
+                    ),
+                    child: Text("${value.score}%",
+                        style: TextStyle(
+                            color: scoreColor,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay)),
+                  )
+                ],
+              ),
+            ),
+
+            // --- CONTENT ---
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Description Box
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark,
+                        border: const Border(
+                            left: BorderSide(
+                                color: AppTheme.fhAccentTeal, width: 4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(value.icon,
+                                  color: AppTheme.fhAccentTeal, size: 28),
+                              const SizedBox(width: 12),
+                              Text("PROTOCOL DESCRIPTION",
+                                  style: TextStyle(
+                                      color: AppTheme.fhTextSecondary
+                                          .withOpacity(0.7),
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                      fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            value.description,
+                            style: const TextStyle(
+                                color: AppTheme.fhTextPrimary,
+                                height: 1.5,
+                                fontSize: 15),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Questions Header
+                    Row(
+                      children: [
+                        Container(width: 8, height: 8, color: AppTheme.fhAccentRed),
+                        const SizedBox(width: 8),
+                        Text("Analysis Questions",
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                    color: AppTheme.fhTextPrimary,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    letterSpacing: 1.5)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Questions List
+                    ...value.questions.map((q) =>
+                        _buildQuestionCard(context, provider, value.id, q)),
+
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+
+            // --- FOOTER ACTIONS ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.fhBgDeepDark,
+                border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ValorantButton(
+                      label: _isAnalyzing ? "WAIT" : "ANALYZE",
+                      isPrimary: false,
+                      icon: MdiIcons.chartLine,
+                      onPressed: _isAnalyzing
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              setState(() => _isAnalyzing = true);
+                              try {
+                                await provider.analyzeValueAlignment(value.id);
+                                if (!mounted) return;
+                                messenger.showSnackBar(const SnackBar(
+                                    content: Text("Alignment Score Updated!")));
+                              } catch (e) {
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                    SnackBar(content: Text("Error: $e")));
+                              } finally {
+                                if (mounted)
+                                  setState(() => _isAnalyzing = false);
+                              }
+                            },
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      value.description,
-                      style: const TextStyle(
-                          color: AppTheme.fhTextSecondary, fontSize: 14),
+                    child: ValorantButton(
+                      label: _isGenerating ? "WAIT" : "GET TASK",
+                      isPrimary: true,
+                      icon: MdiIcons.robotHappy,
+                      onPressed: _isGenerating
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              setState(() => _isGenerating = true);
+                              final currentContext = context;
+                              try {
+                                final tasks = await provider
+                                    .generateTasksFromValue(value.id);
+                                if (!mounted) return;
+                                showDialog(
+                                  context: currentContext,
+                                  builder: (ctx) => ValueTaskGenerationDialog(
+                                      generatedTasks: tasks),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                    SnackBar(content: Text("Error: $e")));
+                              } finally {
+                                if (mounted)
+                                  setState(() => _isGenerating = false);
+                              }
+                            },
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Text("Reflective Questions",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.fhTextPrimary,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ...value.questions
-                .map((q) => _buildQuestionCard(context, provider, value.id, q)),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FloatingActionButton.extended(
-              heroTag: 'btn1',
-              onPressed: _isAnalyzing
-                  ? null
-                  : () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      setState(() => _isAnalyzing = true);
-                      try {
-                        await provider.analyzeValueAlignment(value.id);
-                        if (!mounted) return;
-                        messenger.showSnackBar(const SnackBar(
-                            content: Text("Alignment Score Updated!")));
-                      } catch (e) {
-                        if (!mounted) return;
-                        messenger
-                            .showSnackBar(SnackBar(content: Text("Error: $e")));
-                      } finally {
-                        if (mounted) setState(() => _isAnalyzing = false);
-                      }
-                    },
-              backgroundColor: AppTheme.fhBgMedium,
-              label: _isAnalyzing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text("Analyze"),
-              icon: Icon(MdiIcons.chartLine),
-            ),
-            const SizedBox(width: 16),
-            FloatingActionButton.extended(
-              heroTag: 'btn2',
-              onPressed: _isGenerating
-                  ? null
-                  : () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      setState(() => _isGenerating = true);
-                      final currentContext = context;
-                      try {
-                        final tasks =
-                            await provider.generateTasksFromValue(value.id);
-                        if (!mounted) return;
-                        showDialog(
-                          context: currentContext,
-                          builder: (ctx) =>
-                              ValueTaskGenerationDialog(generatedTasks: tasks),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        messenger
-                            .showSnackBar(SnackBar(content: Text("Error: $e")));
-                      } finally {
-                        if (mounted) setState(() => _isGenerating = false);
-                      }
-                    },
-              backgroundColor: AppTheme.fhAccentPurple,
-              label: _isGenerating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text("Generate Actions"),
-              icon: Icon(MdiIcons.robotHappy),
             ),
           ],
         ),
@@ -173,33 +227,41 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
       String valueId, ValueQuestion q) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+        color: AppTheme.fhBgDark.withOpacity(0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(q.question,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
+          Text(
+            q.question,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextSecondary,
+                fontSize: 12,
+                letterSpacing: 0.5),
+          ),
           const SizedBox(height: 12),
           TextFormField(
             initialValue: q.answer,
             maxLines: null,
-            style: const TextStyle(color: AppTheme.fhTextSecondary),
-            decoration: const InputDecoration(
-              hintText: "Type your answer here...",
+            style: const TextStyle(
+                color: AppTheme.fhTextPrimary,
+                fontFamily: 'RobotoMono',
+                fontSize: 14),
+            decoration: InputDecoration(
+              hintText: "INPUT DATA...",
+              hintStyle:
+                  TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5)),
               border: InputBorder.none,
               filled: true,
-              fillColor: AppTheme.fhBgDeepDark,
-              contentPadding: EdgeInsets.all(12),
+              fillColor: Colors.black.withOpacity(0.2),
+              contentPadding: const EdgeInsets.all(12),
+              isDense: true,
             ),
             onChanged: (val) {
-              // Debounce could be added here for performance
               provider.updateValueAnswer(valueId, q.id, val);
             },
           )
@@ -209,7 +271,7 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
   }
 
   Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 80) return AppTheme.fhAccentTeal;
     if (score >= 50) return AppTheme.fhAccentGold;
     return AppTheme.fhAccentRed;
   }

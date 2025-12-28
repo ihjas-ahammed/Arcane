@@ -215,17 +215,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: BottomNavigationBar(
             backgroundColor: AppTheme.fhBgDeepDark,
-            selectedItemColor: AppTheme.fhAccentRed, // Valorant Red for active
+            selectedItemColor: AppTheme.fhAccentRed,
             unselectedItemColor: AppTheme.fhTextSecondary,
             selectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
+              fontSize: 10, // Reduced font size
             ),
             unselectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               letterSpacing: 0.5,
+              fontSize: 10, // Reduced font size
             ),
+            // Fix overflow by hiding labels on unselected items on small screens if needed,
+            // or just rely on fixed type with smaller fonts.
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
             items: <BottomNavigationBarItem>[
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.targetAccount),
@@ -248,10 +256,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'SYSTEM',
               ),
             ],
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            type: BottomNavigationBarType.fixed,
-            elevation: 0,
           ),
         ),
       ),

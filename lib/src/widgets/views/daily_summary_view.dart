@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
 import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
@@ -11,6 +12,7 @@ import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -27,6 +29,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   String? _selectedTaskFilter;
   String? _selectedVirtueFilter;
+  bool _isGeneratingSummary = false;
+  String? _aiDailySummary;
 
   @override
   void didChangeDependencies() {
@@ -35,7 +39,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
     if (_selectedDate == null) {
-      // Default to today if available, or most recent
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       _selectedDate = availableDates.contains(today) ? today : (availableDates.isNotEmpty ? availableDates.first : today);
     }
@@ -63,37 +66,41 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       }
       return;
     }
-    // Generic edit logic if needed for other types
   }
 
   Future<void> _pickDate(BuildContext context) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final availableDates = appProvider.completedByDay.keys.map((d) => DateTime.tryParse(d)).whereType<DateTime>().toList();
     
-    // Sort logic
-    DateTime firstDate = DateTime(2023); 
-    if (availableDates.isNotEmpty) {
-      availableDates.sort();
-      if (availableDates.first.isBefore(firstDate)) firstDate = availableDates.first;
+    // Create a Set of valid dates for O(1) lookup
+    final validDates = appProvider.completedByDay.keys.toSet();
+    // Also include days with reflection logs even if no tasks
+    for (var log in appProvider.reflectionLogs) {
+      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
+    // Always include today
+    validDates.add(DateFormat('yyyy-MM-dd').format(DateTime.now()));
 
     final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
 
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: firstDate,
+      firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 1)),
+      selectableDayPredicate: (DateTime date) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
+      },
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
+            colorScheme: const ColorScheme.dark(
               primary: AppTheme.fhAccentTeal,
               onPrimary: AppTheme.fhTextPrimary,
               surface: AppTheme.fhBgDark,
               onSurface: AppTheme.fhTextPrimary,
             ),
-            dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
           ),
           child: child!,
         );
@@ -103,14 +110,48 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     if (picked != null) {
       setState(() {
         _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+        _aiDailySummary = null; // Reset summary on date change
       });
+    }
+  }
+
+  Future<void> _generateDailySummary(AppProvider provider, List<ReflectionLog> logs) async {
+    if (logs.isEmpty) return;
+    setState(() => _isGeneratingSummary = true);
+    
+    try {
+      final aiService = AIService();
+      final summary = await aiService.generateDailySummary(
+        reflections: logs.map((l) => {
+          'trigger': l.trigger,
+          'emotion': l.emotion,
+          'reason': l.reason,
+        }).toList(),
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKey: provider.settings.customApiKey,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _aiDailySummary = summary;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate summary: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingSummary = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
+    // final theme = Theme.of(context);
 
     // Prepare Data
     final chartData = ChartDataHelper.prepareWeeklyData(
@@ -120,7 +161,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       _selectedVirtueFilter
     );
 
-    // Current Day Data
     final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
 
     Map<String, dynamic> taskTimes = {};
@@ -153,7 +193,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         children: [
           // --- Carousel (Restored Swipe Style) ---
           ChartCarousel(
-            height: 250, // Slightly taller for bar labels
+            height: 250,
             pages: [
               ChartCarouselData(
                 title: "7-DAY PERFORMANCE",
@@ -174,7 +214,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- Date Picker (Fixed for Older Archives) ---
+          // --- Date Picker (Fixed) ---
           InkWell(
             onTap: () => _pickDate(context),
             child: Container(
@@ -182,7 +222,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 border: Border.all(color: AppTheme.fhBorderColor),
-                borderRadius: BorderRadius.zero, // Valorant Sharp
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,13 +235,60 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       color: AppTheme.fhTextSecondary
                     )
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTeal),
+                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 18),
                 ],
               ),
             ),
           ),
 
           const SizedBox(height: 24),
+
+          // --- AI Daily Briefing Section ---
+          if (reflectionsForDate.isNotEmpty) ...[
+            ValorantCard(
+              borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.robotExcitedOutline, color: AppTheme.fhAccentPurple, size: 20),
+                      const SizedBox(width: 8),
+                      const Text("TACTICAL BRIEFING", style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay, 
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: AppTheme.fhTextPrimary
+                      )),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_aiDailySummary != null)
+                    Text(
+                      _aiDailySummary!,
+                      style: const TextStyle(color: AppTheme.fhTextSecondary, height: 1.4),
+                    )
+                  else
+                    const Text(
+                      "Generate an AI analysis of today's logs to reveal hidden patterns and actionable intel.",
+                      style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  const SizedBox(height: 16),
+                  if (_aiDailySummary == null)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ValorantButton(
+                        label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
+                        isPrimary: false,
+                        color: AppTheme.fhAccentPurple.withOpacity(0.2),
+                        onPressed: _isGeneratingSummary ? null : () => _generateDailySummary(appProvider, reflectionsForDate),
+                      ),
+                    )
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // --- Daily Breakdown (Pie Charts) ---
           Row(
