@@ -129,6 +129,11 @@ class ProjectDetailScreen extends StatelessWidget {
                 )
               ],
             ),
+            const SizedBox(height: 4),
+            const Text(
+              "Long press to reorder steps.",
+              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11, fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 12),
 
             if (currentProject.steps.isEmpty)
@@ -149,19 +154,32 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ListView.separated(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentProject.steps.length,
-                separatorBuilder: (ctx, index) => const SizedBox(height: 12),
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderRootSteps(mainTaskId, currentProject.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final step = currentProject.steps[index];
-                  // Use the updated Tile which now navigates to StepDetailScreen
-                  return ProjectStepListTile(
-                    step: step,
-                    mainTaskId: mainTaskId,
-                    projectId: currentProject.id,
-                    indexPrefix: "${index + 1}",
+                  // Use Key for ReorderableListView
+                  return KeyedSubtree(
+                    key: ValueKey(step.id),
+                    child: ProjectStepListTile(
+                      step: step,
+                      mainTaskId: mainTaskId,
+                      projectId: currentProject.id,
+                      indexPrefix: "${index + 1}",
+                    ),
                   );
                 },
               ),

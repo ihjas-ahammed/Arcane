@@ -1,897 +1,1850 @@
+--- START OF FILE lib/src/models/app_state_models.dart ---
+// lib/src/models/app_state_models.dart
+// For TimeOfDay
 
---- START OF FILE lib/src/models/timeline_models.dart ---
-import 'package:flutter/material.dart';
+class AppSettings {
+  bool descriptionsVisible;
+  bool dailyAutoGenerateContent;
+  bool autoSaveEnabled; // New setting
+  int wakeupTimeHour;
+  int wakeupTimeMinute;
+  List<String> liteModels;
+  List<String> heavyModels;
+  String? customApiKey;
+  String? customChatbotPrompt;
+  String? customReflectionPrompt;
+  List<String> savedPrompts; // New: Saved AI Prompts
+  int startOfWeek; // 1 for Monday, 7 for Sunday
+  int dataVersion; // 0 for minutes, 1 for seconds
 
-class TimelineEntry {
-  final String id;
-  final DateTime startTime;
-  final DateTime endTime;
-  final String title;
-  final String? subtitle;
-  final Color color;
-  final bool isEditable;
-  final dynamic originalObject; // To pass back for editing actions
+  AppSettings({
+    this.descriptionsVisible = true,
+    this.dailyAutoGenerateContent = true,
+    this.autoSaveEnabled = true,
+    this.wakeupTimeHour = 7,
+    this.wakeupTimeMinute = 0,
+    this.liteModels = const [
+      'gemini-2.0-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ],
+    this.heavyModels = const [
+      'gemini-2.0-flash',
+      'gemini-2.0-pro-exp-02-05',
+      'gemini-1.5-pro'
+    ],
+    this.customApiKey,
+    this.customChatbotPrompt,
+    this.customReflectionPrompt,
+    this.savedPrompts = const [], // Default empty
+    this.startOfWeek = 1,
+    this.dataVersion = 0,
+  });
 
-  TimelineEntry({
-    required this.id,
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    return AppSettings(
+      descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
+      dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
+          json['autoGenerateContent'] as bool? ??
+          true,
+      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
+      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
+      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
+      liteModels: (json['liteModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['aiModelName'] != null
+              ? [
+                  json['aiModelName'] as String,
+                  'gemini-2.0-flash-lite',
+                  'gemini-1.5-flash'
+                ]
+              : [
+                  'gemini-2.0-flash-lite',
+                  'gemini-2.0-flash',
+                  'gemini-1.5-flash'
+                ]),
+      heavyModels: (json['heavyModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['aiModelName'] != null
+              ? [
+                  json['aiModelName'] as String,
+                  'gemini-2.0-flash',
+                  'gemini-1.5-pro'
+                ]
+              : [
+                  'gemini-2.0-flash',
+                  'gemini-2.0-pro-exp-02-05',
+                  'gemini-1.5-pro'
+                ]),
+      customApiKey: json['customApiKey'] as String?,
+      customChatbotPrompt: json['customChatbotPrompt'] as String?,
+      customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      startOfWeek: json['startOfWeek'] as int? ?? 1,
+      dataVersion: json['dataVersion'] as int? ?? 0,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'descriptionsVisible': descriptionsVisible,
+      'dailyAutoGenerateContent': dailyAutoGenerateContent,
+      'autoSaveEnabled': autoSaveEnabled,
+      'wakeupTimeHour': wakeupTimeHour,
+      'wakeupTimeMinute': wakeupTimeMinute,
+      'liteModels': liteModels,
+      'heavyModels': heavyModels,
+      'customApiKey': customApiKey,
+      'customChatbotPrompt': customChatbotPrompt,
+      'customReflectionPrompt': customReflectionPrompt,
+      'savedPrompts': savedPrompts,
+      'startOfWeek': startOfWeek,
+      'dataVersion': dataVersion,
+    };
+  }
+}
+
+class ActiveTimerInfo {
+  DateTime startTime;
+  double accumulatedDisplayTime; // In seconds
+  bool isRunning;
+  String type;
+  String mainTaskId;
+
+  ActiveTimerInfo({
     required this.startTime,
-    required this.endTime,
-    required this.title,
-    this.subtitle,
-    required this.color,
-    this.isEditable = false,
-    this.originalObject,
+    this.accumulatedDisplayTime = 0,
+    required this.isRunning,
+    required this.type,
+    required this.mainTaskId,
   });
 
-  int get durationSeconds => endTime.difference(startTime).inSeconds;
-}
---- END OF FILE lib/src/models/timeline_models.dart ---
+  factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
+    return ActiveTimerInfo(
+      startTime: DateTime.parse(json['startTime'] as String),
+      accumulatedDisplayTime:
+          (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
+      isRunning: json['isRunning'] as bool? ?? false,
+      type: json['type'] as String? ?? 'subtask',
+      mainTaskId: json['mainTaskId'] as String? ?? '',
+    );
+  }
 
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
+  Map<String, dynamic> toJson() {
+    return {
+      'startTime': startTime.toIso8601String(),
+      'accumulatedDisplayTime': accumulatedDisplayTime,
+      'isRunning': isRunning,
+      'type': type,
+      'mainTaskId': mainTaskId,
+    };
+  }
+}
+
+--- END OF FILE lib/src/models/app_state_models.dart ---
+
+--- START OF FILE lib/src/providers/actions/project_actions.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/services/ai_service.dart';
 
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
+class ProjectActions {
+  final AppProvider _provider;
+  final AIService _aiService = AIService();
 
-  const SubmissionDetailScreen({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
+  ProjectActions(this._provider);
 
-  @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
-}
+  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  void addProject(String title, String description, {String? mainTaskId}) {
+    // If no specific task is targeted, use the currently selected one, or the first one.
+    final targetTaskId = mainTaskId ??
+        _provider.selectedTaskId ??
+        _provider.mainTasks.firstOrNull?.id;
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
-
-  @override
-  void dispose() {
-    _checkpointController.dispose();
-    super.dispose();
-  }
-
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
+    if (targetTaskId == null) {
+      debugPrint("Error: No MainTask available to assign project to.");
+      return;
     }
-  }
 
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
-      'name': _checkpointController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      linkedMainTaskId: targetTaskId,
+    );
+
+    _updateMainTaskProjects(targetTaskId, (projects) {
+      return [...projects, newProject];
     });
-    _checkpointController.clear();
   }
 
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask textSubTask) async {
-    final String? newName = await showDialog<String>(
-      context: context,
-      builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
-    );
-    if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, {'name': newName});
-    }
+  void updateProjectDetails(
+      String mainTaskId, String projectId, String title, String description) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.title = title;
+          p.description = description;
+        }
+        return p;
+      }).toList();
+    });
   }
 
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => const AddSessionDialog(),
-    );
-    if (result != null) {
-      final startBase = result['start']!;
-      final endBase = result['end']!;
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart)) {
-        realEnd = realEnd.add(const Duration(days: 1));
+  void updateProject(String mainTaskId, Project updatedProject) {
+    updatedProject.calculateProgress();
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects
+          .map((p) => p.id == updatedProject.id ? updatedProject : p)
+          .toList();
+    });
+  }
+
+  void deleteProject(String mainTaskId, String projectId) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.where((p) => p.id != projectId).toList();
+    });
+  }
+
+  void _updateMainTaskProjects(
+      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        // Use copyWith to prevent data loss on other fields
+        return task.copyWith(
+          projects: updatedProjects,
+        );
       }
-      provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
-    }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
+  // --- Step Management ---
+
+  void addRootStep(
+      String mainTaskId, String projectId, String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
     );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
+    _performStepAction(mainTaskId, projectId, (project) {
+      project.steps.add(newStep);
+    });
+  }
+
+  void updateStep(
+      String mainTaskId, String projectId, ProjectStep updatedStep) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _updateStepRecursive(project.steps, updatedStep);
+    });
+  }
+
+  bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == updatedStep.id) {
+        steps[i] = updatedStep;
+        return true;
+      }
+      if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
+        return true;
       }
     }
+    return false;
   }
 
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries = [];
+  void deleteStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _deleteStepRecursive(project.steps, stepId);
+    });
+  }
 
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          // Filter by selected date
-          if (session.startTime.year == _selectedDate.year &&
-              session.startTime.month == _selectedDate.month &&
-              session.startTime.day == _selectedDate.day) {
-            
-            final bool isCurrentSubTask = sub.id == currentSubTaskId;
-            
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: isCurrentSubTask,
-              originalObject: session,
-            ));
-          }
+  void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
+    steps.removeWhere((s) => s.id == stepId);
+    for (var s in steps) {
+      _deleteStepRecursive(s.substeps, stepId);
+    }
+  }
+
+  void addSubstep(String mainTaskId, String projectId, String parentStepId,
+      String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+      _addSubstepRecursive(project.steps, parentStepId, newStep);
+    });
+  }
+
+  bool _addSubstepRecursive(
+      List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        s.substeps.add(newStep);
+        s.isCompleted =
+            false; // Parent can't be complete if new incomplete child added
+        return true;
+      }
+      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+
+  // New: Reorder Root Steps
+  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
+        final ProjectStep item = project.steps.removeAt(oldIndex);
+        project.steps.insert(newIndex, item);
+      }
+    });
+  }
+
+  // New: Reorder Sub-steps (needs recursion to find the parent list)
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      _reorderSubStepRecursive(project.steps, parentStepId, oldIndex, newIndex);
+    });
+  }
+
+  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
+          final ProjectStep item = s.substeps.removeAt(oldIndex);
+          s.substeps.insert(newIndex, item);
+          return true;
+        }
+      }
+      if (_reorderSubStepRecursive(s.substeps, parentId, oldIndex, newIndex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _performStepAction(
+      String mainTaskId, String projectId, Function(Project) action) {
+    Project? targetProject;
+    for (var t in _provider.mainTasks) {
+      if (t.id == mainTaskId) {
+        for (var p in t.projects) {
+          if (p.id == projectId) targetProject = p;
         }
       }
     }
-    return entries;
+    if (targetProject != null) {
+      action(targetProject);
+      updateProject(mainTaskId, targetProject);
+    }
   }
+
+  // --- Integration ---
+
+  void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
+    _provider.addSubtask(mainTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'subSubTasksData': <Map<String, dynamic>>[]
+    });
+  }
+
+  // --- AI Generation ---
+
+  Future<void> generateProjectStructure(
+      String mainTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Project...");
+    try {
+      final projectData = await _aiService.generateProjectFromPrompt(
+        modelCandidates: _provider.settings.heavyModels, // Heavy for projects
+        userPrompt: userPrompt,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+      );
+
+      final newProject = Project.fromJson(projectData);
+      newProject.id = const Uuid().v4();
+      newProject.linkedMainTaskId = mainTaskId;
+
+      _updateMainTaskProjects(
+          mainTaskId, (projects) => [...projects, newProject]);
+    } catch (e) {
+      debugPrint("Error generating project: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+}
+
+--- END OF FILE lib/src/providers/actions/project_actions.dart ---
+
+--- START OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ProjectDashboardCard extends StatelessWidget {
+  final Project project;
+  final String mainTaskId;
+  final String mainTaskName;
+  final Color accentColor;
+
+  const ProjectDashboardCard({
+    super.key,
+    required this.project,
+    required this.mainTaskId,
+    required this.mainTaskName,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
+    // Force recalc to update UI
+    final progress = project.calculateProgress();
+    final totalSteps = project.steps.length;
+    final completedSteps = project.completedStepsCount;
+    final int progressPercentage = (progress * 100).toInt();
 
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
-
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now()
-                        .difference(timerState.startTime)
-                        .inMilliseconds /
-                    1000)
-            : timerState.accumulatedDisplayTime)
-        : liveSubTask.currentTimeSpent.toDouble();
-
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints =
-        liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
-
-    // Build timeline entries for ALL tasks on selected day
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: Stack(
-        children: [
-          // Layer 1: Background Watermark
-          Positioned(
-            right: -50,
-            top: 50,
-            child: Opacity(
-              opacity: 0.05,
-              child:
-                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark, // Dark card background
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
+        ]
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    project.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+              ],
             ),
-          ),
-
-          // Layer 2: Main Content
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // --- Header ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white70),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Icon(MdiIcons.pencilOutline,
-                              color: Colors.white70),
-                          onPressed: () => _handleEditSubtask(
-                              context, provider, liveSubTask),
-                        ),
-                      ],
+            const SizedBox(height: 12),
+            
+            // Progress Row
+            Row(
+              children: [
+                // Circular Progress with Text Inside
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 48, 
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        backgroundColor: AppTheme.fhBgDeepDark,
+                        color: accentColor,
+                        strokeWidth: 4,
+                      ),
                     ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.parentTask.name
-                              .toUpperCase(), // "INITIATOR" style
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTealFixed,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            fontSize: 14,
-                            fontFamily: AppTheme.fontDisplay,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          liveSubTask.name.toUpperCase(), // "BREACH" style
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 48,
-                            height: 0.9,
-                            fontFamily: AppTheme.fontDisplay,
-                            letterSpacing: 2.0,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    Text(
+                      "$progressPercentage%",
+                      style: TextStyle(
+                        fontSize: 11, 
+                        fontWeight: FontWeight.bold, 
+                        color: accentColor,
+                        fontFamily: "RobotoCondensed"
+                      ),
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // --- Ability/Stat Row ---
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      children: [
-                        ValorantAbilitySlot(
-                          hotkey: "Q",
-                          label: "TIME",
-                          value: formattedTime,
-                          icon: MdiIcons.clockFast,
-                          isActive: isRunning,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "E",
-                          label: "STEPS",
-                          value: "$completedCheckpoints/$totalCheckpoints",
-                          icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 &&
-                              completedCheckpoints == totalCheckpoints,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "C",
-                          label: "LOGS",
-                          value: "${liveSubTask.sessions.length}",
-                          icon: MdiIcons.history,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "X",
-                          label: "STATUS",
-                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed
-                              ? MdiIcons.checkAll
-                              : MdiIcons.target,
-                          isActive: liveSubTask.completed,
-                          onTap: () => provider.completeSubtask(
-                              widget.parentTask.id, liveSubTask.id),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(color: Colors.white10),
-
-                  // --- Main Content Area ---
-                  Column(
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        children: [
-                          // Timer Control Area
-                          Container(
-                            margin: const EdgeInsets.all(16),
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isRunning
-                                    ? [
-                                        AppTheme.fhAccentRed
-                                            .withValues(alpha: 0.2),
-                                        Colors.transparent
-                                      ]
-                                    : [
-                                        Colors.white.withValues(alpha: 0.05),
-                                        Colors.transparent
-                                      ],
-                                begin: Alignment.bottomLeft,
-                                end: Alignment.topRight,
-                              ),
-                              border: Border(
-                                  left: BorderSide(
-                                      color: isRunning
-                                          ? AppTheme.fhAccentRed
-                                          : AppTheme.fhTextSecondary,
-                                      width: 2)),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isRunning
-                                          ? "SESSION ACTIVE"
-                                          : "READY TO DEPLOY",
-                                      style: TextStyle(
-                                        color: isRunning
-                                            ? AppTheme.fhAccentRed
-                                            : AppTheme.fhTextSecondary,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.0,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      formattedTime,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 32,
-                                        fontFamily: AppTheme.fontDisplay,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                FloatingActionButton.small(
-                                  backgroundColor: isRunning
-                                      ? AppTheme.fhAccentRed
-                                      : AppTheme.fhAccentTealFixed,
-                                  foregroundColor: Colors.black,
-                                  onPressed: () {
-                                    if (isRunning) {
-                                      provider.pauseTimer(liveSubTask.id);
-                                      provider.logTimerAndReset(liveSubTask.id);
-                                    } else {
-                                      provider.startTimer(liveSubTask.id,
-                                          'subtask', widget.parentTask.id);
-                                    }
-                                  },
-                                  child: Icon(isRunning
-                                      ? MdiIcons.pause
-                                      : MdiIcons.play),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Checkpoints List
-                          SizedBox(
-                            height: 250, 
-                            child: ListView(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
-                                  child: Text(
-                                    "TACTICAL OBJECTIVES",
-                                    style: TextStyle(
-                                        color: AppTheme.fhTextSecondary
-                                            .withValues(alpha: 0.5),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10,
-                                        letterSpacing: 1.5),
-                                  ),
-                                ),
-                                ...liveSubTask.subSubTasks
-                                    .map((sss) => ValorantListItem(
-                                          title: sss.name,
-                                          isCompleted: sss.completed,
-                                          onToggle: () =>
-                                              provider.completeSubSubtask(
-                                                  widget.parentTask.id,
-                                                  liveSubTask.id,
-                                                  sss.id),
-                                          onDelete: () =>
-                                              provider.deleteSubSubtask(
-                                                  widget.parentTask.id,
-                                                  liveSubTask.id,
-                                                  sss.id),
-                                        )),
-                                // Quick Add Field
-                                Container(
-                                  margin: const EdgeInsets.only(top: 8),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.1))),
-                                  ),
-                                  child: TextField(
-                                    controller: _checkpointController,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 13),
-                                    decoration: const InputDecoration(
-                                      hintText: "+ Add Objective",
-                                      hintStyle:
-                                          TextStyle(color: Colors.white24),
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding:
-                                          EdgeInsets.symmetric(vertical: 12),
-                                    ),
-                                    onSubmitted: (_) =>
-                                        _handleAddCheckpoint(provider),
-                                  ),
-                                ),
-                                Column(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () async {
-                                              final picked =
-                                                  await showDatePicker(
-                                                context: context,
-                                                initialDate: _selectedDate,
-                                                firstDate: DateTime(2020),
-                                                lastDate: DateTime.now().add(
-                                                    const Duration(days: 365)),
-                                                builder: (context, child) =>
-                                                    Theme(
-                                                  data: Theme.of(context)
-                                                      .copyWith(
-                                                    colorScheme:
-                                                        ColorScheme.dark(
-                                                      primary: AppTheme
-                                                          .fhAccentTealFixed,
-                                                      onPrimary: Colors.black,
-                                                      surface:
-                                                          AppTheme.fhBgDark,
-                                                      onSurface: Colors.white,
-                                                    ),
-                                                    dialogTheme:
-                                                        DialogThemeData(
-                                                            backgroundColor:
-                                                                AppTheme
-                                                                    .fhBgDark),
-                                                  ),
-                                                  child: child!,
-                                                ),
-                                              );
-                                              if (picked != null) {
-                                                setState(() =>
-                                                    _selectedDate = picked);
-                                              }
-                                            },
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  DateFormat('MMM dd')
-                                                      .format(_selectedDate)
-                                                      .toUpperCase(),
-                                                  style: const TextStyle(
-                                                      color: AppTheme
-                                                          .fhAccentTealFixed,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontFamily:
-                                                          AppTheme.fontDisplay,
-                                                      fontSize: 16),
-                                                ),
-                                                const Icon(
-                                                    Icons.arrow_drop_down,
-                                                    color: AppTheme
-                                                        .fhAccentTealFixed,
-                                                    size: 16),
-                                              ],
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.add,
-                                                size: 20,
-                                                color: Colors.white54),
-                                            onPressed: () =>
-                                                _showAddSessionDialog(
-                                                    context, provider),
-                                            tooltip: "Log Manual Session",
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      child: Container(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.2),
-                                        child: ScheduleTimeline(
-                                          entries: timelineEntries,
-                                          onAddSession: () =>
-                                              _showAddSessionDialog(
-                                                  context, provider),
-                                          onEditEntry: (entry) {
-                                            if (entry.originalObject
-                                                is TaskSession) {
-                                              _handleSessionEdit(
-                                                  context,
-                                                  provider,
-                                                  entry.originalObject
-                                                      as TaskSession);
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      Text(
+                        "$completedSteps/$totalSteps Steps Completed",
+                        style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
-
-                      // Vertical Divider
-                      const SizedBox(height: 16),
-                      Container(
-                          height: 1,
-                          color:
-                              Colors.white10),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
+                      if (project.description.isNotEmpty)
+                        Text(
+                          project.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                        )
+                      else 
+                          Text(
+                          "Linked to: $mainTaskName",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
+                        ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
+
+--- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart';
+
+class OverallProjectProgressCard extends StatelessWidget {
+  final List<Project> activeProjects;
+
+  const OverallProjectProgressCard({super.key, required this.activeProjects});
+
+  @override
+  Widget build(BuildContext context) {
+    if (activeProjects.isEmpty) return const SizedBox.shrink();
+
+    double totalProgress = 0;
+    for (var p in activeProjects) {
+      totalProgress += p.calculateProgress();
+    }
+    final double avgProgress = totalProgress / activeProjects.length;
+    final int percentage = (avgProgress * 100).toInt();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF2C3E50),
+            AppTheme.fhBgDark
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "OVERALL PROGRESS",
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
               ),
+              Text(
+                "$percentage%",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.fontDisplay,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: avgProgress,
+              minHeight: 8,
+              backgroundColor: AppTheme.fhBgDeepDark,
+              color: AppTheme.fhAccentTeal,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "${activeProjects.length} Active Projects",
+            style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.7), fontSize: 11),
           ),
         ],
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+--- END OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
 
---- START OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
+--- START OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/gestures.dart';
+import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/screens/project_detail_screen.dart';
 
-class ScheduleTimeline extends StatefulWidget {
-  final List<TimelineEntry> entries;
-  final VoidCallback onAddSession;
-  final Function(TimelineEntry) onEditEntry;
+class CompletedProjectsSection extends StatelessWidget {
+  final List<Map<String, dynamic>> completedProjects;
 
-  const ScheduleTimeline({
-    super.key,
-    required this.entries,
-    required this.onAddSession,
-    required this.onEditEntry,
-  });
-
-  @override
-  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
-}
-
-class _ScheduleTimelineState extends State<ScheduleTimeline> {
-  double _scale = 2.0;
-  final double _basePixelsPerHour = 60.0;
-
-  void _zoomIn() {
-    setState(() {
-      _scale = (_scale + 0.5).clamp(0.5, 10.0);
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _scale = (_scale - 0.5).clamp(0.5, 10.0);
-    });
-  }
+  const CompletedProjectsSection({super.key, required this.completedProjects});
 
   @override
   Widget build(BuildContext context) {
-    // Sort entries by time, prioritize editable ones on top if overlapping (handled by painter order ideally, but simple sort works for rendering list)
-    final sortedEntries = List<TimelineEntry>.from(widget.entries)
-      ..sort((a, b) {
-        final cmp = a.startTime.compareTo(b.startTime);
-        if (cmp != 0) return cmp;
-        // If same start time, put editable ones later so they render on top?
-        // Actually rendering order: last is top.
-        return a.isEditable ? 1 : -1;
-      });
+    if (completedProjects.isEmpty) return const SizedBox.shrink();
 
-    DateTime startBoundary;
-    DateTime endBoundary;
-    final now = DateTime.now();
+    // Group by Month (using a naive approach since Project doesn't have a 'completedDate' explicitly, 
+    // but in a real app you'd want a 'completedDate' field. 
+    // For now, we'll group them all under "Recently Completed" or simulate month based on an assumed date 
+    // OR just list them if we don't have dates.
+    // Assuming for this requirement we group simply or treat all as current month if no date.)
+    
+    // To strictly follow "Filtered by Month", we'd need a date field. 
+    // Since 'Project' model lacks 'completedDate', we will render them in a single expandable list for now
+    // or group by an arbitrary key if we had one. 
+    // Let's wrap the whole list in an ExpansionTile titled "Completed Archives".
 
-    if (sortedEntries.isEmpty) {
-      startBoundary = DateTime(now.year, now.month, now.day, 0, 0);
-      endBoundary = DateTime(now.year, now.month, now.day, 23, 59);
-    } else {
-      startBoundary = sortedEntries.first.startTime;
-      // Find min start and max end
-      DateTime minStart = sortedEntries.first.startTime;
-      DateTime maxEnd = sortedEntries.first.endTime;
-      
-      for (var s in sortedEntries) {
-        if (s.startTime.isBefore(minStart)) minStart = s.startTime;
-        if (s.endTime.isAfter(maxEnd)) maxEnd = s.endTime;
-      }
-      
-      startBoundary = minStart;
-      
-      final reference = minStart;
-      final isToday = reference.year == now.year &&
-          reference.month == now.month &&
-          reference.day == now.day;
-
-      if (isToday && now.isAfter(maxEnd)) {
-        endBoundary = now;
-      } else {
-        endBoundary = maxEnd;
-      }
-    }
-
-    // Adjust boundaries to nearest hour
-    final startHour = startBoundary.hour;
-    int endHour = endBoundary.hour;
-    if (endBoundary.minute > 0) {
-      endHour++;
-    }
-    if (endHour > 24) endHour = 24;
-    // Ensure we have at least a few hours visible
-    if (endHour <= startHour + 2) endHour = startHour + 4;
-    if (endHour > 24) endHour = 24;
-
-    final int hoursCount = endHour - startHour;
-    final double pixelsPerHour = _basePixelsPerHour * _scale;
-    final double totalHeight = pixelsPerHour * hoursCount;
-
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Listener(
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              final double dy = event.scrollDelta.dy;
-              setState(() {
-                if (dy < 0) {
-                  _scale = (_scale + 0.1).clamp(0.5, 10.0);
-                } else {
-                  _scale = (_scale - 0.1).clamp(0.5, 10.0);
-                }
-              });
-            }
-          },
-          child: GestureDetector(
-            onScaleUpdate: (details) {
-              setState(() {
-                _scale = (_scale * details.scale).clamp(0.5, 10.0);
-              });
-            },
-            child: Container(
-              height: totalHeight,
-              width: double.infinity,
-              color: Colors.transparent,
-              child: Stack(
-                children: [
-                  // Background Grid
-                  Column(
-                    children: List.generate(hoursCount, (index) {
-                      final currentHour = startHour + index;
-                      final displayHour = currentHour % 24;
-
-                      return Container(
-                        height: pixelsPerHour,
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: AppTheme.fhBorderColor.withOpacity(0.1),
-                              width: 1,
-                            ),
+        const SizedBox(height: 32),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: Row(
+              children: [
+                Icon(MdiIcons.archiveCheckOutline, color: AppTheme.fhAccentGreen, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "Completed Archives",
+                  style: TextStyle(
+                    color: AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: [
+              // We can show a dropdown-like filter here if we had dates,
+              // for now we just show the list.
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: completedProjects.length,
+                itemBuilder: (context, index) {
+                  final item = completedProjects[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProjectDetailScreen(
+                            project: item['project'] as Project,
+                            mainTaskId: item['mainTaskId'] as String,
                           ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 50,
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.only(top: 2.0, right: 8.0),
-                                child: Text(
-                                  "${displayHour.toString().padLeft(2, '0')}:00",
-                                  style: TextStyle(
-                                    color: AppTheme.fhTextSecondary
-                                        .withOpacity(0.5),
-                                    fontSize: 10,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Container()),
-                          ],
                         ),
                       );
-                    }),
-                  ),
-
-                  // Entries
-                  ...sortedEntries.map((entry) {
-                    final startSecondsVal = entry.startTime.hour * 3600 +
-                        entry.startTime.minute * 60 +
-                        entry.startTime.second;
-                    final offsetSeconds = startHour * 3600;
-                    final relativeStartSeconds =
-                        startSecondsVal - offsetSeconds;
-                    final durationSeconds = entry.durationSeconds;
-
-                    final double top =
-                        (relativeStartSeconds / 3600.0) * pixelsPerHour;
-                    final double height =
-                        (durationSeconds / 3600.0) * pixelsPerHour;
-                    // Min height for visibility
-                    final double visualHeight = height < 15 ? 15 : height;
-
-                    if (top + visualHeight < 0 || top > totalHeight) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // For background items, reduce opacity
-                    final Color baseColor = entry.color;
-                    final Color displayColor = entry.isEditable 
-                        ? baseColor.withOpacity(0.4) 
-                        : baseColor.withOpacity(0.15);
-                    final Color borderColor = entry.isEditable
-                        ? baseColor.withOpacity(0.8)
-                        : baseColor.withOpacity(0.3);
-
-                    return Positioned(
-                      top: top,
-                      left: 60,
-                      right: 16,
-                      height: visualHeight,
-                      child: GestureDetector(
-                        onTap: entry.isEditable 
-                            ? () => widget.onEditEntry(entry) 
-                            : null, // Read-only for background tasks
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: displayColor,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: borderColor,
-                              width: 1,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          alignment: Alignment.centerLeft,
-                          child: visualHeight > 10
-                              ? Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (visualHeight > 25)
-                                      Text(
-                                        entry.title,
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(entry.isEditable ? 1.0 : 0.7),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    Text(
-                                      "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(entry.isEditable ? 0.9 : 0.5),
-                                        fontSize: 9,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                      ),
-                    );
-                  }),
-                ],
+                    },
+                    child: ProjectDashboardCard(
+                      project: item['project'] as Project,
+                      mainTaskId: item['mainTaskId'] as String,
+                      mainTaskName: item['mainTaskName'] as String,
+                      accentColor: AppTheme.fhTextDisabled, // Gray out completed
+                    ),
+                  );
+                },
               ),
-            ),
-          ),
-        ),
-
-        // Manual Zoom Controls
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Column(
-            children: [
-              _buildZoomButton(Icons.add, _zoomIn),
-              const SizedBox(height: 8),
-              _buildZoomButton(Icons.remove, _zoomOut),
             ],
           ),
         ),
       ],
     );
   }
+}
+--- END OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
 
-  Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      height: 32,
-      width: 32,
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+--- START OF FILE lib/src/widgets/views/projects_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:arcane/src/widgets/cards/quick_action_card.dart';
+import 'package:arcane/src/widgets/cards/overall_project_progress_card.dart';
+import 'package:arcane/src/widgets/ui/completed_projects_section.dart';
+import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
+import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
+import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
+import 'package:arcane/src/screens/project_detail_screen.dart'; // Import detail screen
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class ProjectsView extends StatelessWidget {
+  const ProjectsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    // Aggregate all projects
+    final List<Map<String, dynamic>> ongoingProjects = [];
+    final List<Map<String, dynamic>> completedProjects = [];
+    final List<Project> rawActiveProjects = [];
+
+    for (var task in provider.mainTasks) {
+      for (var project in task.projects) {
+        final double progress = project.calculateProgress();
+        final bool isComplete = progress >= 1.0;
+        
+        final map = {
+          'project': project,
+          'mainTaskId': task.id,
+          'mainTaskName': task.name,
+          'color': task.taskColor,
+        };
+
+        if (isComplete) {
+          completedProjects.add(map);
+        } else {
+          ongoingProjects.add(map);
+          rawActiveProjects.add(project);
+        }
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Text("Welcome Back!",
+              style: theme.textTheme.headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+
+          const SizedBox(height: 24),
+
+          // Overall Progress for Ongoing Projects
+          OverallProjectProgressCard(activeProjects: rawActiveProjects),
+
+          const SizedBox(height: 32),
+
+          // Ongoing Projects Header
+          Row(
+            children: [
+              Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
+              const SizedBox(width: 8),
+              Text("Ongoing Projects",
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Project List
+          if (ongoingProjects.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: AppTheme.fhBgDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppTheme.fhBorderColor.withOpacity(0.3))),
+              child: Column(
+                children: [
+                  Icon(MdiIcons.folderOutline,
+                      size: 48,
+                      color: AppTheme.fhTextSecondary.withOpacity(0.3)),
+                  const SizedBox(height: 12),
+                  const Text("No active projects.",
+                      style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => _showCreateProjectSheet(context),
+                    child: const Text("Create your first project"),
+                  )
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: ongoingProjects.length,
+              itemBuilder: (context, index) {
+                final item = ongoingProjects[index];
+                return GestureDetector(
+                  onTap: () {
+                    // Push to Detail Screen
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ProjectDetailScreen(
+                                project: item['project'] as Project,
+                                mainTaskId: item['mainTaskId'] as String)));
+                  },
+                  child: ProjectDashboardCard(
+                    project: item['project'] as Project,
+                    mainTaskId: item['mainTaskId'] as String,
+                    mainTaskName: item['mainTaskName'] as String,
+                    accentColor: item['color'] as Color,
+                  ),
+                );
+              },
+            ),
+
+          // Completed Projects Section
+          if (completedProjects.isNotEmpty)
+             CompletedProjectsSection(completedProjects: completedProjects),
+
+          const SizedBox(height: 32),
+
+          // Quick Actions
+          Text("Quick Actions",
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+
+          // Primary Create Button
+          GestureDetector(
+            onTap: () => _showCreateProjectSheet(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF4A90E2),
+                      Color(0xFF9013FE)
+                    ], // Blue to Purple gradient
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFF9013FE).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(MdiIcons.plus, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text("Create New Project",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Secondary Actions Grid
+          Row(
+            children: [
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.robotOutline,
+                  label: "AI Prompts",
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AiPromptsView())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: QuickActionCard(
+                  icon: MdiIcons.targetVariant,
+                  label: "Link Submission",
+                  onTap: () => _showLinkSubmissionSheet(context),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 80), // Bottom padding for scroll
+        ],
       ),
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: Icon(icon, size: 18, color: AppTheme.fhTextPrimary),
-        onPressed: onPressed,
+    );
+  }
+
+  void _showCreateProjectSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CreateProjectSheet(),
+    );
+  }
+
+  void _showLinkSubmissionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const LinkSubmissionSheet(),
+    );
+  }
+}
+
+--- END OF FILE lib/src/widgets/views/projects_view.dart ---
+
+--- START OF FILE lib/src/screens/project_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/project_progress_header_card.dart';
+import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; // Import unified dialogs
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ProjectDetailScreen extends StatelessWidget {
+  final Project project;
+  final String mainTaskId;
+
+  const ProjectDetailScreen({
+    super.key,
+    required this.project,
+    required this.mainTaskId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    // Ensure we are working with the latest data from provider
+    Project currentProject = project;
+    try {
+      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      currentProject = task.projects.firstWhere((p) => p.id == project.id);
+    } catch (e) {
+      // Fallback if project was deleted while viewing
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          // EDIT PROJECT BUTTON
+          IconButton(
+            icon: Icon(MdiIcons.pencilOutline, size: 20),
+            tooltip: "Edit Project Details",
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditProjectDialog(
+                  mainTaskId: mainTaskId,
+                  projectId: currentProject.id,
+                  initialTitle: currentProject.title,
+                  initialDescription: currentProject.description,
+                ),
+              );
+              
+              if (result != null) {
+                provider.projectActions.updateProjectDetails(
+                  mainTaskId, 
+                  currentProject.id, 
+                  result['title']!, 
+                  result['desc']!
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
+            onPressed: () {
+              _confirmDelete(context, provider, currentProject);
+            },
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title Section
+            Text(
+              currentProject.title,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              currentProject.description.isNotEmpty 
+                ? currentProject.description 
+                : "No description provided.",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppTheme.fhTextSecondary,
+                height: 1.5,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+
+            // Big Progress Header Card
+            ProjectProgressHeaderCard(project: currentProject),
+
+            const SizedBox(height: 24),
+
+            // Steps List Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Root Steps",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.fhTextPrimary
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showAddRootStepDialog(context, provider),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text("Add Step"),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.fhAccentTeal,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                )
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Long press to reorder steps.",
+              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 12),
+
+            if (currentProject.steps.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    children: [
+                      Icon(MdiIcons.stairsBox, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
+                      const SizedBox(height: 16),
+                      Text(
+                        "No steps defined.\nAdd a root step to begin.",
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: currentProject.steps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderRootSteps(mainTaskId, currentProject.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final step = currentProject.steps[index];
+                  // Use Key for ReorderableListView
+                  return KeyedSubtree(
+                    key: ValueKey(step.id),
+                    child: ProjectStepListTile(
+                      step: step,
+                      mainTaskId: mainTaskId,
+                      projectId: currentProject.id,
+                      indexPrefix: "${index + 1}",
+                    ),
+                  );
+                },
+              ),
+              
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddRootStepDialog(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => const AddEditStepDialog(),
+    );
+
+    if (result != null) {
+      provider.projectActions.addRootStep(
+        mainTaskId, 
+        project.id, 
+        result['title']!, 
+        result['desc']!
+      );
+    }
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider, Project project) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Delete Project?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: const Text("This action cannot be undone."),
+      actions: [
+        TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+          onPressed: () {
+            provider.projectActions.deleteProject(mainTaskId, project.id);
+            Navigator.pop(ctx);
+            Navigator.pop(context); // Go back to projects view
+          }, 
+          child: const Text("Delete")
+        )
+      ],
+    ));
+  }
+}
+--- END OF FILE lib/src/screens/project_detail_screen.dart ---
+
+--- START OF FILE lib/src/screens/step_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class StepDetailScreen extends StatelessWidget {
+  final ProjectStep step;
+  final String mainTaskId;
+  final String projectId;
+  final String stepNumber;
+
+  const StepDetailScreen({
+    super.key,
+    required this.step,
+    required this.mainTaskId,
+    required this.projectId,
+    required this.stepNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    // Re-fetch the step from provider to ensure reactivity
+    ProjectStep currentStep = step;
+    try {
+      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final project = task.projects.firstWhere((p) => p.id == projectId);
+
+      // Recursive finder
+      ProjectStep? findStep(List<ProjectStep> list) {
+        for (var s in list) {
+          if (s.id == step.id) return s;
+          var found = findStep(s.substeps);
+          if (found != null) return found;
+        }
+        return null;
+      }
+
+      var found = findStep(project.steps);
+      if (found != null) currentStep = found;
+    } catch (e) {
+      // Fallback
+    }
+
+    final double progress = currentStep.calculateProgress();
+    final int percentage = (progress * 100).toInt();
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
+        actions: [
+          IconButton(
+            tooltip: "Link to Submission",
+            icon: Icon(MdiIcons.linkVariant, size: 20),
+            onPressed: () async {
+              // 1. Find the MainTask
+              try {
+                final task =
+                    provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+
+                // 2. Show Dialog
+                final result = await showDialog<Map<String, dynamic>>(
+                  context: context,
+                  builder: (ctx) => LinkSubmissionDialog(
+                    initialName: currentStep.title,
+                    availableSubmissions: task.subTasks,
+                  ),
+                );
+
+                if (result != null && context.mounted) {
+                  final String name = result['name'];
+                  final String type = result['type'];
+
+                  if (type == 'submission') {
+                    provider.addSubtask(mainTaskId, {
+                      'name': name,
+                      'completed': currentStep.isCompleted,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Linked to new Sub-Mission: $name")));
+                  } else if (type == 'checkpoint') {
+                    final String parentId = result['parentId'];
+                    provider.addSubSubtask(mainTaskId, parentId, {
+                      'name': name,
+                      'completed': currentStep.isCompleted,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Linked to new Checkpoint: $name")));
+                  }
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Error linking: $e")));
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.pencilOutline, size: 20),
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditStepDialog(
+                  initialTitle: currentStep.title,
+                  initialDescription: currentStep.description,
+                  isEditing: true,
+                ),
+              );
+              if (result != null) {
+                final updated = currentStep
+                  ..title = result['title']!
+                  ..description = result['desc']!;
+                provider.projectActions
+                    .updateStep(mainTaskId, projectId, updated);
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.deleteOutline,
+                size: 20, color: AppTheme.fhAccentRed),
+            onPressed: () {
+              // Confirm Delete
+              showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        title: const Text("Delete Step?",
+                            style: TextStyle(color: AppTheme.fhTextPrimary)),
+                        content: const Text(
+                            "This will delete this step and all its sub-steps."),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text("Cancel")),
+                          ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentRed),
+                              onPressed: () {
+                                provider.projectActions.deleteStep(
+                                    mainTaskId, projectId, currentStep.id);
+                                Navigator.pop(ctx); // Close dialog
+                                Navigator.pop(context); // Close screen
+                              },
+                              child: const Text("Delete"))
+                        ],
+                      ));
+            },
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Info
+            Text(
+              currentStep.title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+              ),
+            ),
+            if (currentStep.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                currentStep.description,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Progress Section
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Step Progress",
+                          style: TextStyle(color: AppTheme.fhTextSecondary)),
+                      Text("$percentage%",
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 10,
+                      backgroundColor: AppTheme.fhBgDeepDark,
+                      color: AppTheme.fhAccentTeal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Substeps List
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Sub-steps",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.fhTextPrimary),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final result = await showDialog<Map<String, String>>(
+                      context: context,
+                      builder: (ctx) => const AddEditStepDialog(),
+                    );
+                    if (result != null) {
+                      provider.projectActions.addSubstep(mainTaskId, projectId,
+                          currentStep.id, result['title']!, result['desc']!);
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text("Add"),
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.fhAccentTeal),
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (currentStep.substeps.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(style: BorderStyle.none)),
+                child: Column(
+                  children: [
+                    Icon(MdiIcons.fileTreeOutline,
+                        size: 32,
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 8),
+                    const Text("No sub-steps yet.",
+                        style: TextStyle(color: AppTheme.fhTextSecondary)),
+                    const SizedBox(height: 4),
+                    const Text(
+                        "Break this step down further or mark it as complete.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppTheme.fhTextDisabled, fontSize: 12)),
+                  ],
+                ),
+              )
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: currentStep.substeps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId, currentStep.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final substep = currentStep.substeps[index];
+                  // Recursive numbering: e.g., 1.2.1
+                  final displayPrefix = "$stepNumber.${index + 1}";
+
+                  return KeyedSubtree(
+                    key: ValueKey(substep.id),
+                    child: ProjectStepListTile(
+                      step: substep,
+                      mainTaskId: mainTaskId,
+                      projectId: projectId,
+                      indexPrefix: displayPrefix,
+                    ),
+                  );
+                },
+              ),
+
+            // Manual Completion Toggle (Only if leaf node)
+            if (currentStep.substeps.isEmpty) ...[
+              const SizedBox(height: 30),
+              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                title: const Text("Mark as Complete",
+                    style: TextStyle(color: AppTheme.fhTextPrimary)),
+                subtitle: const Text(
+                    "This step has no sub-steps, so you can toggle it directly.",
+                    style: TextStyle(fontSize: 12)),
+                value: currentStep.isCompleted,
+                activeThumbColor: AppTheme.fhAccentGreen,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  final updated = currentStep..isCompleted = val;
+                  provider.projectActions
+                      .updateStep(mainTaskId, projectId, updated);
+                },
+              )
+            ]
+          ],
+        ),
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
+
+--- END OF FILE lib/src/screens/step_detail_screen.dart ---
+
+--- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class AiPromptsView extends StatefulWidget {
+  const AiPromptsView({super.key});
+
+  @override
+  State<AiPromptsView> createState() => _AiPromptsViewState();
+}
+
+class _AiPromptsViewState extends State<AiPromptsView> {
+  final TextEditingController _promptController = TextEditingController();
+  String? _selectedMainTaskId;
+
+  final List<Map<String, String>> _templates = [
+    {
+      "title": "Health & Fitness",
+      "prompt":
+          "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
+    },
+    {
+      "title": "Creative Writing",
+      "prompt":
+          "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
+    },
+    {
+      "title": "Coding & Tech",
+      "prompt":
+          "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
+    },
+    {
+      "title": "Home Org",
+      "prompt":
+          "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    _selectedMainTaskId =
+        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+  }
+
+  void _saveCurrentPrompt(AppProvider provider) {
+    if (_promptController.text.trim().isEmpty) return;
+    
+    final currentPrompts = List<String>.from(provider.settings.savedPrompts);
+    final newPrompt = _promptController.text.trim();
+    
+    if (!currentPrompts.contains(newPrompt)) {
+      currentPrompts.add(newPrompt);
+      provider.setSettings(provider.settings..savedPrompts = currentPrompts);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Prompt Saved!"), backgroundColor: AppTheme.fhAccentGreen)
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("AI Prompts"),
+        backgroundColor: AppTheme.fhBgDeepDark,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text("Describe your project idea...",
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(color: AppTheme.fhTextSecondary)),
+            const SizedBox(height: 12),
+
+            // Text Input
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _promptController,
+                    maxLines: 5,
+                    decoration: const InputDecoration.collapsed(
+                      hintText:
+                          "e.g., 'Learn Python in 90 days with a focus on web development.'",
+                      hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                    ),
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: Icon(MdiIcons.contentSaveOutline, size: 16),
+                      label: const Text("Save Prompt"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.fhTextSecondary,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                      ),
+                      onPressed: () => _saveCurrentPrompt(provider),
+                    ),
+                  )
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Task Selector for AI Generation
+            DropdownButtonFormField<String>(
+              initialValue: _selectedMainTaskId,
+              dropdownColor: AppTheme.fhBgDark,
+              decoration: InputDecoration(
+                labelText: "Assign to Mission",
+                fillColor: AppTheme.fhBgDark,
+                filled: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+              ),
+              items: provider.mainTasks
+                  .map(
+                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedMainTaskId = val),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Generate Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: provider.isGeneratingSubquests
+                    ? null
+                    : () async {
+                        if (_promptController.text.isNotEmpty &&
+                            _selectedMainTaskId != null) {
+                          try {
+                            await provider.projectActions
+                                .generateProjectStructure(_selectedMainTaskId!,
+                                    _promptController.text);
+                            if (mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Project Generated! Check your projects list."))
+                              );
+                            }
+                          } finally {
+                            // Close loading dialog if applicable, provider handles state
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A90E2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
+                ),
+                child: provider.isGeneratingSubquests 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Generate Project Plan",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+            Text("Prompt Templates",
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+
+            // Templates Grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: _templates.length,
+              itemBuilder: (context, index) {
+                final t = _templates[index];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _promptController.text = t['prompt']!;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhBgDark,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t['title']!,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Text(
+                            t['prompt']!,
+                            style: const TextStyle(
+                                color: AppTheme.fhTextSecondary, fontSize: 12),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 32),
+            // Saved Prompts Section
+            SavedPromptsList(
+              onSelect: (prompt) => setState(() => _promptController.text = prompt),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+--- END OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+
+--- START OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SavedPromptsList extends StatelessWidget {
+  final Function(String) onSelect;
+
+  const SavedPromptsList({super.key, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final savedPrompts = provider.settings.savedPrompts;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Saved Prompts",
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        if (savedPrompts.isEmpty)
+          const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text("No saved prompts yet.",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontStyle: FontStyle.italic)),
+              ))
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: savedPrompts.length,
+            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final prompt = savedPrompts[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                ),
+                child: ListTile(
+                  title: Text(
+                    prompt,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                  ),
+                  onTap: () => onSelect(prompt),
+                  trailing: IconButton(
+                    icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed.withOpacity(0.7)),
+                    onPressed: () {
+                      final updatedList = List<String>.from(savedPrompts)..removeAt(index);
+                      provider.setSettings(provider.settings..savedPrompts = updatedList);
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---

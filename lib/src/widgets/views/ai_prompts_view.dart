@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
 import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -45,6 +47,21 @@ class _AiPromptsViewState extends State<AiPromptsView> {
         provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
   }
 
+  void _saveCurrentPrompt(AppProvider provider) {
+    if (_promptController.text.trim().isEmpty) return;
+    
+    final currentPrompts = List<String>.from(provider.settings.savedPrompts);
+    final newPrompt = _promptController.text.trim();
+    
+    if (!currentPrompts.contains(newPrompt)) {
+      currentPrompts.add(newPrompt);
+      provider.setSettings(provider.settings..savedPrompts = currentPrompts);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Prompt Saved!"), backgroundColor: AppTheme.fhAccentGreen)
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,15 +94,32 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 border:
                     Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
               ),
-              child: TextField(
-                controller: _promptController,
-                maxLines: 5,
-                decoration: const InputDecoration.collapsed(
-                  hintText:
-                      "e.g., 'Learn Python in 90 days with a focus on web development.'",
-                  hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
-                ),
-                style: const TextStyle(color: AppTheme.fhTextPrimary),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _promptController,
+                    maxLines: 5,
+                    decoration: const InputDecoration.collapsed(
+                      hintText:
+                          "e.g., 'Learn Python in 90 days with a focus on web development.'",
+                      hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                    ),
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: Icon(MdiIcons.contentSaveOutline, size: 16),
+                      label: const Text("Save Prompt"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.fhTextSecondary,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                      ),
+                      onPressed: () => _saveCurrentPrompt(provider),
+                    ),
+                  )
+                ],
               ),
             ),
 
@@ -121,16 +155,17 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     : () async {
                         if (_promptController.text.isNotEmpty &&
                             _selectedMainTaskId != null) {
-                          // Show loading dialog
-                          
-
                           try {
                             await provider.projectActions
                                 .generateProjectStructure(_selectedMainTaskId!,
                                     _promptController.text);
+                            if (mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Project Generated! Check your projects list."))
+                              );
+                            }
                           } finally {
-                            // Close loading dialog
-                            
+                            // Close loading dialog if applicable, provider handles state
                           }
                         }
                       },
@@ -140,7 +175,9 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30)),
                 ),
-                child: const Text("Generate Project Plan",
+                child: provider.isGeneratingSubquests 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Generate Project Plan",
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold)),
               ),
@@ -203,16 +240,10 @@ class _AiPromptsViewState extends State<AiPromptsView> {
             ),
 
             const SizedBox(height: 32),
-            // Saved Prompts Section (Placeholder for future feature)
-            Text("Saved Prompts",
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            const Center(
-                child: Text("No saved prompts yet.",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic))),
+            // Saved Prompts Section
+            SavedPromptsList(
+              onSelect: (prompt) => setState(() => _promptController.text = prompt),
+            ),
           ],
         ),
       ),

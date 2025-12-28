@@ -4,6 +4,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
 import 'package:arcane/src/widgets/cards/quick_action_card.dart';
+import 'package:arcane/src/widgets/cards/overall_project_progress_card.dart';
+import 'package:arcane/src/widgets/ui/completed_projects_section.dart';
 import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
 import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
 import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
@@ -19,17 +21,29 @@ class ProjectsView extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    // Aggregate all projects from all main tasks
-    final List<Map<String, dynamic>> allProjects = [];
+    // Aggregate all projects
+    final List<Map<String, dynamic>> ongoingProjects = [];
+    final List<Map<String, dynamic>> completedProjects = [];
+    final List<Project> rawActiveProjects = [];
 
     for (var task in provider.mainTasks) {
       for (var project in task.projects) {
-        allProjects.add({
+        final double progress = project.calculateProgress();
+        final bool isComplete = progress >= 1.0;
+        
+        final map = {
           'project': project,
           'mainTaskId': task.id,
           'mainTaskName': task.name,
           'color': task.taskColor,
-        });
+        };
+
+        if (isComplete) {
+          completedProjects.add(map);
+        } else {
+          ongoingProjects.add(map);
+          rawActiveProjects.add(project);
+        }
       }
     }
 
@@ -43,7 +57,10 @@ class ProjectsView extends StatelessWidget {
               style: theme.textTheme.headlineMedium
                   ?.copyWith(fontWeight: FontWeight.bold)),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+
+          // Overall Progress for Ongoing Projects
+          OverallProjectProgressCard(activeProjects: rawActiveProjects),
 
           const SizedBox(height: 32),
 
@@ -60,7 +77,7 @@ class ProjectsView extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Project List
-          if (allProjects.isEmpty)
+          if (ongoingProjects.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
@@ -89,9 +106,9 @@ class ProjectsView extends StatelessWidget {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: allProjects.length,
+              itemCount: ongoingProjects.length,
               itemBuilder: (context, index) {
-                final item = allProjects[index];
+                final item = ongoingProjects[index];
                 return GestureDetector(
                   onTap: () {
                     // Push to Detail Screen
@@ -111,6 +128,10 @@ class ProjectsView extends StatelessWidget {
                 );
               },
             ),
+
+          // Completed Projects Section
+          if (completedProjects.isNotEmpty)
+             CompletedProjectsSection(completedProjects: completedProjects),
 
           const SizedBox(height: 32),
 
@@ -164,8 +185,8 @@ class ProjectsView extends StatelessWidget {
             children: [
               Expanded(
                 child: QuickActionCard(
-                  icon: MdiIcons.viewDashboardOutline,
-                  label: "Templates",
+                  icon: MdiIcons.robotOutline,
+                  label: "AI Prompts",
                   onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -175,22 +196,12 @@ class ProjectsView extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: QuickActionCard(
-                  icon: MdiIcons.robotOutline,
-                  label: "AI Prompts",
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AiPromptsView())),
+                  icon: MdiIcons.targetVariant,
+                  label: "Link Task",
+                  onTap: () => _showLinkSubmissionSheet(context),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          QuickActionCard(
-            icon: MdiIcons.targetVariant,
-            label: "Link Submission",
-            onTap: () => _showLinkSubmissionSheet(context),
-            isFullWidth: true,
           ),
 
           const SizedBox(height: 80), // Bottom padding for scroll

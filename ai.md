@@ -1,7 +1,11 @@
 Make the following changes:
 
-   * Make the scheduler log sjow entries for all submission in the backgroun (bacground I meant they should be unclicable, only the current seleceted submission must be editable), also their color should be the color of mission they belong to, also give them label as the submission name
-      * This way user can always see how the day is going like how much time he actually invested everywhere 
+   * Improve projects:
+      - Show completed projects to bottom with a dropdown, filtered by month
+      - Show overall progress of ongoing projects after welcome
+      - Show project prpgress percentage inside the circular progress bar as text in project list
+      - Add ability to save prompts
+      - Make it possible to rearrange steps when needed by dragging
      
 
 

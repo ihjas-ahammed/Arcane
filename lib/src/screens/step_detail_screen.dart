@@ -282,20 +282,34 @@ class StepDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ListView.builder(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId, currentStep.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
                   // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
 
-                  return ProjectStepListTile(
-                    step: substep,
-                    mainTaskId: mainTaskId,
-                    projectId: projectId,
-                    indexPrefix: displayPrefix,
+                  return KeyedSubtree(
+                    key: ValueKey(substep.id),
+                    child: ProjectStepListTile(
+                      step: substep,
+                      mainTaskId: mainTaskId,
+                      projectId: projectId,
+                      indexPrefix: displayPrefix,
+                    ),
                   );
                 },
               ),

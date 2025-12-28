@@ -23,6 +23,7 @@ class ProjectDashboardCard extends StatelessWidget {
     final progress = project.calculateProgress();
     final totalSteps = project.steps.length;
     final completedSteps = project.completedStepsCount;
+    final int progressPercentage = (progress * 100).toInt();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -62,16 +63,30 @@ class ProjectDashboardCard extends StatelessWidget {
             // Progress Row
             Row(
               children: [
-                // Circular Progress
-                SizedBox(
-                  width: 40, 
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: accentColor,
-                    strokeWidth: 4,
-                  ),
+                // Circular Progress with Text Inside
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 48, 
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        backgroundColor: AppTheme.fhBgDeepDark,
+                        color: accentColor,
+                        strokeWidth: 4,
+                      ),
+                    ),
+                    Text(
+                      "$progressPercentage%",
+                      style: TextStyle(
+                        fontSize: 11, 
+                        fontWeight: FontWeight.bold, 
+                        color: accentColor,
+                        fontFamily: "RobotoCondensed"
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 12),
                 Expanded(

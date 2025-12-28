@@ -12,13 +12,14 @@ class AppSettings {
   String? customApiKey;
   String? customChatbotPrompt;
   String? customReflectionPrompt;
+  List<String> savedPrompts; // New: Saved AI Prompts
   int startOfWeek; // 1 for Monday, 7 for Sunday
   int dataVersion; // 0 for minutes, 1 for seconds
 
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
-    this.autoSaveEnabled = true, // Default to true
+    this.autoSaveEnabled = true,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
     this.liteModels = const [
@@ -34,6 +35,7 @@ class AppSettings {
     this.customApiKey,
     this.customChatbotPrompt,
     this.customReflectionPrompt,
+    this.savedPrompts = const [], // Default empty
     this.startOfWeek = 1,
     this.dataVersion = 0,
   });
@@ -78,6 +80,10 @@ class AppSettings {
       customApiKey: json['customApiKey'] as String?,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
     );
@@ -94,6 +100,7 @@ class AppSettings {
       'customApiKey': customApiKey,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
+      'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
     };
