@@ -27,7 +27,7 @@ dependencies:
   # UI & Utilities
   cupertino_icons: ^1.0.6
   intl: ^0.20.2 # For date formatting
-  fl_chart: ^1.0.0 # For charts
+  fl_chart: ^1.1.1 # For charts
   material_design_icons_flutter: ^7.0.7296 # For extra icons
   collection: ^1.18.0 
   flutter_colorpicker: ^1.1.0 # For task color selection
@@ -38,6 +38,9 @@ dependencies:
   universal_html: ^2.2.4
   path_provider: ^2.1.2
   share_plus: ^10.1.2
+  google_fonts: ^6.3.3
+  flutter_animate: ^4.5.2
+  gap: ^3.0.1
 
 
 dev_dependencies:

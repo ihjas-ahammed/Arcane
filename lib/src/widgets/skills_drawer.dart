@@ -3,12 +3,13 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
-
+import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
+import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'dart:math';
 
 class SkillsDrawer extends StatelessWidget {
   const SkillsDrawer({super.key});
@@ -19,8 +20,7 @@ class SkillsDrawer extends StatelessWidget {
     final theme = Theme.of(context);
     final todayStr = helper.getTodayDateString();
     final todayLogs = appProvider.reflectionLogs.where((l) {
-      final logDate =
-          "${l.timestamp.year}-${l.timestamp.month.toString().padLeft(2, '0')}-${l.timestamp.day.toString().padLeft(2, '0')}";
+      final logDate = "${l.timestamp.year}-${l.timestamp.month.toString().padLeft(2, '0')}-${l.timestamp.day.toString().padLeft(2, '0')}";
       return logDate == todayStr;
     }).toList();
 
@@ -34,32 +34,24 @@ class SkillsDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
             decoration: const BoxDecoration(
-                border:
-                    Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
-                gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1F2731), AppTheme.fhBgDeepDark])),
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                colors: [Color(0xFF1F2731), AppTheme.fhBgDeepDark]
+              )
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(MdiIcons.shieldAccountOutline,
-                        color: AppTheme.fhAccentGold, size: 28),
+                    Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 28),
                     const SizedBox(width: 12),
-                    Text("ARMORY",
-                        style: theme.textTheme.headlineMedium
-                            ?.copyWith(color: AppTheme.fhTextPrimary)),
+                    Text("ARMORY", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text("// INTERNAL ATTRIBUTES",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontFamily: "RobotoCondensed",
-                        letterSpacing: 2.0,
-                        fontSize: 12)),
+                Text("// INTERNAL ATTRIBUTES", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: "RobotoCondensed", letterSpacing: 2.0, fontSize: 12)),
               ],
             ),
           ),
@@ -77,61 +69,45 @@ class SkillsDrawer extends StatelessWidget {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.4,
                   children: [
-                    'Wisdom',
-                    'Courage',
-                    'Humanity',
-                    'Justice',
-                    'Temperance',
-                    'Transcendence'
+                    'Wisdom', 'Courage', 'Humanity', 
+                    'Justice', 'Temperance', 'Transcendence'
                   ].map((name) {
                     final xp7d = appProvider.get7DaySkillMomentum(name);
                     final int level = (xp7d / 50).floor() + 1;
-
-                    return _buildValorantSkillTile(
-                        context, name, level, xp7d % 50);
+                    
+                    return _buildValorantSkillTile(context, name, level, xp7d % 50);
                   }).toList(),
                 ),
 
                 const SizedBox(height: 24),
-
+                
                 // Reflection Section
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border.all(
-                        color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                    border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("COMBAT LOG",
-                          style: theme.textTheme.labelLarge
-                              ?.copyWith(color: AppTheme.fhAccentTeal)),
+                      Text("COMBAT LOG", style: theme.textTheme.labelLarge?.copyWith(color: AppTheme.fhAccentTeal)),
                       const SizedBox(height: 12),
                       ValorantButton(
                         label: "LOG INSIGHT",
                         icon: MdiIcons.notebookEditOutline,
                         onPressed: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => ReflectionEditorScreen(
-                                      dateStr: todayStr)));
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: todayStr)));
                         },
                         isPrimary: false,
                       ),
                       const SizedBox(height: 16),
                       if (todayLogs.isNotEmpty)
-                        ...todayLogs.reversed
-                            .map((log) => ReflectionLogCard(log: log))
+                        ...todayLogs.reversed.map((log) => ReflectionLogCard(log: log))
                       else
                         const Padding(
                           padding: EdgeInsets.all(8.0),
-                          child: Text("No entries today.",
-                              style: TextStyle(
-                                  color: AppTheme.fhTextDisabled,
-                                  fontStyle: FontStyle.italic)),
+                          child: Text("No entries today.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
                         )
                     ],
                   ),
@@ -144,8 +120,7 @@ class SkillsDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildValorantSkillTile(
-      BuildContext context, String name, int level, int currentXp) {
+  Widget _buildValorantSkillTile(BuildContext context, String name, int level, int currentXp) {
     Color color = _getSkillColor(name);
     IconData icon = _getSkillIcon(name);
 
@@ -158,10 +133,8 @@ class SkillsDrawer extends StatelessWidget {
         children: [
           // Background Icon Watermark
           Positioned(
-            right: -10,
-            bottom: -10,
-            child: Icon(icon,
-                size: 60, color: Colors.white.withValues(alpha: 0.05)),
+            right: -10, bottom: -10,
+            child: Icon(icon, size: 60, color: Colors.white.withValues(alpha: 0.05)),
           ),
           Padding(
             padding: const EdgeInsets.all(12.0),
@@ -173,22 +146,13 @@ class SkillsDrawer extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Icon(icon, size: 20, color: color),
-                    Text("LVL $level",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Colors.white)),
+                    Text("LVL $level", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name.toUpperCase(),
-                        style: const TextStyle(
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 16,
-                            letterSpacing: 1.0,
-                            fontWeight: FontWeight.bold)),
+                    Text(name.toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 16, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     LinearProgressIndicator(
                       value: currentXp / 50.0,
@@ -206,43 +170,27 @@ class SkillsDrawer extends StatelessWidget {
     );
   }
 
-  Color _getSkillColor(String name) {
-    /* ... keep existing mapping ... */
+  Color _getSkillColor(String name) { /* ... keep existing mapping ... */ 
     switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return AppTheme.fhTextSecondary;
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return AppTheme.fhTextSecondary;
     }
   }
-
-  IconData _getSkillIcon(String name) {
-    /* ... keep existing mapping ... */
+  
+  IconData _getSkillIcon(String name) { /* ... keep existing mapping ... */ 
     switch (name.toLowerCase()) {
-      case 'wisdom':
-        return MdiIcons.brain;
-      case 'courage':
-        return MdiIcons.sword;
-      case 'humanity':
-        return MdiIcons.handHeart;
-      case 'justice':
-        return MdiIcons.scaleBalance;
-      case 'temperance':
-        return MdiIcons.yinYang;
-      case 'transcendence':
-        return MdiIcons.starFourPoints;
-      default:
-        return MdiIcons.circle;
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circle;
     }
   }
 }

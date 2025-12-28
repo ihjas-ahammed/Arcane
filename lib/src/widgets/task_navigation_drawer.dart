@@ -5,6 +5,7 @@ import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/models/task_models.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -22,70 +23,22 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
 
   String _dialogSelectedTheme = 'tech';
   String _dialogSelectedColorHex =
-      AppTheme.fhAccentTealFixed.toARGB32().toRadixString(16).toUpperCase();
+      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
 
   // ... (Available Themes Data kept same)
   final List<Map<String, dynamic>> _availableThemes = [
-    {
-      'name': 'tech',
-      'icon': MdiIcons.memory,
-      'color': AppTheme.fhAccentTealFixed
-    },
-    {
-      'name': 'knowledge',
-      'icon': MdiIcons.bookOpenPageVariantOutline,
-      'color': AppTheme.fhAccentPurple
-    },
-    {
-      'name': 'learning',
-      'icon': MdiIcons.schoolOutline,
-      'color': AppTheme.fhAccentOrange
-    },
-    {
-      'name': 'discipline',
-      'icon': MdiIcons.karate,
-      'color': AppTheme.fhAccentRed
-    },
-    {
-      'name': 'order',
-      'icon': MdiIcons.playlistCheck,
-      'color': AppTheme.fhAccentGreen
-    },
-    {
-      'name': 'health',
-      'icon': MdiIcons.heartPulse,
-      'color': const Color(0xFF58D68D)
-    },
-    {
-      'name': 'finance',
-      'icon': MdiIcons.cashMultiple,
-      'color': const Color(0xFFF1C40F)
-    },
-    {
-      'name': 'creative',
-      'icon': MdiIcons.paletteOutline,
-      'color': const Color(0xFFEC7063)
-    },
-    {
-      'name': 'exploration',
-      'icon': MdiIcons.mapSearchOutline,
-      'color': const Color(0xFF5DADE2)
-    },
-    {
-      'name': 'social',
-      'icon': MdiIcons.accountGroupOutline,
-      'color': const Color(0xFFE59866)
-    },
-    {
-      'name': 'nature',
-      'icon': MdiIcons.treeOutline,
-      'color': const Color(0xFF2ECC71)
-    },
-    {
-      'name': 'general',
-      'icon': MdiIcons.targetAccount,
-      'color': AppTheme.fhTextSecondary
-    },
+    {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
+    {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
+    {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
+    {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
+    {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
+    {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
   Color _getColorForTheme(String themeName) {
@@ -108,19 +61,16 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     super.dispose();
   }
 
-  // Reuse existing logic for dialogs but update UI inside them?
+  // Reuse existing logic for dialogs but update UI inside them? 
   // For brevity, I will apply standard Material styles in dialogs but use new colors.
   // Ideally, create a ValorantDialog widget, but context constraints apply.
-
+  
   void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
     // ... logic reset ...
     _newTaskNameController.clear();
     _newTaskDescController.clear();
     _dialogSelectedTheme = 'tech';
-    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme)
-        .toARGB32()
-        .toRadixString(16)
-        .toUpperCase();
+    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase();
 
     showDialog(
       context: context,
@@ -134,35 +84,23 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  TextField(
-                      controller: _newTaskNameController,
-                      decoration: const InputDecoration(labelText: 'CODENAME')),
+                  TextField(controller: _newTaskNameController, decoration: const InputDecoration(labelText: 'CODENAME')),
                   const SizedBox(height: 12),
-                  TextField(
-                      controller: _newTaskDescController,
-                      decoration: const InputDecoration(labelText: 'BRIEFING'),
-                      maxLines: 2),
+                  TextField(controller: _newTaskDescController, decoration: const InputDecoration(labelText: 'BRIEFING'), maxLines: 2),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'CLASS'),
                     dropdownColor: AppTheme.fhBgDark,
-                    initialValue: _dialogSelectedTheme,
-                    items: _availableThemes
-                        .map((themeMap) => DropdownMenuItem(
-                            value: themeMap['name'] as String,
-                            child: Text(
-                                (themeMap['name'] as String).toUpperCase(),
-                                style: const TextStyle(
-                                    fontFamily: AppTheme.fontDisplay))))
-                        .toList(),
+                    value: _dialogSelectedTheme,
+                    items: _availableThemes.map((themeMap) => DropdownMenuItem(
+                      value: themeMap['name'] as String,
+                      child: Text((themeMap['name'] as String).toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay))
+                    )).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setStateDialog(() {
                           _dialogSelectedTheme = val;
-                          _dialogSelectedColorHex = _getColorForTheme(val)
-                              .toARGB32()
-                              .toRadixString(16)
-                              .toUpperCase();
+                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase();
                         });
                       }
                     },
@@ -172,9 +110,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
               ),
             ),
             actions: [
-              TextButton(
-                  child: const Text('ABORT'),
-                  onPressed: () => Navigator.pop(dialogContext)),
+              TextButton(child: const Text('ABORT'), onPressed: () => Navigator.pop(dialogContext)),
               ValorantButton(
                 label: 'INITIALIZE',
                 onPressed: () {
@@ -199,7 +135,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
-
+    
     return Container(
       width: 300,
       color: AppTheme.fhBgDeepDark,
@@ -210,27 +146,18 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: const BoxDecoration(
-              border: Border(
-                  bottom: BorderSide(color: AppTheme.fhBorderColor, width: 1)),
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor, width: 1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("AGENTS",
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(color: AppTheme.fhTextSecondary)),
+                Text("AGENTS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
                 const SizedBox(height: 4),
-                Text("SELECT MISSION PROFILE",
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(letterSpacing: 2.0)),
+                Text("SELECT MISSION PROFILE", style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 2.0)),
               ],
             ),
           ),
-
+          
           // List
           Expanded(
             child: ListView.builder(
@@ -248,27 +175,18 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                     borderColor: isSelected ? color : null,
                     onTap: () {
                       appProvider.setSelectedTaskId(task.id);
-                      if (MediaQuery.of(context).size.width < 900) {
-                        Navigator.pop(context);
-                      }
+                      if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
                     },
                     child: Row(
                       children: [
                         // Icon Box
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 48, height: 48,
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? color.withValues(alpha: 0.2)
-                                : Colors.black26,
-                            border: Border.all(
-                                color: isSelected ? color : Colors.transparent),
+                            color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
+                            border: Border.all(color: isSelected ? color : Colors.transparent),
                           ),
-                          child: Icon(_getThemeIcon(task.theme),
-                              color: isSelected
-                                  ? color
-                                  : AppTheme.fhTextSecondary),
+                          child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -281,23 +199,19 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                                   fontFamily: AppTheme.fontDisplay,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
-                                  color: isSelected
-                                      ? AppTheme.fhTextPrimary
-                                      : AppTheme.fhTextSecondary,
+                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
                                   letterSpacing: 1.0,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 task.theme.toUpperCase(),
                                 style: TextStyle(
-                                    fontSize: 10,
-                                    color: isSelected
-                                        ? color
-                                        : AppTheme.fhTextDisabled,
-                                    letterSpacing: 1.5,
-                                    fontWeight: FontWeight.w600),
+                                  fontSize: 10, 
+                                  color: isSelected ? color : AppTheme.fhTextDisabled,
+                                  letterSpacing: 1.5,
+                                  fontWeight: FontWeight.w600
+                                ),
                               ),
                             ],
                           ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-
+import 'package:intl/intl.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class AddSessionDialog extends StatefulWidget {
@@ -21,11 +21,9 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTimePickerRow("START TIME", _startTime,
-              (val) => setState(() => _startTime = val)),
+          _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
           const SizedBox(height: 16),
-          _buildTimePickerRow(
-              "END TIME", _endTime, (val) => setState(() => _endTime = val)),
+          _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
         ],
       ),
       actions: [
@@ -38,12 +36,9 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
           onPressed: (_startTime != null && _endTime != null)
               ? () {
                   final now = DateTime.now();
-                  final start = DateTime(now.year, now.month, now.day,
-                      _startTime!.hour, _startTime!.minute);
-                  var end = DateTime(now.year, now.month, now.day,
-                      _endTime!.hour, _endTime!.minute);
-                  if (end.isBefore(start))
-                    end = end.add(const Duration(days: 1));
+                  final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
                   Navigator.pop(context, {'start': start, 'end': end});
                 }
               : null,
@@ -52,23 +47,17 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
     );
   }
 
-  Widget _buildTimePickerRow(
-      String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
+  Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.fhBgDark,
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12)),
+          Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showTimePicker(
@@ -91,10 +80,11 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
             child: Text(
               time?.format(context) ?? "--:--",
               style: const TextStyle(
-                  fontFamily: "RobotoMono",
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppTheme.fhAccentTeal),
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 16,
+                color: AppTheme.fhAccentTeal
+              ),
             ),
           ),
         ],

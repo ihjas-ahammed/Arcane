@@ -32,17 +32,14 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // final theme = Theme.of(context);
+    final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
             ? timerState.accumulatedDisplayTime +
-                (DateTime.now()
-                        .difference(timerState.startTime)
-                        .inMilliseconds /
-                    1000)
+                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
             : timerState.accumulatedDisplayTime)
         : subTask.currentTimeSpent.toDouble();
 
@@ -70,8 +67,7 @@ class SubmissionCard extends StatelessWidget {
                   ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentGreen)
                   : RhombusCheckbox(
                       checked: subTask.completed,
-                      onChanged: (val) =>
-                          provider.completeSubtask(parentTask.id, subTask.id),
+                      onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
                       size: CheckboxSize.small,
                     ),
             ),
@@ -88,11 +84,8 @@ class SubmissionCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                       letterSpacing: 0.5,
-                      decoration:
-                          subTask.completed ? TextDecoration.lineThrough : null,
-                      color: subTask.completed
-                          ? AppTheme.fhTextDisabled
-                          : AppTheme.fhTextPrimary,
+                      decoration: subTask.completed ? TextDecoration.lineThrough : null,
+                      color: subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -100,10 +93,11 @@ class SubmissionCard extends StatelessWidget {
                     Text(
                       "// ACTIVE //",
                       style: TextStyle(
-                          color: AppTheme.fhAccentRed,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2.0),
+                        color: AppTheme.fhAccentRed, 
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold, 
+                        letterSpacing: 2.0
+                      ),
                     ),
                 ],
               ),
@@ -116,12 +110,11 @@ class SubmissionCard extends StatelessWidget {
                 Text(
                   formattedTime,
                   style: TextStyle(
-                      fontFamily: "RobotoMono", // Monospace for numbers
-                      color: isRunning
-                          ? AppTheme.fhAccentRed
-                          : AppTheme.fhTextSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold),
+                    fontFamily: "RobotoMono", // Monospace for numbers
+                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold
+                  ),
                 ),
                 const SizedBox(height: 4),
                 // Play Button (Mini)
@@ -132,25 +125,19 @@ class SubmissionCard extends StatelessWidget {
                         provider.pauseTimer(subTask.id);
                         provider.logTimerAndReset(subTask.id);
                       } else {
-                        provider.startTimer(
-                            subTask.id, 'subtask', parentTask.id);
+                        provider.startTimer(subTask.id, 'subtask', parentTask.id);
                       }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        border: Border.all(
-                            color: isRunning
-                                ? AppTheme.fhAccentRed
-                                : AppTheme.fhTextSecondary),
+                        border: Border.all(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary),
                         shape: BoxShape.rectangle, // Square buttons in Valorant
                       ),
                       child: Icon(
                         isRunning ? MdiIcons.pause : MdiIcons.play,
                         size: 14,
-                        color: isRunning
-                            ? AppTheme.fhAccentRed
-                            : AppTheme.fhTextPrimary,
+                        color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
                       ),
                     ),
                   )
