@@ -33,7 +33,7 @@ class LifeValue {
   final String id;
   final String title;
   final String description;
-  final int iconCodePoint; // Store icon as int for JSON serialization
+  final String iconName; // Store icon as string for JSON serialization
   int score; // 0 to 100 based on AI analysis of answers
   final List<ValueQuestion> questions;
 
@@ -41,21 +41,70 @@ class LifeValue {
     required this.id,
     required this.title,
     required this.description,
-    required this.iconCodePoint,
+    required this.iconName,
     this.score = 0,
     required this.questions,
   });
 
-  IconData get icon => IconData(iconCodePoint,
-      fontFamily: 'Material Design Icons',
-      fontPackage: 'material_design_icons_flutter');
+  IconData get icon => _getIconFromName(iconName);
+
+  static IconData _getIconFromName(String name) {
+    switch (name) {
+      case 'homeHeart':
+        return MdiIcons.homeHeart;
+      case 'heartOutline':
+        return MdiIcons.heartOutline;
+      case 'accountGroupOutline':
+        return MdiIcons.accountGroupOutline;
+      case 'briefcaseOutline':
+        return MdiIcons.briefcaseOutline;
+      case 'schoolOutline':
+        return MdiIcons.schoolOutline;
+      case 'controllerClassicOutline':
+        return MdiIcons.controllerClassicOutline;
+      case 'meditation':
+        return MdiIcons.meditation;
+      case 'handHeartOutline':
+        return MdiIcons.handHeartOutline;
+      case 'treeOutline':
+        return MdiIcons.treeOutline;
+      case 'runFast':
+        return MdiIcons.runFast;
+      default:
+        return MdiIcons.helpCircleOutline;
+    }
+  }
+
+  static String _mapCodePointToName(int codePoint) {
+    // Map existing code points back to names for migration
+    if (codePoint == MdiIcons.homeHeart.codePoint) return 'homeHeart';
+    if (codePoint == MdiIcons.heartOutline.codePoint) return 'heartOutline';
+    if (codePoint == MdiIcons.accountGroupOutline.codePoint)
+      return 'accountGroupOutline';
+    if (codePoint == MdiIcons.briefcaseOutline.codePoint)
+      return 'briefcaseOutline';
+    if (codePoint == MdiIcons.schoolOutline.codePoint) return 'schoolOutline';
+    if (codePoint == MdiIcons.controllerClassicOutline.codePoint)
+      return 'controllerClassicOutline';
+    if (codePoint == MdiIcons.meditation.codePoint) return 'meditation';
+    if (codePoint == MdiIcons.handHeartOutline.codePoint)
+      return 'handHeartOutline';
+    if (codePoint == MdiIcons.treeOutline.codePoint) return 'treeOutline';
+    if (codePoint == MdiIcons.runFast.codePoint) return 'runFast';
+    return 'helpCircleOutline';
+  }
 
   factory LifeValue.fromJson(Map<String, dynamic> json) {
+    String? iconName = json['iconName'] as String?;
+    if (iconName == null && json['iconCodePoint'] != null) {
+      iconName = _mapCodePointToName(json['iconCodePoint'] as int);
+    }
+
     return LifeValue(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String? ?? '',
-      iconCodePoint: json['iconCodePoint'] as int,
+      iconName: iconName ?? 'helpCircleOutline',
       score: json['score'] as int? ?? 0,
       questions: (json['questions'] as List<dynamic>)
           .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
@@ -68,7 +117,7 @@ class LifeValue {
       'id': id,
       'title': title,
       'description': description,
-      'iconCodePoint': iconCodePoint,
+      'iconName': iconName,
       'score': score,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
@@ -81,7 +130,7 @@ class LifeValue {
         id: 'family',
         title: 'Family',
         description: 'Roles, qualities, and relationships with relatives.',
-        iconCodePoint: MdiIcons.homeHeart.codePoint,
+        iconName: 'homeHeart',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -109,7 +158,7 @@ class LifeValue {
         title: 'Partners',
         description:
             'Intimacy, shared qualities, and treatment of your partner.',
-        iconCodePoint: MdiIcons.heartOutline.codePoint,
+        iconName: 'heartOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -136,7 +185,7 @@ class LifeValue {
         id: 'friendships',
         title: 'Friendships',
         description: 'Being a good friend and building social bonds.',
-        iconCodePoint: MdiIcons.accountGroupOutline.codePoint,
+        iconName: 'accountGroupOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -162,7 +211,7 @@ class LifeValue {
         id: 'work',
         title: 'Work',
         description: 'Professional conduct, relationships, and meaning.',
-        iconCodePoint: MdiIcons.briefcaseOutline.codePoint,
+        iconName: 'briefcaseOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -192,7 +241,7 @@ class LifeValue {
         id: 'education',
         title: 'Education',
         description: 'Learning, skills, and intellectual growth.',
-        iconCodePoint: MdiIcons.schoolOutline.codePoint,
+        iconName: 'schoolOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -221,7 +270,7 @@ class LifeValue {
         id: 'fun',
         title: 'Fun',
         description: 'Hobbies, relaxation, creativity, and leisure.',
-        iconCodePoint: MdiIcons.controllerClassicOutline.codePoint,
+        iconName: 'controllerClassicOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -247,7 +296,7 @@ class LifeValue {
         id: 'spirituality',
         title: 'Spirituality',
         description: 'Inner life, faith, or philosophical connection.',
-        iconCodePoint: MdiIcons.meditation.codePoint,
+        iconName: 'meditation',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -262,7 +311,7 @@ class LifeValue {
         id: 'community',
         title: 'Community',
         description: 'Contribution, volunteering, and civic engagement.',
-        iconCodePoint: MdiIcons.handHeartOutline.codePoint,
+        iconName: 'handHeartOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -277,7 +326,7 @@ class LifeValue {
         id: 'nature',
         title: 'Nature',
         description: 'Environment, connection to earth, and surroundings.',
-        iconCodePoint: MdiIcons.treeOutline.codePoint,
+        iconName: 'treeOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -305,7 +354,7 @@ class LifeValue {
         id: 'health',
         title: 'Health',
         description: 'Physical well-being, diet, sleep, and exercise.',
-        iconCodePoint: MdiIcons.runFast.codePoint,
+        iconName: 'runFast',
         questions: [
           ValueQuestion(
               id: 'q1', question: 'How would you like to care for your body?'),

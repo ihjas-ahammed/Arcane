@@ -422,7 +422,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               ],
                             ),
                             Container(
-                              height: 300,
                               margin: const EdgeInsets.only(top: 8),
                               color: Colors.black.withOpacity(0.2),
                               child: ScheduleTimeline(

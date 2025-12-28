@@ -46,8 +46,8 @@ class SubmissionCard extends StatelessWidget {
     final bool isRunning = timerState?.isRunning ?? false;
 
     Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
-    if (isRunning) borderColor = AppTheme.fhAccentRed;
-    if (subTask.completed) borderColor = AppTheme.fhAccentTeal;
+    if (isRunning) borderColor = parentTask.taskColor;
+    if (subTask.completed) borderColor = parentTask.taskColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -63,7 +63,7 @@ class SubmissionCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal, size: 20)
+                  ? Icon(MdiIcons.checkAll, color: parentTask.taskColor, size: 20)
                   : RhombusCheckbox(
                       checked: subTask.completed,
                       onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
@@ -90,19 +90,7 @@ class SubmissionCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (isRunning)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        "// ACTIVE COMBAT",
-                        style: TextStyle(
-                          color: AppTheme.fhAccentRed, 
-                          fontSize: 9, 
-                          fontWeight: FontWeight.bold, 
-                          letterSpacing: 1.5
-                        ),
-                      ),
-                    ),
+                  
                 ],
               ),
             ),
@@ -114,7 +102,7 @@ class SubmissionCard extends StatelessWidget {
                 formattedTime,
                 style: TextStyle(
                   fontFamily: "RobotoMono",
-                  color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                  color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold
                 ),
@@ -133,13 +121,13 @@ class SubmissionCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isRunning ? AppTheme.fhAccentRed.withOpacity(0.1) : Colors.transparent,
-                    border: Border.all(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary.withOpacity(0.5)),
+                    color: isRunning ? AppTheme.fhAccentTeal.withOpacity(0.1) : Colors.transparent,
+                    border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withOpacity(0.5)),
                   ),
                   child: Icon(
                     isRunning ? MdiIcons.pause : MdiIcons.play,
                     size: 16,
-                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
+                    color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
                   ),
                 ),
               ),

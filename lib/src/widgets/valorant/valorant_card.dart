@@ -25,10 +25,7 @@ class ValorantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderColor = isSelected
-        ? AppTheme.fhAccentTeal
-        : (borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3));
-    
+    final effectiveBorderColor = borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3);
     final effectiveBgColor = backgroundColor ?? AppTheme.fhBgDark.withValues(alpha: 0.6);
 
     return Container(
@@ -66,11 +63,11 @@ class ValorantCard extends StatelessWidget {
                 if (isSelected) ...[
                   Positioned(
                     top: 0, left: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                   Positioned(
                     bottom: 0, right: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                 ] else ...[
                    // Subtle decoration for normal state

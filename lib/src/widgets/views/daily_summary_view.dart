@@ -258,7 +258,54 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           // --- AI Daily Briefing Section ---
           // Always show card, content depends on if summary exists
-          ValorantCard(
+          
+
+          // --- Daily Breakdown (Pie Charts) ---
+          Row(
+            children: [
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: TimePieChart(
+                          taskData: chartData['dailyTaskTimeData'],
+                          taskColors: chartData['taskColors'],
+                          selectedTask: _selectedTaskFilter,
+                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: VirtuePieChart(
+                          logs: reflectionsForDate,
+                          selectedVirtue: _selectedVirtueFilter,
+                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+ValorantCard(
             borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,51 +369,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
           ),
           
-          const SizedBox(height: 24),
-
-          // --- Daily Breakdown (Pie Charts) ---
-          Row(
-            children: [
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: TimePieChart(
-                          taskData: chartData['dailyTaskTimeData'],
-                          taskColors: chartData['taskColors'],
-                          selectedTask: _selectedTaskFilter,
-                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: VirtuePieChart(
-                          logs: reflectionsForDate,
-                          selectedVirtue: _selectedVirtueFilter,
-                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
 
           const SizedBox(height: 24),
 
