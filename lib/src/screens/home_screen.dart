@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; 
+import 'package:arcane/src/screens/values_screen.dart'; // Import ValuesScreen
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
+import 'package:arcane/src/screens/more_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -28,9 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'ADVISOR', 
+    'VALUES', // Updated Title
     'PROJECTS',
-    'MORE', // New Title
+    'MORE',
   ];
 
   void _onItemTapped(int index) {
@@ -162,14 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ChatbotScreen(),
+      const ValuesScreen(), // Replaced ChatbotScreen
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
-      const MoreScreen(), // New Tab
+      const MoreScreen(),
     ];
 
     return Theme(
@@ -218,8 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Logbook',
             ),
             BottomNavigationBarItem(
-              icon: Icon(MdiIcons.robotHappyOutline),
-              label: 'Advisor',
+              icon: Icon(MdiIcons.diamondStone), // Changed Icon
+              label: 'Values',
             ),
             BottomNavigationBarItem(
               icon: Icon(MdiIcons.rocketLaunchOutline),

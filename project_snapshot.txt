@@ -1,1850 +1,2509 @@
---- START OF FILE lib/src/models/app_state_models.dart ---
-// lib/src/models/app_state_models.dart
-// For TimeOfDay
 
-class AppSettings {
-  bool descriptionsVisible;
-  bool dailyAutoGenerateContent;
-  bool autoSaveEnabled; // New setting
-  int wakeupTimeHour;
-  int wakeupTimeMinute;
-  List<String> liteModels;
-  List<String> heavyModels;
-  String? customApiKey;
-  String? customChatbotPrompt;
-  String? customReflectionPrompt;
-  List<String> savedPrompts; // New: Saved AI Prompts
-  int startOfWeek; // 1 for Monday, 7 for Sunday
-  int dataVersion; // 0 for minutes, 1 for seconds
 
-  AppSettings({
-    this.descriptionsVisible = true,
-    this.dailyAutoGenerateContent = true,
-    this.autoSaveEnabled = true,
-    this.wakeupTimeHour = 7,
-    this.wakeupTimeMinute = 0,
-    this.liteModels = const [
-      'gemini-2.0-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash'
-    ],
-    this.heavyModels = const [
-      'gemini-2.0-flash',
-      'gemini-2.0-pro-exp-02-05',
-      'gemini-1.5-pro'
-    ],
-    this.customApiKey,
-    this.customChatbotPrompt,
-    this.customReflectionPrompt,
-    this.savedPrompts = const [], // Default empty
-    this.startOfWeek = 1,
-    this.dataVersion = 0,
+--- START OF FILE lib/src/models/value_models.dart ---
+import 'package:flutter/material.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueQuestion {
+  final String id;
+  final String question;
+  String answer;
+
+  ValueQuestion({
+    required this.id,
+    required this.question,
+    this.answer = '',
   });
 
-  factory AppSettings.fromJson(Map<String, dynamic> json) {
-    return AppSettings(
-      descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
-      dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
-          json['autoGenerateContent'] as bool? ??
-          true,
-      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
-      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
-      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
-      liteModels: (json['liteModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash-lite',
-                  'gemini-1.5-flash'
-                ]
-              : [
-                  'gemini-2.0-flash-lite',
-                  'gemini-2.0-flash',
-                  'gemini-1.5-flash'
-                ]),
-      heavyModels: (json['heavyModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash',
-                  'gemini-1.5-pro'
-                ]
-              : [
-                  'gemini-2.0-flash',
-                  'gemini-2.0-pro-exp-02-05',
-                  'gemini-1.5-pro'
-                ]),
-      customApiKey: json['customApiKey'] as String?,
-      customChatbotPrompt: json['customChatbotPrompt'] as String?,
-      customReflectionPrompt: json['customReflectionPrompt'] as String?,
-      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
-      startOfWeek: json['startOfWeek'] as int? ?? 1,
-      dataVersion: json['dataVersion'] as int? ?? 0,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'descriptionsVisible': descriptionsVisible,
-      'dailyAutoGenerateContent': dailyAutoGenerateContent,
-      'autoSaveEnabled': autoSaveEnabled,
-      'wakeupTimeHour': wakeupTimeHour,
-      'wakeupTimeMinute': wakeupTimeMinute,
-      'liteModels': liteModels,
-      'heavyModels': heavyModels,
-      'customApiKey': customApiKey,
-      'customChatbotPrompt': customChatbotPrompt,
-      'customReflectionPrompt': customReflectionPrompt,
-      'savedPrompts': savedPrompts,
-      'startOfWeek': startOfWeek,
-      'dataVersion': dataVersion,
-    };
-  }
-}
-
-class ActiveTimerInfo {
-  DateTime startTime;
-  double accumulatedDisplayTime; // In seconds
-  bool isRunning;
-  String type;
-  String mainTaskId;
-
-  ActiveTimerInfo({
-    required this.startTime,
-    this.accumulatedDisplayTime = 0,
-    required this.isRunning,
-    required this.type,
-    required this.mainTaskId,
-  });
-
-  factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
-    return ActiveTimerInfo(
-      startTime: DateTime.parse(json['startTime'] as String),
-      accumulatedDisplayTime:
-          (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
-      isRunning: json['isRunning'] as bool? ?? false,
-      type: json['type'] as String? ?? 'subtask',
-      mainTaskId: json['mainTaskId'] as String? ?? '',
+  factory ValueQuestion.fromJson(Map<String, dynamic> json) {
+    return ValueQuestion(
+      id: json['id'] as String,
+      question: json['question'] as String,
+      answer: json['answer'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'startTime': startTime.toIso8601String(),
-      'accumulatedDisplayTime': accumulatedDisplayTime,
-      'isRunning': isRunning,
-      'type': type,
-      'mainTaskId': mainTaskId,
+      'id': id,
+      'question': question,
+      'answer': answer,
     };
   }
 }
 
---- END OF FILE lib/src/models/app_state_models.dart ---
+class LifeValue {
+  final String id;
+  final String title;
+  final String description;
+  final int iconCodePoint; // Store icon as int for JSON serialization
+  int score; // 0 to 100 based on AI analysis of answers
+  final List<ValueQuestion> questions;
 
---- START OF FILE lib/src/providers/actions/project_actions.dart ---
+  LifeValue({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.iconCodePoint,
+    this.score = 0,
+    required this.questions,
+  });
+
+  IconData get icon => IconData(iconCodePoint, fontFamily: 'MaterialDesignIcons', fontPackage: 'material_design_icons_flutter');
+
+  factory LifeValue.fromJson(Map<String, dynamic> json) {
+    return LifeValue(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String? ?? '',
+      iconCodePoint: json['iconCodePoint'] as int,
+      score: json['score'] as int? ?? 0,
+      questions: (json['questions'] as List<dynamic>)
+          .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'iconCodePoint': iconCodePoint,
+      'score': score,
+      'questions': questions.map((q) => q.toJson()).toList(),
+    };
+  }
+
+  // Static definition of the default values hierarchy
+  static List<LifeValue> getDefaults() {
+    return [
+      LifeValue(
+        id: 'family',
+        title: 'Family',
+        description: 'Roles, qualities, and relationships with relatives.',
+        iconCodePoint: MdiIcons.homeHeart.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What sort of brother/sister, son/daughter, father/mother (or other relative) do you want to be?'),
+          ValueQuestion(id: 'q2', question: 'What personal qualities would you like to bring to these relationships?'),
+          ValueQuestion(id: 'q3', question: 'How would you treat others if you were the ‘ideal you’ in these relationships?'),
+          ValueQuestion(id: 'q4', question: 'What sort of ongoing activities do you want to do with your relatives?'),
+          ValueQuestion(id: 'q5', question: 'What sort of relationships do you want to build?'),
+        ],
+      ),
+      LifeValue(
+        id: 'partners',
+        title: 'Partners',
+        description: 'Intimacy, shared qualities, and treatment of your partner.',
+        iconCodePoint: MdiIcons.heartOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What sort of partner would you like to be in an intimate relationship?'),
+          ValueQuestion(id: 'q2', question: 'What personal qualities would you like to develop within this relationship?'),
+          ValueQuestion(id: 'q3', question: 'How would you treat your partner if you were the ‘ideal you’ in this relationship?'),
+          ValueQuestion(id: 'q4', question: 'What sort of relationship do you want to build?'),
+          ValueQuestion(id: 'q5', question: 'What sort of ongoing activities do you want to do with your partner?'),
+        ],
+      ),
+      LifeValue(
+        id: 'friendships',
+        title: 'Friendships',
+        description: 'Being a good friend and building social bonds.',
+        iconCodePoint: MdiIcons.accountGroupOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What does it mean to you to be a good friend?'),
+          ValueQuestion(id: 'q2', question: 'If you could be the ‘ideal you’, how would you behave toward your friends?'),
+          ValueQuestion(id: 'q3', question: 'What personal qualities would you like to bring to these friendships?'),
+          ValueQuestion(id: 'q4', question: 'What sort of friendships do you want to build?'),
+          ValueQuestion(id: 'q5', question: 'What sort of ongoing activities do you want to do with your friends?'),
+        ],
+      ),
+      LifeValue(
+        id: 'work',
+        title: 'Work',
+        description: 'Professional conduct, relationships, and meaning.',
+        iconCodePoint: MdiIcons.briefcaseOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What sort of worker or employer would you like to be?'),
+          ValueQuestion(id: 'q2', question: 'What personal qualities would you like to bring to the workplace?'),
+          ValueQuestion(id: 'q3', question: 'How would you treat your co-workers if you were the ‘ideal you’?'),
+          ValueQuestion(id: 'q4', question: 'What sort of relationships do you want to build with your colleagues?'),
+          ValueQuestion(id: 'q5', question: 'What sort of ongoing activities do you want to do with your colleagues?'),
+          ValueQuestion(id: 'q6', question: 'What would make your work more meaningful?'),
+        ],
+      ),
+      LifeValue(
+        id: 'education',
+        title: 'Education',
+        description: 'Learning, skills, and intellectual growth.',
+        iconCodePoint: MdiIcons.schoolOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What do you value about learning, education or training?'),
+          ValueQuestion(id: 'q2', question: 'What new skills or knowledge would you like to gain?'),
+          ValueQuestion(id: 'q3', question: 'What further education or training appeals to you?'),
+          ValueQuestion(id: 'q4', question: 'What sort of student/trainee would you like to be?'),
+          ValueQuestion(id: 'q5', question: 'What personal qualities would you like to bring to your studies?'),
+          ValueQuestion(id: 'q6', question: 'What sort of relationships would you like to build with other students?'),
+        ],
+      ),
+      LifeValue(
+        id: 'fun',
+        title: 'Fun',
+        description: 'Hobbies, relaxation, creativity, and leisure.',
+        iconCodePoint: MdiIcons.controllerClassicOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What sorts of hobbies, sports or leisure activities do you want to participate in?'),
+          ValueQuestion(id: 'q2', question: 'On an ongoing basis, how do you wish to relax and unwind?'),
+          ValueQuestion(id: 'q3', question: 'On an ongoing basis, how do you wish to have fun?'),
+          ValueQuestion(id: 'q4', question: 'How do you wish to be creative?'),
+          ValueQuestion(id: 'q5', question: 'What sorts of new activities would you like to try?'),
+          ValueQuestion(id: 'q6', question: 'What old activities would you like to take up again?'),
+        ],
+      ),
+      LifeValue(
+        id: 'spirituality',
+        title: 'Spirituality',
+        description: 'Inner life, faith, or philosophical connection.',
+        iconCodePoint: MdiIcons.meditation.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What is important to you in this area of life?'),
+          ValueQuestion(id: 'q2', question: 'What spiritual activities would you like to do on an ongoing basis?'),
+        ],
+      ),
+      LifeValue(
+        id: 'community',
+        title: 'Community',
+        description: 'Contribution, volunteering, and civic engagement.',
+        iconCodePoint: MdiIcons.handHeartOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'How would you like to contribute to your community?'),
+          ValueQuestion(id: 'q2', question: 'What interest groups, charities or political parties would you like to support?'),
+        ],
+      ),
+      LifeValue(
+        id: 'nature',
+        title: 'Nature',
+        description: 'Environment, connection to earth, and surroundings.',
+        iconCodePoint: MdiIcons.treeOutline.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'What aspects of nature would you like to connect with?'),
+          ValueQuestion(id: 'q2', question: 'What environments would you like to spend more time in?'),
+          ValueQuestion(id: 'q3', question: 'How would you like to care for the variety of environments around you?'),
+          ValueQuestion(id: 'q4', question: 'What activities would you like to do that get you out into nature?'),
+          ValueQuestion(id: 'q5', question: 'What activities would you like to do that alter your environment in creative ways?'),
+        ],
+      ),
+      LifeValue(
+        id: 'health',
+        title: 'Health',
+        description: 'Physical well-being, diet, sleep, and exercise.',
+        iconCodePoint: MdiIcons.runFast.codePoint,
+        questions: [
+          ValueQuestion(id: 'q1', question: 'How would you like to care for your body?'),
+          ValueQuestion(id: 'q2', question: 'What sort of physical health do you want to build?'),
+          ValueQuestion(id: 'q3', question: 'What sort of ongoing activities do you want to do in terms of taking care of your body?'),
+          ValueQuestion(id: 'q4', question: 'How do you want to look after your health with regard to sleep, diet, exercise?'),
+        ],
+      ),
+    ];
+  }
+}
+--- END OF FILE lib/src/models/value_models.dart ---
+
+--- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/value_models.dart'; // Import new model
+
+import 'actions/task_actions.dart';
+import 'actions/ai_generation_actions.dart';
+import 'actions/timer_actions.dart';
+import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
-class ProjectActions {
-  final AppProvider _provider;
+class AppProvider with ChangeNotifier {
+  final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
-  ProjectActions(this._provider);
+  Timer? _periodicUiTimer;
+  Timer? _autoSaveTimer;
 
-  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
-  void addProject(String title, String description, {String? mainTaskId}) {
-    // If no specific task is targeted, use the currently selected one, or the first one.
-    final targetTaskId = mainTaskId ??
-        _provider.selectedTaskId ??
-        _provider.mainTasks.firstOrNull?.id;
+  // Global Loading State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
 
-    if (targetTaskId == null) {
-      debugPrint("Error: No MainTask available to assign project to.");
+  User? _currentUser;
+  User? get currentUser => _currentUser;
+  bool _authLoading = true;
+  bool get authLoading => _authLoading;
+  bool _isDataLoadingAfterLogin = false;
+  bool get isDataLoadingAfterLogin => _isDataLoadingAfterLogin;
+  bool _isUsernameMissing = false;
+  bool get isUsernameMissing => _isUsernameMissing;
+
+  String? _lastLoginDate;
+  List<MainTask> _mainTasks =
+      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+  Map<String, dynamic> _completedByDay = {};
+
+  // Skills and Reflections
+  List<Skill> _skills = [];
+  List<Skill> get skills => _skills;
+  List<ReflectionLog> _reflectionLogs = [];
+  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+
+  // Values System
+  List<LifeValue> _lifeValues = [];
+  List<LifeValue> get lifeValues => _lifeValues;
+
+  AppSettings _settings = AppSettings();
+  String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
+      ? initialMainTaskTemplates[0].id
+      : null;
+  int _apiKeyIndex = 0;
+  Map<String, ActiveTimerInfo> _activeTimers = {};
+
+  bool _hasUnsavedChanges = false;
+  bool _isManuallySaving = false;
+  bool get isManuallySaving => _isManuallySaving;
+  bool _isManuallyLoading = false;
+  bool get isManuallyLoading => _isManuallyLoading;
+  DateTime? _lastSuccessfulSaveTimestamp;
+  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
+
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+
+  String? get lastLoginDate => _lastLoginDate;
+  List<MainTask> get mainTasks => _mainTasks;
+  Map<String, dynamic> get completedByDay => _completedByDay;
+
+  AppSettings get settings => _settings;
+  String? get selectedTaskId => _selectedTaskId;
+  int get apiKeyIndex => _apiKeyIndex;
+  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
+
+  TimeOfDay get wakeupTime => TimeOfDay(
+      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
+
+  ChatbotMemory _chatbotMemory = ChatbotMemory();
+  ChatbotMemory get chatbotMemory => _chatbotMemory;
+  bool _isChatbotMemoryInitialized = false;
+
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _initializeSkills();
+    _initializeValues(); // Init values
+    _initialize();
+
+    _periodicUiTimer?.cancel();
+    _periodicUiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_activeTimers.values.any((info) => info.isRunning)) {
+        notifyListeners();
+      }
+    });
+  }
+
+  void setLoadingTask(String? taskName) {
+    if (_loadingTaskName != taskName) {
+      _loadingTaskName = taskName;
+      notifyListeners();
+    }
+  }
+
+  void _initializeSkills() {
+    if (_skills.isEmpty) {
+      _skills = [
+        Skill(
+            id: 'wis',
+            name: 'Wisdom',
+            description: 'Good judgment, learning, perspective.'),
+        Skill(
+            id: 'cou',
+            name: 'Courage',
+            description: 'Bravery, persistence, integrity.'),
+        Skill(
+            id: 'hum',
+            name: 'Humanity',
+            description: 'Love, kindness, social intelligence.'),
+        Skill(
+            id: 'jus',
+            name: 'Justice',
+            description: 'Teamwork, fairness, leadership.'),
+        Skill(
+            id: 'tem',
+            name: 'Temperance',
+            description: 'Forgiveness, humility, self-regulation.'),
+        Skill(
+            id: 'tra',
+            name: 'Transcendence',
+            description: 'Appreciation of beauty, gratitude, hope.'),
+      ];
+    }
+  }
+
+  void _initializeValues() {
+    // If empty, load defaults. If partially loaded (from JSON), we might need to merge or reset.
+    // The JSON loading logic will overwrite this if data exists.
+    if (_lifeValues.isEmpty) {
+      _lifeValues = LifeValue.getDefaults();
+    }
+  }
+
+  @override
+  void dispose() {
+    _periodicUiTimer?.cancel();
+    _autoSaveTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initialize() async {
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (_hasUnsavedChanges &&
+          _currentUser != null &&
+          !_isManuallySaving &&
+          !_isManuallyLoading &&
+          _settings.autoSaveEnabled) {
+        _performActualSave();
+      }
+    });
+  }
+
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (_authLoading &&
+        _currentUser != null &&
+        user != null &&
+        _currentUser!.uid == user.uid) {
       return;
     }
 
-    final newProject = Project(
-      id: const Uuid().v4(),
-      title: title,
-      description: description,
-      linkedMainTaskId: targetTaskId,
-    );
+    _authLoading = true;
+    notifyListeners();
 
-    _updateMainTaskProjects(targetTaskId, (projects) {
-      return [...projects, newProject];
-    });
+    if (user != null) {
+      _currentUser = user;
+      _isDataLoadingAfterLogin = true;
+      notifyListeners();
+
+      final data = await _storageService.getUserData(user.uid);
+      if (data != null) {
+        _loadStateFromMap(data);
+        _hasUnsavedChanges = false;
+        _handleDailyReset();
+      } else {
+        await _resetToInitialState();
+        _lastLoginDate = helper.getTodayDateString();
+        _hasUnsavedChanges = true;
+        await _performActualSave();
+        _handleDailyReset();
+      }
+      _isChatbotMemoryInitialized = false;
+      initializeChatbotMemory();
+
+      if (_currentUser?.displayName == null ||
+          _currentUser!.displayName!.trim().isEmpty) {
+        _isUsernameMissing = true;
+      } else {
+        _isUsernameMissing = false;
+      }
+      _isDataLoadingAfterLogin = false;
+    } else {
+      _currentUser = null;
+      await _resetToInitialState();
+      _isDataLoadingAfterLogin = false;
+      _hasUnsavedChanges = false;
+      _isChatbotMemoryInitialized = false;
+    }
+
+    _authLoading = false;
+    notifyListeners();
   }
 
-  void updateProjectDetails(
-      String mainTaskId, String projectId, String title, String description) {
-    _updateMainTaskProjects(mainTaskId, (projects) {
-      return projects.map((p) {
-        if (p.id == projectId) {
-          p.title = title;
-          p.description = description;
-        }
-        return p;
-      }).toList();
-    });
+  Map<String, dynamic> _appStateToMap() {
+    return {
+      'lastLoginDate': _lastLoginDate,
+      'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList(),
+      'completedByDay': _completedByDay,
+      'settings': settings.toJson(),
+      'selectedTaskId': _selectedTaskId,
+      'apiKeyIndex': _apiKeyIndex,
+      'activeTimers':
+          _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
+      'lastSuccessfulSaveTimestamp':
+          _lastSuccessfulSaveTimestamp?.toIso8601String(),
+      'chatbotMemory': _chatbotMemory.toJson(),
+      'skills': _skills.map((s) => s.toJson()).toList(),
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(), // Save Values
+    };
   }
 
-  void updateProject(String mainTaskId, Project updatedProject) {
-    updatedProject.calculateProgress();
-    _updateMainTaskProjects(mainTaskId, (projects) {
-      return projects
-          .map((p) => p.id == updatedProject.id ? updatedProject : p)
+  Map<String, dynamic> getAppStateAsMap() => _appStateToMap();
+
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    _loadStateFromMap(data);
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  void _loadStateFromMap(Map<String, dynamic> data) {
+    _lastLoginDate = data['lastLoginDate'] as String?;
+    _mainTasks = (data['mainTasks'] as List<dynamic>?)
+            ?.map((mtJson) => MainTask.fromJson(mtJson as Map<String, dynamic>))
+            .toList() ??
+        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+
+    _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
+
+    _completedByDay.forEach((date, dayDataMap) {
+      if (dayDataMap is Map<String, dynamic>) {
+        dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
+        dayDataMap.putIfAbsent(
+            'subtasksCompleted', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'checkpointsCompleted', () => <Map<String, dynamic>>[]);
+      }
+    });
+
+    _settings = data['settings'] != null
+        ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>)
+        : AppSettings();
+
+    _selectedTaskId = data['selectedTaskId'] as String? ??
+        (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
+    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
+
+    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key,
+                ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
+        {};
+
+    final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
+    _lastSuccessfulSaveTimestamp =
+        timestampString != null ? DateTime.tryParse(timestampString) : null;
+
+    _chatbotMemory = data['chatbotMemory'] != null
+        ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
+        : ChatbotMemory();
+
+    if (data['skills'] != null && data['skills'] is List) {
+      _skills = (data['skills'] as List)
+          .where((s) => s != null && s is Map<String, dynamic>)
+          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
           .toList();
-    });
-  }
-
-  void deleteProject(String mainTaskId, String projectId) {
-    _updateMainTaskProjects(mainTaskId, (projects) {
-      return projects.where((p) => p.id != projectId).toList();
-    });
-  }
-
-  void _updateMainTaskProjects(
-      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final updatedProjects = updateFn(task.projects);
-        // Use copyWith to prevent data loss on other fields
-        return task.copyWith(
-          projects: updatedProjects,
-        );
-      }
-      return task;
-    }).toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  // --- Step Management ---
-
-  void addRootStep(
-      String mainTaskId, String projectId, String title, String description) {
-    final newStep = ProjectStep(
-      id: const Uuid().v4(),
-      title: title,
-      description: description,
-    );
-    _performStepAction(mainTaskId, projectId, (project) {
-      project.steps.add(newStep);
-    });
-  }
-
-  void updateStep(
-      String mainTaskId, String projectId, ProjectStep updatedStep) {
-    _performStepAction(mainTaskId, projectId, (project) {
-      _updateStepRecursive(project.steps, updatedStep);
-    });
-  }
-
-  bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
-    for (int i = 0; i < steps.length; i++) {
-      if (steps[i].id == updatedStep.id) {
-        steps[i] = updatedStep;
-        return true;
-      }
-      if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
-        return true;
-      }
+    } else {
+      _initializeSkills();
     }
-    return false;
-  }
-
-  void deleteStep(String mainTaskId, String projectId, String stepId) {
-    _performStepAction(mainTaskId, projectId, (project) {
-      _deleteStepRecursive(project.steps, stepId);
-    });
-  }
-
-  void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
-    steps.removeWhere((s) => s.id == stepId);
-    for (var s in steps) {
-      _deleteStepRecursive(s.substeps, stepId);
+    if (_skills.isEmpty) {
+      _initializeSkills();
     }
-  }
 
-  void addSubstep(String mainTaskId, String projectId, String parentStepId,
-      String title, String description) {
-    final newStep = ProjectStep(
-      id: const Uuid().v4(),
-      title: title,
-      description: description,
-    );
-    _performStepAction(mainTaskId, projectId, (project) {
-      _addSubstepRecursive(project.steps, parentStepId, newStep);
-    });
-  }
-
-  bool _addSubstepRecursive(
-      List<ProjectStep> steps, String parentId, ProjectStep newStep) {
-    for (var s in steps) {
-      if (s.id == parentId) {
-        s.substeps.add(newStep);
-        s.isCompleted =
-            false; // Parent can't be complete if new incomplete child added
-        return true;
-      }
-      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
+      _reflectionLogs = (data['reflectionLogs'] as List)
+          .where((l) => l != null && l is Map<String, dynamic>)
+          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
+          .toList();
     }
-    return false;
-  }
 
-  // New: Reorder Root Steps
-  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
+    // Load Life Values
+    if (data['lifeValues'] != null && data['lifeValues'] is List) {
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
+    } else {
+      _initializeValues();
     }
-    _performStepAction(mainTaskId, projectId, (project) {
-      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
-        final ProjectStep item = project.steps.removeAt(oldIndex);
-        project.steps.insert(newIndex, item);
-      }
-    });
-  }
-
-  // New: Reorder Sub-steps (needs recursion to find the parent list)
-  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    _performStepAction(mainTaskId, projectId, (project) {
-      _reorderSubStepRecursive(project.steps, parentStepId, oldIndex, newIndex);
-    });
-  }
-
-  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
-    for (var s in steps) {
-      if (s.id == parentId) {
-        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
-          final ProjectStep item = s.substeps.removeAt(oldIndex);
-          s.substeps.insert(newIndex, item);
-          return true;
-        }
-      }
-      if (_reorderSubStepRecursive(s.substeps, parentId, oldIndex, newIndex)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void _performStepAction(
-      String mainTaskId, String projectId, Function(Project) action) {
-    Project? targetProject;
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
+    // Ensure we have all default values even if loading old data
+    if (_lifeValues.length < 10) {
+      // Merge logic: Add missing defaults
+      final defaults = LifeValue.getDefaults();
+      for (var def in defaults) {
+        if (!_lifeValues.any((v) => v.id == def.id)) {
+          _lifeValues.add(def);
         }
       }
     }
-    if (targetProject != null) {
-      action(targetProject);
-      updateProject(mainTaskId, targetProject);
+
+    _isChatbotMemoryInitialized = true;
+
+    // --- MIGRATION LOGIC (Minutes -> Seconds) ---
+    if (_settings.dataVersion < 1) {
+      _migrateDataToSeconds();
+      _settings.dataVersion = 1;
+      _hasUnsavedChanges = true;
+      notifyListeners();
     }
   }
 
-  // --- Integration ---
+  void _migrateDataToSeconds() {
+    print("MIGRATING DATA TO SECONDS...");
+    List<MainTask> migratedTasks = [];
 
-  void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
-    _provider.addSubtask(mainTaskId, {
-      'name': step.title,
-      'isCountable': false,
-      'subSubTasksData': <Map<String, dynamic>>[]
+    // 1. Migrate Main Tasks & Subtasks
+    for (var task in _mainTasks) {
+      int newTaskTotalTime = 0;
+      List<SubTask> migratedSubtasks = [];
+
+      for (var sub in task.subTasks) {
+        int newSubTime = 0;
+        if (sub.sessions.isNotEmpty) {
+          for (var s in sub.sessions) {
+            newSubTime += s.durationSeconds;
+          }
+        } else {
+          if (sub.currentTimeSpent > 0) {
+            newSubTime = sub.currentTimeSpent * 60;
+          }
+        }
+
+        migratedSubtasks.add(SubTask(
+          id: sub.id,
+          name: sub.name,
+          completed: sub.completed,
+          currentTimeSpent: newSubTime,
+          completedDate: sub.completedDate,
+          isCountable: sub.isCountable,
+          targetCount: sub.targetCount,
+          currentCount: sub.currentCount,
+          subSubTasks: sub.subSubTasks,
+          sessions: sub.sessions,
+        ));
+        newTaskTotalTime += newSubTime;
+      }
+
+      migratedTasks.add(task.copyWith(
+          subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
+    }
+    _mainTasks = migratedTasks;
+
+    // 2. Migrate Daily History (_completedByDay)
+    Map<String, dynamic> migratedHistory = {};
+    _completedByDay.forEach((dateKey, dayData) {
+      if (dayData is Map<String, dynamic>) {
+        final newDayData = Map<String, dynamic>.from(dayData);
+        if (newDayData['taskTimes'] != null) {
+          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
+          final Map<String, int> newTimes = {};
+          oldTimes.forEach((taskId, timeVal) {
+            if (timeVal is num) {
+              newTimes[taskId] = (timeVal * 60).toInt();
+            }
+          });
+          newDayData['taskTimes'] = newTimes;
+        }
+        migratedHistory[dateKey] = newDayData;
+      } else {
+        migratedHistory[dateKey] = dayData;
+      }
     });
+    _completedByDay = migratedHistory;
   }
 
-  // --- AI Generation ---
+  Future<void> _resetToInitialState() async {
+    _lastLoginDate = null;
+    _mainTasks =
+        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _completedByDay = {};
+    _settings = AppSettings();
+    _selectedTaskId = _mainTasks.isNotEmpty ? _mainTasks[0].id : null;
+    _apiKeyIndex = 0;
+    _activeTimers = {};
+    _isUsernameMissing = false;
+    _lastSuccessfulSaveTimestamp = null;
+    _chatbotMemory = ChatbotMemory();
+    _isChatbotMemoryInitialized = true;
+    _initializeSkills();
+    _initializeValues(); // Reset values to default
+    _reflectionLogs = [];
+    _hasUnsavedChanges = true;
+  }
 
-  Future<void> generateProjectStructure(
-      String mainTaskId, String userPrompt) async {
-    _provider.setProviderAISubquestLoading(true);
-    _provider.setLoadingTask("Generating Project...");
+  Future<void> _performActualSave() async {
+    if (_currentUser != null) {
+      bool isAutoSave = !_isManuallySaving;
+      if (!isAutoSave) setLoadingTask("Syncing Database...");
+
+      try {
+        final success = await _storageService.setUserData(
+            _currentUser!.uid, _appStateToMap());
+        if (success) {
+          _lastSuccessfulSaveTimestamp = DateTime.now();
+          _hasUnsavedChanges = false;
+        }
+      } finally {
+        if (!isAutoSave) setLoadingTask(null);
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> manuallySaveToCloud() async {
+    if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
+    _isManuallySaving = true;
+    notifyListeners();
     try {
-      final projectData = await _aiService.generateProjectFromPrompt(
-        modelCandidates: _provider.settings.heavyModels, // Heavy for projects
-        userPrompt: userPrompt,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+      await _performActualSave();
+    } finally {
+      _isManuallySaving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> manuallyLoadFromCloud() async {
+    if (_currentUser == null) throw Exception("Not logged in. Cannot load.");
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final data = await _storageService.getUserData(_currentUser!.uid);
+      if (data != null) {
+        _loadStateFromMap(data);
+        _handleDailyReset();
+        if (_currentUser?.displayName == null ||
+            _currentUser!.displayName!.trim().isEmpty) {
+          _isUsernameMissing = true;
+        } else {
+          _isUsernameMissing = false;
+        }
+        _hasUnsavedChanges = false;
+        _isChatbotMemoryInitialized = false;
+        initializeChatbotMemory();
+      } else {
+        throw Exception("No data found on cloud.");
+      }
+    } finally {
+      _isManuallyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginUser(String email, String password) async {
+    await fb_service.signInWithEmail(email, password);
+  }
+
+  Future<void> signupUser(
+      String email, String password, String username) async {
+    _authLoading = true;
+    notifyListeners();
+    try {
+      UserCredential userCredential =
+          await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      _currentUser = userCredential.user;
+      if (_currentUser != null) {
+        await _currentUser!.updateDisplayName(username);
+        await _currentUser!.reload();
+        _currentUser = fb_service.firebaseAuthInstance.currentUser;
+
+        await _resetToInitialState();
+        _lastLoginDate = helper.getTodayDateString();
+        _hasUnsavedChanges = true;
+        await _performActualSave();
+        _isChatbotMemoryInitialized = false;
+        initializeChatbotMemory();
+        _handleDailyReset();
+        _isDataLoadingAfterLogin = false;
+        _isUsernameMissing = false;
+      } else {
+        throw Exception("Signup successful but user object is null.");
+      }
+    } catch (e) {
+      _currentUser = null;
+      rethrow;
+    } finally {
+      _authLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> logoutUser() async {
+    if (_hasUnsavedChanges && _currentUser != null) {
+      await _performActualSave();
+    }
+    await fb_service.signOut();
+  }
+
+  Future<void> changePasswordHandler(String newPassword) async {
+    if (_currentUser == null) {
+      throw Exception("No user is currently signed in.");
+    }
+    await fb_service.changePassword(newPassword);
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  Future<void> updateUserDisplayName(String newUsername) async {
+    if (_currentUser == null) return;
+    await _currentUser!.updateDisplayName(newUsername);
+    await _currentUser!.reload();
+    _currentUser = fb_service.firebaseAuthInstance.currentUser;
+    _isUsernameMissing = false;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+    await _performActualSave();
+  }
+
+  void setSelectedTaskId(String? taskId) {
+    if (_selectedTaskId != taskId) {
+      _selectedTaskId = taskId;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void setSettings(AppSettings newSettings) {
+    _settings = newSettings;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
+
+  MainTask? getSelectedTask() {
+    if (_selectedTaskId == null) return _mainTasks.firstOrNull;
+    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
+        _mainTasks.firstOrNull;
+  }
+
+  String _getWeekKey(DateTime date, int startOfWeek) {
+    int day = date.weekday;
+    DateTime adjustedDate =
+        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
+    int weekOfYear =
+        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
+                .ceil() +
+            1;
+    return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
+  }
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    final weekKey = _getWeekKey(DateTime.now(), _settings.startOfWeek);
+    return task.weeklyCompletionStatus[weekKey] ?? List.filled(7, false);
+  }
+
+  void markDailyTaskGoalMet(String taskId) {
+    final task = _mainTasks.firstWhereOrNull((t) => t.id == taskId);
+    if (task == null) return;
+
+    final today = DateTime.now();
+    final weekKey = _getWeekKey(today, _settings.startOfWeek);
+    final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
+
+    task.weeklyCompletionStatus
+        .putIfAbsent(weekKey, () => List.filled(7, false));
+    if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
+      task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+
+    final dayData = _completedByDay[yesterdayStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
+      return (taskTimes[taskId] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
+  Future<void> _handleDailyReset() async {
+    if (_currentUser == null) return;
+    final today = helper.getTodayDateString();
+    bool hasResetRun = false;
+
+    if (_lastLoginDate != today) {
+      hasResetRun = true;
+      _lastLoginDate = today;
+      _hasUnsavedChanges = true;
+      for (var task in _mainTasks) {
+        if (task.lastWorkedDate != today) {
+          task.dailyTimeSpent = 0;
+        }
+      }
+    }
+
+    if (hasResetRun) {
+      _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
+      _getCompletedGoalsForChatbotMemory();
+      setProviderState(chatbotMemory: _chatbotMemory, doNotify: false);
+      notifyListeners();
+    }
+  }
+
+  String _generateWeeklySummaryForChatbot() {
+    return "Summary placeholder";
+  }
+
+  void _getCompletedGoalsForChatbotMemory() {}
+
+  void initializeChatbotMemory() {
+    if (_isChatbotMemoryInitialized) return;
+    _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
+    _getCompletedGoalsForChatbotMemory();
+    if (_chatbotMemory.conversationHistory.isEmpty) {
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'init_${DateTime.now().millisecondsSinceEpoch}',
+          text:
+              "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
+    }
+    _isChatbotMemoryInitialized = true;
+    notifyListeners();
+  }
+
+  // --- Values System Logic ---
+
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex =
+          _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+
+    setLoadingTask("Analyzing Value...");
+    try {
+      final score = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
 
-      final newProject = Project.fromJson(projectData);
-      newProject.id = const Uuid().v4();
-      newProject.linkedMainTaskId = mainTaskId;
-
-      _updateMainTaskProjects(
-          mainTaskId, (projects) => [...projects, newProject]);
+      value.score = score;
+      _hasUnsavedChanges = true;
+      notifyListeners();
     } catch (e) {
-      debugPrint("Error generating project: $e");
+      debugPrint("Error analyzing value: $e");
+      rethrow;
     } finally {
-      _provider.setProviderAISubquestLoading(false);
-      _provider.setLoadingTask(null);
+      setLoadingTask(null);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+
+    setLoadingTask("Generating Actions...");
+    try {
+      final tasks = await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      return tasks;
+    } catch (e) {
+      debugPrint("Error generating tasks from value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  String _buildUserDataContext() {
+    final sb = StringBuffer();
+    sb.writeln("Active Missions:");
+    for (var t in _mainTasks) {
+      sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
+      sb.writeln("  Sub-missions:");
+      for (var st in t.subTasks) {
+        sb.writeln(
+            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      }
+      if (t.projects.isNotEmpty) {
+        sb.writeln("  Projects:");
+        for (var p in t.projects) {
+          sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
+        }
+      }
+    }
+
+    sb.writeln("\nLogs from Last 7 Days:");
+    final today = DateTime.now();
+    for (int i = 6; i >= 0; i--) {
+      final d = today.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(d);
+      if (_completedByDay.containsKey(dateStr)) {
+        sb.writeln("Date: $dateStr");
+        // Reflections
+        final reflections = _reflectionLogs
+            .where((r) {
+              final rd = r.timestamp;
+              return rd.year == d.year &&
+                  rd.month == d.month &&
+                  rd.day == d.day;
+            })
+            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
+            .join("\n");
+        if (reflections.isNotEmpty) sb.writeln(reflections);
+      }
+    }
+    return sb.toString();
+  }
+
+  Future<void> sendMessageToChatbot(String userMessageText) async {
+    if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
+    final userMessage = ChatbotMessage(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        text: userMessageText,
+        sender: MessageSender.user,
+        timestamp: DateTime.now());
+    _chatbotMemory.conversationHistory.add(userMessage);
+
+    notifyListeners();
+    setLoadingTask("Consulting Advisor...");
+
+    try {
+      final dataContext = _buildUserDataContext();
+
+      final botResponseText = await _aiService.getChatbotResponse(
+        modelCandidates: settings.liteModels, // Chatbot uses Lite
+        memory: _chatbotMemory,
+        userMessage: userMessageText,
+        dataContext: dataContext,
+        currentApiKeyIndex: _apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        systemInstruction: settings.customChatbotPrompt,
+        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
+        onLog: (logMsg) => {},
+      );
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
+          text: botResponseText,
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
+    } catch (e) {
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          text:
+              "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
+    } finally {
+      setLoadingTask(null);
+      setProviderState(chatbotMemory: _chatbotMemory);
+    }
+  }
+
+  int getXpGainedForSkillToday(String skillName) {
+    final today = DateTime.now();
+
+    return _reflectionLogs.where((log) {
+      final logDt = log.timestamp;
+      return logDt.year == today.year &&
+          logDt.month == today.month &&
+          logDt.day == today.day;
+    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
+  }
+
+  // Returns total XP gained for a skill in the last 7 days to show momentum
+  int get7DaySkillMomentum(String skillName) {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    return _reflectionLogs.where((log) {
+      return log.timestamp.isAfter(sevenDaysAgo) &&
+          log.timestamp.isBefore(now.add(const Duration(days: 1)));
+    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
+  }
+
+  Future<Map<String, int>> processReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    DateTime? timestamp,
+  }) async {
+    final actualTimestamp = timestamp ?? DateTime.now();
+
+    final dailyReflections = _reflectionLogs
+        .where((log) {
+          final logDt = log.timestamp;
+          return logDt.year == actualTimestamp.year &&
+              logDt.month == actualTimestamp.month &&
+              logDt.day == actualTimestamp.day;
+        })
+        .map((r) => {
+              'trigger': r.trigger,
+              'emotion': r.emotion,
+              'reason': r.reason,
+            })
+        .toList();
+
+    setLoadingTask("Analyzing Reflection...");
+
+    final result = await _aiService.evaluateReflection(
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      modelCandidates: settings.liteModels, // Reflection uses Lite (Insights)
+      dailyReflections: dailyReflections,
+      customApiKey: settings.customApiKey,
+      systemInstruction: settings.customReflectionPrompt,
+    );
+
+    setLoadingTask(null);
+
+    Map<String, int> xpAllocation = {};
+    if (result['xp_allocation'] is Map) {
+      (result['xp_allocation'] as Map).forEach((key, value) {
+        xpAllocation[key.toString()] = (value as num).toInt();
+      });
+    }
+
+    List<Skill> updatedSkills = List.from(_skills);
+    xpAllocation.forEach((skillName, xp) {
+      final skill = updatedSkills.firstWhereOrNull(
+          (s) => s.name.toLowerCase() == skillName.toLowerCase());
+      if (skill != null) {
+        skill.addXp(xp);
+      }
+    });
+
+    final log = ReflectionLog(
+      id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: result['feedback'] ?? "Log recorded.",
+      xpGained: xpAllocation,
+    );
+
+    _reflectionLogs.add(log);
+    _skills = updatedSkills;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+
+    return xpAllocation;
+  }
+
+  void updateReflectionLog(String id,
+      {String? trigger, String? emotion, String? reason}) {
+    final index = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = _reflectionLogs[index];
+      if (trigger != null) old.trigger = trigger;
+      if (emotion != null) old.emotion = emotion;
+      if (reason != null) old.reason = reason;
+
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = _reflectionLogs[index];
+      List<Skill> updatedSkills = List.from(_skills);
+      log.xpGained.forEach((skillName, xp) {
+        final skill = updatedSkills.firstWhereOrNull(
+            (s) => s.name.toLowerCase() == skillName.toLowerCase());
+        if (skill != null) {
+          skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
+        }
+      });
+      _skills = updatedSkills;
+      _reflectionLogs.removeAt(index);
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> clearAllData() async {
+    if (_currentUser == null) return;
+    await _storageService.deleteUserData(_currentUser!.uid);
+    await _resetToInitialState();
+    await _performActualSave();
+    notifyListeners();
+  }
+
+  void setProviderState({
+    String? lastLoginDate,
+    List<MainTask>? mainTasks,
+    Map<String, dynamic>? completedByDay,
+    Map<String, ActiveTimerInfo>? activeTimers,
+    DateTime? lastSuccessfulSaveTimestamp,
+    bool? isUsernameMissing,
+    ChatbotMemory? chatbotMemory,
+    bool doNotify = true,
+    bool doPersist = true,
+  }) {
+    bool changed = false;
+    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
+      _lastLoginDate = lastLoginDate;
+      changed = true;
+    }
+    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
+      _mainTasks = List.from(mainTasks);
+      changed = true;
+    }
+    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
+      _completedByDay = Map.from(completedByDay);
+      changed = true;
+    }
+    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
+      _activeTimers = Map.from(activeTimers);
+      changed = true;
+    }
+    if (lastSuccessfulSaveTimestamp != null &&
+        _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
+      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp;
+      changed = true;
+    }
+    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
+      _isUsernameMissing = isUsernameMissing;
+      changed = true;
+    }
+    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
+      _chatbotMemory = chatbotMemory;
+      changed = true;
+    }
+
+    if (changed) {
+      if (doPersist) _hasUnsavedChanges = true;
+      if (doNotify) notifyListeners();
+    }
+  }
+
+  void setProviderAISubquestLoading(bool isLoading) {
+    if (_isGeneratingSubquestsForTask != isLoading) {
+      _isGeneratingSubquestsForTask = isLoading;
+      notifyListeners();
+    }
+  }
+
+  void setProviderApiKeyIndex(int index) {
+    if (_apiKeyIndex != index) {
+      _apiKeyIndex = index;
+    }
+  }
+
+  Future<void> triggerAISubquestGeneration(MainTask mainTask,
+          String generationMode, String userInput, int numSubquests) =>
+      _aiGenerationActions.triggerAISubquestGeneration(
+          mainTask, generationMode, userInput, numSubquests);
+
+  void addMainTask(
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.addMainTask(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void editMainTask(String taskId,
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.editMainTask(taskId,
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) =>
+      _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
+      _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(
+          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+
+  // Delegated Session Methods
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
+      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+
+  bool completeSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.completeSubtask(mainTaskId, subtaskId);
+  void deleteSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId,
+          Map<String, dynamic> subSubtaskData) =>
+      _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
+          String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+
+  void startTimer(String id, String type, String mainTaskId) =>
+      _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+
+  ProjectActions get projectActions => _projectActions;
+}
+
+--- END OF FILE lib/src/providers/app_provider.dart ---
+
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+
+class AIService {
+  // Helper to clean markdown from JSON response
+  String _cleanJsonString(String raw) {
+    String jsonString = raw.trim();
+    int jsonStart = jsonString.indexOf('{');
+    int jsonEnd = jsonString.lastIndexOf('}');
+
+    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
+    }
+
+    // Remove markdown code blocks if present inside the substring or outside
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
+    } else if (jsonString.startsWith("```")) {
+      jsonString = jsonString.replaceAll("```", "");
+    }
+
+    return jsonString.trim();
+  }
+
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    // 1. Prioritize Custom API Key
+    final apiKeysToTry = (customApiKey != null && customApiKey.isNotEmpty)
+        ? [customApiKey]
+        : geminiApiKeys;
+
+    if (apiKeysToTry.isEmpty) {
+      throw Exception("No valid Gemini API keys found.");
+    }
+
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        String effectiveKey = apiKeysToTry[i];
+        int effectiveIndex = i;
+
+        if (customApiKey == null) {
+          effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+          effectiveKey = apiKeysToTry[effectiveIndex];
+          if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
+        }
+
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          if (customApiKey == null) onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+        }
+
+        if (customApiKey != null) {
+          break; // If custom key fails, move to next model
+        }
+      }
+    }
+    throw Exception(
+        "All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    required String prompt,
+    required List<String> modelCandidates, // Changed from modelName
+    String? customApiKey,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKey: customApiKey,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response =
+            await model.generateContent([genai.Content.text(prompt)]);
+
+        String? rawResponseText = response.text;
+        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+          throw Exception("AI response was empty.");
+        }
+        try {
+          String jsonString = _cleanJsonString(rawResponseText);
+          return jsonDecode(jsonString);
+        } catch (e) {
+          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
+          throw Exception("Failed to parse JSON from AI response.");
+        }
+      },
+    );
+  }
+
+  // --- Value Analysis ---
+  Future<int> analyzeValueAlignment({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    You are a life coach analyzing a user's alignment with their personal value: "$valueName".
+    
+    Here are their answers to reflective questions:
+    ${buffer.toString()}
+    
+    Task: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
+    - 0 means they have no clear idea or haven't answered.
+    - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
+    
+    Output strictly JSON:
+    {
+      "score": int
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return result['score'] as int? ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    Based on the user's definition of the value "$valueName", suggest 3-5 actionable tasks or 'sub-missions' they can do to embody this value.
+    
+    User's Answers:
+    ${buffer.toString()}
+    
+    Output strictly JSON with this structure:
+    {
+      "tasks": [
+        {
+          "name": "string (short actionable title)",
+          "isCountable": boolean (true if it's something like 'Read 10 pages', false if it's 'Call Mom'),
+          "targetCount": number (0 if not countable, otherwise e.g. 10)
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['tasks'] as List?)
+            ?.map((t) => t as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  // --- Existing Methods ---
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required List<String> modelCandidates,
+    List<Map<String, String>>? dailyReflections,
+    String? customApiKey,
+    String? systemInstruction,
+  }) async {
+    final String baseSystemPrompt = systemInstruction ??
+        """
+    You are a wise mentor. A user has submitted a reflection log.
+    Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
+    Determine a total XP score between 20 and 100 based on the depth, honesty, and effort of the reflection. 
+    Distribute this total XP amount among these 6 virtues: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
+    """;
+
+    String contextStr = "";
+    if (dailyReflections != null && dailyReflections.isNotEmpty) {
+      contextStr = "PREVIOUS REFLECTIONS TODAY:\n";
+      for (var r in dailyReflections) {
+        contextStr +=
+            "- Trigger: ${r['trigger']}, Emotion: ${r['emotion']}, Reason: ${r['reason']}\n";
+      }
+      contextStr +=
+          "\nConsidering the context of today's events above, analyze the NEW REFLECTION below:\n";
+    }
+
+    final prompt = """
+    $baseSystemPrompt
+
+    $contextStr
+    NEW REFLECTION DATA:
+    1. What happened: "$trigger"
+    2. Emotion felt: "$emotion"
+    3. Why: "$reason"
+
+    Output strictly JSON:
+    {
+      "feedback": "string",
+      "xp_allocation": {
+        "Wisdom": int,
+        "Courage": int,
+        "Humanity": int,
+        "Justice": int,
+        "Temperance": int,
+        "Transcendence": int
+      }
+    }
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: 0,
+      onNewApiKeyIndex: (_) {},
+      onLog: (_) {},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+You are an assistant for a gamified task management app.
+Main quest: "$mainTaskName" (Description: "$mainTaskDescription", Theme: "${mainTaskTheme ?? 'General'}").
+AI generation mode: "$generationMode".
+User Input: "$userInput"
+
+Break this down into approximately $numSubquests actionable sub-quests.
+Provide the output as a single, valid JSON object with one key: "newSubquests".
+"newSubquests" should be an array of sub-quest objects. Each sub-quest object MUST have:
+- name: string
+- isCountable: boolean
+- targetCount: number
+- subSubTasksData: array of objects { name, isCountable, targetCount }
+
+Return ONLY the JSON object.
+""";
+
+    final rawData = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (rawData['newSubquests'] as List?)
+            ?.map((sq) => sq as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a project manager AI. Create a detailed project structure based on this prompt: "$userPrompt".
+    
+    Structure:
+    - Project Title
+    - Description
+    - Steps (Recursive: steps can have substeps).
+    
+    Output strictly JSON matching this structure:
+    {
+      "title": "string",
+      "description": "string",
+      "steps": [
+        {
+          "title": "string",
+          "description": "string",
+          "substeps": [ ...recursive... ] 
+        }
+      ]
+    }
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+  }
+
+  Future<String> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    if (reflections.isEmpty) return "No reflections recorded for this day.";
+
+    final StringBuffer reflectionsText = StringBuffer();
+    for (int i = 0; i < reflections.length; i++) {
+      reflectionsText.writeln("Entry ${i + 1}:");
+      reflectionsText.writeln("  - Trigger: ${reflections[i]['trigger']}");
+      reflectionsText.writeln("  - Emotion: ${reflections[i]['emotion']}");
+      reflectionsText.writeln("  - Reason: ${reflections[i]['reason']}");
+      reflectionsText.writeln("");
+    }
+
+    final prompt = """
+    You are a wise mentor.
+    
+    Here are the user's reflection logs for today:
+    $reflectionsText
+    
+    Based on these entries, provide a concise, insightful daily summary (max 100 words).
+    Highlight the key emotional themes, acknowledge any progress in stoic virtues, and offer one clear, actionable thought for tomorrow.
+    Note: Never use markdown and any type of formatting
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKey: customApiKey,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response =
+              await model.generateContent([genai.Content.text(prompt)]);
+          return response.text ?? "Unable to generate summary.";
+        });
+  }
+
+  Future<String> getChatbotResponse({
+    required List<String> modelCandidates,
+    required ChatbotMemory memory,
+    required String userMessage,
+    required String dataContext,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    String? systemInstruction,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    String historyStr = "";
+    final recentHistory = memory.conversationHistory.length > 10
+        ? memory.conversationHistory
+            .sublist(memory.conversationHistory.length - 10)
+        : memory.conversationHistory;
+
+    for (var msg in recentHistory) {
+      historyStr += "${msg.sender.name.toUpperCase()}: ${msg.text}\n";
+    }
+
+    final String baseSystemPrompt = systemInstruction ??
+        """
+    You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app called Arcane.
+    You have access to the user's data context below.
+    """;
+
+    final prompt = """
+    $baseSystemPrompt
+    
+    USER DATA CONTEXT:
+    $dataContext
+    
+    CONVERSATION HISTORY:
+    $historyStr
+    
+    CURRENT USER MESSAGE: "$userMessage"
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKey: customApiKey,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response =
+              await model.generateContent([genai.Content.text(prompt)]);
+          return response.text ?? "I am unable to respond at this moment.";
+        });
+  }
+
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey?.isNotEmpty == true
+        ? customApiKey!
+        : (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+
+    if (apiKey == null) {
+      throw Exception("No API Key available to fetch models.");
+    }
+
+    final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data.containsKey('models')) {
+          final List<dynamic> models = data['models'];
+          return models
+              .map<String>(
+                  (m) => m['name'].toString().replaceFirst('models/', ''))
+              .toList();
+        }
+      }
+      throw Exception("Failed to fetch models: ${response.statusCode}");
+    } catch (e) {
+      throw Exception("Error fetching models: $e");
     }
   }
 }
 
---- END OF FILE lib/src/providers/actions/project_actions.dart ---
+--- END OF FILE lib/src/services/ai_service.dart ---
 
---- START OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
+--- START OF FILE lib/src/widgets/cards/life_value_card.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class ProjectDashboardCard extends StatelessWidget {
-  final Project project;
-  final String mainTaskId;
-  final String mainTaskName;
-  final Color accentColor;
+class LifeValueCard extends StatelessWidget {
+  final LifeValue value;
+  final VoidCallback onTap;
 
-  const ProjectDashboardCard({
-    super.key,
-    required this.project,
-    required this.mainTaskId,
-    required this.mainTaskName,
-    required this.accentColor,
-  });
+  const LifeValueCard({super.key, required this.value, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // Force recalc to update UI
-    final progress = project.calculateProgress();
-    final totalSteps = project.steps.length;
-    final completedSteps = project.completedStepsCount;
-    final int progressPercentage = (progress * 100).toInt();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark, // Dark card background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ]
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+    final double progress = value.score / 100.0;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ]
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Expanded(
-                  child: Text(
-                    project.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 4,
+                    backgroundColor: AppTheme.fhBgDeepDark,
+                    color: _getScoreColor(value.score),
                   ),
                 ),
-                Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                Icon(
+                  value.icon,
+                  size: 28,
+                  color: AppTheme.fhTextPrimary,
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            
-            // Progress Row
-            Row(
-              children: [
-                // Circular Progress with Text Inside
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 48, 
-                      height: 48,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        backgroundColor: AppTheme.fhBgDeepDark,
-                        color: accentColor,
-                        strokeWidth: 4,
-                      ),
-                    ),
-                    Text(
-                      "$progressPercentage%",
-                      style: TextStyle(
-                        fontSize: 11, 
-                        fontWeight: FontWeight.bold, 
-                        color: accentColor,
-                        fontFamily: "RobotoCondensed"
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "$completedSteps/$totalSteps Steps Completed",
-                        style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      if (project.description.isNotEmpty)
-                        Text(
-                          project.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                        )
-                      else 
-                          Text(
-                          "Linked to: $mainTaskName",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
-
---- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-
-class OverallProjectProgressCard extends StatelessWidget {
-  final List<Project> activeProjects;
-
-  const OverallProjectProgressCard({super.key, required this.activeProjects});
-
-  @override
-  Widget build(BuildContext context) {
-    if (activeProjects.isEmpty) return const SizedBox.shrink();
-
-    double totalProgress = 0;
-    for (var p in activeProjects) {
-      totalProgress += p.calculateProgress();
-    }
-    final double avgProgress = totalProgress / activeProjects.length;
-    final int percentage = (avgProgress * 100).toInt();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF2C3E50),
-            AppTheme.fhBgDark
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "OVERALL PROGRESS",
-                style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              Text(
-                "$percentage%",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: AppTheme.fontDisplay,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: avgProgress,
-              minHeight: 8,
-              backgroundColor: AppTheme.fhBgDeepDark,
-              color: AppTheme.fhAccentTeal,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "${activeProjects.length} Active Projects",
-            style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.7), fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
-
---- START OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/screens/project_detail_screen.dart';
-
-class CompletedProjectsSection extends StatelessWidget {
-  final List<Map<String, dynamic>> completedProjects;
-
-  const CompletedProjectsSection({super.key, required this.completedProjects});
-
-  @override
-  Widget build(BuildContext context) {
-    if (completedProjects.isEmpty) return const SizedBox.shrink();
-
-    // Group by Month (using a naive approach since Project doesn't have a 'completedDate' explicitly, 
-    // but in a real app you'd want a 'completedDate' field. 
-    // For now, we'll group them all under "Recently Completed" or simulate month based on an assumed date 
-    // OR just list them if we don't have dates.
-    // Assuming for this requirement we group simply or treat all as current month if no date.)
-    
-    // To strictly follow "Filtered by Month", we'd need a date field. 
-    // Since 'Project' model lacks 'completedDate', we will render them in a single expandable list for now
-    // or group by an arbitrary key if we had one. 
-    // Let's wrap the whole list in an ExpansionTile titled "Completed Archives".
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 32),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: Row(
-              children: [
-                Icon(MdiIcons.archiveCheckOutline, color: AppTheme.fhAccentGreen, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  "Completed Archives",
-                  style: TextStyle(
-                    color: AppTheme.fhTextPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            childrenPadding: EdgeInsets.zero,
-            children: [
-              // We can show a dropdown-like filter here if we had dates,
-              // for now we just show the list.
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: completedProjects.length,
-                itemBuilder: (context, index) {
-                  final item = completedProjects[index];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProjectDetailScreen(
-                            project: item['project'] as Project,
-                            mainTaskId: item['mainTaskId'] as String,
-                          ),
-                        ),
-                      );
-                    },
-                    child: ProjectDashboardCard(
-                      project: item['project'] as Project,
-                      mainTaskId: item['mainTaskId'] as String,
-                      mainTaskName: item['mainTaskName'] as String,
-                      accentColor: AppTheme.fhTextDisabled, // Gray out completed
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
-
---- START OF FILE lib/src/widgets/views/projects_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
-import 'package:arcane/src/widgets/cards/quick_action_card.dart';
-import 'package:arcane/src/widgets/cards/overall_project_progress_card.dart';
-import 'package:arcane/src/widgets/ui/completed_projects_section.dart';
-import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
-import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
-import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
-import 'package:arcane/src/screens/project_detail_screen.dart'; // Import detail screen
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-
-class ProjectsView extends StatelessWidget {
-  const ProjectsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
-
-    // Aggregate all projects
-    final List<Map<String, dynamic>> ongoingProjects = [];
-    final List<Map<String, dynamic>> completedProjects = [];
-    final List<Project> rawActiveProjects = [];
-
-    for (var task in provider.mainTasks) {
-      for (var project in task.projects) {
-        final double progress = project.calculateProgress();
-        final bool isComplete = progress >= 1.0;
-        
-        final map = {
-          'project': project,
-          'mainTaskId': task.id,
-          'mainTaskName': task.name,
-          'color': task.taskColor,
-        };
-
-        if (isComplete) {
-          completedProjects.add(map);
-        } else {
-          ongoingProjects.add(map);
-          rawActiveProjects.add(project);
-        }
-      }
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Text("Welcome Back!",
-              style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-
-          const SizedBox(height: 24),
-
-          // Overall Progress for Ongoing Projects
-          OverallProjectProgressCard(activeProjects: rawActiveProjects),
-
-          const SizedBox(height: 32),
-
-          // Ongoing Projects Header
-          Row(
-            children: [
-              Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
-              const SizedBox(width: 8),
-              Text("Ongoing Projects",
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Project List
-          if (ongoingProjects.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppTheme.fhBorderColor.withOpacity(0.3))),
-              child: Column(
-                children: [
-                  Icon(MdiIcons.folderOutline,
-                      size: 48,
-                      color: AppTheme.fhTextSecondary.withOpacity(0.3)),
-                  const SizedBox(height: 12),
-                  const Text("No active projects.",
-                      style: TextStyle(color: AppTheme.fhTextSecondary)),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => _showCreateProjectSheet(context),
-                    child: const Text("Create your first project"),
-                  )
-                ],
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: ongoingProjects.length,
-              itemBuilder: (context, index) {
-                final item = ongoingProjects[index];
-                return GestureDetector(
-                  onTap: () {
-                    // Push to Detail Screen
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => ProjectDetailScreen(
-                                project: item['project'] as Project,
-                                mainTaskId: item['mainTaskId'] as String)));
-                  },
-                  child: ProjectDashboardCard(
-                    project: item['project'] as Project,
-                    mainTaskId: item['mainTaskId'] as String,
-                    mainTaskName: item['mainTaskName'] as String,
-                    accentColor: item['color'] as Color,
-                  ),
-                );
-              },
-            ),
-
-          // Completed Projects Section
-          if (completedProjects.isNotEmpty)
-             CompletedProjectsSection(completedProjects: completedProjects),
-
-          const SizedBox(height: 32),
-
-          // Quick Actions
-          Text("Quick Actions",
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-
-          // Primary Create Button
-          GestureDetector(
-            onTap: () => _showCreateProjectSheet(context),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF4A90E2),
-                      Color(0xFF9013FE)
-                    ], // Blue to Purple gradient
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                        color: const Color(0xFF9013FE).withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4))
-                  ]),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(MdiIcons.plus, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text("Create New Project",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Secondary Actions Grid
-          Row(
-            children: [
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.robotOutline,
-                  label: "AI Prompts",
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AiPromptsView())),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.targetVariant,
-                  label: "Link Submission",
-                  onTap: () => _showLinkSubmissionSheet(context),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 80), // Bottom padding for scroll
-        ],
-      ),
-    );
-  }
-
-  void _showCreateProjectSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const CreateProjectSheet(),
-    );
-  }
-
-  void _showLinkSubmissionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const LinkSubmissionSheet(),
-    );
-  }
-}
-
---- END OF FILE lib/src/widgets/views/projects_view.dart ---
-
---- START OF FILE lib/src/screens/project_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/project_progress_header_card.dart';
-import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
-import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; // Import unified dialogs
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ProjectDetailScreen extends StatelessWidget {
-  final Project project;
-  final String mainTaskId;
-
-  const ProjectDetailScreen({
-    super.key,
-    required this.project,
-    required this.mainTaskId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<AppProvider>(context);
-
-    // Ensure we are working with the latest data from provider
-    Project currentProject = project;
-    try {
-      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-      currentProject = task.projects.firstWhere((p) => p.id == project.id);
-    } catch (e) {
-      // Fallback if project was deleted while viewing
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          // EDIT PROJECT BUTTON
-          IconButton(
-            icon: Icon(MdiIcons.pencilOutline, size: 20),
-            tooltip: "Edit Project Details",
-            onPressed: () async {
-              final result = await showDialog<Map<String, String>>(
-                context: context,
-                builder: (ctx) => AddEditProjectDialog(
-                  mainTaskId: mainTaskId,
-                  projectId: currentProject.id,
-                  initialTitle: currentProject.title,
-                  initialDescription: currentProject.description,
-                ),
-              );
-              
-              if (result != null) {
-                provider.projectActions.updateProjectDetails(
-                  mainTaskId, 
-                  currentProject.id, 
-                  result['title']!, 
-                  result['desc']!
-                );
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
-            onPressed: () {
-              _confirmDelete(context, provider, currentProject);
-            },
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title Section
             Text(
-              currentProject.title,
-              style: theme.textTheme.headlineMedium?.copyWith(
+              value.title.toUpperCase(),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 14,
                 color: AppTheme.fhTextPrimary,
+                letterSpacing: 0.5,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              currentProject.description.isNotEmpty 
-                ? currentProject.description 
-                : "No description provided.",
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppTheme.fhTextSecondary,
-                height: 1.5,
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-
-            // Big Progress Header Card
-            ProjectProgressHeaderCard(project: currentProject),
-
-            const SizedBox(height: 24),
-
-            // Steps List Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Root Steps",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.fhTextPrimary
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => _showAddRootStepDialog(context, provider),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add Step"),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.fhAccentTeal,
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                )
-              ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              "Long press to reorder steps.",
-              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11, fontStyle: FontStyle.italic),
-            ),
-            const SizedBox(height: 12),
-
-            if (currentProject.steps.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      Icon(MdiIcons.stairsBox, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No steps defined.\nAdd a root step to begin.",
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: currentProject.steps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderRootSteps(mainTaskId, currentProject.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final step = currentProject.steps[index];
-                  // Use Key for ReorderableListView
-                  return KeyedSubtree(
-                    key: ValueKey(step.id),
-                    child: ProjectStepListTile(
-                      step: step,
-                      mainTaskId: mainTaskId,
-                      projectId: currentProject.id,
-                      indexPrefix: "${index + 1}",
-                    ),
-                  );
-                },
-              ),
-              
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddRootStepDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => const AddEditStepDialog(),
-    );
-
-    if (result != null) {
-      provider.projectActions.addRootStep(
-        mainTaskId, 
-        project.id, 
-        result['title']!, 
-        result['desc']!
-      );
-    }
-  }
-
-  void _confirmDelete(BuildContext context, AppProvider provider, Project project) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("Delete Project?", style: TextStyle(color: AppTheme.fhTextPrimary)),
-      content: const Text("This action cannot be undone."),
-      actions: [
-        TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-          onPressed: () {
-            provider.projectActions.deleteProject(mainTaskId, project.id);
-            Navigator.pop(ctx);
-            Navigator.pop(context); // Go back to projects view
-          }, 
-          child: const Text("Delete")
-        )
-      ],
-    ));
-  }
-}
---- END OF FILE lib/src/screens/project_detail_screen.dart ---
-
---- START OF FILE lib/src/screens/step_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
-import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
-import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class StepDetailScreen extends StatelessWidget {
-  final ProjectStep step;
-  final String mainTaskId;
-  final String projectId;
-  final String stepNumber;
-
-  const StepDetailScreen({
-    super.key,
-    required this.step,
-    required this.mainTaskId,
-    required this.projectId,
-    required this.stepNumber,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<AppProvider>(context);
-
-    // Re-fetch the step from provider to ensure reactivity
-    ProjectStep currentStep = step;
-    try {
-      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-      final project = task.projects.firstWhere((p) => p.id == projectId);
-
-      // Recursive finder
-      ProjectStep? findStep(List<ProjectStep> list) {
-        for (var s in list) {
-          if (s.id == step.id) return s;
-          var found = findStep(s.substeps);
-          if (found != null) return found;
-        }
-        return null;
-      }
-
-      var found = findStep(project.steps);
-      if (found != null) currentStep = found;
-    } catch (e) {
-      // Fallback
-    }
-
-    final double progress = currentStep.calculateProgress();
-    final int percentage = (progress * 100).toInt();
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
-        actions: [
-          IconButton(
-            tooltip: "Link to Submission",
-            icon: Icon(MdiIcons.linkVariant, size: 20),
-            onPressed: () async {
-              // 1. Find the MainTask
-              try {
-                final task =
-                    provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-
-                // 2. Show Dialog
-                final result = await showDialog<Map<String, dynamic>>(
-                  context: context,
-                  builder: (ctx) => LinkSubmissionDialog(
-                    initialName: currentStep.title,
-                    availableSubmissions: task.subTasks,
-                  ),
-                );
-
-                if (result != null && context.mounted) {
-                  final String name = result['name'];
-                  final String type = result['type'];
-
-                  if (type == 'submission') {
-                    provider.addSubtask(mainTaskId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Sub-Mission: $name")));
-                  } else if (type == 'checkpoint') {
-                    final String parentId = result['parentId'];
-                    provider.addSubSubtask(mainTaskId, parentId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Checkpoint: $name")));
-                  }
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text("Error linking: $e")));
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(MdiIcons.pencilOutline, size: 20),
-            onPressed: () async {
-              final result = await showDialog<Map<String, String>>(
-                context: context,
-                builder: (ctx) => AddEditStepDialog(
-                  initialTitle: currentStep.title,
-                  initialDescription: currentStep.description,
-                  isEditing: true,
-                ),
-              );
-              if (result != null) {
-                final updated = currentStep
-                  ..title = result['title']!
-                  ..description = result['desc']!;
-                provider.projectActions
-                    .updateStep(mainTaskId, projectId, updated);
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(MdiIcons.deleteOutline,
-                size: 20, color: AppTheme.fhAccentRed),
-            onPressed: () {
-              // Confirm Delete
-              showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                        backgroundColor: AppTheme.fhBgMedium,
-                        title: const Text("Delete Step?",
-                            style: TextStyle(color: AppTheme.fhTextPrimary)),
-                        content: const Text(
-                            "This will delete this step and all its sub-steps."),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text("Cancel")),
-                          ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.fhAccentRed),
-                              onPressed: () {
-                                provider.projectActions.deleteStep(
-                                    mainTaskId, projectId, currentStep.id);
-                                Navigator.pop(ctx); // Close dialog
-                                Navigator.pop(context); // Close screen
-                              },
-                              child: const Text("Delete"))
-                        ],
-                      ));
-            },
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Info
             Text(
-              currentStep.title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextPrimary,
+              "${value.score}% Aligned",
+              style: TextStyle(
+                color: _getScoreColor(value.score),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            if (currentStep.description.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                currentStep.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.fhTextSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            // Progress Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Step Progress",
-                          style: TextStyle(color: AppTheme.fhTextSecondary)),
-                      Text("$percentage%",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.fhAccentTeal,
-                              fontSize: 18)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 10,
-                      backgroundColor: AppTheme.fhBgDeepDark,
-                      color: AppTheme.fhAccentTeal,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Substeps List
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Sub-steps",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.fhTextPrimary),
-                ),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => const AddEditStepDialog(),
-                    );
-                    if (result != null) {
-                      provider.projectActions.addSubstep(mainTaskId, projectId,
-                          currentStep.id, result['title']!, result['desc']!);
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add"),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal),
-                )
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            if (currentStep.substeps.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                    color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(style: BorderStyle.none)),
-                child: Column(
-                  children: [
-                    Icon(MdiIcons.fileTreeOutline,
-                        size: 32,
-                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 8),
-                    const Text("No sub-steps yet.",
-                        style: TextStyle(color: AppTheme.fhTextSecondary)),
-                    const SizedBox(height: 4),
-                    const Text(
-                        "Break this step down further or mark it as complete.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: AppTheme.fhTextDisabled, fontSize: 12)),
-                  ],
-                ),
-              )
-            else
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: currentStep.substeps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderSubSteps(mainTaskId, projectId, currentStep.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final substep = currentStep.substeps[index];
-                  // Recursive numbering: e.g., 1.2.1
-                  final displayPrefix = "$stepNumber.${index + 1}";
-
-                  return KeyedSubtree(
-                    key: ValueKey(substep.id),
-                    child: ProjectStepListTile(
-                      step: substep,
-                      mainTaskId: mainTaskId,
-                      projectId: projectId,
-                      indexPrefix: displayPrefix,
-                    ),
-                  );
-                },
-              ),
-
-            // Manual Completion Toggle (Only if leaf node)
-            if (currentStep.substeps.isEmpty) ...[
-              const SizedBox(height: 30),
-              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                title: const Text("Mark as Complete",
-                    style: TextStyle(color: AppTheme.fhTextPrimary)),
-                subtitle: const Text(
-                    "This step has no sub-steps, so you can toggle it directly.",
-                    style: TextStyle(fontSize: 12)),
-                value: currentStep.isCompleted,
-                activeThumbColor: AppTheme.fhAccentGreen,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (val) {
-                  final updated = currentStep..isCompleted = val;
-                  provider.projectActions
-                      .updateStep(mainTaskId, projectId, updated);
-                },
-              )
-            ]
           ],
         ),
       ),
     );
   }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
 }
+--- END OF FILE lib/src/widgets/cards/life_value_card.dart ---
 
---- END OF FILE lib/src/screens/step_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+--- START OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
+import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class AiPromptsView extends StatefulWidget {
-  const AiPromptsView({super.key});
+class ValueTaskGenerationDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> generatedTasks;
+
+  const ValueTaskGenerationDialog({super.key, required this.generatedTasks});
 
   @override
-  State<AiPromptsView> createState() => _AiPromptsViewState();
+  State<ValueTaskGenerationDialog> createState() =>
+      _ValueTaskGenerationDialogState();
 }
 
-class _AiPromptsViewState extends State<AiPromptsView> {
-  final TextEditingController _promptController = TextEditingController();
+class _ValueTaskGenerationDialogState extends State<ValueTaskGenerationDialog> {
+  final List<bool> _selected = [];
   String? _selectedMainTaskId;
-
-  final List<Map<String, String>> _templates = [
-    {
-      "title": "Health & Fitness",
-      "prompt":
-          "Create a 4-week structured plan to improve cardiovascular health for a beginner, including daily activities and milestones."
-    },
-    {
-      "title": "Creative Writing",
-      "prompt":
-          "Outline a project for writing a short sci-fi story. Steps should include world-building, character design, drafting, and editing."
-    },
-    {
-      "title": "Coding & Tech",
-      "prompt":
-          "Build a roadmap to learn Python for data analysis in 30 days. Include setup, syntax basics, pandas, and a final capstone project."
-    },
-    {
-      "title": "Home Org",
-      "prompt":
-          "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
-    }
-  ];
 
   @override
   void initState() {
     super.initState();
+    _selected.addAll(List.filled(widget.generatedTasks.length, true));
     final provider = Provider.of<AppProvider>(context, listen: false);
     _selectedMainTaskId =
         provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
   }
 
-  void _saveCurrentPrompt(AppProvider provider) {
-    if (_promptController.text.trim().isEmpty) return;
-    
-    final currentPrompts = List<String>.from(provider.settings.savedPrompts);
-    final newPrompt = _promptController.text.trim();
-    
-    if (!currentPrompts.contains(newPrompt)) {
-      currentPrompts.add(newPrompt);
-      provider.setSettings(provider.settings..savedPrompts = currentPrompts);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Prompt Saved!"), backgroundColor: AppTheme.fhAccentGreen)
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Generated Tasks",
+          style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                "Review actions suggested by AI to align with your values.",
+                style: TextStyle(color: AppTheme.fhTextSecondary)),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: widget.generatedTasks.length,
+                separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final task = widget.generatedTasks[index];
+                  return CheckboxListTile(
+                    value: _selected[index],
+                    onChanged: (val) {
+                      setState(() => _selected[index] = val ?? false);
+                    },
+                    title: Text(task['name'],
+                        style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                    subtitle: task['isCountable'] == true
+                        ? Text("Count: ${task['targetCount']}",
+                            style: const TextStyle(
+                                color: AppTheme.fhTextSecondary))
+                        : null,
+                    activeColor: AppTheme.fhAccentTeal,
+                    checkColor: AppTheme.fhBgDeepDark,
+                    tileColor: AppTheme.fhBgDark,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            DropdownButtonFormField<String>(
+              value: _selectedMainTaskId,
+              decoration: const InputDecoration(
+                labelText: "Add to Mission",
+                filled: true,
+                fillColor: AppTheme.fhBgDark,
+              ),
+              dropdownColor: AppTheme.fhBgDark,
+              items: provider.mainTasks
+                  .map((t) =>
+                      DropdownMenuItem(value: t.id, child: Text(t.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedMainTaskId = val),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel")),
+        ElevatedButton(
+          style:
+              ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          onPressed: _selectedMainTaskId == null
+              ? null
+              : () {
+                  int count = 0;
+                  for (int i = 0; i < widget.generatedTasks.length; i++) {
+                    if (_selected[i]) {
+                      provider.addSubtask(
+                          _selectedMainTaskId!, widget.generatedTasks[i]);
+                      count++;
+                    }
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text("$count tasks added to mission!")));
+                  Navigator.pop(context);
+                },
+          child: const Text("Add Selected"),
+        )
+      ],
+    );
   }
+}
+
+--- END OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
+
+--- START OF FILE lib/src/screens/value_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueDetailScreen extends StatefulWidget {
+  final String valueId;
+
+  const ValueDetailScreen({super.key, required this.valueId});
+
+  @override
+  State<ValueDetailScreen> createState() => _ValueDetailScreenState();
+}
+
+class _ValueDetailScreenState extends State<ValueDetailScreen> {
+  bool _isAnalyzing = false;
+  bool _isGenerating = false;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
+    final value = provider.lifeValues.firstWhere((v) => v.id == widget.valueId);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("AI Prompts"),
         backgroundColor: AppTheme.fhBgDeepDark,
         elevation: 0,
+        title: Text(value.title.toUpperCase(),
+            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _getScoreColor(value.score).withValues(alpha: 0.5)),
+            ),
+            child: Center(
+              child: Text(
+                "${value.score}%",
+                style: TextStyle(
+                  color: _getScoreColor(value.score),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          )
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 80),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Text("Describe your project idea...",
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: AppTheme.fhTextSecondary)),
-            const SizedBox(height: 12),
-
-            // Text Input
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  TextField(
-                    controller: _promptController,
-                    maxLines: 5,
-                    decoration: const InputDecoration.collapsed(
-                      hintText:
-                          "e.g., 'Learn Python in 90 days with a focus on web development.'",
-                      hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                  Icon(value.icon, size: 40, color: AppTheme.fhAccentTeal),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      value.description,
+                      style: const TextStyle(
+                          color: AppTheme.fhTextSecondary, fontSize: 14),
                     ),
-                    style: const TextStyle(color: AppTheme.fhTextPrimary),
                   ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: Icon(MdiIcons.contentSaveOutline, size: 16),
-                      label: const Text("Save Prompt"),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.fhTextSecondary,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap
-                      ),
-                      onPressed: () => _saveCurrentPrompt(provider),
-                    ),
-                  )
                 ],
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Task Selector for AI Generation
-            DropdownButtonFormField<String>(
-              initialValue: _selectedMainTaskId,
-              dropdownColor: AppTheme.fhBgDark,
-              decoration: InputDecoration(
-                labelText: "Assign to Mission",
-                fillColor: AppTheme.fhBgDark,
-                filled: true,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
-              ),
-              items: provider.mainTasks
-                  .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedMainTaskId = val),
-            ),
-
             const SizedBox(height: 24),
-
-            // Generate Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: provider.isGeneratingSubquests
-                    ? null
-                    : () async {
-                        if (_promptController.text.isNotEmpty &&
-                            _selectedMainTaskId != null) {
-                          try {
-                            await provider.projectActions
-                                .generateProjectStructure(_selectedMainTaskId!,
-                                    _promptController.text);
-                            if (mounted) {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Project Generated! Check your projects list."))
-                              );
-                            }
-                          } finally {
-                            // Close loading dialog if applicable, provider handles state
-                          }
+            Text("Reflective Questions",
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ...value.questions.map((q) => _buildQuestionCard(context, provider, value.id, q)),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'btn1',
+              onPressed: _isAnalyzing
+                  ? null
+                  : () async {
+                      setState(() => _isAnalyzing = true);
+                      try {
+                        await provider.analyzeValueAlignment(value.id);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Alignment Score Updated!")));
                         }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4A90E2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30)),
-                ),
-                child: provider.isGeneratingSubquests 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text("Generate Project Plan",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")));
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isAnalyzing = false);
+                      }
+                    },
+              backgroundColor: AppTheme.fhBgMedium,
+              label: _isAnalyzing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text("Analyze Alignment"),
+              icon: const Icon(MdiIcons.chartLine),
             ),
-
-            const SizedBox(height: 32),
-            Text("Prompt Templates",
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-
-            // Templates Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: _templates.length,
-              itemBuilder: (context, index) {
-                final t = _templates[index];
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _promptController.text = t['prompt']!;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.fhBgDark,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(t['title']!,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Text(
-                            t['prompt']!,
-                            style: const TextStyle(
-                                color: AppTheme.fhTextSecondary, fontSize: 12),
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 32),
-            // Saved Prompts Section
-            SavedPromptsList(
-              onSelect: (prompt) => setState(() => _promptController.text = prompt),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              heroTag: 'btn2',
+              onPressed: _isGenerating
+                  ? null
+                  : () async {
+                      setState(() => _isGenerating = true);
+                      try {
+                        final tasks = await provider
+                            .generateTasksFromValue(value.id);
+                        if (mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) =>
+                                ValueTaskGenerationDialog(generatedTasks: tasks),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")));
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isGenerating = false);
+                      }
+                    },
+              backgroundColor: AppTheme.fhAccentPurple,
+              label: _isGenerating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text("Generate Actions"),
+              icon: const Icon(MdiIcons.robotHappy),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildQuestionCard(
+      BuildContext context, AppProvider provider, String valueId, ValueQuestion q) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(q.question,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: q.answer,
+            maxLines: null,
+            style: const TextStyle(color: AppTheme.fhTextSecondary),
+            decoration: const InputDecoration(
+              hintText: "Type your answer here...",
+              border: InputBorder.none,
+              filled: true,
+              fillColor: AppTheme.fhBgDeepDark,
+              contentPadding: EdgeInsets.all(12),
+            ),
+            onChanged: (val) {
+              // Debounce could be added here for performance
+              provider.updateValueAnswer(valueId, q.id, val);
+            },
+          )
+        ],
+      ),
+    );
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
 }
+--- END OF FILE lib/src/screens/value_detail_screen.dart ---
 
---- END OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
-
---- START OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---
+--- START OF FILE lib/src/screens/values_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/life_value_card.dart';
+import 'package:arcane/src/screens/value_detail_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class SavedPromptsList extends StatelessWidget {
-  final Function(String) onSelect;
-
-  const SavedPromptsList({super.key, required this.onSelect});
+class ValuesScreen extends StatelessWidget {
+  const ValuesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final savedPrompts = provider.settings.savedPrompts;
-    final theme = Theme.of(context);
+    final values = provider.lifeValues;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Saved Prompts",
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        if (savedPrompts.isEmpty)
-          const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text("No saved prompts yet.",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic)),
-              ))
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: savedPrompts.length,
-            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final prompt = savedPrompts[index];
-              return Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                ),
-                child: ListTile(
-                  title: Text(
-                    prompt,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
-                  ),
-                  onTap: () => onSelect(prompt),
-                  trailing: IconButton(
-                    icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed.withOpacity(0.7)),
-                    onPressed: () {
-                      final updatedList = List<String>.from(savedPrompts)..removeAt(index);
-                      provider.setSettings(provider.settings..savedPrompts = updatedList);
-                    },
-                  ),
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.9,
+        ),
+        itemCount: values.length,
+        itemBuilder: (context, index) {
+          final value = values[index];
+          return LifeValueCard(
+            value: value,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ValueDetailScreen(valueId: value.id),
                 ),
               );
             },
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 }
---- END OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---
+--- END OF FILE lib/src/screens/values_screen.dart ---
+
+--- START OF FILE lib/src/screens/home_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
+import 'package:arcane/src/screens/values_screen.dart'; // Import ValuesScreen
+import 'package:arcane/src/widgets/header_widget.dart';
+import 'package:arcane/src/widgets/task_navigation_drawer.dart';
+import 'package:arcane/src/widgets/skills_drawer.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/views/task_details_view.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/screens/more_screen.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late AppProvider _appProvider;
+  bool _isUsernameDialogShowing = false;
+  int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  static const List<String> _viewTitles = <String>[
+    'MISSIONS',
+    'LOGBOOK',
+    'VALUES', // Updated Title
+    'PROJECTS',
+    'MORE',
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _appProvider = Provider.of<AppProvider>(context, listen: false);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_appProvider.selectedTaskId == null &&
+          _appProvider.mainTasks.isNotEmpty) {
+        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
+      }
+      _checkAndPromptForUsername(_appProvider);
+    });
+    _appProvider.addListener(_handleProviderForUsernamePrompt);
+  }
+
+  void _handleProviderForUsernamePrompt() {
+    _checkAndPromptForUsername(Provider.of<AppProvider>(context, listen: false));
+  }
+
+  void _checkAndPromptForUsername(AppProvider appProvider) {
+    if (mounted &&
+        appProvider.isUsernameMissing &&
+        appProvider.currentUser != null &&
+        !_isUsernameDialogShowing &&
+        !appProvider.authLoading &&
+        !appProvider.isDataLoadingAfterLogin) {
+      setState(() => _isUsernameDialogShowing = true);
+      _showUsernameDialog(context, appProvider).then((_) {
+        if (mounted) setState(() => _isUsernameDialogShowing = false);
+      });
+    }
+  }
+
+  Future<void> _showUsernameDialog(
+      BuildContext context, AppProvider appProvider) async {
+    final TextEditingController usernameController = TextEditingController();
+    final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
+    final Color currentAccentColor =
+        appProvider.getSelectedTask()?.taskColor ??
+            Theme.of(context).colorScheme.secondary;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Set Your Callsign',
+              style: TextStyle(color: currentAccentColor)),
+          content: Form(
+            key: dialogFormKey,
+            child: TextFormField(
+              controller: usernameController,
+              decoration:
+                  const InputDecoration(hintText: "Enter callsign (username)"),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Callsign cannot be empty.';
+                }
+                if (value.trim().length < 3) {
+                  return 'Must be at least 3 characters.';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: <Widget>[
+            ElevatedButton(
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: currentAccentColor),
+              child: Text('CONFIRM CALLSIGN',
+                  style: TextStyle(
+                      color: ThemeData.estimateBrightnessForColor(
+                                  currentAccentColor) ==
+                              Brightness.dark
+                          ? AppTheme.fhTextPrimary
+                          : AppTheme.fhBgDeepDark)),
+              onPressed: () async {
+                if (dialogFormKey.currentState!.validate()) {
+                  String newUsername = usernameController.text.trim();
+                  Navigator.of(dialogContext).pop();
+                  await appProvider.updateUserDisplayName(newUsername);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Callsign updated!'),
+                          backgroundColor: AppTheme.fhAccentGreen),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _appProvider.removeListener(_handleProviderForUsernamePrompt);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isLargeScreen = screenWidth > 900;
+
+    final appProvider = context.watch<AppProvider>();
+    final Color currentTaskColor =
+        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+    final ThemeData dynamicTheme =
+        AppTheme.getThemeData(primaryAccent: currentTaskColor);
+
+    // Tabs Content
+    final List<Widget> widgetOptions = <Widget>[
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const TaskDetailsView(),
+        ),
+      ),
+      const LogbookScreen(),
+      const ValuesScreen(), // Replaced ChatbotScreen
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const ProjectsView(),
+        ),
+      ),
+      const MoreScreen(),
+    ];
+
+    return Theme(
+      data: dynamicTheme,
+      child: Scaffold(
+        key: _scaffoldKey,
+        appBar: HeaderWidget(
+          currentViewLabel: _viewTitles[_selectedIndex],
+          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+        ),
+        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
+        endDrawer: const SkillsDrawer(),
+        body: SafeArea(
+          child: Row(
+            children: [
+              if (isLargeScreen)
+                Container(
+                  width: 280,
+                  decoration: BoxDecoration(
+                    color: dynamicTheme.cardTheme.color,
+                    border: Border(
+                        right: BorderSide(
+                            color: dynamicTheme.dividerTheme.color ??
+                                AppTheme.fhBorderColor,
+                            width: 1)),
+                  ),
+                  child: const TaskNavigationDrawer(),
+                ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: widgetOptions,
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.targetAccount),
+              label: 'Missions',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.bookOpenVariant),
+              label: 'Logbook',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.diamondStone), // Changed Icon
+              label: 'Values',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.rocketLaunchOutline),
+              label: 'Projects',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(MdiIcons.dotsHorizontal),
+              label: 'More',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/home_screen.dart ---

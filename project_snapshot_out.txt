@@ -2357,13 +2357,14 @@ class AppSettings {
   String? customApiKey;
   String? customChatbotPrompt;
   String? customReflectionPrompt;
+  List<String> savedPrompts; // New: Saved AI Prompts
   int startOfWeek; // 1 for Monday, 7 for Sunday
   int dataVersion; // 0 for minutes, 1 for seconds
 
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
-    this.autoSaveEnabled = true, // Default to true
+    this.autoSaveEnabled = true,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
     this.liteModels = const [
@@ -2379,6 +2380,7 @@ class AppSettings {
     this.customApiKey,
     this.customChatbotPrompt,
     this.customReflectionPrompt,
+    this.savedPrompts = const [], // Default empty
     this.startOfWeek = 1,
     this.dataVersion = 0,
   });
@@ -2423,6 +2425,10 @@ class AppSettings {
       customApiKey: json['customApiKey'] as String?,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
     );
@@ -2439,6 +2445,7 @@ class AppSettings {
       'customApiKey': customApiKey,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
+      'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
     };
@@ -4418,6 +4425,45 @@ class ProjectActions {
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+
+  // New: Reorder Root Steps
+  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
+        final ProjectStep item = project.steps.removeAt(oldIndex);
+        project.steps.insert(newIndex, item);
+      }
+    });
+  }
+
+  // New: Reorder Sub-steps (needs recursion to find the parent list)
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      _reorderSubStepRecursive(project.steps, parentStepId, oldIndex, newIndex);
+    });
+  }
+
+  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
+          final ProjectStep item = s.substeps.removeAt(oldIndex);
+          s.substeps.insert(newIndex, item);
+          return true;
+        }
+      }
+      if (_reorderSubStepRecursive(s.substeps, parentId, oldIndex, newIndex)) {
+        return true;
+      }
     }
     return false;
   }
@@ -6692,6 +6738,11 @@ class ProjectDetailScreen extends StatelessWidget {
                 )
               ],
             ),
+            const SizedBox(height: 4),
+            const Text(
+              "Long press to reorder steps.",
+              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11, fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 12),
 
             if (currentProject.steps.isEmpty)
@@ -6712,19 +6763,32 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ListView.separated(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentProject.steps.length,
-                separatorBuilder: (ctx, index) => const SizedBox(height: 12),
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderRootSteps(mainTaskId, currentProject.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final step = currentProject.steps[index];
-                  // Use the updated Tile which now navigates to StepDetailScreen
-                  return ProjectStepListTile(
-                    step: step,
-                    mainTaskId: mainTaskId,
-                    projectId: currentProject.id,
-                    indexPrefix: "${index + 1}",
+                  // Use Key for ReorderableListView
+                  return KeyedSubtree(
+                    key: ValueKey(step.id),
+                    child: ProjectStepListTile(
+                      step: step,
+                      mainTaskId: mainTaskId,
+                      projectId: currentProject.id,
+                      indexPrefix: "${index + 1}",
+                    ),
                   );
                 },
               ),
@@ -7078,20 +7142,34 @@ class StepDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ListView.builder(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId, currentStep.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
                   // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
 
-                  return ProjectStepListTile(
-                    step: substep,
-                    mainTaskId: mainTaskId,
-                    projectId: projectId,
-                    indexPrefix: displayPrefix,
+                  return KeyedSubtree(
+                    key: ValueKey(substep.id),
+                    child: ProjectStepListTile(
+                      step: substep,
+                      mainTaskId: mainTaskId,
+                      projectId: projectId,
+                      indexPrefix: displayPrefix,
+                    ),
                   );
                 },
               ),
@@ -9538,6 +9616,7 @@ class ProjectDashboardCard extends StatelessWidget {
     final progress = project.calculateProgress();
     final totalSteps = project.steps.length;
     final completedSteps = project.completedStepsCount;
+    final int progressPercentage = (progress * 100).toInt();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -9577,16 +9656,30 @@ class ProjectDashboardCard extends StatelessWidget {
             // Progress Row
             Row(
               children: [
-                // Circular Progress
-                SizedBox(
-                  width: 40, 
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: accentColor,
-                    strokeWidth: 4,
-                  ),
+                // Circular Progress with Text Inside
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 48, 
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        backgroundColor: AppTheme.fhBgDeepDark,
+                        color: accentColor,
+                        strokeWidth: 4,
+                      ),
+                    ),
+                    Text(
+                      "$progressPercentage%",
+                      style: TextStyle(
+                        fontSize: 11, 
+                        fontWeight: FontWeight.bold, 
+                        color: accentColor,
+                        fontFamily: "RobotoCondensed"
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -10127,6 +10220,97 @@ class SubmissionCard extends StatelessWidget {
 }
 
 --- END OF FILE lib/src/widgets/cards/submission_card.dart ---
+
+--- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart';
+
+class OverallProjectProgressCard extends StatelessWidget {
+  final List<Project> activeProjects;
+
+  const OverallProjectProgressCard({super.key, required this.activeProjects});
+
+  @override
+  Widget build(BuildContext context) {
+    if (activeProjects.isEmpty) return const SizedBox.shrink();
+
+    double totalProgress = 0;
+    for (var p in activeProjects) {
+      totalProgress += p.calculateProgress();
+    }
+    final double avgProgress = totalProgress / activeProjects.length;
+    final int percentage = (avgProgress * 100).toInt();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF2C3E50),
+            AppTheme.fhBgDark
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "OVERALL PROGRESS",
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Text(
+                "$percentage%",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.fontDisplay,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: avgProgress,
+              minHeight: 8,
+              backgroundColor: AppTheme.fhBgDeepDark,
+              color: AppTheme.fhAccentTeal,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "${activeProjects.length} Active Projects",
+            style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.7), fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
 
 --- START OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
 import 'package:flutter/material.dart';
@@ -14760,11 +14944,176 @@ class JsonEditorWidget extends StatelessWidget {
 
 --- END OF FILE lib/src/widgets/ui/json_editor_widget.dart ---
 
---- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+--- START OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:intl/intl.dart';
+import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/screens/project_detail_screen.dart';
+
+class CompletedProjectsSection extends StatelessWidget {
+  final List<Map<String, dynamic>> completedProjects;
+
+  const CompletedProjectsSection({super.key, required this.completedProjects});
+
+  @override
+  Widget build(BuildContext context) {
+    if (completedProjects.isEmpty) return const SizedBox.shrink();
+
+    // Group by Month (using a naive approach since Project doesn't have a 'completedDate' explicitly, 
+    // but in a real app you'd want a 'completedDate' field. 
+    // For now, we'll group them all under "Recently Completed" or simulate month based on an assumed date 
+    // OR just list them if we don't have dates.
+    // Assuming for this requirement we group simply or treat all as current month if no date.)
+    
+    // To strictly follow "Filtered by Month", we'd need a date field. 
+    // Since 'Project' model lacks 'completedDate', we will render them in a single expandable list for now
+    // or group by an arbitrary key if we had one. 
+    // Let's wrap the whole list in an ExpansionTile titled "Completed Archives".
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 32),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: Row(
+              children: [
+                Icon(MdiIcons.archiveCheckOutline, color: AppTheme.fhAccentGreen, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "Completed Archives",
+                  style: TextStyle(
+                    color: AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: [
+              // We can show a dropdown-like filter here if we had dates,
+              // for now we just show the list.
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: completedProjects.length,
+                itemBuilder: (context, index) {
+                  final item = completedProjects[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProjectDetailScreen(
+                            project: item['project'] as Project,
+                            mainTaskId: item['mainTaskId'] as String,
+                          ),
+                        ),
+                      );
+                    },
+                    child: ProjectDashboardCard(
+                      project: item['project'] as Project,
+                      mainTaskId: item['mainTaskId'] as String,
+                      mainTaskName: item['mainTaskName'] as String,
+                      accentColor: AppTheme.fhTextDisabled, // Gray out completed
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
+
+--- START OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SavedPromptsList extends StatelessWidget {
+  final Function(String) onSelect;
+
+  const SavedPromptsList({super.key, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final savedPrompts = provider.settings.savedPrompts;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Saved Prompts",
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        if (savedPrompts.isEmpty)
+          const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text("No saved prompts yet.",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontStyle: FontStyle.italic)),
+              ))
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: savedPrompts.length,
+            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final prompt = savedPrompts[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                ),
+                child: ListTile(
+                  title: Text(
+                    prompt,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                  ),
+                  onTap: () => onSelect(prompt),
+                  trailing: IconButton(
+                    icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed.withOpacity(0.7)),
+                    onPressed: () {
+                      final updatedList = List<String>.from(savedPrompts)..removeAt(index);
+                      provider.setSettings(provider.settings..savedPrompts = updatedList);
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/saved_prompts_list.dart ---
+
+--- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -14808,6 +15157,21 @@ class _AiPromptsViewState extends State<AiPromptsView> {
         provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
   }
 
+  void _saveCurrentPrompt(AppProvider provider) {
+    if (_promptController.text.trim().isEmpty) return;
+    
+    final currentPrompts = List<String>.from(provider.settings.savedPrompts);
+    final newPrompt = _promptController.text.trim();
+    
+    if (!currentPrompts.contains(newPrompt)) {
+      currentPrompts.add(newPrompt);
+      provider.setSettings(provider.settings..savedPrompts = currentPrompts);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Prompt Saved!"), backgroundColor: AppTheme.fhAccentGreen)
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -14840,15 +15204,32 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 border:
                     Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
               ),
-              child: TextField(
-                controller: _promptController,
-                maxLines: 5,
-                decoration: const InputDecoration.collapsed(
-                  hintText:
-                      "e.g., 'Learn Python in 90 days with a focus on web development.'",
-                  hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
-                ),
-                style: const TextStyle(color: AppTheme.fhTextPrimary),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _promptController,
+                    maxLines: 5,
+                    decoration: const InputDecoration.collapsed(
+                      hintText:
+                          "e.g., 'Learn Python in 90 days with a focus on web development.'",
+                      hintStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                    ),
+                    style: const TextStyle(color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: Icon(MdiIcons.contentSaveOutline, size: 16),
+                      label: const Text("Save Prompt"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.fhTextSecondary,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                      ),
+                      onPressed: () => _saveCurrentPrompt(provider),
+                    ),
+                  )
+                ],
               ),
             ),
 
@@ -14884,16 +15265,17 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     : () async {
                         if (_promptController.text.isNotEmpty &&
                             _selectedMainTaskId != null) {
-                          // Show loading dialog
-                          
-
                           try {
                             await provider.projectActions
                                 .generateProjectStructure(_selectedMainTaskId!,
                                     _promptController.text);
+                            if (mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Project Generated! Check your projects list."))
+                              );
+                            }
                           } finally {
-                            // Close loading dialog
-                            
+                            // Close loading dialog if applicable, provider handles state
                           }
                         }
                       },
@@ -14903,7 +15285,9 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30)),
                 ),
-                child: const Text("Generate Project Plan",
+                child: provider.isGeneratingSubquests 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text("Generate Project Plan",
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold)),
               ),
@@ -14966,16 +15350,10 @@ class _AiPromptsViewState extends State<AiPromptsView> {
             ),
 
             const SizedBox(height: 32),
-            // Saved Prompts Section (Placeholder for future feature)
-            Text("Saved Prompts",
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            const Center(
-                child: Text("No saved prompts yet.",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic))),
+            // Saved Prompts Section
+            SavedPromptsList(
+              onSelect: (prompt) => setState(() => _promptController.text = prompt),
+            ),
           ],
         ),
       ),
@@ -15816,6 +16194,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
 import 'package:arcane/src/widgets/cards/quick_action_card.dart';
+import 'package:arcane/src/widgets/cards/overall_project_progress_card.dart';
+import 'package:arcane/src/widgets/ui/completed_projects_section.dart';
 import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
 import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
 import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
@@ -15831,17 +16211,29 @@ class ProjectsView extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    // Aggregate all projects from all main tasks
-    final List<Map<String, dynamic>> allProjects = [];
+    // Aggregate all projects
+    final List<Map<String, dynamic>> ongoingProjects = [];
+    final List<Map<String, dynamic>> completedProjects = [];
+    final List<Project> rawActiveProjects = [];
 
     for (var task in provider.mainTasks) {
       for (var project in task.projects) {
-        allProjects.add({
+        final double progress = project.calculateProgress();
+        final bool isComplete = progress >= 1.0;
+        
+        final map = {
           'project': project,
           'mainTaskId': task.id,
           'mainTaskName': task.name,
           'color': task.taskColor,
-        });
+        };
+
+        if (isComplete) {
+          completedProjects.add(map);
+        } else {
+          ongoingProjects.add(map);
+          rawActiveProjects.add(project);
+        }
       }
     }
 
@@ -15855,7 +16247,10 @@ class ProjectsView extends StatelessWidget {
               style: theme.textTheme.headlineMedium
                   ?.copyWith(fontWeight: FontWeight.bold)),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+
+          // Overall Progress for Ongoing Projects
+          OverallProjectProgressCard(activeProjects: rawActiveProjects),
 
           const SizedBox(height: 32),
 
@@ -15872,7 +16267,7 @@ class ProjectsView extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Project List
-          if (allProjects.isEmpty)
+          if (ongoingProjects.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
@@ -15901,9 +16296,9 @@ class ProjectsView extends StatelessWidget {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: allProjects.length,
+              itemCount: ongoingProjects.length,
               itemBuilder: (context, index) {
-                final item = allProjects[index];
+                final item = ongoingProjects[index];
                 return GestureDetector(
                   onTap: () {
                     // Push to Detail Screen
@@ -15923,6 +16318,10 @@ class ProjectsView extends StatelessWidget {
                 );
               },
             ),
+
+          // Completed Projects Section
+          if (completedProjects.isNotEmpty)
+             CompletedProjectsSection(completedProjects: completedProjects),
 
           const SizedBox(height: 32),
 
@@ -15976,8 +16375,8 @@ class ProjectsView extends StatelessWidget {
             children: [
               Expanded(
                 child: QuickActionCard(
-                  icon: MdiIcons.viewDashboardOutline,
-                  label: "Templates",
+                  icon: MdiIcons.robotOutline,
+                  label: "AI Prompts",
                   onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -15987,22 +16386,12 @@ class ProjectsView extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: QuickActionCard(
-                  icon: MdiIcons.robotOutline,
-                  label: "AI Prompts",
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AiPromptsView())),
+                  icon: MdiIcons.targetVariant,
+                  label: "Link Task",
+                  onTap: () => _showLinkSubmissionSheet(context),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          QuickActionCard(
-            icon: MdiIcons.targetVariant,
-            label: "Link Submission",
-            onTap: () => _showLinkSubmissionSheet(context),
-            isFullWidth: true,
           ),
 
           const SizedBox(height: 80), // Bottom padding for scroll

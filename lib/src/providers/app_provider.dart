@@ -13,6 +13,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/value_models.dart'; // Import new model
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -50,6 +51,10 @@ class AppProvider with ChangeNotifier {
   List<Skill> get skills => _skills;
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+
+  // Values System
+  List<LifeValue> _lifeValues = [];
+  List<LifeValue> get lifeValues => _lifeValues;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
@@ -96,6 +101,7 @@ class AppProvider with ChangeNotifier {
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _initializeSkills();
+    _initializeValues(); // Init values
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -144,6 +150,14 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  void _initializeValues() {
+    // If empty, load defaults. If partially loaded (from JSON), we might need to merge or reset.
+    // The JSON loading logic will overwrite this if data exists.
+    if (_lifeValues.isEmpty) {
+      _lifeValues = LifeValue.getDefaults();
+    }
+  }
+
   @override
   void dispose() {
     _periodicUiTimer?.cancel();
@@ -154,14 +168,12 @@ class AppProvider with ChangeNotifier {
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
-    // Check autoSaveEnabled settings before saving
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (_hasUnsavedChanges &&
           _currentUser != null &&
           !_isManuallySaving &&
           !_isManuallyLoading &&
           _settings.autoSaveEnabled) {
-        // Respect user setting
         _performActualSave();
       }
     });
@@ -232,6 +244,7 @@ class AppProvider with ChangeNotifier {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(), // Save Values
     };
   }
 
@@ -302,6 +315,26 @@ class AppProvider with ChangeNotifier {
           .toList();
     }
 
+    // Load Life Values
+    if (data['lifeValues'] != null && data['lifeValues'] is List) {
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
+    } else {
+      _initializeValues();
+    }
+    // Ensure we have all default values even if loading old data
+    if (_lifeValues.length < 10) {
+      // Merge logic: Add missing defaults
+      final defaults = LifeValue.getDefaults();
+      for (var def in defaults) {
+        if (!_lifeValues.any((v) => v.id == def.id)) {
+          _lifeValues.add(def);
+        }
+      }
+    }
+
     _isChatbotMemoryInitialized = true;
 
     // --- MIGRATION LOGIC (Minutes -> Seconds) ---
@@ -324,19 +357,11 @@ class AppProvider with ChangeNotifier {
 
       for (var sub in task.subTasks) {
         int newSubTime = 0;
-        // If we have sessions, recalculate from sessions (which are now interpreted as seconds by durationSeconds accessor,
-        // BUT wait, existing sessions have start/end times.
-        // The start/end times are absolute.
-        // So 'durationSeconds' will correcty return seconds.
-        // We just need to sum them up.
-
         if (sub.sessions.isNotEmpty) {
           for (var s in sub.sessions) {
             newSubTime += s.durationSeconds;
           }
         } else {
-          // If no sessions but we have time, it was manually entered or legacy.
-          // Assume it was minutes, convert to seconds.
           if (sub.currentTimeSpent > 0) {
             newSubTime = sub.currentTimeSpent * 60;
           }
@@ -363,7 +388,6 @@ class AppProvider with ChangeNotifier {
     _mainTasks = migratedTasks;
 
     // 2. Migrate Daily History (_completedByDay)
-    // The 'taskTimes' in history are simple integers. We must assume they are minutes.
     Map<String, dynamic> migratedHistory = {};
     _completedByDay.forEach((dateKey, dayData) {
       if (dayData is Map<String, dynamic>) {
@@ -400,19 +424,13 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = ChatbotMemory();
     _isChatbotMemoryInitialized = true;
     _initializeSkills();
+    _initializeValues(); // Reset values to default
     _reflectionLogs = [];
     _hasUnsavedChanges = true;
   }
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      // Only show loading if we are manually saving or if it's a significant sync
-      // For background auto-save, we generally don't want to disturb the UI unless requested
-      // But user asked for "inc database sync" to show indicator.
-      // We'll use a subtle indicator for auto-save if needed, or rely on manual saves.
-      // Let's check: if it's auto-save, maybe we set a "Syncing..." state but don't block UI?
-      // The user wants to "use the app without loading".
-
       bool isAutoSave = !_isManuallySaving;
       if (!isAutoSave) setLoadingTask("Syncing Database...");
 
@@ -646,6 +664,78 @@ class AppProvider with ChangeNotifier {
     }
     _isChatbotMemoryInitialized = true;
     notifyListeners();
+  }
+
+  // --- Values System Logic ---
+
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex =
+          _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+
+    setLoadingTask("Analyzing Value...");
+    try {
+      final score = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+
+      value.score = score;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error analyzing value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+
+    setLoadingTask("Generating Actions...");
+    try {
+      final tasks = await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      return tasks;
+    } catch (e) {
+      debugPrint("Error generating tasks from value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
   }
 
   String _buildUserDataContext() {
