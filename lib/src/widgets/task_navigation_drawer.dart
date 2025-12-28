@@ -151,7 +151,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("AGENTS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+                Text("PROTOCOLS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
                 const SizedBox(height: 4),
                 Text("SELECT MISSION PROFILE", style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 2.0)),
               ],

@@ -5,6 +5,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -29,12 +30,9 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   @override
   void initState() {
     super.initState();
-    _triggerController =
-        TextEditingController(text: widget.initialLog?.trigger ?? '');
-    _emotionController =
-        TextEditingController(text: widget.initialLog?.emotion ?? '');
-    _reasonController =
-        TextEditingController(text: widget.initialLog?.reason ?? '');
+    _triggerController = TextEditingController(text: widget.initialLog?.trigger ?? '');
+    _emotionController = TextEditingController(text: widget.initialLog?.emotion ?? '');
+    _reasonController = TextEditingController(text: widget.initialLog?.reason ?? '');
   }
 
   @override
@@ -49,37 +47,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     if (_triggerController.text.trim().isEmpty) return;
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-
-    // Parse the dateStr to get the correct day (using current time if today, or start of day if past)
-    // Actually, we should try to preserve time if it's today, or pick a reasonable time if past (e.g. now's time on that day)
     final targetDate = DateTime.parse(widget.dateStr);
     final now = DateTime.now();
     DateTime timestamp;
 
-    // Check if targetDate is the same calendar day as today
-    if (targetDate.year == now.year &&
-        targetDate.month == now.month &&
-        targetDate.day == now.day) {
+    if (targetDate.year == now.year && targetDate.month == now.month && targetDate.day == now.day) {
       timestamp = now;
     } else {
-      // Set to noon or current time on that past day to ensure it falls within that day
-      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day,
-          now.hour, now.minute);
+      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
     }
 
-    if (widget.initialLog != null) {
-      // We are editing an existing log
-      appProvider.updateReflectionLog(
-        widget.initialLog!.id,
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-      );
-      if (mounted) Navigator.pop(context);
-    } else {
-      // Create new log
-      setState(() => _isLoading = true);
-      try {
+    setState(() => _isLoading = true);
+    
+    // ... (Existing save logic) ...
+    try {
         final xpGained = await appProvider.processReflection(
           trigger: _triggerController.text.trim(),
           emotion: _emotionController.text.trim(),
@@ -88,9 +69,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         if (mounted) {
-          Navigator.pop(context); // Close editor
-
-          // Show XP Gain Dialog
+          Navigator.pop(context); 
           showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.8),
@@ -99,58 +78,79 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text("Error saving: $e")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e")));
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Reflection Editor"),
-        backgroundColor: AppTheme.fhBgDark,
-        actions: [
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check, color: AppTheme.fhAccentGreen),
-            onPressed: _isLoading ? null : _saveReflection,
-          )
-        ],
-      ),
-      backgroundColor: AppTheme.fhBgDark,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: SafeArea(
         child: Column(
           children: [
-            _buildExpandableField(
-              controller: _triggerController,
-              label: "Trigger / Situation",
-              hint: "What happened?",
-              icon: MdiIcons.target,
+            // Top Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildExpandableField(
-              controller: _emotionController,
-              label: "Emotion / Feeling",
-              hint: "How did it make you feel?",
-              icon: MdiIcons.emoticonOutline,
-            ),
-            const SizedBox(height: 16),
-            _buildExpandableField(
-              controller: _reasonController,
-              label: "Reason / Deep Dive",
-              hint: "Why did you feel this way?",
-              icon: MdiIcons.thoughtBubbleOutline,
-              minLines: 5,
+
+            // Editor Area
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  _buildSectionHeader("SITUATION"),
+                  _buildValorantInput(_triggerController, "What triggered this event?", 2),
+                  
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionHeader("FEELING"),
+                  _buildValorantInput(_emotionController, "Emotion felt...", 1),
+
+                  const SizedBox(height: 24),
+
+                  _buildSectionHeader("CAUSE"),
+                  _buildValorantInput(_reasonController, "Why did this happen? Root cause...", 5),
+
+                  const SizedBox(height: 40),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ValorantButton(
+                          label: "ABORT",
+                          isPrimary: false,
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ValorantButton(
+                          label: _isLoading ? "PROCESSING..." : "CONFIRM",
+                          isPrimary: true,
+                          onPressed: _isLoading ? null : _saveReflection,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
           ],
         ),
@@ -158,53 +158,36 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     );
   }
 
-  Widget _buildExpandableField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int minLines = 3,
-  }) {
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildValorantInput(TextEditingController controller, String hint, int lines) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+        // No rounded corners
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTheme.fhAccentTeal, size: 20),
-              const SizedBox(width: 8),
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.fhTextPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: controller,
-            style: const TextStyle(color: AppTheme.fhTextPrimary),
-            maxLines: null, // Expandable
-            minLines: minLines,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ],
+      child: TextField(
+        controller: controller,
+        maxLines: lines,
+        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+          contentPadding: EdgeInsets.zero,
+          filled: false,
+        ),
       ),
     );
   }
 }
-
-// StringExtension moved to helpers.dart

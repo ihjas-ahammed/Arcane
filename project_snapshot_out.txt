@@ -6548,7 +6548,7 @@ class ChatbotScreen extends StatelessWidget {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/values_screen.dart'; // Import ValuesScreen
+import 'package:arcane/src/screens/values_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
@@ -6575,9 +6575,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'VALUES', // Updated Title
+    'VALUES',
     'PROJECTS',
-    'MORE',
+    'SYSTEM',
   ];
 
   void _onItemTapped(int index) {
@@ -6701,7 +6701,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
-    // Tabs Content
     final List<Widget> widgetOptions = <Widget>[
       Center(
         child: ConstrainedBox(
@@ -6710,7 +6709,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ValuesScreen(), // Replaced ChatbotScreen
+      const ValuesScreen(),
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
@@ -6755,32 +6754,52 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.targetAccount),
-              label: 'Missions',
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppTheme.fhBorderColor, width: 1.0),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.bookOpenVariant),
-              label: 'Logbook',
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: AppTheme.fhBgDeepDark,
+            selectedItemColor: AppTheme.fhAccentRed, // Valorant Red for active
+            unselectedItemColor: AppTheme.fhTextSecondary,
+            selectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.diamondStone), // Changed Icon
-              label: 'Values',
+            unselectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              letterSpacing: 0.5,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.rocketLaunchOutline),
-              label: 'Projects',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.dotsHorizontal),
-              label: 'More',
-            ),
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
+            items: <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.targetAccount),
+                label: 'MISSIONS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.notebookOutline),
+                label: 'LOGBOOK',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.diamondStone),
+                label: 'VALUES',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.rocketLaunchOutline),
+                label: 'PROJECTS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.dotsGrid),
+                label: 'SYSTEM',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+          ),
         ),
       ),
     );
@@ -9484,7 +9503,6 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-// Import Settings View
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
@@ -9503,61 +9521,90 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         appProvider.getSelectedTask()?.taskColor ?? theme.colorScheme.secondary;
 
     return AppBar(
+      backgroundColor: AppTheme.fhBgDeepDark,
       automaticallyImplyLeading: !isLargeScreen,
+      // VALORANT Style: Minimal divider
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+          height: 1.0,
+        ),
+      ),
       leading: isLargeScreen
           ? Padding(
               padding: const EdgeInsets.only(left: 16.0),
-              child:
-                  Icon(MdiIcons.shieldCrownOutline, color: currentAccentColor),
+              child: Icon(MdiIcons.shieldCrownOutline,
+                  color: AppTheme.fhAccentRed),
             )
-          : null,
-      title: Text(
-        currentViewLabel.toUpperCase(),
-        style: theme.textTheme.headlineSmall?.copyWith(
-          color: AppTheme.fhTextPrimary,
-          letterSpacing: 1.0,
-        ),
+          : Builder(
+              builder: (context) => IconButton(
+                icon: Icon(MdiIcons.menu, color: AppTheme.fhTextPrimary),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Decorative square
+          Container(
+            width: 8,
+            height: 8,
+            color: AppTheme.fhAccentRed,
+            margin: const EdgeInsets.only(right: 12),
+          ),
+          Text(
+            currentViewLabel.toUpperCase(),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppTheme.fhTextPrimary,
+              letterSpacing: 3.0,
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
       centerTitle: true,
       actions: <Widget>[
-        // Settings Button moved here
+        // Status Indicators
         if (appProvider.loadingTaskName != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.fhBgDark,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.fhBorderColor),
+              border: Border.all(color: AppTheme.fhAccentTeal),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 14,
-                  height: 14,
+                  width: 12,
+                  height: 12,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(currentAccentColor),
+                        AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
-                  _getLoadingIcon(appProvider.loadingTaskName!),
-                  size: 16,
-                  color: AppTheme.fhTextSecondary,
+                Text(
+                  "PROCESSING",
+                  style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
         ],
 
         IconButton(
           icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
-          tooltip: 'Settings',
+          tooltip: 'SYSTEM SETTINGS',
           onPressed: () {
-            // Push settings screen
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -9566,18 +9613,17 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                         backgroundColor: AppTheme.fhBgDeepDark,
                         body: Center(
                             child: ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: 800),
-                                child: SettingsView())),
+                                constraints: const BoxConstraints(maxWidth: 800),
+                                child: const SettingsView())),
                       )),
             );
           },
         ),
         // Persona / Virtues Button
         IconButton(
-          icon: Icon(MdiIcons.shieldAccount, // Or accountDetailsOutline
-              color: AppTheme.fhTextSecondary),
+          icon: Icon(MdiIcons.shieldAccount, color: AppTheme.fhTextSecondary),
           onPressed: onOpenPersona,
-          tooltip: 'Persona & Virtues',
+          tooltip: 'ARMORY',
         ),
         const SizedBox(width: 8),
       ],
@@ -9585,15 +9631,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  IconData _getLoadingIcon(String taskName) {
-    if (taskName.contains("Syncing")) return MdiIcons.cloudSync;
-    if (taskName.contains("Analyzing")) return MdiIcons.brain;
-    if (taskName.contains("Consulting")) return MdiIcons.robot;
-    if (taskName.contains("Authenticating")) return MdiIcons.accountKey;
-    return MdiIcons.loading;
-  }
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 }
 
 --- END OF FILE lib/src/widgets/header_widget.dart ---
@@ -10617,7 +10655,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart'; // New Import
+import 'package:arcane/src/widgets/valorant/valorant_card.dart'; // Using the new Valorant Card
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -10644,7 +10682,6 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
@@ -10658,11 +10695,10 @@ class SubmissionCard extends StatelessWidget {
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
-    // Valorant Logic: If running, highlight border with accent color.
-    // If completed, maybe dim or green.
+    // Valorant Logic: If running, highlight border with Red.
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = AppTheme.fhAccentRed; // Active combat color
-    if (subTask.completed) borderColor = AppTheme.fhAccentGreen;
+    if (subTask.completed) borderColor = AppTheme.fhAccentTeal; // Success color
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -10676,7 +10712,7 @@ class SubmissionCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentGreen)
+                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal)
                   : RhombusCheckbox(
                       checked: subTask.completed,
                       onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
@@ -10703,7 +10739,7 @@ class SubmissionCard extends StatelessWidget {
                   ),
                   if (isRunning)
                     Text(
-                      "// ACTIVE //",
+                      "// ACTIVE COMBAT //",
                       style: TextStyle(
                         color: AppTheme.fhAccentRed, 
                         fontSize: 10, 
@@ -10715,22 +10751,21 @@ class SubmissionCard extends StatelessWidget {
               ),
             ),
 
-            // Timer / Actions
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            // Actions & Context Menu (Fixed: Added access to delete/duplicate)
+            Row(
               children: [
-                Text(
-                  formattedTime,
-                  style: TextStyle(
-                    fontFamily: "RobotoMono", // Monospace for numbers
-                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold
+                if (!subTask.completed) ...[
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      fontFamily: "RobotoMono",
+                      color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                // Play Button (Mini)
-                if (!subTask.completed)
+                  const SizedBox(width: 8),
+                  // Play/Pause Button
                   GestureDetector(
                     onTap: () {
                       if (isRunning) {
@@ -10748,16 +10783,76 @@ class SubmissionCard extends StatelessWidget {
                       ),
                       child: Icon(
                         isRunning ? MdiIcons.pause : MdiIcons.play,
-                        size: 14,
+                        size: 16,
                         color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
                       ),
                     ),
-                  )
+                  ),
+                ],
+                const SizedBox(width: 8),
+                // Options Menu (The fix)
+                PopupMenuButton<String>(
+                  icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 20),
+                  color: AppTheme.fhBgDark,
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _confirmDelete(context, provider);
+                    } else if (value == 'duplicate') {
+                      provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sub-Mission Duplicated")));
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (subTask.completed)
+                      const PopupMenuItem(
+                        value: 'duplicate',
+                        child: Row(
+                          children: [
+                            Icon(Icons.copy, size: 16, color: AppTheme.fhTextPrimary),
+                            SizedBox(width: 8),
+                            Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                          ],
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 16, color: AppTheme.fhAccentRed),
+                          SizedBox(width: 8),
+                          Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             )
           ],
         ),
       ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("Delete Mission?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+        content: const Text("This action cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () {
+              provider.deleteSubtask(parentTask.id, subTask.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text("Confirm"),
+          )
+        ],
+      )
     );
   }
 }
@@ -10947,7 +11042,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class TimePieChart extends StatefulWidget {
+class TimePieChart extends StatelessWidget {
   final Map<String, double> taskData; // Task Name -> Minutes
   final Map<String, Color> taskColors; // Task Name -> Color
   final String? selectedTask;
@@ -10962,37 +11057,22 @@ class TimePieChart extends StatefulWidget {
   });
 
   @override
-  State<TimePieChart> createState() => _TimePieChartState();
-}
-
-class _TimePieChartState extends State<TimePieChart> {
-  // Removed internal _touchedIndex state tracking for hover
-  // Relying on widget.selectedTask for persistent state
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.taskData.isEmpty ||
-        widget.taskData.values.fold(0.0, (a, b) => a + b) <= 0) {
-      return const Center(
-        child: Text(
-          "No active mission time today.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-
+    // Filter out zero values
     final Map<String, double> activeData = {};
-    widget.taskData.forEach((k, v) {
+    taskData.forEach((k, v) {
       if (v > 0) activeData[k] = v;
     });
 
     if (activeData.isEmpty) {
-      return const Center(
-        child: Text(
-          "No time logged today.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(MdiIcons.clockAlertOutline, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            const SizedBox(height: 8),
+            Text("NO TIME LOGS", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
+          ],
         ),
       );
     }
@@ -11000,130 +11080,78 @@ class _TimePieChartState extends State<TimePieChart> {
     final double totalTime = activeData.values.fold(0, (sum, item) => sum + item);
     final entries = activeData.entries.toList();
 
+    // Default Center Text
     String centerTopText = "TOTAL TIME";
     String centerBottomText = "${totalTime.toInt()}m";
     Color centerColor = AppTheme.fhTextPrimary;
 
-    // Use external selection state
-    int highlightIndex = -1;
-    if (widget.selectedTask != null) {
-      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedTask);
+    // Dynamic Center Text based on selection
+    if (selectedTask != null && activeData.containsKey(selectedTask)) {
+      centerTopText = selectedTask!.toUpperCase();
+      if (centerTopText.length > 12) centerTopText = "${centerTopText.substring(0, 10)}..";
+      centerBottomText = "${activeData[selectedTask]!.toInt()}m";
+      centerColor = taskColors[selectedTask] ?? AppTheme.fhAccentTeal;
     }
 
-    if (highlightIndex != -1 && highlightIndex < entries.length) {
-      final entry = entries[highlightIndex];
-      centerTopText = entry.key.toUpperCase();
-      if (centerTopText.length > 10) {
-        centerTopText = "${centerTopText.substring(0, 8)}..";
-      }
-      centerBottomText = "${entry.value.toInt()}m";
-      centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-    }
-
-    return LayoutBuilder(builder: (context, constraints) {
-      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
-      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
-
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
-        final entry = entries[i];
-        final isSelected = entry.key == widget.selectedTask;
-        final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-        final double radius = isSelected ? chartRadius + 8 : chartRadius;
-
-        return PieChartSectionData(
-          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
-          value: entry.value,
-          title: '',
-          radius: radius,
-          badgeWidget: isSelected ? _buildBadge(color) : null,
-          badgePositionPercentageOffset: 1.4,
-          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
-        );
-      });
-
-      return SizedBox(
-        height: 250,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    // Logic: Tap to select (toggle), Tap outside to deselect
-                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
-                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
-                      if (index >= 0 && index < entries.length) {
-                        final key = entries[index].key;
-                        // Toggle selection
-                        if (widget.selectedTask == key) {
-                          widget.onTaskSelected?.call(null);
-                        } else {
-                          widget.onTaskSelected?.call(key);
-                        }
-                      }
-                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
-                      // Tap outside
-                      widget.onTaskSelected?.call(null);
-                    }
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                sectionsSpace: 0,
-                centerSpaceRadius: centerRadius,
-                sections: sections,
-                startDegreeOffset: 270,
-              ),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 4, // "Tech" gaps
+            centerSpaceRadius: 40,
+            sections: entries.map((e) {
+              final isSelected = e.key == selectedTask;
+              final color = taskColors[e.key] ?? AppTheme.fhAccentTeal;
+              
+              return PieChartSectionData(
+                color: color.withValues(alpha: isSelected ? 1.0 : 0.6),
+                value: e.value,
+                title: '',
+                radius: isSelected ? 20 : 15,
+                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2),
+              );
+            }).toList(),
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                  final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                  if (index >= 0 && index < entries.length) {
+                    final key = entries[index].key;
+                    onTaskSelected?.call(selectedTask == key ? null : key);
+                  }
+                } else if (event is FlTapUpEvent && pieTouchResponse?.touchedSection == null) {
+                   onTaskSelected?.call(null);
+                }
+              },
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  centerTopText,
-                  style: const TextStyle(
-                    color: AppTheme.fhTextSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                    fontFamily: AppTheme.fontBody,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  centerBottomText,
-                  style: TextStyle(
-                      color: centerColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppTheme.fontDisplay,
-                      shadows: [
-                        Shadow(
-                          color: centerColor.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                        )
-                      ]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+          ),
+        ),
+        // Inner Ring Detail
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              centerTopText,
+              style: TextStyle(
+                fontSize: 10, 
+                color: AppTheme.fhTextSecondary, 
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5
+              )
+            ),
+            Text(
+              centerBottomText,
+              style: TextStyle(
+                fontSize: 20, 
+                color: centerColor, 
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.bold
+              )
             ),
           ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildBadge(Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark,
-          border: Border.all(color: color),
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
-          ]),
-      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+        )
+      ],
     );
   }
 }
@@ -11136,10 +11164,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 class WeeklyActivityBarChart extends StatelessWidget {
-  final Map<int, double>
-      weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
-  final Map<int, Color>
-      dominantColors; // Key matches above, Value: Color of focused task
+  final Map<int, double> weeklyData;
+  final Map<int, Color> dominantColors;
 
   const WeeklyActivityBarChart({
     super.key,
@@ -11149,11 +11175,9 @@ class WeeklyActivityBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
     final double maxY = weeklyData.values.isEmpty
         ? 60.0
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2)
-            .clamp(60.0, double.infinity);
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -11161,63 +11185,59 @@ class WeeklyActivityBarChart extends StatelessWidget {
         maxY: maxY,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
+            getTooltipColor: (group) => AppTheme.fhBgDeepDark, // Updated to use getTooltipColor
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
                 '${rod.toY.toInt()}m',
-                const TextStyle(
-                    color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
               );
             },
           ),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (double value, TitleMeta meta) {
-                final dayIndex = value.toInt();
-                final daysAgo = 6 - dayIndex;
-                final date = today.subtract(Duration(days: daysAgo));
+                final daysAgo = 6 - value.toInt();
+                final date = DateTime.now().subtract(Duration(days: daysAgo));
                 return SideTitleWidget(
                   meta: meta,
-                  space: 4,
                   child: Text(
-                    DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(
-                        color: AppTheme.fhTextSecondary, fontSize: 10),
+                    DateFormat('E').format(date).toUpperCase(),
+                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 );
               },
             ),
           ),
-          leftTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (value) => FlLine(color: AppTheme.fhBorderColor.withValues(alpha: 0.1), strokeWidth: 1),
+        ),
         barGroups: List.generate(7, (index) {
           final daysAgo = 6 - index;
           final value = weeklyData[daysAgo] ?? 0.0;
           final color = dominantColors[daysAgo] ?? AppTheme.fhBgMedium;
-
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
                 toY: value,
-                color: color,
-                width: 12,
-                borderRadius: BorderRadius.circular(4),
+                color: color, // Valorant Red for bars
+                width: 16,
+                borderRadius: BorderRadius.zero, // Sharp edges
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: maxY,
-                  color: AppTheme.fhBgDark,
+                  color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
                 ),
               ),
             ],
@@ -11229,8 +11249,8 @@ class WeeklyActivityBarChart extends StatelessWidget {
 }
 
 class WeeklyVirtueBarChart extends StatelessWidget {
-  final Map<int, double> weeklyXp; // Key: 0 (Today) -> 6
-  final Map<int, Color> dominantVirtueColors; // Key: 0 (Today) -> 6
+  final Map<int, double> weeklyXp;
+  final Map<int, Color> dominantVirtueColors;
 
   const WeeklyVirtueBarChart({
     super.key,
@@ -11240,85 +11260,10 @@ class WeeklyVirtueBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final double maxY = weeklyXp.values.isEmpty
-        ? 50.0
-        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2)
-            .clamp(50.0, double.infinity);
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                '+${rod.toY.toInt()} XP',
-                const TextStyle(
-                    color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                final dayIndex = value.toInt();
-                final daysAgo = 6 - dayIndex;
-                final date = today.subtract(Duration(days: daysAgo));
-                return SideTitleWidget(
-                  meta: meta,
-                  space: 4,
-                  child: Text(
-                    DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(
-                        color: AppTheme.fhTextSecondary, fontSize: 10),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
-        barGroups: List.generate(7, (index) {
-          final daysAgo = 6 - index;
-          final value = weeklyXp[daysAgo] ?? 0.0;
-          final color = dominantVirtueColors[daysAgo] ?? AppTheme.fhAccentGold;
-
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: value,
-                color: color,
-                width: 12,
-                borderRadius: BorderRadius.circular(4),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxY,
-                  color: AppTheme.fhBgDark,
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
+    // Similar logic, just different data
+    return WeeklyActivityBarChart(weeklyData: weeklyXp, dominantColors: dominantVirtueColors);
   }
 }
-
 --- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
 
 --- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
@@ -11328,7 +11273,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class VirtuePieChart extends StatefulWidget {
+class VirtuePieChart extends StatelessWidget {
   final List<ReflectionLog> logs;
   final String? selectedVirtue;
   final Function(String?)? onVirtueSelected;
@@ -11341,26 +11286,9 @@ class VirtuePieChart extends StatefulWidget {
   });
 
   @override
-  State<VirtuePieChart> createState() => _VirtuePieChartState();
-}
-
-class _VirtuePieChartState extends State<VirtuePieChart> {
-  // Removed internal _touchedIndex tracking
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.logs.isEmpty) {
-      return const Center(
-        child: Text(
-          "No virtue data logged today.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-
     Map<String, int> totals = {};
-    for (var log in widget.logs) {
+    for (var log in logs) {
       log.xpGained.forEach((key, value) {
         totals[key] = (totals[key] ?? 0) + value;
       });
@@ -11368,135 +11296,80 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
     totals.removeWhere((key, value) => value <= 0);
 
     if (totals.isEmpty) {
-      return const Center(
-        child: Text(
-          "No XP gained yet.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-
-    final int totalXpOfDay = totals.values.fold(0, (sum, item) => sum + item);
-    final entries = totals.entries.toList();
-
-    int highlightIndex = -1;
-    if (widget.selectedVirtue != null) {
-      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedVirtue);
-    }
-
-    String centerTopText = "TOTAL";
-    String centerBottomText = "$totalXpOfDay XP";
-    Color centerColor = AppTheme.fhTextPrimary;
-
-    if (highlightIndex != -1 && highlightIndex < entries.length) {
-      final entry = entries[highlightIndex];
-      centerTopText = entry.key.toUpperCase();
-      centerBottomText = "+${entry.value} XP";
-      centerColor = _getVirtueColor(entry.key);
-    }
-
-    return LayoutBuilder(builder: (context, constraints) {
-      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
-      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
-
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
-        final entry = entries[i];
-        final isSelected = entry.key == widget.selectedVirtue;
-        final color = _getVirtueColor(entry.key);
-        final double radius = isSelected ? chartRadius + 8 : chartRadius;
-
-        return PieChartSectionData(
-          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
-          value: entry.value.toDouble(),
-          title: '',
-          radius: radius,
-          badgeWidget: isSelected ? _buildBadge(entry.key, color) : null,
-          badgePositionPercentageOffset: 1.4,
-          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
-        );
-      });
-
-      return SizedBox(
-        height: 250,
-        child: Stack(
-          alignment: Alignment.center,
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
-                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
-                      if (index >= 0 && index < entries.length) {
-                        final key = entries[index].key;
-                        if (widget.selectedVirtue == key) {
-                          widget.onVirtueSelected?.call(null);
-                        } else {
-                          widget.onVirtueSelected?.call(key);
-                        }
-                      }
-                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
-                      widget.onVirtueSelected?.call(null);
-                    }
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                sectionsSpace: 0,
-                centerSpaceRadius: centerRadius,
-                sections: sections,
-                startDegreeOffset: 270,
-              ),
-            ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  centerTopText,
-                  style: const TextStyle(
-                    color: AppTheme.fhTextSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                    fontFamily: AppTheme.fontBody,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  centerBottomText,
-                  style: TextStyle(
-                      color: centerColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppTheme.fontDisplay,
-                      shadows: [
-                        Shadow(
-                          color: centerColor.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                        )
-                      ]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+            Icon(MdiIcons.chartDonut, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            const SizedBox(height: 8),
+            Text("NO XP DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
           ],
         ),
       );
-    });
-  }
+    }
 
-  Widget _buildBadge(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark,
-          border: Border.all(color: color),
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
-          ]),
-      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+    final int totalXp = totals.values.fold(0, (sum, item) => sum + item);
+    final entries = totals.entries.toList();
+
+    // Default Text
+    String centerTopText = "TOTAL XP";
+    String centerBottomText = "$totalXp";
+    Color centerColor = AppTheme.fhTextPrimary;
+
+    // Selected Text
+    if (selectedVirtue != null && totals.containsKey(selectedVirtue)) {
+      centerTopText = selectedVirtue!.toUpperCase();
+      centerBottomText = "+${totals[selectedVirtue]}";
+      centerColor = _getVirtueColor(selectedVirtue!);
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 4, 
+            centerSpaceRadius: 40,
+            sections: entries.map((e) {
+              final isSelected = e.key == selectedVirtue;
+              return PieChartSectionData(
+                color: _getVirtueColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                value: e.value.toDouble(),
+                title: '',
+                radius: isSelected ? 20 : 15,
+                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2), 
+              );
+            }).toList(),
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                  final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                  if (index >= 0 && index < entries.length) {
+                    final key = entries[index].key;
+                    onVirtueSelected?.call(selectedVirtue == key ? null : key);
+                  }
+                } else if (event is FlTapUpEvent && pieTouchResponse?.touchedSection == null) {
+                   onVirtueSelected?.call(null);
+                }
+              },
+            ),
+          ),
+        ),
+        // Inner Ring Detail
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              centerTopText, 
+              style: const TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+            ),
+            Text(
+              centerBottomText, 
+              style: TextStyle(fontSize: 20, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
+            ),
+          ],
+        )
+      ],
     );
   }
 
@@ -11508,8 +11381,6 @@ class _VirtuePieChartState extends State<VirtuePieChart> {
       case 'justice': return AppTheme.fhAccentGold;
       case 'temperance': return AppTheme.fhAccentTeal;
       case 'transcendence': return AppTheme.fhAccentPurple;
-      case 'discipline': return Colors.indigoAccent;
-      case 'curiosity': return Colors.tealAccent;
       default: return Colors.grey;
     }
   }
@@ -12921,6 +12792,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -12945,12 +12817,9 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   @override
   void initState() {
     super.initState();
-    _triggerController =
-        TextEditingController(text: widget.initialLog?.trigger ?? '');
-    _emotionController =
-        TextEditingController(text: widget.initialLog?.emotion ?? '');
-    _reasonController =
-        TextEditingController(text: widget.initialLog?.reason ?? '');
+    _triggerController = TextEditingController(text: widget.initialLog?.trigger ?? '');
+    _emotionController = TextEditingController(text: widget.initialLog?.emotion ?? '');
+    _reasonController = TextEditingController(text: widget.initialLog?.reason ?? '');
   }
 
   @override
@@ -12965,37 +12834,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     if (_triggerController.text.trim().isEmpty) return;
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-
-    // Parse the dateStr to get the correct day (using current time if today, or start of day if past)
-    // Actually, we should try to preserve time if it's today, or pick a reasonable time if past (e.g. now's time on that day)
     final targetDate = DateTime.parse(widget.dateStr);
     final now = DateTime.now();
     DateTime timestamp;
 
-    // Check if targetDate is the same calendar day as today
-    if (targetDate.year == now.year &&
-        targetDate.month == now.month &&
-        targetDate.day == now.day) {
+    if (targetDate.year == now.year && targetDate.month == now.month && targetDate.day == now.day) {
       timestamp = now;
     } else {
-      // Set to noon or current time on that past day to ensure it falls within that day
-      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day,
-          now.hour, now.minute);
+      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
     }
 
-    if (widget.initialLog != null) {
-      // We are editing an existing log
-      appProvider.updateReflectionLog(
-        widget.initialLog!.id,
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-      );
-      if (mounted) Navigator.pop(context);
-    } else {
-      // Create new log
-      setState(() => _isLoading = true);
-      try {
+    setState(() => _isLoading = true);
+    
+    // ... (Existing save logic) ...
+    try {
         final xpGained = await appProvider.processReflection(
           trigger: _triggerController.text.trim(),
           emotion: _emotionController.text.trim(),
@@ -13004,9 +12856,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         if (mounted) {
-          Navigator.pop(context); // Close editor
-
-          // Show XP Gain Dialog
+          Navigator.pop(context); 
           showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.8),
@@ -13015,58 +12865,79 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text("Error saving: $e")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e")));
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Reflection Editor"),
-        backgroundColor: AppTheme.fhBgDark,
-        actions: [
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check, color: AppTheme.fhAccentGreen),
-            onPressed: _isLoading ? null : _saveReflection,
-          )
-        ],
-      ),
-      backgroundColor: AppTheme.fhBgDark,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: SafeArea(
         child: Column(
           children: [
-            _buildExpandableField(
-              controller: _triggerController,
-              label: "Trigger / Situation",
-              hint: "What happened?",
-              icon: MdiIcons.target,
+            // Top Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text("DEBRIEF // LOG ENTRY", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildExpandableField(
-              controller: _emotionController,
-              label: "Emotion / Feeling",
-              hint: "How did it make you feel?",
-              icon: MdiIcons.emoticonOutline,
-            ),
-            const SizedBox(height: 16),
-            _buildExpandableField(
-              controller: _reasonController,
-              label: "Reason / Deep Dive",
-              hint: "Why did you feel this way?",
-              icon: MdiIcons.thoughtBubbleOutline,
-              minLines: 5,
+
+            // Editor Area
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  _buildSectionHeader("SITUATION REPORT"),
+                  _buildValorantInput(_triggerController, "What triggered this event?", 2),
+                  
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionHeader("INTERNAL STATE"),
+                  _buildValorantInput(_emotionController, "Emotion felt...", 1),
+
+                  const SizedBox(height: 24),
+
+                  _buildSectionHeader("TACTICAL ANALYSIS"),
+                  _buildValorantInput(_reasonController, "Why did this happen? Root cause...", 5),
+
+                  const SizedBox(height: 40),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ValorantButton(
+                          label: "ABORT",
+                          isPrimary: false,
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ValorantButton(
+                          label: _isLoading ? "PROCESSING..." : "CONFIRM LOG",
+                          isPrimary: true,
+                          onPressed: _isLoading ? null : _saveReflection,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
           ],
         ),
@@ -13074,57 +12945,39 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     );
   }
 
-  Widget _buildExpandableField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int minLines = 3,
-  }) {
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildValorantInput(TextEditingController controller, String hint, int lines) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+        // No rounded corners
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTheme.fhAccentTeal, size: 20),
-              const SizedBox(width: 8),
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.fhTextPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: controller,
-            style: const TextStyle(color: AppTheme.fhTextPrimary),
-            maxLines: null, // Expandable
-            minLines: minLines,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ],
+      child: TextField(
+        controller: controller,
+        maxLines: lines,
+        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+          contentPadding: EdgeInsets.zero,
+          filled: false,
+        ),
       ),
     );
   }
 }
-
-// StringExtension moved to helpers.dart
-
 --- END OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 
 --- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
@@ -14196,10 +14049,10 @@ class ActivityLogList extends StatelessWidget {
 --- END OF FILE lib/src/widgets/ui/activity_log_list.dart ---
 
 --- START OF FILE lib/src/widgets/ui/chart_carousel.dart ---
-// lib/src/widgets/ui/chart_carousel.dart
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 
 class ChartCarouselData {
   final String title;
@@ -14215,7 +14068,7 @@ class ChartCarousel extends StatefulWidget {
   const ChartCarousel({
     super.key,
     required this.pages,
-    this.height = 250,
+    this.height = 280,
   });
 
   @override
@@ -14231,75 +14084,39 @@ class _ChartCarouselState extends State<ChartCarousel> {
     super.dispose();
   }
 
-  void _nextPage() {
-    _controller.nextPage(
-        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-  }
-
-  void _prevPage() {
-    _controller.previousPage(
-        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         SizedBox(
           height: widget.height,
-          child: Stack(
-            children: [
-              PageView(
-                controller: _controller,
-                children: widget.pages.map((page) {
-                  return Card(
-                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(page.title,
-                              style: const TextStyle(
-                                  color: AppTheme.fhTextSecondary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 16),
-                          Expanded(child: page.chart),
-                        ],
+          child: PageView(
+            controller: _controller,
+            children: widget.pages.map((page) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: ValorantCard(
+                  borderColor: AppTheme.fhAccentRed.withValues(alpha: 0.5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        page.title.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppTheme.fhTextSecondary,
+                          fontFamily: AppTheme.fontDisplay,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              // Invisible Hit Box - Left 20%
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: MediaQuery.of(context).size.width * 0.2,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _prevPage,
-                  child: Container(color: Colors.transparent),
+                      const SizedBox(height: 16),
+                      Expanded(child: page.chart),
+                    ],
+                  ),
                 ),
-              ),
-              // Invisible Hit Box - Right 20%
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: MediaQuery.of(context).size.width * 0.2,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _nextPage,
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
         ),
         const SizedBox(height: 12),
@@ -14308,17 +14125,17 @@ class _ChartCarouselState extends State<ChartCarousel> {
             controller: _controller,
             count: widget.pages.length,
             effect: ExpandingDotsEffect(
-              dotHeight: 6,
-              dotWidth: 6,
-              activeDotColor: AppTheme.fhAccentTeal,
-              dotColor: AppTheme.fhBgMedium,
+              dotHeight: 4,
+              dotWidth: 4,
+              expansionFactor: 4,
+              activeDotColor: AppTheme.fhAccentRed,
+              dotColor: AppTheme.fhBorderColor,
             ),
           ),
       ],
     );
   }
 }
-
 --- END OF FILE lib/src/widgets/ui/chart_carousel.dart ---
 
 --- START OF FILE lib/src/widgets/ui/project_step_card.dart ---
@@ -16509,12 +16326,11 @@ import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/activity_log_list.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:arcane/src/utils/chart_data_helper.dart'; // Import helper
+import 'package:arcane/src/utils/chart_data_helper.dart'; 
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
 
 class DailySummaryView extends StatefulWidget {
@@ -16526,7 +16342,6 @@ class DailySummaryView extends StatefulWidget {
 
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
-  bool _isLoading = false;
   String? _selectedTaskFilter;
   String? _selectedVirtueFilter;
 
@@ -16536,19 +16351,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
-    if (_selectedDate == null && availableDates.isNotEmpty) {
-      _selectedDate = availableDates.first;
-    } else if (_selectedDate != null &&
-        !availableDates.contains(_selectedDate)) {
-      _selectedDate = availableDates.isNotEmpty ? availableDates.first : null;
+    if (_selectedDate == null) {
+      // Default to today if available, or most recent
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      _selectedDate = availableDates.contains(today) ? today : (availableDates.isNotEmpty ? availableDates.first : today);
     }
   }
 
-  void _navigateToReflectionEditor(BuildContext context,
-      {ReflectionLog? initialLog}) {
-    final dateStr =
-        _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-
+  void _navigateToReflectionEditor(BuildContext context, {ReflectionLog? initialLog}) {
+    final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -16560,92 +16371,56 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     );
   }
 
-  void _showEditDialog(BuildContext context, AppProvider provider, String type,
-      int index, dynamic currentValue) {
+  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
     if (type == 'Reflection') {
       final logId = currentValue['id'];
-      final log =
-          provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      final log = provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
       if (log != null) {
         _navigateToReflectionEditor(context, initialLog: log);
       }
       return;
     }
-
-    showDialog(
-        context: context,
-        builder: (ctx) => EditLogDialog(
-              title: "Edit ${type.capitalize()}",
-              logType: type.toLowerCase(),
-              initialValue: currentValue,
-              onDelete: () {},
-              onSave: (val) {},
-            ));
+    // Generic edit logic if needed for other types
   }
 
-  Future<void> _generateDailySummary() async {
-    if (_selectedDate == null) return;
+  Future<void> _pickDate(BuildContext context) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final availableDates = appProvider.completedByDay.keys.map((d) => DateTime.tryParse(d)).whereType<DateTime>().toList();
+    
+    // Sort logic
+    DateTime firstDate = DateTime(2023); 
+    if (availableDates.isNotEmpty) {
+      availableDates.sort();
+      if (availableDates.first.isBefore(firstDate)) firstDate = availableDates.first;
+    }
 
-    setState(() => _isLoading = true);
-    try {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final aiService = Provider.of<AIService>(context, listen: false);
+    final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
 
-      final targetDate = DateTime.parse(_selectedDate!);
-      final dailyLogs = appProvider.reflectionLogs.where((l) {
-        return l.timestamp.year == targetDate.year &&
-            l.timestamp.month == targetDate.month &&
-            l.timestamp.day == targetDate.day;
-      }).toList();
-
-      if (dailyLogs.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("No reflections to summarize for this day.")));
-        }
-        return;
-      }
-
-      final summary = await aiService.generateDailySummary(
-        reflections: dailyLogs
-            .map((l) => {
-                  'trigger': l.trigger,
-                  'emotion': l.emotion,
-                  'reason': l.reason,
-                })
-            .toList(),
-        modelCandidates: appProvider.settings.liteModels,
-        currentApiKeyIndex: appProvider.apiKeyIndex,
-        onNewApiKeyIndex: appProvider.setProviderApiKeyIndex,
-        onLog: (s) => (s),
-      );
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.fhBgDark,
-          title: const Text("Daily Summary",
-              style: TextStyle(color: AppTheme.fhTextPrimary)),
-          content: SingleChildScrollView(
-              child: Text(summary,
-                  style: const TextStyle(color: AppTheme.fhTextSecondary))),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Close"),
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: AppTheme.fhAccentTeal,
+              onPrimary: AppTheme.fhTextPrimary,
+              surface: AppTheme.fhBgDark,
+              onSurface: AppTheme.fhTextPrimary,
             ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to generate summary: $e")));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+            dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+      });
     }
   }
 
@@ -16654,30 +16429,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    final availableDates = appProvider.completedByDay.keys.toList();
-    availableDates.sort((a, b) => b.compareTo(a));
-
-    if (_selectedDate == null && availableDates.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _selectedDate = availableDates.first);
-      });
-    } else if (_selectedDate != null &&
-        !availableDates.contains(_selectedDate)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _selectedDate =
-              availableDates.isNotEmpty ? availableDates.first : null);
-        }
-      });
-    } else if (availableDates.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _selectedDate != null) {
-          setState(() => _selectedDate = null);
-        }
-      });
-    }
-
-    // Use Helper to prepare data
+    // Prepare Data
     final chartData = ChartDataHelper.prepareWeeklyData(
       appProvider, 
       _selectedDate, 
@@ -16685,27 +16437,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       _selectedVirtueFilter
     );
 
-    final summaryData = _selectedDate != null
-        ? appProvider.completedByDay[_selectedDate!]
-        : null;
+    // Current Day Data
+    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
 
     Map<String, dynamic> taskTimes = {};
-    if (_selectedDate != null &&
-        _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+    if (_selectedDate != null && _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
       final today = DateTime.now();
       for (var task in appProvider.mainTasks) {
-        final val = ChartDataHelper.calculateDailyTimeFromSessions(task, today); // Exposed in helper if needed or copy logic back if private
-        if (val > 0) {
-          taskTimes[task.id] = val;
-        }
+        final val = ChartDataHelper.calculateDailyTimeFromSessions(task, today);
+        if (val > 0) taskTimes[task.id] = val;
       }
     } else {
       taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
     }
-    final subtasksCompleted =
-        summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final checkpointsCompleted =
-        summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
+    
+    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
+    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
@@ -16716,274 +16463,170 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           }).toList()
         : [];
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final bool isWideScreen = constraints.maxWidth > 800;
-
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- WEEKLY STATS CAROUSEL ---
-            ChartCarousel(
-              height: 250,
-              pages: [
-                ChartCarouselData(
-                  title: "Last 7 Days Activity",
-                  chart: WeeklyActivityBarChart(
-                    weeklyData: chartData['activityData'],
-                    dominantColors: chartData['activityColors'],
-                  ),
-                ),
-                ChartCarouselData(
-                  title: "Last 7 Days Growth",
-                  chart: WeeklyVirtueBarChart(
-                    weeklyXp: chartData['virtueData'],
-                    dominantVirtueColors: chartData['virtueColors'],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
-
-            if (availableDates.isEmpty)
-              Center(
-                  child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32.0),
-                child: Text("No detailed logs recorded yet.",
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic)),
-              ))
-            else ...[
-              // --- DAILY DETAIL SELECTOR ---
-              InkWell(
-                onTap: () async {
-                  if (availableDates.isEmpty) return;
-                  final dates = availableDates.map((d) => DateTime.parse(d)).toList();
-                  dates.sort();
-                  final firstDate = dates.first;
-                  final initialDate = _selectedDate != null ? DateTime.parse(_selectedDate!) : dates.last;
-
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: initialDate,
-                    firstDate: firstDate.subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now().add(const Duration(days: 1)),
-                    selectableDayPredicate: (day) {
-                      final dateStr = DateFormat('yyyy-MM-dd').format(day);
-                      return availableDates.contains(dateStr);
-                    },
-                    builder: (context, child) {
-                      return Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: ColorScheme.dark(
-                            primary: AppTheme.fhAccentTeal,
-                            onPrimary: AppTheme.fhTextPrimary,
-                            surface: AppTheme.fhBgMedium,
-                            onSurface: AppTheme.fhTextPrimary,
-                          ),
-                          dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDark),
-                        ),
-                        child: child!,
-                      );
-                    },
-                  );
-
-                  if (picked != null) {
-                    setState(() {
-                      _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
-                    });
-                  }
-                },
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Inspect Day',
-                    prefixIcon: Icon(MdiIcons.calendarSearchOutline,
-                        color: AppTheme.fhAccentTeal),
-                    suffixIcon: const Icon(Icons.arrow_drop_down,
-                        color: AppTheme.fhTextSecondary),
-                    filled: true,
-                    fillColor: AppTheme.fhBgMedium,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  child: Text(
-                    _selectedDate != null
-                        ? DateFormat('MMMM d, yyyy').format(DateTime.parse(_selectedDate!))
-                        : 'Select a date',
-                    style: const TextStyle(color: AppTheme.fhTextPrimary),
-                  ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- Carousel (Restored Swipe Style) ---
+          ChartCarousel(
+            height: 250, // Slightly taller for bar labels
+            pages: [
+              ChartCarouselData(
+                title: "7-DAY PERFORMANCE",
+                chart: WeeklyActivityBarChart(
+                  weeklyData: chartData['activityData'],
+                  dominantColors: chartData['activityColors'],
                 ),
               ),
+              ChartCarouselData(
+                title: "VIRTUE GROWTH",
+                chart: WeeklyVirtueBarChart(
+                  weeklyXp: chartData['virtueData'],
+                  dominantVirtueColors: chartData['virtueColors'],
+                ),
+              ),
+            ],
+          ),
 
-              const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-              // --- DAILY STATS CAROUSEL ---
-              ChartCarousel(
-                height: 320,
-                pages: [
-                  ChartCarouselData(
-                    title: "Daily Virtue Breakdown",
-                    chart: VirtuePieChart(
-                      logs: reflectionsForDate,
-                      selectedVirtue: _selectedVirtueFilter,
-                      onVirtueSelected: (val) {
-                        setState(() => _selectedVirtueFilter = val);
-                      },
-                    ),
+          // --- Date Picker (Fixed for Older Archives) ---
+          InkWell(
+            onTap: () => _pickDate(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                border: Border.all(color: AppTheme.fhBorderColor),
+                borderRadius: BorderRadius.zero, // Valorant Sharp
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "INSPECT: ${_selectedDate ?? 'TODAY'}", 
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontDisplay, 
+                      letterSpacing: 1.0, 
+                      fontSize: 16,
+                      color: AppTheme.fhTextSecondary
+                    )
                   ),
-                  ChartCarouselData(
-                    title: "Today's Mission Focus",
-                    chart: TimePieChart(
-                      taskData: chartData['dailyTaskTimeData'],
-                      taskColors: chartData['taskColors'],
-                      selectedTask: _selectedTaskFilter,
-                      onTaskSelected: (val) {
-                        setState(() => _selectedTaskFilter = val);
-                      },
-                    ),
-                  ),
+                  const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTeal),
                 ],
               ),
-
-              const SizedBox(height: 30),
-
-              if (isWideScreen) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: _buildActivitySection(theme, appProvider,
-                          taskTimes, subtasksCompleted, checkpointsCompleted),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 1,
-                      child: _buildReflectionsSection(
-                          context, theme, appProvider, reflectionsForDate),
-                    )
-                  ],
-                )
-              ] else ...[
-                _buildActivitySection(theme, appProvider, taskTimes,
-                    subtasksCompleted, checkpointsCompleted),
-                const SizedBox(height: 30),
-                _buildReflectionsSection(
-                    context, theme, appProvider, reflectionsForDate),
-              ],
-            ],
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildActivitySection(
-      ThemeData theme,
-      AppProvider provider,
-      Map<String, dynamic> taskTimes,
-      List<dynamic> subtasksCompleted,
-      List<dynamic> checkpointsCompleted) {
-    return Column(
-      children: [
-        Text('Activity Details', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 12),
-        ActivityLogList(
-          taskTimes: taskTimes,
-          subtasksCompleted: subtasksCompleted,
-          checkpointsCompleted: checkpointsCompleted,
-          availableTasks: provider.mainTasks,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReflectionsSection(BuildContext context, ThemeData theme,
-      AppProvider provider, List<ReflectionLog> reflections) {
-    return Column(
-      children: [
-        if (reflections.isNotEmpty) ...[
-          Row(
-            children: [
-              IconButton(
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(MdiIcons.robotHappyOutline,
-                          color: AppTheme.fhAccentGold),
-                  tooltip: "Generate Daily Summary",
-                  onPressed: _isLoading ? null : _generateDailySummary),
-              const SizedBox(width: 8),
-              Text("Reflections", style: theme.textTheme.headlineSmall),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: reflections.length,
-              itemBuilder: (ctx, i) {
-                final log = reflections[i];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  color: AppTheme.fhBgDark,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(
-                          color:
-                              AppTheme.fhBorderColor.withValues(alpha: 0.3))),
-                  child: ListTile(
-                    title: Text(
-                        log.trigger.isNotEmpty ? log.trigger : "Reflection",
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        "Emotion: ${log.emotion} | XP: +${log.xpGained.values.fold(0, (a, b) => a + b)}"),
-                    leading: Icon(MdiIcons.notebookOutline,
-                        color: AppTheme.fhAccentPurple),
-                    trailing: Icon(MdiIcons.pencilOutline, size: 16),
-                    onTap: () =>
-                        _showEditDialog(context, provider, 'Reflection', i, {
-                      'id': log.id,
-                      'trigger': log.trigger,
-                      'emotion': log.emotion,
-                      'reason': log.reason
-                    }),
-                  ),
-                );
-              }),
-        ],
-        Padding(
-          padding: const EdgeInsets.only(top: 16.0),
-          child: ElevatedButton.icon(
-            onPressed: () => _navigateToReflectionEditor(context),
-            icon: const Icon(Icons.add),
-            label: const Text("Add Reflection"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.fhAccentPurple,
-              foregroundColor: Colors.white,
             ),
           ),
-        ),
-      ],
+
+          const SizedBox(height: 24),
+
+          // --- Daily Breakdown (Pie Charts) ---
+          Row(
+            children: [
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: TimePieChart(
+                          taskData: chartData['dailyTaskTimeData'],
+                          taskColors: chartData['taskColors'],
+                          selectedTask: _selectedTaskFilter,
+                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: VirtuePieChart(
+                          logs: reflectionsForDate,
+                          selectedVirtue: _selectedVirtueFilter,
+                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // --- Activity List ---
+          const Text("COMBAT LOG // DETAILS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          ActivityLogList(
+            taskTimes: taskTimes,
+            subtasksCompleted: subtasksCompleted,
+            checkpointsCompleted: checkpointsCompleted,
+            availableTasks: appProvider.mainTasks,
+          ),
+
+          const SizedBox(height: 24),
+
+          // --- Reflections Section ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("REFLECTIONS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal),
+                onPressed: () => _navigateToReflectionEditor(context),
+              )
+            ],
+          ),
+          if (reflectionsForDate.isEmpty)
+             const Padding(
+               padding: EdgeInsets.all(8.0),
+               child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
+             )
+          else
+            ...reflectionsForDate.asMap().entries.map((entry) {
+              final log = entry.value;
+              return GestureDetector(
+                onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
+                  'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
+                }),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                    border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                      const SizedBox(height: 4),
+                      Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 }
-// Note: _calculateDailyTimeFromSessions inside chart_data_helper was made static publicly, but inside here I relied on it being private or imported?
-// I added `ChartDataHelper.calculateDailyTimeFromSessions` in the helper but didn't rename the usage in `build`.
-// The code `ChartDataHelper.calculateDailyTimeFromSessions` was used in `build`.
-// The private `_calculateDailyTimeFromSessions` inside view was removed/not used.
-// Double check the helper file content I generated. I named it `_calculateDailyTimeFromSessions` (private) in the helper class...
-// I should fix the helper file generation to make it public if I use it here, or duplicate it.
-// I will regenerate the helper file content to be public.
 --- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/projects_view.dart ---

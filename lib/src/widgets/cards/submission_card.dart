@@ -5,7 +5,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart'; // New Import
+import 'package:arcane/src/widgets/valorant/valorant_card.dart'; // Using the new Valorant Card
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -32,7 +32,6 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
@@ -46,11 +45,10 @@ class SubmissionCard extends StatelessWidget {
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
-    // Valorant Logic: If running, highlight border with accent color.
-    // If completed, maybe dim or green.
+    // Valorant Logic: If running, highlight border with Red.
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = AppTheme.fhAccentRed; // Active combat color
-    if (subTask.completed) borderColor = AppTheme.fhAccentGreen;
+    if (subTask.completed) borderColor = AppTheme.fhAccentTeal; // Success color
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -64,7 +62,7 @@ class SubmissionCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentGreen)
+                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal)
                   : RhombusCheckbox(
                       checked: subTask.completed,
                       onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
@@ -91,7 +89,7 @@ class SubmissionCard extends StatelessWidget {
                   ),
                   if (isRunning)
                     Text(
-                      "// ACTIVE //",
+                      "// ACTIVE COMBAT //",
                       style: TextStyle(
                         color: AppTheme.fhAccentRed, 
                         fontSize: 10, 
@@ -103,22 +101,21 @@ class SubmissionCard extends StatelessWidget {
               ),
             ),
 
-            // Timer / Actions
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            // Actions & Context Menu (Fixed: Added access to delete/duplicate)
+            Row(
               children: [
-                Text(
-                  formattedTime,
-                  style: TextStyle(
-                    fontFamily: "RobotoMono", // Monospace for numbers
-                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold
+                if (!subTask.completed) ...[
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      fontFamily: "RobotoMono",
+                      color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                // Play Button (Mini)
-                if (!subTask.completed)
+                  const SizedBox(width: 8),
+                  // Play/Pause Button
                   GestureDetector(
                     onTap: () {
                       if (isRunning) {
@@ -136,16 +133,76 @@ class SubmissionCard extends StatelessWidget {
                       ),
                       child: Icon(
                         isRunning ? MdiIcons.pause : MdiIcons.play,
-                        size: 14,
+                        size: 16,
                         color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
                       ),
                     ),
-                  )
+                  ),
+                ],
+                const SizedBox(width: 8),
+                // Options Menu (The fix)
+                PopupMenuButton<String>(
+                  icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 20),
+                  color: AppTheme.fhBgDark,
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _confirmDelete(context, provider);
+                    } else if (value == 'duplicate') {
+                      provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sub-Mission Duplicated")));
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (subTask.completed)
+                      const PopupMenuItem(
+                        value: 'duplicate',
+                        child: Row(
+                          children: [
+                            Icon(Icons.copy, size: 16, color: AppTheme.fhTextPrimary),
+                            SizedBox(width: 8),
+                            Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                          ],
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 16, color: AppTheme.fhAccentRed),
+                          SizedBox(width: 8),
+                          Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             )
           ],
         ),
       ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("Delete Mission?", style: TextStyle(color: AppTheme.fhTextPrimary)),
+        content: const Text("This action cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () {
+              provider.deleteSubtask(parentTask.id, subTask.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text("Confirm"),
+          )
+        ],
+      )
     );
   }
 }

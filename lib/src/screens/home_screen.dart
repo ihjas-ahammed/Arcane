@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/values_screen.dart'; // Import ValuesScreen
+import 'package:arcane/src/screens/values_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
@@ -28,9 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'VALUES', // Updated Title
+    'VALUES',
     'PROJECTS',
-    'MORE',
+    'SYSTEM',
   ];
 
   void _onItemTapped(int index) {
@@ -154,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
-    // Tabs Content
     final List<Widget> widgetOptions = <Widget>[
       Center(
         child: ConstrainedBox(
@@ -163,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ValuesScreen(), // Replaced ChatbotScreen
+      const ValuesScreen(),
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
@@ -208,32 +207,52 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.targetAccount),
-              label: 'Missions',
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppTheme.fhBorderColor, width: 1.0),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.bookOpenVariant),
-              label: 'Logbook',
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: AppTheme.fhBgDeepDark,
+            selectedItemColor: AppTheme.fhAccentRed, // Valorant Red for active
+            unselectedItemColor: AppTheme.fhTextSecondary,
+            selectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.diamondStone), // Changed Icon
-              label: 'Values',
+            unselectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontDisplay,
+              letterSpacing: 0.5,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.rocketLaunchOutline),
-              label: 'Projects',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(MdiIcons.dotsHorizontal),
-              label: 'More',
-            ),
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
+            items: <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.targetAccount),
+                label: 'MISSIONS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.notebookOutline),
+                label: 'LOGBOOK',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.diamondStone),
+                label: 'VALUES',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.rocketLaunchOutline),
+                label: 'PROJECTS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.dotsGrid),
+                label: 'SYSTEM',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+          ),
         ),
       ),
     );

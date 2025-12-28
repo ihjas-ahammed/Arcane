@@ -47,7 +47,7 @@ class SkillsDrawer extends StatelessWidget {
                   children: [
                     Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 28),
                     const SizedBox(width: 12),
-                    Text("ARMORY", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
+                    Text("VIRTUE", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
                   ],
                 ),
                 const SizedBox(height: 8),

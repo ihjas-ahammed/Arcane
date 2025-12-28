@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class TimePieChart extends StatefulWidget {
+class TimePieChart extends StatelessWidget {
   final Map<String, double> taskData; // Task Name -> Minutes
   final Map<String, Color> taskColors; // Task Name -> Color
   final String? selectedTask;
@@ -18,37 +18,22 @@ class TimePieChart extends StatefulWidget {
   });
 
   @override
-  State<TimePieChart> createState() => _TimePieChartState();
-}
-
-class _TimePieChartState extends State<TimePieChart> {
-  // Removed internal _touchedIndex state tracking for hover
-  // Relying on widget.selectedTask for persistent state
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.taskData.isEmpty ||
-        widget.taskData.values.fold(0.0, (a, b) => a + b) <= 0) {
-      return const Center(
-        child: Text(
-          "No active mission time today.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-
+    // Filter out zero values
     final Map<String, double> activeData = {};
-    widget.taskData.forEach((k, v) {
+    taskData.forEach((k, v) {
       if (v > 0) activeData[k] = v;
     });
 
     if (activeData.isEmpty) {
-      return const Center(
-        child: Text(
-          "No time logged today.",
-          style: TextStyle(
-              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(MdiIcons.clockAlertOutline, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            const SizedBox(height: 8),
+            Text("NO TIME LOGS", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
+          ],
         ),
       );
     }
@@ -56,130 +41,78 @@ class _TimePieChartState extends State<TimePieChart> {
     final double totalTime = activeData.values.fold(0, (sum, item) => sum + item);
     final entries = activeData.entries.toList();
 
+    // Default Center Text
     String centerTopText = "TOTAL TIME";
     String centerBottomText = "${totalTime.toInt()}m";
     Color centerColor = AppTheme.fhTextPrimary;
 
-    // Use external selection state
-    int highlightIndex = -1;
-    if (widget.selectedTask != null) {
-      highlightIndex = entries.indexWhere((e) => e.key == widget.selectedTask);
+    // Dynamic Center Text based on selection
+    if (selectedTask != null && activeData.containsKey(selectedTask)) {
+      centerTopText = selectedTask!.toUpperCase();
+      if (centerTopText.length > 12) centerTopText = "${centerTopText.substring(0, 10)}..";
+      centerBottomText = "${activeData[selectedTask]!.toInt()}m";
+      centerColor = taskColors[selectedTask] ?? AppTheme.fhAccentTeal;
     }
 
-    if (highlightIndex != -1 && highlightIndex < entries.length) {
-      final entry = entries[highlightIndex];
-      centerTopText = entry.key.toUpperCase();
-      if (centerTopText.length > 10) {
-        centerTopText = "${centerTopText.substring(0, 8)}..";
-      }
-      centerBottomText = "${entry.value.toInt()}m";
-      centerColor = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-    }
-
-    return LayoutBuilder(builder: (context, constraints) {
-      final double chartRadius = constraints.maxWidth < 350 ? 45.0 : 55.0;
-      final double centerRadius = constraints.maxWidth < 300 ? 55.0 : 65.0;
-
-      final List<PieChartSectionData> sections = List.generate(entries.length, (i) {
-        final entry = entries[i];
-        final isSelected = entry.key == widget.selectedTask;
-        final color = widget.taskColors[entry.key] ?? AppTheme.fhAccentTeal;
-        final double radius = isSelected ? chartRadius + 8 : chartRadius;
-
-        return PieChartSectionData(
-          color: color.withValues(alpha: isSelected ? 1.0 : 0.8),
-          value: entry.value,
-          title: '',
-          radius: radius,
-          badgeWidget: isSelected ? _buildBadge(color) : null,
-          badgePositionPercentageOffset: 1.4,
-          borderSide: const BorderSide(color: AppTheme.fhBgMedium, width: 2),
-        );
-      });
-
-      return SizedBox(
-        height: 250,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    // Logic: Tap to select (toggle), Tap outside to deselect
-                    if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
-                      final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
-                      if (index >= 0 && index < entries.length) {
-                        final key = entries[index].key;
-                        // Toggle selection
-                        if (widget.selectedTask == key) {
-                          widget.onTaskSelected?.call(null);
-                        } else {
-                          widget.onTaskSelected?.call(key);
-                        }
-                      }
-                    } else if (event is FlTapUpEvent && (pieTouchResponse == null || pieTouchResponse.touchedSection == null)) {
-                      // Tap outside
-                      widget.onTaskSelected?.call(null);
-                    }
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                sectionsSpace: 0,
-                centerSpaceRadius: centerRadius,
-                sections: sections,
-                startDegreeOffset: 270,
-              ),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 4, // "Tech" gaps
+            centerSpaceRadius: 40,
+            sections: entries.map((e) {
+              final isSelected = e.key == selectedTask;
+              final color = taskColors[e.key] ?? AppTheme.fhAccentTeal;
+              
+              return PieChartSectionData(
+                color: color.withValues(alpha: isSelected ? 1.0 : 0.6),
+                value: e.value,
+                title: '',
+                radius: isSelected ? 20 : 15,
+                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2),
+              );
+            }).toList(),
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                  final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                  if (index >= 0 && index < entries.length) {
+                    final key = entries[index].key;
+                    onTaskSelected?.call(selectedTask == key ? null : key);
+                  }
+                } else if (event is FlTapUpEvent && pieTouchResponse?.touchedSection == null) {
+                   onTaskSelected?.call(null);
+                }
+              },
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  centerTopText,
-                  style: const TextStyle(
-                    color: AppTheme.fhTextSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                    fontFamily: AppTheme.fontBody,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  centerBottomText,
-                  style: TextStyle(
-                      color: centerColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppTheme.fontDisplay,
-                      shadows: [
-                        Shadow(
-                          color: centerColor.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                        )
-                      ]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+          ),
+        ),
+        // Inner Ring Detail
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              centerTopText,
+              style: TextStyle(
+                fontSize: 10, 
+                color: AppTheme.fhTextSecondary, 
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5
+              )
+            ),
+            Text(
+              centerBottomText,
+              style: TextStyle(
+                fontSize: 20, 
+                color: centerColor, 
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.bold
+              )
             ),
           ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildBadge(Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark,
-          border: Border.all(color: color),
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)
-          ]),
-      child: Icon(MdiIcons.arrowDownBold, size: 12, color: color),
+        )
+      ],
     );
   }
 }
