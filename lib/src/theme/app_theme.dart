@@ -13,12 +13,12 @@ class AppTheme {
 
   // Accents
   static const Color fhAccentRed = Color(0xFFFF4655); // "Valorant Red"
-  static const Color fhAccentTeal = Color(0xFF00F8F8); // Cyan/Teal
-  static const Color fhAccentTealFixed = Color(0xFF00F8F8);
+  static const Color fhAccentTeal = Color(0xFF00F59B); // Valorant Teal
+  static const Color fhAccentTealFixed = Color(0xFF00F59B);
   static const Color fhAccentGold = Color(0xFFD4AF37); // Rare accents
-  static const Color fhAccentPurple = Color(0xFF8A2BE2);
-  static const Color fhAccentGreen = Color(0xFF4CAF50);
-  static const Color fhAccentOrange = Color(0xFFFF7043);
+  static const Color fhAccentPurple = Color(0xFF8A2BE2); // Omen/Reyna vibes
+  static const Color fhAccentGreen = Color(0xFF4CAF50); // Viper vibes
+  static const Color fhAccentOrange = Color(0xFFFF7043); // Raze vibes
 
   static const String fontDisplay = 'RobotoCondensed'; // Close to Tungsten
   static const String fontBody = 'OpenSans';
@@ -153,10 +153,10 @@ class AppTheme {
               fontSize: 16,
               letterSpacing: 1.0),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          // Cut corners (Beveled)
           shape: const BeveledRectangleBorder(
-              borderRadius:
-                  BorderRadius.only(topLeft: Radius.circular(8), bottomRight: Radius.circular(8))), // Cut corners
-          elevation: 4,
+              borderRadius: BorderRadius.all(Radius.circular(4))), 
+          elevation: 0,
         ),
       ),
 
@@ -171,7 +171,7 @@ class AppTheme {
               letterSpacing: 1.0),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: const BeveledRectangleBorder(
-              borderRadius: BorderRadius.zero), // Sharp edges
+              borderRadius: BorderRadius.all(Radius.circular(4))),
         ),
       ),
 
@@ -189,14 +189,17 @@ class AppTheme {
             fontFamily: fontDisplay,
             fontSize: 14,
             letterSpacing: 0.5),
-        border: const UnderlineInputBorder(
+        border: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero, // Sharp edges for inputs
           borderSide: BorderSide(color: fhBorderColor, width: 1.0),
         ),
-        enabledBorder: const UnderlineInputBorder(
+        enabledBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
           borderSide: BorderSide(color: fhBorderColor, width: 1.0),
         ),
-        focusedBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: primaryAccent, width: 2.0),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(color: primaryAccent, width: 1.0),
         ),
       ),
 
@@ -211,7 +214,7 @@ class AppTheme {
         contentTextStyle: const TextStyle(
             fontFamily: fontBody, color: fhTextSecondary, fontSize: 14),
         shape: BeveledRectangleBorder(
-            borderRadius: BorderRadius.circular(2.0),
+            borderRadius: BorderRadius.circular(4.0),
             side: BorderSide(
                 color: fhBorderColor.withValues(alpha: 0.5), width: 1)),
         elevation: 8,

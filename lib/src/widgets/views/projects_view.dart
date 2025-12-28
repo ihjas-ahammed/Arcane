@@ -9,7 +9,7 @@ import 'package:arcane/src/widgets/ui/completed_projects_section.dart';
 import 'package:arcane/src/widgets/sheets/create_project_sheet.dart';
 import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart';
 import 'package:arcane/src/widgets/views/ai_prompts_view.dart';
-import 'package:arcane/src/screens/project_detail_screen.dart'; // Import detail screen
+import 'package:arcane/src/screens/project_detail_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -53,9 +53,10 @@ class ProjectsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Section
-          Text("Welcome Back!",
+          Text("PROJECT PROTOCOLS",
               style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+                  ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.5)),
+          const Text("ACTIVE OPERATIONS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 2.0, fontWeight: FontWeight.bold)),
 
           const SizedBox(height: 24),
 
@@ -67,11 +68,11 @@ class ProjectsView extends StatelessWidget {
           // Ongoing Projects Header
           Row(
             children: [
-              Icon(MdiIcons.fire, color: AppTheme.fhAccentOrange, size: 20),
+              Container(width: 4, height: 16, color: AppTheme.fhAccentOrange),
               const SizedBox(width: 8),
-              Text("Ongoing Projects",
+              Text("ONGOING OPS",
                   style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+                      ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
             ],
           ),
           const SizedBox(height: 16),
@@ -82,8 +83,7 @@ class ProjectsView extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.fhBgDark.withValues(alpha: 0.5),
                   border: Border.all(
                     color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
                   )),
@@ -95,12 +95,12 @@ class ProjectsView extends StatelessWidget {
                     color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(height: 12),
-                  const Text("No active projects.",
-                      style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const Text("NO ACTIVE PROJECTS",
+                      style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => _showCreateProjectSheet(context),
-                    child: const Text("Create your first project"),
+                    child: const Text("INITIALIZE NEW PROJECT", style: TextStyle(color: AppTheme.fhAccentTeal)),
                   )
                 ],
               ),
@@ -114,7 +114,6 @@ class ProjectsView extends StatelessWidget {
                 final item = ongoingProjects[index];
                 return GestureDetector(
                   onTap: () {
-                    // Push to Detail Screen
                     Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -139,42 +138,39 @@ class ProjectsView extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Quick Actions
-          Text("Quick Actions",
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Container(width: 4, height: 16, color: AppTheme.fhAccentTeal),
+              const SizedBox(width: 8),
+              Text("QUICK ACTIONS",
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
+            ],
+          ),
           const SizedBox(height: 16),
 
-          // Primary Create Button
+          // Primary Create Button (Valorant Style)
           GestureDetector(
             onTap: () => _showCreateProjectSheet(context),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF4A90E2),
-                      Color(0xFF9013FE)
-                    ], // Blue to Purple gradient
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                        color: const Color(0xFF9013FE).withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4))
-                  ]),
+                  color: AppTheme.fhAccentRed,
+                  borderRadius: BorderRadius.circular(0), // Sharp edges
+                  border: Border.all(color: AppTheme.fhAccentRed.withValues(alpha: 0.5))
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(MdiIcons.plus, color: Colors.white),
                   const SizedBox(width: 8),
-                  const Text("Create New Project",
+                  const Text("CREATE NEW PROJECT",
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontFamily: AppTheme.fontDisplay,
+                          letterSpacing: 1.5,
                           fontSize: 16)),
                 ],
               ),
@@ -189,7 +185,7 @@ class ProjectsView extends StatelessWidget {
               Expanded(
                 child: QuickActionCard(
                   icon: MdiIcons.robotOutline,
-                  label: "AI Prompts",
+                  label: "AI PROMPTS",
                   onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -200,14 +196,14 @@ class ProjectsView extends StatelessWidget {
               Expanded(
                 child: QuickActionCard(
                   icon: MdiIcons.targetVariant,
-                  label: "Link Task",
+                  label: "LINK TASK",
                   onTap: () => _showLinkSubmissionSheet(context),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 80), // Bottom padding for scroll
+          const SizedBox(height: 80), 
         ],
       ),
     );

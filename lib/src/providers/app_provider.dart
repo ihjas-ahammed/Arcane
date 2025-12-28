@@ -1,3 +1,4 @@
+// [EXISTING IMPORTS]
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
@@ -13,7 +14,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/value_models.dart'; // Import new model
+import 'package:arcane/src/models/value_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -22,6 +23,7 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
+  // ... [KEEP ALL EXISTING VARIABLES AND GETTERS] ...
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
@@ -46,13 +48,11 @@ class AppProvider with ChangeNotifier {
       initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
   Map<String, dynamic> _completedByDay = {};
 
-  // Skills and Reflections
   List<Skill> _skills = [];
   List<Skill> get skills => _skills;
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
-  // Values System
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
 
@@ -95,13 +95,14 @@ class AppProvider with ChangeNotifier {
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
 
+  // ... [KEEP CONSTRUCTOR AND INIT] ...
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _initializeSkills();
-    _initializeValues(); // Init values
+    _initializeValues();
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -112,6 +113,7 @@ class AppProvider with ChangeNotifier {
     });
   }
 
+  // ... [KEEP ALL EXISTING METHODS UNTIL saveDailySummary] ...
   void setLoadingTask(String? taskName) {
     if (_loadingTaskName != taskName) {
       _loadingTaskName = taskName;
@@ -151,8 +153,6 @@ class AppProvider with ChangeNotifier {
   }
 
   void _initializeValues() {
-    // If empty, load defaults. If partially loaded (from JSON), we might need to merge or reset.
-    // The JSON loading logic will overwrite this if data exists.
     if (_lifeValues.isEmpty) {
       _lifeValues = LifeValue.getDefaults();
     }
@@ -229,6 +229,7 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ... [KEEP SAVE/LOAD STATE LOGIC] ...
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -244,7 +245,7 @@ class AppProvider with ChangeNotifier {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(), // Save Values
+      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
     };
   }
 
@@ -272,6 +273,7 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
+        // Ensure aiSummary key exists if present in data, otherwise it's null/absent
       }
     });
 
@@ -315,7 +317,6 @@ class AppProvider with ChangeNotifier {
           .toList();
     }
 
-    // Load Life Values
     if (data['lifeValues'] != null && data['lifeValues'] is List) {
       _lifeValues = (data['lifeValues'] as List)
           .where((v) => v != null && v is Map<String, dynamic>)
@@ -324,9 +325,7 @@ class AppProvider with ChangeNotifier {
     } else {
       _initializeValues();
     }
-    // Ensure we have all default values even if loading old data
     if (_lifeValues.length < 10) {
-      // Merge logic: Add missing defaults
       final defaults = LifeValue.getDefaults();
       for (var def in defaults) {
         if (!_lifeValues.any((v) => v.id == def.id)) {
@@ -337,7 +336,6 @@ class AppProvider with ChangeNotifier {
 
     _isChatbotMemoryInitialized = true;
 
-    // --- MIGRATION LOGIC (Minutes -> Seconds) ---
     if (_settings.dataVersion < 1) {
       _migrateDataToSeconds();
       _settings.dataVersion = 1;
@@ -348,12 +346,9 @@ class AppProvider with ChangeNotifier {
 
   void _migrateDataToSeconds() {
     List<MainTask> migratedTasks = [];
-
-    // 1. Migrate Main Tasks & Subtasks
     for (var task in _mainTasks) {
       int newTaskTotalTime = 0;
       List<SubTask> migratedSubtasks = [];
-
       for (var sub in task.subTasks) {
         int newSubTime = 0;
         if (sub.sessions.isNotEmpty) {
@@ -365,7 +360,6 @@ class AppProvider with ChangeNotifier {
             newSubTime = sub.currentTimeSpent * 60;
           }
         }
-
         migratedSubtasks.add(SubTask(
           id: sub.id,
           name: sub.name,
@@ -380,13 +374,11 @@ class AppProvider with ChangeNotifier {
         ));
         newTaskTotalTime += newSubTime;
       }
-
       migratedTasks.add(task.copyWith(
           subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
     }
     _mainTasks = migratedTasks;
 
-    // 2. Migrate Daily History (_completedByDay)
     Map<String, dynamic> migratedHistory = {};
     _completedByDay.forEach((dateKey, dayData) {
       if (dayData is Map<String, dynamic>) {
@@ -409,6 +401,7 @@ class AppProvider with ChangeNotifier {
     _completedByDay = migratedHistory;
   }
 
+  // ... [KEEP ALL OTHER METHODS: reset, save, load, login, signup, etc.] ...
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -423,7 +416,7 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = ChatbotMemory();
     _isChatbotMemoryInitialized = true;
     _initializeSkills();
-    _initializeValues(); // Reset values to default
+    _initializeValues();
     _reflectionLogs = [];
     _hasUnsavedChanges = true;
   }
@@ -665,8 +658,36 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Values System Logic ---
+  // --- NEW: Daily Summary Management ---
+  
+  void saveDailySummary(String date, String summary) {
+    if (!_completedByDay.containsKey(date)) {
+      _completedByDay[date] = {};
+    }
+    if (_completedByDay[date] is! Map) {
+       _completedByDay[date] = <String, dynamic>{};
+    }
+    _completedByDay[date]['aiSummary'] = summary;
+    _hasUnsavedChanges = true;
+    notifyListeners();
+  }
 
+  void deleteDailySummary(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      _completedByDay[date].remove('aiSummary');
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    }
+  }
+
+  String? getDailySummary(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      return _completedByDay[date]['aiSummary'] as String?;
+    }
+    return null;
+  }
+
+  // ... [KEEP REST OF METHODS] ...
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
@@ -794,7 +815,7 @@ class AppProvider with ChangeNotifier {
       final dataContext = _buildUserDataContext();
 
       final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels, // Chatbot uses Lite
+        modelCandidates: settings.liteModels,
         memory: _chatbotMemory,
         userMessage: userMessageText,
         dataContext: dataContext,
@@ -833,7 +854,6 @@ class AppProvider with ChangeNotifier {
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
-  // Returns total XP gained for a skill in the last 7 days to show momentum
   int get7DaySkillMomentum(String skillName) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
@@ -872,7 +892,7 @@ class AppProvider with ChangeNotifier {
       trigger: trigger,
       emotion: emotion,
       reason: reason,
-      modelCandidates: settings.liteModels, // Reflection uses Lite (Insights)
+      modelCandidates: settings.liteModels,
       dailyReflections: dailyReflections,
       customApiKey: settings.customApiKey,
       systemInstruction: settings.customReflectionPrompt,
@@ -1049,7 +1069,6 @@ class AppProvider with ChangeNotifier {
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
 
-  // Delegated Session Methods
   void addSessionToSubtask(
           String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
       _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);

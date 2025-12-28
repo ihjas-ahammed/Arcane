@@ -19,7 +19,7 @@ class ValorantButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? (isPrimary ? AppTheme.fhAccentRed : AppTheme.fhBgDark);
+    final effectiveColor = color ?? (isPrimary ? AppTheme.fhAccentRed : Colors.transparent);
     final textColor = isPrimary ? AppTheme.fhTextPrimary : AppTheme.fhTextPrimary;
     final borderColor = isPrimary ? Colors.transparent : AppTheme.fhBorderColor;
 
@@ -30,13 +30,13 @@ class ValorantButton extends StatelessWidget {
         foregroundColor: textColor,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        shape: const BeveledRectangleBorder(
-          side: BorderSide(width: 1), // Will be overridden by style logic if needed
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(6),
-            bottomRight: Radius.circular(6)
+        shape: BeveledRectangleBorder(
+          side: BorderSide(color: borderColor, width: 1),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8)
           )
-        ).copyWith(side: BorderSide(color: borderColor, width: 1)),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

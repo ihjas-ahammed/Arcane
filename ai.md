@@ -2,12 +2,14 @@ Make the following changes:
 
   * update the design based on VALORANT
       You have been given a sample screenshoot from the game ui, inspire from it and apply to the following screen and widgets in the screen
-         - Values Screen
+         - Projects Screen
+         - Project Detail Screen 
+         - AI prompts screen
 
    * Fix: 
-      - retrieve the overall reflection summary feature for day using ai
-      - the inspect day selector must only be enabled for days that actaully have logs in it
-      - improve bottom navbar, it overflows with labels and icons in some devices
+      - Make it possible to generate tactical briefing for all days
+         - Save them to db after generation
+         - Add button to delete them if needed
 
 Remember this is a major update so clearly focus on impilemneting this on given screens
 This is only a design update so do not effect major functioning of app, make it work as it used to be, what we are applying is a seasonal theme update

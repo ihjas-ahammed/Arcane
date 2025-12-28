@@ -9,6 +9,7 @@ class ValorantCard extends StatelessWidget {
   final VoidCallback? onTap;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
+  final double cornerCut;
 
   const ValorantCard({
     super.key,
@@ -19,6 +20,7 @@ class ValorantCard extends StatelessWidget {
     this.onTap,
     this.padding,
     this.margin,
+    this.cornerCut = 12.0, // Size of the corner cut
   });
 
   @override
@@ -36,10 +38,10 @@ class ValorantCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           // Custom shape for ink splash to match beveled border
-          customBorder: const BeveledRectangleBorder(
+          customBorder: BeveledRectangleBorder(
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(8),
-              bottomRight: Radius.circular(8),
+              topLeft: Radius.circular(cornerCut),
+              bottomRight: Radius.circular(cornerCut),
             ),
           ),
           child: Container(
@@ -51,24 +53,30 @@ class ValorantCard extends StatelessWidget {
                   color: effectiveBorderColor,
                   width: isSelected ? 1.5 : 1.0,
                 ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  bottomRight: Radius.circular(8),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(cornerCut),
+                  bottomRight: Radius.circular(cornerCut),
                 ),
               ),
             ),
             child: Stack(
               children: [
                 child,
-                // Decorative corner accents for selected state
+                // Decorative squares for selected/active state
                 if (isSelected) ...[
                   Positioned(
                     top: 0, left: 0,
-                    child: Container(width: 8, height: 8, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
                   ),
                   Positioned(
                     bottom: 0, right: 0,
-                    child: Container(width: 8, height: 8, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                  ),
+                ] else ...[
+                   // Subtle decoration for normal state
+                   Positioned(
+                    top: 0, left: 0,
+                    child: Container(width: 4, height: 4, color: AppTheme.fhBorderColor),
                   ),
                 ]
               ],

@@ -18,15 +18,15 @@ class SavedPromptsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Saved Prompts",
+        Text("SAVED LOGS",
             style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold)),
+                ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
         const SizedBox(height: 12),
         if (savedPrompts.isEmpty)
           const Center(
               child: Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text("No saved prompts yet.",
+            child: Text("NO SAVED PROMPTS FOUND.",
                 style: TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontStyle: FontStyle.italic)),
@@ -42,7 +42,6 @@ class SavedPromptsList extends StatelessWidget {
               return Container(
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
-                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                       color: AppTheme.fhBorderColor.withOpacity(0.2)),
                 ),
@@ -52,7 +51,7 @@ class SavedPromptsList extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 13, color: AppTheme.fhTextPrimary),
+                        fontSize: 12, color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
                   ),
                   onTap: () => onSelect(prompt),
                   trailing: IconButton(

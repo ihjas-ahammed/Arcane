@@ -6762,17 +6762,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: BottomNavigationBar(
             backgroundColor: AppTheme.fhBgDeepDark,
-            selectedItemColor: AppTheme.fhAccentRed, // Valorant Red for active
+            selectedItemColor: AppTheme.fhAccentRed,
             unselectedItemColor: AppTheme.fhTextSecondary,
             selectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
+              fontSize: 10, // Reduced font size
             ),
             unselectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               letterSpacing: 0.5,
+              fontSize: 10, // Reduced font size
             ),
+            // Fix overflow by hiding labels on unselected items on small screens if needed,
+            // or just rely on fixed type with smaller fonts.
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
             items: <BottomNavigationBarItem>[
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.targetAccount),
@@ -6795,10 +6803,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'SYSTEM',
               ),
             ],
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            type: BottomNavigationBarType.fixed,
-            elevation: 0,
           ),
         ),
       ),
@@ -8042,6 +8046,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -8062,145 +8067,198 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final value = provider.lifeValues.firstWhere((v) => v.id == widget.valueId);
+    final Color scoreColor = _getScoreColor(value.score);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        elevation: 0,
-        title: Text(value.title.toUpperCase(),
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: _getScoreColor(value.score).withValues(alpha: 0.5)),
-            ),
-            child: Center(
-              child: Text(
-                "${value.score}%",
-                style: TextStyle(
-                  color: _getScoreColor(value.score),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 80),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- HEADER ---
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
+              decoration: const BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: AppTheme.fhBorderColor, width: 1.0)),
               ),
               child: Row(
                 children: [
-                  Icon(value.icon, size: 40, color: AppTheme.fhAccentTeal),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back,
+                        color: AppTheme.fhTextPrimary),
+                  ),
+                  const SizedBox(width: 16),
+                  Text("${value.title.toUpperCase()}",
+                      style: const TextStyle(
+                          fontFamily: AppTheme.fontDisplay,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: AppTheme.fhTextPrimary)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: scoreColor),
+                      color: scoreColor.withOpacity(0.1),
+                    ),
+                    child: Text("${value.score}%",
+                        style: TextStyle(
+                            color: scoreColor,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay)),
+                  )
+                ],
+              ),
+            ),
+
+            // --- CONTENT ---
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Description Box
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark,
+                        border: const Border(
+                            left: BorderSide(
+                                color: AppTheme.fhAccentTeal, width: 4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(value.icon,
+                                  color: AppTheme.fhAccentTeal, size: 28),
+                              const SizedBox(width: 12),
+                              Text("PROTOCOL DESCRIPTION",
+                                  style: TextStyle(
+                                      color: AppTheme.fhTextSecondary
+                                          .withOpacity(0.7),
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                      fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            value.description,
+                            style: const TextStyle(
+                                color: AppTheme.fhTextPrimary,
+                                height: 1.5,
+                                fontSize: 15),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Questions Header
+                    Row(
+                      children: [
+                        Container(width: 8, height: 8, color: AppTheme.fhAccentRed),
+                        const SizedBox(width: 8),
+                        Text("Analysis Questions",
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                    color: AppTheme.fhTextPrimary,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    letterSpacing: 1.5)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Questions List
+                    ...value.questions.map((q) =>
+                        _buildQuestionCard(context, provider, value.id, q)),
+
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+
+            // --- FOOTER ACTIONS ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.fhBgDeepDark,
+                border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ValorantButton(
+                      label: _isAnalyzing ? "WAIT" : "ANALYZE",
+                      isPrimary: false,
+                      icon: MdiIcons.chartLine,
+                      onPressed: _isAnalyzing
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              setState(() => _isAnalyzing = true);
+                              try {
+                                await provider.analyzeValueAlignment(value.id);
+                                if (!mounted) return;
+                                messenger.showSnackBar(const SnackBar(
+                                    content: Text("Alignment Score Updated!")));
+                              } catch (e) {
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                    SnackBar(content: Text("Error: $e")));
+                              } finally {
+                                if (mounted)
+                                  setState(() => _isAnalyzing = false);
+                              }
+                            },
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      value.description,
-                      style: const TextStyle(
-                          color: AppTheme.fhTextSecondary, fontSize: 14),
+                    child: ValorantButton(
+                      label: _isGenerating ? "WAIT" : "GET TASK",
+                      isPrimary: true,
+                      icon: MdiIcons.robotHappy,
+                      onPressed: _isGenerating
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              setState(() => _isGenerating = true);
+                              final currentContext = context;
+                              try {
+                                final tasks = await provider
+                                    .generateTasksFromValue(value.id);
+                                if (!mounted) return;
+                                showDialog(
+                                  context: currentContext,
+                                  builder: (ctx) => ValueTaskGenerationDialog(
+                                      generatedTasks: tasks),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                    SnackBar(content: Text("Error: $e")));
+                              } finally {
+                                if (mounted)
+                                  setState(() => _isGenerating = false);
+                              }
+                            },
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Text("Reflective Questions",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.fhTextPrimary,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ...value.questions
-                .map((q) => _buildQuestionCard(context, provider, value.id, q)),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FloatingActionButton.extended(
-              heroTag: 'btn1',
-              onPressed: _isAnalyzing
-                  ? null
-                  : () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      setState(() => _isAnalyzing = true);
-                      try {
-                        await provider.analyzeValueAlignment(value.id);
-                        if (!mounted) return;
-                        messenger.showSnackBar(const SnackBar(
-                            content: Text("Alignment Score Updated!")));
-                      } catch (e) {
-                        if (!mounted) return;
-                        messenger
-                            .showSnackBar(SnackBar(content: Text("Error: $e")));
-                      } finally {
-                        if (mounted) setState(() => _isAnalyzing = false);
-                      }
-                    },
-              backgroundColor: AppTheme.fhBgMedium,
-              label: _isAnalyzing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text("Analyze"),
-              icon: Icon(MdiIcons.chartLine),
-            ),
-            const SizedBox(width: 16),
-            FloatingActionButton.extended(
-              heroTag: 'btn2',
-              onPressed: _isGenerating
-                  ? null
-                  : () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      setState(() => _isGenerating = true);
-                      final currentContext = context;
-                      try {
-                        final tasks =
-                            await provider.generateTasksFromValue(value.id);
-                        if (!mounted) return;
-                        showDialog(
-                          context: currentContext,
-                          builder: (ctx) =>
-                              ValueTaskGenerationDialog(generatedTasks: tasks),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        messenger
-                            .showSnackBar(SnackBar(content: Text("Error: $e")));
-                      } finally {
-                        if (mounted) setState(() => _isGenerating = false);
-                      }
-                    },
-              backgroundColor: AppTheme.fhAccentPurple,
-              label: _isGenerating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text("Generate Actions"),
-              icon: Icon(MdiIcons.robotHappy),
             ),
           ],
         ),
@@ -8212,33 +8270,41 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
       String valueId, ValueQuestion q) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+        color: AppTheme.fhBgDark.withOpacity(0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(q.question,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
+          Text(
+            q.question,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextSecondary,
+                fontSize: 12,
+                letterSpacing: 0.5),
+          ),
           const SizedBox(height: 12),
           TextFormField(
             initialValue: q.answer,
             maxLines: null,
-            style: const TextStyle(color: AppTheme.fhTextSecondary),
-            decoration: const InputDecoration(
-              hintText: "Type your answer here...",
+            style: const TextStyle(
+                color: AppTheme.fhTextPrimary,
+                fontFamily: 'RobotoMono',
+                fontSize: 14),
+            decoration: InputDecoration(
+              hintText: "INPUT DATA...",
+              hintStyle:
+                  TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5)),
               border: InputBorder.none,
               filled: true,
-              fillColor: AppTheme.fhBgDeepDark,
-              contentPadding: EdgeInsets.all(12),
+              fillColor: Colors.black.withOpacity(0.2),
+              contentPadding: const EdgeInsets.all(12),
+              isDense: true,
             ),
             onChanged: (val) {
-              // Debounce could be added here for performance
               provider.updateValueAnswer(valueId, q.id, val);
             },
           )
@@ -8248,7 +8314,7 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
   }
 
   Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 80) return AppTheme.fhAccentTeal;
     if (score >= 50) return AppTheme.fhAccentGold;
     return AppTheme.fhAccentRed;
   }
@@ -8260,8 +8326,8 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/life_value_card.dart';
 import 'package:arcane/src/screens/value_detail_screen.dart';
+import 'package:arcane/src/widgets/valorant/valorant_value_card.dart'; // New Widget
 import 'package:provider/provider.dart';
 
 class ValuesScreen extends StatelessWidget {
@@ -8274,33 +8340,72 @@ class ValuesScreen extends StatelessWidget {
 
     return Container(
       color: AppTheme.fhBgDeepDark,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.9,
-        ),
-        itemCount: values.length,
-        itemBuilder: (context, index) {
-          final value = values[index];
-          return LifeValueCard(
-            value: value,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ValueDetailScreen(valueId: value.id),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header resembling Agent Select
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "SELECT PROTOCOL",
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontDisplay,
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.fhTextPrimary,
+                    height: 0.9,
+                    letterSpacing: 2.0
+                  ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(height: 8),
+                Text(
+                  "DEFINE YOUR CORE DRIVERS // ALIGN YOUR ACTIONS",
+                  style: TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75, // Taller cards for agent look
+              ),
+              itemCount: values.length,
+              itemBuilder: (context, index) {
+                final value = values[index];
+                return ValorantValueCard(
+                  value: value,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ValueDetailScreen(valueId: value.id),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
 --- END OF FILE lib/src/screens/values_screen.dart ---
 
 --- START OF FILE lib/src/services/ai_service.dart ---
@@ -9754,7 +9859,7 @@ class SkillsDrawer extends StatelessWidget {
                   children: [
                     Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 28),
                     const SizedBox(width: 12),
-                    Text("ARMORY", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
+                    Text("VIRTUE", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -10057,7 +10162,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("AGENTS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+                Text("PROTOCOLS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
                 const SizedBox(height: 4),
                 Text("SELECT MISSION PROFILE", style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 2.0)),
               ],
@@ -10955,6 +11060,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 
+// REPLACED BY ValorantValueCard BUT KEPT FOR BACKWARD COMPATIBILITY OR REFERENCE
 class LifeValueCard extends StatelessWidget {
   final LifeValue value;
   final VoidCallback onTap;
@@ -10963,6 +11069,10 @@ class LifeValueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Redirect to the new design
+    // Ideally, this file should be deleted or completely replaced.
+    // For now, I'll return the old design but with updated colors just in case it's used elsewhere.
+    
     final double progress = value.score / 100.0;
     
     return GestureDetector(
@@ -10972,13 +11082,6 @@ class LifeValueCard extends StatelessWidget {
           color: AppTheme.fhBgDark,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ]
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -11011,15 +11114,6 @@ class LifeValueCard extends StatelessWidget {
                 fontSize: 14,
                 color: AppTheme.fhTextPrimary,
                 letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "${value.score}% Aligned",
-              style: TextStyle(
-                color: _getScoreColor(value.score),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -12892,7 +12986,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
                   ),
                   const SizedBox(width: 8),
-                  const Text("DEBRIEF // LOG ENTRY", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
+                  const Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
                 ],
               ),
             ),
@@ -12902,17 +12996,17 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  _buildSectionHeader("SITUATION REPORT"),
+                  _buildSectionHeader("SITUATION"),
                   _buildValorantInput(_triggerController, "What triggered this event?", 2),
                   
                   const SizedBox(height: 24),
                   
-                  _buildSectionHeader("INTERNAL STATE"),
+                  _buildSectionHeader("FEELING"),
                   _buildValorantInput(_emotionController, "Emotion felt...", 1),
 
                   const SizedBox(height: 24),
 
-                  _buildSectionHeader("TACTICAL ANALYSIS"),
+                  _buildSectionHeader("CAUSE"),
                   _buildValorantInput(_reasonController, "Why did this happen? Root cause...", 5),
 
                   const SizedBox(height: 40),
@@ -12929,7 +13023,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ValorantButton(
-                          label: _isLoading ? "PROCESSING..." : "CONFIRM LOG",
+                          label: _isLoading ? "PROCESSING..." : "CONFIRM",
                           isPrimary: true,
                           onPressed: _isLoading ? null : _saveReflection,
                         ),
@@ -16319,6 +16413,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/widgets/dialogs/edit_log_dialog.dart';
 import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
@@ -16328,6 +16423,7 @@ import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -16344,6 +16440,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   String? _selectedTaskFilter;
   String? _selectedVirtueFilter;
+  bool _isGeneratingSummary = false;
+  String? _aiDailySummary;
 
   @override
   void didChangeDependencies() {
@@ -16352,7 +16450,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final availableDates = appProvider.completedByDay.keys.toList();
     availableDates.sort((a, b) => b.compareTo(a));
     if (_selectedDate == null) {
-      // Default to today if available, or most recent
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       _selectedDate = availableDates.contains(today) ? today : (availableDates.isNotEmpty ? availableDates.first : today);
     }
@@ -16380,37 +16477,41 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       }
       return;
     }
-    // Generic edit logic if needed for other types
   }
 
   Future<void> _pickDate(BuildContext context) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final availableDates = appProvider.completedByDay.keys.map((d) => DateTime.tryParse(d)).whereType<DateTime>().toList();
     
-    // Sort logic
-    DateTime firstDate = DateTime(2023); 
-    if (availableDates.isNotEmpty) {
-      availableDates.sort();
-      if (availableDates.first.isBefore(firstDate)) firstDate = availableDates.first;
+    // Create a Set of valid dates for O(1) lookup
+    final validDates = appProvider.completedByDay.keys.toSet();
+    // Also include days with reflection logs even if no tasks
+    for (var log in appProvider.reflectionLogs) {
+      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
+    // Always include today
+    validDates.add(DateFormat('yyyy-MM-dd').format(DateTime.now()));
 
     final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
 
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: firstDate,
+      firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 1)),
+      selectableDayPredicate: (DateTime date) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
+      },
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
+            colorScheme: const ColorScheme.dark(
               primary: AppTheme.fhAccentTeal,
               onPrimary: AppTheme.fhTextPrimary,
               surface: AppTheme.fhBgDark,
               onSurface: AppTheme.fhTextPrimary,
             ),
-            dialogTheme: DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
           ),
           child: child!,
         );
@@ -16420,14 +16521,48 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     if (picked != null) {
       setState(() {
         _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+        _aiDailySummary = null; // Reset summary on date change
       });
+    }
+  }
+
+  Future<void> _generateDailySummary(AppProvider provider, List<ReflectionLog> logs) async {
+    if (logs.isEmpty) return;
+    setState(() => _isGeneratingSummary = true);
+    
+    try {
+      final aiService = AIService();
+      final summary = await aiService.generateDailySummary(
+        reflections: logs.map((l) => {
+          'trigger': l.trigger,
+          'emotion': l.emotion,
+          'reason': l.reason,
+        }).toList(),
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKey: provider.settings.customApiKey,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _aiDailySummary = summary;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate summary: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingSummary = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
+    // final theme = Theme.of(context);
 
     // Prepare Data
     final chartData = ChartDataHelper.prepareWeeklyData(
@@ -16437,7 +16572,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       _selectedVirtueFilter
     );
 
-    // Current Day Data
     final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
 
     Map<String, dynamic> taskTimes = {};
@@ -16470,7 +16604,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         children: [
           // --- Carousel (Restored Swipe Style) ---
           ChartCarousel(
-            height: 250, // Slightly taller for bar labels
+            height: 250,
             pages: [
               ChartCarouselData(
                 title: "7-DAY PERFORMANCE",
@@ -16491,7 +16625,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- Date Picker (Fixed for Older Archives) ---
+          // --- Date Picker (Fixed) ---
           InkWell(
             onTap: () => _pickDate(context),
             child: Container(
@@ -16499,7 +16633,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 border: Border.all(color: AppTheme.fhBorderColor),
-                borderRadius: BorderRadius.zero, // Valorant Sharp
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -16513,13 +16646,60 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       color: AppTheme.fhTextSecondary
                     )
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTeal),
+                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 18),
                 ],
               ),
             ),
           ),
 
           const SizedBox(height: 24),
+
+          // --- AI Daily Briefing Section ---
+          if (reflectionsForDate.isNotEmpty) ...[
+            ValorantCard(
+              borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.robotExcitedOutline, color: AppTheme.fhAccentPurple, size: 20),
+                      const SizedBox(width: 8),
+                      const Text("TACTICAL BRIEFING", style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay, 
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: AppTheme.fhTextPrimary
+                      )),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_aiDailySummary != null)
+                    Text(
+                      _aiDailySummary!,
+                      style: const TextStyle(color: AppTheme.fhTextSecondary, height: 1.4),
+                    )
+                  else
+                    const Text(
+                      "Generate an AI analysis of today's logs to reveal hidden patterns and actionable intel.",
+                      style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  const SizedBox(height: 16),
+                  if (_aiDailySummary == null)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ValorantButton(
+                        label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
+                        isPrimary: false,
+                        color: AppTheme.fhAccentPurple.withOpacity(0.2),
+                        onPressed: _isGeneratingSummary ? null : () => _generateDailySummary(appProvider, reflectionsForDate),
+                      ),
+                    )
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // --- Daily Breakdown (Pie Charts) ---
           Row(
@@ -18084,6 +18264,178 @@ class ValorantButton extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/valorant/valorant_button.dart ---
+
+--- START OF FILE lib/src/widgets/valorant/valorant_value_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class ValorantValueCard extends StatelessWidget {
+  final LifeValue value;
+  final VoidCallback onTap;
+
+  const ValorantValueCard({super.key, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accentColor = _getScoreColor(value.score);
+    final bool isAligned = value.score >= 80;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipPath(
+        clipper: const _BeveledClipper(),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark,
+            border: Border(
+              bottom: BorderSide(color: accentColor, width: 3), // Color bar at bottom
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Background Image / Pattern (Placeholder)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.05,
+                  child: Image.network(
+                    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80",
+                    fit: BoxFit.cover,
+                    errorBuilder: (c,e,s) => Container(),
+                  ),
+                ),
+              ),
+              
+              // Decorative Border Outline
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _BorderPainter(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                ),
+              ),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Icon Top Right
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Icon(value.icon, color: accentColor, size: 24),
+                    ),
+                    
+                    const Spacer(),
+                    
+                    // Title
+                    Text(
+                      value.title.toUpperCase(),
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.fhTextPrimary,
+                        letterSpacing: 1.0,
+                        height: 0.9,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // Score / Status
+                    Row(
+                      children: [
+                        Container(
+                          width: 6, height: 6,
+                          color: accentColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isAligned ? "ALIGNED" : "PENDING",
+                          style: TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          "${value.score}%",
+                          style: TextStyle(
+                            color: accentColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontFamily: AppTheme.fontDisplay
+                          ),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentTeal;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
+}
+
+class _BeveledClipper extends CustomClipper<Path> {
+  const _BeveledClipper();
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    const cut = 16.0;
+    
+    path.moveTo(0, 0); // Top Left
+    path.lineTo(size.width, 0); // Top Right
+    path.lineTo(size.width, size.height - cut); // Right side down to cut
+    path.lineTo(size.width - cut, size.height); // Cut Bottom Right
+    path.lineTo(0, size.height); // Bottom Left
+    path.close();
+    
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _BorderPainter extends CustomPainter {
+  final Color color;
+  _BorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    const cut = 16.0;
+    final path = Path();
+    path.moveTo(0, 0);
+    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height - cut);
+    path.lineTo(size.width - cut, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+--- END OF FILE lib/src/widgets/valorant/valorant_value_card.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

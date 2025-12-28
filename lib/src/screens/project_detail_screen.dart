@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/project_progress_header_card.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
-import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; // Import unified dialogs
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -20,7 +20,6 @@ class ProjectDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
 
     // Ensure we are working with the latest data from provider
@@ -29,8 +28,11 @@ class ProjectDetailScreen extends StatelessWidget {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
       currentProject = task.projects.firstWhere((p) => p.id == project.id);
     } catch (e) {
-      // Fallback if project was deleted while viewing
+      // Fallback
     }
+
+    final double progress = currentProject.calculateProgress();
+    final int percentage = (progress * 100).toInt();
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
@@ -38,13 +40,12 @@ class ProjectDetailScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // EDIT PROJECT BUTTON
           IconButton(
-            icon: Icon(MdiIcons.pencilOutline, size: 20),
+            icon: Icon(MdiIcons.pencilOutline, size: 20, color: Colors.white),
             tooltip: "Edit Project Details",
             onPressed: () async {
               final result = await showDialog<Map<String, String>>(
@@ -73,67 +74,101 @@ class ProjectDetailScreen extends StatelessWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Section
+            // Title Section (Agent Detail Style)
             Text(
-              currentProject.title,
-              style: theme.textTheme.headlineMedium?.copyWith(
+              "PROJECT // PROTOCOL",
+              style: TextStyle(
+                color: AppTheme.fhAccentTeal,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextPrimary,
+                letterSpacing: 2.0
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              currentProject.description.isNotEmpty
-                  ? currentProject.description
-                  : "No description provided.",
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppTheme.fhTextSecondary,
-                height: 1.5,
+              currentProject.title.toUpperCase(),
+              style: const TextStyle(
+                fontFamily: AppTheme.fontDisplay,
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+                height: 0.9,
+                letterSpacing: 1.5
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(left: 12),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: AppTheme.fhAccentRed, width: 3))
+              ),
+              child: Text(
+                currentProject.description.isNotEmpty
+                    ? currentProject.description
+                    : "NO DESCRIPTION DATA.",
+                style: const TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  height: 1.5,
+                  fontSize: 14,
+                ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-            // Big Progress Header Card
-            ProjectProgressHeaderCard(project: currentProject),
+            // Progress Stat Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text("COMPLETION STATUS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                Text("$percentage%", style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 32, color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Sharp Progress Bar
+            Container(
+              height: 8,
+              width: double.infinity,
+              color: AppTheme.fhBgDark,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: progress,
+                child: Container(color: AppTheme.fhAccentRed),
+              ),
+            ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
 
             // Steps List Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Root Steps",
-                  style: theme.textTheme.titleMedium?.copyWith(
+                const Text(
+                  "OBJECTIVES",
+                  style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay,
                       fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      letterSpacing: 1.0,
                       color: AppTheme.fhTextPrimary),
                 ),
-                TextButton.icon(
-                  onPressed: () => _showAddRootStepDialog(context, provider),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add Step"),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.fhAccentTeal,
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // Tiny Add Button
+                InkWell(
+                  onTap: () => _showAddRootStepDialog(context, provider),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
+                    child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
                   ),
                 )
               ],
             ),
-            const SizedBox(height: 4),
-            const Text(
-              "Long press to reorder steps.",
-              style: TextStyle(
-                  color: AppTheme.fhTextDisabled,
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             if (currentProject.steps.isEmpty)
               Center(
@@ -141,16 +176,13 @@ class ProjectDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     children: [
-                      Icon(MdiIcons.stairsBox,
+                      Icon(MdiIcons.textLong,
                           size: 48,
-                          color:
-                              AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
+                          color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
                       const SizedBox(height: 16),
-                      Text(
-                        "No steps defined.\nAdd a root step to begin.",
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: AppTheme.fhTextSecondary),
+                      const Text(
+                        "NO OBJECTIVES SET",
+                        style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -168,14 +200,11 @@ class ProjectDetailScreen extends StatelessWidget {
                 proxyDecorator: (child, index, animation) {
                   return Material(
                     color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
                     child: child,
                   );
                 },
                 itemBuilder: (context, index) {
                   final step = currentProject.steps[index];
-                  // Use Key for ReorderableListView
                   return KeyedSubtree(
                     key: ValueKey(step.id),
                     child: ProjectStepListTile(
@@ -188,6 +217,16 @@ class ProjectDetailScreen extends StatelessWidget {
                 },
               ),
 
+            const SizedBox(height: 40),
+            
+            // Generate Steps Button (If empty or want more)
+            ValorantButton(
+              label: "ADD OBJECTIVE",
+              onPressed: () => _showAddRootStepDialog(context, provider),
+              isPrimary: false,
+              icon: Icons.add,
+            ),
+            
             const SizedBox(height: 40),
           ],
         ),
@@ -214,13 +253,13 @@ class ProjectDetailScreen extends StatelessWidget {
         context: context,
         builder: (ctx) => AlertDialog(
               backgroundColor: AppTheme.fhBgMedium,
-              title: const Text("Delete Project?",
-                  style: TextStyle(color: AppTheme.fhTextPrimary)),
+              title: const Text("DELETE PROJECT?",
+                  style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
               content: const Text("This action cannot be undone."),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text("Cancel")),
+                    child: const Text("CANCEL")),
                 ElevatedButton(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.fhAccentRed),
@@ -228,9 +267,9 @@ class ProjectDetailScreen extends StatelessWidget {
                       provider.projectActions
                           .deleteProject(mainTaskId, project.id);
                       Navigator.pop(ctx);
-                      Navigator.pop(context); // Go back to projects view
+                      Navigator.pop(context); 
                     },
-                    child: const Text("Delete"))
+                    child: const Text("DELETE"))
               ],
             ));
   }
