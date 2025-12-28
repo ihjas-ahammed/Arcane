@@ -21,12 +21,11 @@ class ValorantAbilitySlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final borderColor = isActive 
-        ? AppTheme.fhAccentTealFixed 
+    final borderColor = isActive
+        ? AppTheme.fhAccentTealFixed
         : AppTheme.fhBorderColor.withValues(alpha: 0.5);
-    final bgColor = isActive 
-        ? AppTheme.fhAccentTealFixed.withValues(alpha: 0.1) 
+    final bgColor = isActive
+        ? AppTheme.fhAccentTealFixed.withValues(alpha: 0.1)
         : Colors.black.withValues(alpha: 0.3);
 
     return GestureDetector(

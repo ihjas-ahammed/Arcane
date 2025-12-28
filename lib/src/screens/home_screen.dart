@@ -55,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(Provider.of<AppProvider>(context, listen: false));
+    _checkAndPromptForUsername(
+        Provider.of<AppProvider>(context, listen: false));
   }
 
   void _checkAndPromptForUsername(AppProvider appProvider) {
@@ -76,9 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
       BuildContext context, AppProvider appProvider) async {
     final TextEditingController usernameController = TextEditingController();
     final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    final Color currentAccentColor =
-        appProvider.getSelectedTask()?.taskColor ??
-            Theme.of(context).colorScheme.secondary;
+    final Color currentAccentColor = appProvider.getSelectedTask()?.taskColor ??
+        Theme.of(context).colorScheme.secondary;
 
     return showDialog<void>(
       context: context,
@@ -120,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   String newUsername = usernameController.text.trim();
                   Navigator.of(dialogContext).pop();
                   await appProvider.updateUserDisplayName(newUsername);
+                  if (!mounted) return;
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

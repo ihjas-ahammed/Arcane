@@ -117,7 +117,7 @@ class _VirtueCircleState extends State<VirtueCircle>
         margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-            color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+            color: AppTheme.fhBgDeepDark.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.transparent)),
         child: Column(

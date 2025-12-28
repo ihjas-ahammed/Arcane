@@ -3165,6 +3165,337 @@ class TimelineEntry {
 }
 --- END OF FILE lib/src/models/timeline_models.dart ---
 
+--- START OF FILE lib/src/models/value_models.dart ---
+import 'package:flutter/material.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueQuestion {
+  final String id;
+  final String question;
+  String answer;
+
+  ValueQuestion({
+    required this.id,
+    required this.question,
+    this.answer = '',
+  });
+
+  factory ValueQuestion.fromJson(Map<String, dynamic> json) {
+    return ValueQuestion(
+      id: json['id'] as String,
+      question: json['question'] as String,
+      answer: json['answer'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'question': question,
+      'answer': answer,
+    };
+  }
+}
+
+class LifeValue {
+  final String id;
+  final String title;
+  final String description;
+  final int iconCodePoint; // Store icon as int for JSON serialization
+  int score; // 0 to 100 based on AI analysis of answers
+  final List<ValueQuestion> questions;
+
+  LifeValue({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.iconCodePoint,
+    this.score = 0,
+    required this.questions,
+  });
+
+  IconData get icon => IconData(iconCodePoint,
+      fontFamily: 'Material Design Icons',
+      fontPackage: 'material_design_icons_flutter');
+
+  factory LifeValue.fromJson(Map<String, dynamic> json) {
+    return LifeValue(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String? ?? '',
+      iconCodePoint: json['iconCodePoint'] as int,
+      score: json['score'] as int? ?? 0,
+      questions: (json['questions'] as List<dynamic>)
+          .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'iconCodePoint': iconCodePoint,
+      'score': score,
+      'questions': questions.map((q) => q.toJson()).toList(),
+    };
+  }
+
+  // Static definition of the default values hierarchy
+  static List<LifeValue> getDefaults() {
+    return [
+      LifeValue(
+        id: 'family',
+        title: 'Family',
+        description: 'Roles, qualities, and relationships with relatives.',
+        iconCodePoint: MdiIcons.homeHeart.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What sort of brother/sister, son/daughter, father/mother (or other relative) do you want to be?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What personal qualities would you like to bring to these relationships?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'How would you treat others if you were the ‘ideal you’ in these relationships?'),
+          ValueQuestion(
+              id: 'q4',
+              question:
+                  'What sort of ongoing activities do you want to do with your relatives?'),
+          ValueQuestion(
+              id: 'q5',
+              question: 'What sort of relationships do you want to build?'),
+        ],
+      ),
+      LifeValue(
+        id: 'partners',
+        title: 'Partners',
+        description:
+            'Intimacy, shared qualities, and treatment of your partner.',
+        iconCodePoint: MdiIcons.heartOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What sort of partner would you like to be in an intimate relationship?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What personal qualities would you like to develop within this relationship?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'How would you treat your partner if you were the ‘ideal you’ in this relationship?'),
+          ValueQuestion(
+              id: 'q4',
+              question: 'What sort of relationship do you want to build?'),
+          ValueQuestion(
+              id: 'q5',
+              question:
+                  'What sort of ongoing activities do you want to do with your partner?'),
+        ],
+      ),
+      LifeValue(
+        id: 'friendships',
+        title: 'Friendships',
+        description: 'Being a good friend and building social bonds.',
+        iconCodePoint: MdiIcons.accountGroupOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question: 'What does it mean to you to be a good friend?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'If you could be the ‘ideal you’, how would you behave toward your friends?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'What personal qualities would you like to bring to these friendships?'),
+          ValueQuestion(
+              id: 'q4',
+              question: 'What sort of friendships do you want to build?'),
+          ValueQuestion(
+              id: 'q5',
+              question:
+                  'What sort of ongoing activities do you want to do with your friends?'),
+        ],
+      ),
+      LifeValue(
+        id: 'work',
+        title: 'Work',
+        description: 'Professional conduct, relationships, and meaning.',
+        iconCodePoint: MdiIcons.briefcaseOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What sort of worker or employer would you like to be?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What personal qualities would you like to bring to the workplace?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'How would you treat your co-workers if you were the ‘ideal you’?'),
+          ValueQuestion(
+              id: 'q4',
+              question:
+                  'What sort of relationships do you want to build with your colleagues?'),
+          ValueQuestion(
+              id: 'q5',
+              question:
+                  'What sort of ongoing activities do you want to do with your colleagues?'),
+          ValueQuestion(
+              id: 'q6', question: 'What would make your work more meaningful?'),
+        ],
+      ),
+      LifeValue(
+        id: 'education',
+        title: 'Education',
+        description: 'Learning, skills, and intellectual growth.',
+        iconCodePoint: MdiIcons.schoolOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What do you value about learning, education or training?'),
+          ValueQuestion(
+              id: 'q2',
+              question: 'What new skills or knowledge would you like to gain?'),
+          ValueQuestion(
+              id: 'q3',
+              question: 'What further education or training appeals to you?'),
+          ValueQuestion(
+              id: 'q4',
+              question: 'What sort of student/trainee would you like to be?'),
+          ValueQuestion(
+              id: 'q5',
+              question:
+                  'What personal qualities would you like to bring to your studies?'),
+          ValueQuestion(
+              id: 'q6',
+              question:
+                  'What sort of relationships would you like to build with other students?'),
+        ],
+      ),
+      LifeValue(
+        id: 'fun',
+        title: 'Fun',
+        description: 'Hobbies, relaxation, creativity, and leisure.',
+        iconCodePoint: MdiIcons.controllerClassicOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What sorts of hobbies, sports or leisure activities do you want to participate in?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'On an ongoing basis, how do you wish to relax and unwind?'),
+          ValueQuestion(
+              id: 'q3',
+              question: 'On an ongoing basis, how do you wish to have fun?'),
+          ValueQuestion(id: 'q4', question: 'How do you wish to be creative?'),
+          ValueQuestion(
+              id: 'q5',
+              question: 'What sorts of new activities would you like to try?'),
+          ValueQuestion(
+              id: 'q6',
+              question: 'What old activities would you like to take up again?'),
+        ],
+      ),
+      LifeValue(
+        id: 'spirituality',
+        title: 'Spirituality',
+        description: 'Inner life, faith, or philosophical connection.',
+        iconCodePoint: MdiIcons.meditation.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question: 'What is important to you in this area of life?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What spiritual activities would you like to do on an ongoing basis?'),
+        ],
+      ),
+      LifeValue(
+        id: 'community',
+        title: 'Community',
+        description: 'Contribution, volunteering, and civic engagement.',
+        iconCodePoint: MdiIcons.handHeartOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question: 'How would you like to contribute to your community?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What interest groups, charities or political parties would you like to support?'),
+        ],
+      ),
+      LifeValue(
+        id: 'nature',
+        title: 'Nature',
+        description: 'Environment, connection to earth, and surroundings.',
+        iconCodePoint: MdiIcons.treeOutline.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1',
+              question:
+                  'What aspects of nature would you like to connect with?'),
+          ValueQuestion(
+              id: 'q2',
+              question:
+                  'What environments would you like to spend more time in?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'How would you like to care for the variety of environments around you?'),
+          ValueQuestion(
+              id: 'q4',
+              question:
+                  'What activities would you like to do that get you out into nature?'),
+          ValueQuestion(
+              id: 'q5',
+              question:
+                  'What activities would you like to do that alter your environment in creative ways?'),
+        ],
+      ),
+      LifeValue(
+        id: 'health',
+        title: 'Health',
+        description: 'Physical well-being, diet, sleep, and exercise.',
+        iconCodePoint: MdiIcons.runFast.codePoint,
+        questions: [
+          ValueQuestion(
+              id: 'q1', question: 'How would you like to care for your body?'),
+          ValueQuestion(
+              id: 'q2',
+              question: 'What sort of physical health do you want to build?'),
+          ValueQuestion(
+              id: 'q3',
+              question:
+                  'What sort of ongoing activities do you want to do in terms of taking care of your body?'),
+          ValueQuestion(
+              id: 'q4',
+              question:
+                  'How do you want to look after your health with regard to sleep, diet, exercise?'),
+        ],
+      ),
+    ];
+  }
+}
+
+--- END OF FILE lib/src/models/value_models.dart ---
+
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
@@ -3181,6 +3512,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/value_models.dart'; // Import new model
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -3218,6 +3550,10 @@ class AppProvider with ChangeNotifier {
   List<Skill> get skills => _skills;
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+
+  // Values System
+  List<LifeValue> _lifeValues = [];
+  List<LifeValue> get lifeValues => _lifeValues;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
@@ -3264,6 +3600,7 @@ class AppProvider with ChangeNotifier {
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _initializeSkills();
+    _initializeValues(); // Init values
     _initialize();
 
     _periodicUiTimer?.cancel();
@@ -3312,6 +3649,14 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  void _initializeValues() {
+    // If empty, load defaults. If partially loaded (from JSON), we might need to merge or reset.
+    // The JSON loading logic will overwrite this if data exists.
+    if (_lifeValues.isEmpty) {
+      _lifeValues = LifeValue.getDefaults();
+    }
+  }
+
   @override
   void dispose() {
     _periodicUiTimer?.cancel();
@@ -3322,14 +3667,12 @@ class AppProvider with ChangeNotifier {
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
-    // Check autoSaveEnabled settings before saving
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (_hasUnsavedChanges &&
           _currentUser != null &&
           !_isManuallySaving &&
           !_isManuallyLoading &&
           _settings.autoSaveEnabled) {
-        // Respect user setting
         _performActualSave();
       }
     });
@@ -3400,6 +3743,7 @@ class AppProvider with ChangeNotifier {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(), // Save Values
     };
   }
 
@@ -3470,6 +3814,26 @@ class AppProvider with ChangeNotifier {
           .toList();
     }
 
+    // Load Life Values
+    if (data['lifeValues'] != null && data['lifeValues'] is List) {
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
+    } else {
+      _initializeValues();
+    }
+    // Ensure we have all default values even if loading old data
+    if (_lifeValues.length < 10) {
+      // Merge logic: Add missing defaults
+      final defaults = LifeValue.getDefaults();
+      for (var def in defaults) {
+        if (!_lifeValues.any((v) => v.id == def.id)) {
+          _lifeValues.add(def);
+        }
+      }
+    }
+
     _isChatbotMemoryInitialized = true;
 
     // --- MIGRATION LOGIC (Minutes -> Seconds) ---
@@ -3492,19 +3856,11 @@ class AppProvider with ChangeNotifier {
 
       for (var sub in task.subTasks) {
         int newSubTime = 0;
-        // If we have sessions, recalculate from sessions (which are now interpreted as seconds by durationSeconds accessor,
-        // BUT wait, existing sessions have start/end times.
-        // The start/end times are absolute.
-        // So 'durationSeconds' will correcty return seconds.
-        // We just need to sum them up.
-
         if (sub.sessions.isNotEmpty) {
           for (var s in sub.sessions) {
             newSubTime += s.durationSeconds;
           }
         } else {
-          // If no sessions but we have time, it was manually entered or legacy.
-          // Assume it was minutes, convert to seconds.
           if (sub.currentTimeSpent > 0) {
             newSubTime = sub.currentTimeSpent * 60;
           }
@@ -3531,7 +3887,6 @@ class AppProvider with ChangeNotifier {
     _mainTasks = migratedTasks;
 
     // 2. Migrate Daily History (_completedByDay)
-    // The 'taskTimes' in history are simple integers. We must assume they are minutes.
     Map<String, dynamic> migratedHistory = {};
     _completedByDay.forEach((dateKey, dayData) {
       if (dayData is Map<String, dynamic>) {
@@ -3568,19 +3923,13 @@ class AppProvider with ChangeNotifier {
     _chatbotMemory = ChatbotMemory();
     _isChatbotMemoryInitialized = true;
     _initializeSkills();
+    _initializeValues(); // Reset values to default
     _reflectionLogs = [];
     _hasUnsavedChanges = true;
   }
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
-      // Only show loading if we are manually saving or if it's a significant sync
-      // For background auto-save, we generally don't want to disturb the UI unless requested
-      // But user asked for "inc database sync" to show indicator.
-      // We'll use a subtle indicator for auto-save if needed, or rely on manual saves.
-      // Let's check: if it's auto-save, maybe we set a "Syncing..." state but don't block UI?
-      // The user wants to "use the app without loading".
-
       bool isAutoSave = !_isManuallySaving;
       if (!isAutoSave) setLoadingTask("Syncing Database...");
 
@@ -3814,6 +4163,78 @@ class AppProvider with ChangeNotifier {
     }
     _isChatbotMemoryInitialized = true;
     notifyListeners();
+  }
+
+  // --- Values System Logic ---
+
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex =
+          _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+
+    setLoadingTask("Analyzing Value...");
+    try {
+      final score = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+
+      value.score = score;
+      _hasUnsavedChanges = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error analyzing value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+
+    setLoadingTask("Generating Actions...");
+    try {
+      final tasks = await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {
+          'question': q.question,
+          'answer': q.answer
+        }).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      return tasks;
+    } catch (e) {
+      debugPrint("Error generating tasks from value: $e");
+      rethrow;
+    } finally {
+      setLoadingTask(null);
+    }
   }
 
   String _buildUserDataContext() {
@@ -6003,14 +6424,14 @@ class ChatbotScreen extends StatelessWidget {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/chatbot_screen.dart'; 
+import 'package:arcane/src/screens/values_screen.dart'; // Import ValuesScreen
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/screens/more_screen.dart'; // Import More Screen
+import 'package:arcane/src/screens/more_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -6030,9 +6451,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'ADVISOR', 
+    'VALUES', // Updated Title
     'PROJECTS',
-    'MORE', // New Title
+    'MORE',
   ];
 
   void _onItemTapped(int index) {
@@ -6164,14 +6585,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ChatbotScreen(),
+      const ValuesScreen(), // Replaced ChatbotScreen
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
-      const MoreScreen(), // New Tab
+      const MoreScreen(),
     ];
 
     return Theme(
@@ -6220,8 +6641,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Logbook',
             ),
             BottomNavigationBarItem(
-              icon: Icon(MdiIcons.robotHappyOutline),
-              label: 'Advisor',
+              icon: Icon(MdiIcons.diamondStone), // Changed Icon
+              label: 'Values',
             ),
             BottomNavigationBarItem(
               icon: Icon(MdiIcons.rocketLaunchOutline),
@@ -7457,6 +7878,274 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
 
 --- END OF FILE lib/src/screens/database_editor_screen.dart ---
 
+--- START OF FILE lib/src/screens/value_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueDetailScreen extends StatefulWidget {
+  final String valueId;
+
+  const ValueDetailScreen({super.key, required this.valueId});
+
+  @override
+  State<ValueDetailScreen> createState() => _ValueDetailScreenState();
+}
+
+class _ValueDetailScreenState extends State<ValueDetailScreen> {
+  bool _isAnalyzing = false;
+  bool _isGenerating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final value = provider.lifeValues.firstWhere((v) => v.id == widget.valueId);
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        backgroundColor: AppTheme.fhBgDeepDark,
+        elevation: 0,
+        title: Text(value.title.toUpperCase(),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: _getScoreColor(value.score).withValues(alpha: 0.5)),
+            ),
+            child: Center(
+              child: Text(
+                "${value.score}%",
+                style: TextStyle(
+                  color: _getScoreColor(value.score),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 80),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(value.icon, size: 40, color: AppTheme.fhAccentTeal),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      value.description,
+                      style: const TextStyle(
+                          color: AppTheme.fhTextSecondary, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text("Reflective Questions",
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ...value.questions
+                .map((q) => _buildQuestionCard(context, provider, value.id, q)),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'btn1',
+              onPressed: _isAnalyzing
+                  ? null
+                  : () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      setState(() => _isAnalyzing = true);
+                      try {
+                        await provider.analyzeValueAlignment(value.id);
+                        if (!mounted) return;
+                        messenger.showSnackBar(const SnackBar(
+                            content: Text("Alignment Score Updated!")));
+                      } catch (e) {
+                        if (!mounted) return;
+                        messenger
+                            .showSnackBar(SnackBar(content: Text("Error: $e")));
+                      } finally {
+                        if (mounted) setState(() => _isAnalyzing = false);
+                      }
+                    },
+              backgroundColor: AppTheme.fhBgMedium,
+              label: _isAnalyzing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text("Analyze"),
+              icon: Icon(MdiIcons.chartLine),
+            ),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              heroTag: 'btn2',
+              onPressed: _isGenerating
+                  ? null
+                  : () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      setState(() => _isGenerating = true);
+                      final currentContext = context;
+                      try {
+                        final tasks =
+                            await provider.generateTasksFromValue(value.id);
+                        if (!mounted) return;
+                        // ignore: use_build_context_synchronously
+                        showDialog(
+                          context: currentContext,
+                          builder: (ctx) =>
+                              ValueTaskGenerationDialog(generatedTasks: tasks),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        messenger
+                            .showSnackBar(SnackBar(content: Text("Error: $e")));
+                      } finally {
+                        if (mounted) setState(() => _isGenerating = false);
+                      }
+                    },
+              backgroundColor: AppTheme.fhAccentPurple,
+              label: _isGenerating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text("Generate Actions"),
+              icon: Icon(MdiIcons.robotHappy),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(BuildContext context, AppProvider provider,
+      String valueId, ValueQuestion q) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(q.question,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: q.answer,
+            maxLines: null,
+            style: const TextStyle(color: AppTheme.fhTextSecondary),
+            decoration: const InputDecoration(
+              hintText: "Type your answer here...",
+              border: InputBorder.none,
+              filled: true,
+              fillColor: AppTheme.fhBgDeepDark,
+              contentPadding: EdgeInsets.all(12),
+            ),
+            onChanged: (val) {
+              // Debounce could be added here for performance
+              provider.updateValueAnswer(valueId, q.id, val);
+            },
+          )
+        ],
+      ),
+    );
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
+}
+
+--- END OF FILE lib/src/screens/value_detail_screen.dart ---
+
+--- START OF FILE lib/src/screens/values_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/life_value_card.dart';
+import 'package:arcane/src/screens/value_detail_screen.dart';
+import 'package:provider/provider.dart';
+
+class ValuesScreen extends StatelessWidget {
+  const ValuesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final values = provider.lifeValues;
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.9,
+        ),
+        itemCount: values.length,
+        itemBuilder: (context, index) {
+          final value = values[index];
+          return LifeValueCard(
+            value: value,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ValueDetailScreen(valueId: value.id),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/values_screen.dart ---
+
 --- START OF FILE lib/src/services/ai_service.dart ---
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -7494,15 +8183,9 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Custom API Key + First Model (or rotate models for custom key? Usually custom key is one user, one account)
-    // Let's iterate models for custom key too, just in case a model is deprecated/unavailable for that key.
-
-    // 2. Fallback to built-in keys
+    // 1. Prioritize Custom API Key
     final apiKeysToTry = (customApiKey != null && customApiKey.isNotEmpty)
-        ? [
-            customApiKey
-          ] // Try custom key only if provided. If it fails, do we fall back to builtin? Usually yes if we want robustness, but maybe no if user specified custom.
-        // Let's stick to: Custom Key -> If provided, ONLY use Custom Key.
+        ? [customApiKey]
         : geminiApiKeys;
 
     if (apiKeysToTry.isEmpty) {
@@ -7511,13 +8194,6 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        // If using built-in keys, rotate. If custom, just index 0.
-        // For strict rotation updates, we only update if we succeed.
-
-        // Optimization: If custom key, we don't really have an index to update in provider.
-        // If built-in, we ideally want to start from `currentApiKeyIndex` but for simplicity in dual-loop, we just iterate all.
-        // Re-implementing start-from-offset logic:
-
         String effectiveKey = apiKeysToTry[i];
         int effectiveIndex = i;
 
@@ -7537,11 +8213,10 @@ class AIService {
         } catch (e) {
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-          // Continue to next key, then next model
         }
 
         if (customApiKey != null) {
-          break; // If custom key fails, don't try other keys (there aren't any), move to next model? Yes.
+          break; // If custom key fails, move to next model
         }
       }
     }
@@ -7583,11 +8258,107 @@ class AIService {
     );
   }
 
+  // --- Value Analysis ---
+  Future<int> analyzeValueAlignment({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    You are a life coach analyzing a user's alignment with their personal value: "$valueName".
+    
+    Here are their answers to reflective questions:
+    ${buffer.toString()}
+    
+    Task: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
+    - 0 means they have no clear idea or haven't answered.
+    - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
+    
+    Output strictly JSON:
+    {
+      "score": int
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return result['score'] as int? ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    String? customApiKey,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final buffer = StringBuffer();
+    for (var qa in questionsAndAnswers) {
+      buffer.writeln("Q: ${qa['question']}");
+      buffer.writeln("A: ${qa['answer']}");
+      buffer.writeln("");
+    }
+
+    final prompt = """
+    Based on the user's definition of the value "$valueName", suggest 3-5 actionable tasks or 'sub-missions' they can do to embody this value.
+    
+    User's Answers:
+    ${buffer.toString()}
+    
+    Output strictly JSON with this structure:
+    {
+      "tasks": [
+        {
+          "name": "string (short actionable title)",
+          "isCountable": boolean (true if it's something like 'Read 10 pages', false if it's 'Call Mom'),
+          "targetCount": number (0 if not countable, otherwise e.g. 10)
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKey: customApiKey,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['tasks'] as List?)
+            ?.map((t) => t as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  // --- Existing Methods ---
+
   Future<Map<String, dynamic>> evaluateReflection({
     required String trigger,
     required String emotion,
     required String reason,
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     List<Map<String, String>>? dailyReflections,
     String? customApiKey,
     String? systemInstruction,
@@ -7632,22 +8403,20 @@ class AIService {
         "Transcendence": int
       }
     }
-    Ensure the sum of xp_allocation values equals the total XP you determined (20-100).
     """;
 
-    // We propagate errors here to allow the UI to show a 'Retry' button
     return await makeAICall(
       prompt: prompt,
-      modelCandidates: modelCandidates, // Changed
+      modelCandidates: modelCandidates,
       customApiKey: customApiKey,
-      currentApiKeyIndex: 0, // This will be managed by the calling context
-      onNewApiKeyIndex: (_) {}, // This will be managed by the calling context
-      onLog: (_) {}, // This will be managed by the calling context
+      currentApiKeyIndex: 0,
+      onNewApiKeyIndex: (_) {},
+      onLog: (_) {},
     );
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required String mainTaskName,
     required String mainTaskDescription,
     String? mainTaskTheme,
@@ -7691,9 +8460,8 @@ Return ONLY the JSON object.
         [];
   }
 
-  // --- Projects Generation ---
   Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required String userPrompt,
     required int currentApiKeyIndex,
     String? customApiKey,
@@ -7720,12 +8488,11 @@ Return ONLY the JSON object.
         }
       ]
     }
-    Go at least 2 levels deep if the topic implies complexity.
     """;
 
     return await makeAICall(
       prompt: prompt,
-      modelCandidates: modelCandidates, // Changed
+      modelCandidates: modelCandidates,
       customApiKey: customApiKey,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
@@ -7759,9 +8526,7 @@ Return ONLY the JSON object.
     $reflectionsText
     
     Based on these entries, provide a concise, insightful daily summary (max 100 words).
-    Highlight the key emotional themes, acknowledge any progress in stoic virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence), and offer one clear, actionable thought for tomorrow.
-    
-    Tone: Empathetic, encouraging, profound but grounded.
+    Highlight the key emotional themes, acknowledge any progress in stoic virtues, and offer one clear, actionable thought for tomorrow.
     Note: Never use markdown and any type of formatting
     """;
 
@@ -7780,7 +8545,7 @@ Return ONLY the JSON object.
   }
 
   Future<String> getChatbotResponse({
-    required List<String> modelCandidates, // Changed
+    required List<String> modelCandidates,
     required ChatbotMemory memory,
     required String userMessage,
     required String dataContext,
@@ -7790,7 +8555,6 @@ Return ONLY the JSON object.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // Construct context from memory (last 10 messages)
     String historyStr = "";
     final recentHistory = memory.conversationHistory.length > 10
         ? memory.conversationHistory
@@ -7804,21 +8568,19 @@ Return ONLY the JSON object.
     final String baseSystemPrompt = systemInstruction ??
         """
     You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app called Arcane.
-    You have access to the user's data context below. Use it to answer questions about their progress, tasks, and reflections.
+    You have access to the user's data context below.
     """;
 
     final prompt = """
     $baseSystemPrompt
     
-    USER DATA CONTEXT (LAST 7 DAYS & CURRENT STATUS):
+    USER DATA CONTEXT:
     $dataContext
     
     CONVERSATION HISTORY:
     $historyStr
     
     CURRENT USER MESSAGE: "$userMessage"
-    
-    Respond helpfully and concisely based on the provided data context if relevant.
     """;
 
     return await _executeWithModelAndKeyRotation(
@@ -10312,6 +11074,92 @@ class OverallProjectProgressCard extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
 
+--- START OF FILE lib/src/widgets/cards/life_value_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class LifeValueCard extends StatelessWidget {
+  final LifeValue value;
+  final VoidCallback onTap;
+
+  const LifeValueCard({super.key, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = value.score / 100.0;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ]
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 4,
+                    backgroundColor: AppTheme.fhBgDeepDark,
+                    color: _getScoreColor(value.score),
+                  ),
+                ),
+                Icon(
+                  value.icon,
+                  size: 28,
+                  color: AppTheme.fhTextPrimary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value.title.toUpperCase(),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppTheme.fhTextPrimary,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${value.score}% Aligned",
+              style: TextStyle(
+                color: _getScoreColor(value.score),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentGreen;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
+}
+--- END OF FILE lib/src/widgets/cards/life_value_card.dart ---
+
 --- START OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -12179,6 +13027,131 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
   }
 }
 --- END OF FILE lib/src/widgets/dialogs/session_edit_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueTaskGenerationDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> generatedTasks;
+
+  const ValueTaskGenerationDialog({super.key, required this.generatedTasks});
+
+  @override
+  State<ValueTaskGenerationDialog> createState() =>
+      _ValueTaskGenerationDialogState();
+}
+
+class _ValueTaskGenerationDialogState extends State<ValueTaskGenerationDialog> {
+  final List<bool> _selected = [];
+  String? _selectedMainTaskId;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected.addAll(List.filled(widget.generatedTasks.length, true));
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    _selectedMainTaskId =
+        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgMedium,
+      title: const Text("Generated Tasks",
+          style: TextStyle(color: AppTheme.fhTextPrimary)),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                "Review actions suggested by AI to align with your values.",
+                style: TextStyle(color: AppTheme.fhTextSecondary)),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: widget.generatedTasks.length,
+                separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final task = widget.generatedTasks[index];
+                  return CheckboxListTile(
+                    value: _selected[index],
+                    onChanged: (val) {
+                      setState(() => _selected[index] = val ?? false);
+                    },
+                    title: Text(task['name'],
+                        style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                    subtitle: task['isCountable'] == true
+                        ? Text("Count: ${task['targetCount']}",
+                            style: const TextStyle(
+                                color: AppTheme.fhTextSecondary))
+                        : null,
+                    activeColor: AppTheme.fhAccentTeal,
+                    checkColor: AppTheme.fhBgDeepDark,
+                    tileColor: AppTheme.fhBgDark,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            DropdownButtonFormField<String>(
+              value: _selectedMainTaskId,
+              decoration: const InputDecoration(
+                labelText: "Add to Mission",
+                filled: true,
+                fillColor: AppTheme.fhBgDark,
+              ),
+              dropdownColor: AppTheme.fhBgDark,
+              items: provider.mainTasks
+                  .map((t) =>
+                      DropdownMenuItem(value: t.id, child: Text(t.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedMainTaskId = val),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel")),
+        ElevatedButton(
+          style:
+              ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+          onPressed: _selectedMainTaskId == null
+              ? null
+              : () {
+                  int count = 0;
+                  for (int i = 0; i < widget.generatedTasks.length; i++) {
+                    if (_selected[i]) {
+                      provider.addSubtask(
+                          _selectedMainTaskId!, widget.generatedTasks[i]);
+                      count++;
+                    }
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text("$count tasks added to mission!")));
+                  Navigator.pop(context);
+                },
+          child: const Text("Add Selected"),
+        )
+      ],
+    );
+  }
+}
+
+--- END OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';

@@ -49,16 +49,16 @@ class _AiPromptsViewState extends State<AiPromptsView> {
 
   void _saveCurrentPrompt(AppProvider provider) {
     if (_promptController.text.trim().isEmpty) return;
-    
+
     final currentPrompts = List<String>.from(provider.settings.savedPrompts);
     final newPrompt = _promptController.text.trim();
-    
+
     if (!currentPrompts.contains(newPrompt)) {
       currentPrompts.add(newPrompt);
       provider.setSettings(provider.settings..savedPrompts = currentPrompts);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Prompt Saved!"), backgroundColor: AppTheme.fhAccentGreen)
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Prompt Saved!"),
+          backgroundColor: AppTheme.fhAccentGreen));
     }
   }
 
@@ -91,8 +91,9 @@ class _AiPromptsViewState extends State<AiPromptsView> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                border: Border.all(
+                  color: AppTheme.fhAccentTeal.withValues(alpha: 0.1),
+                ),
               ),
               child: Column(
                 children: [
@@ -113,9 +114,8 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                       icon: Icon(MdiIcons.contentSaveOutline, size: 16),
                       label: const Text("Save Prompt"),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.fhTextSecondary,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap
-                      ),
+                          foregroundColor: AppTheme.fhTextSecondary,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                       onPressed: () => _saveCurrentPrompt(provider),
                     ),
                   )
@@ -160,9 +160,10 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                                 .generateProjectStructure(_selectedMainTaskId!,
                                     _promptController.text);
                             if (mounted) {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Project Generated! Check your projects list."))
-                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          "Project Generated! Check your projects list.")));
                             }
                           } finally {
                             // Close loading dialog if applicable, provider handles state
@@ -175,11 +176,15 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30)),
                 ),
-                child: provider.isGeneratingSubquests 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text("Generate Project Plan",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                child: provider.isGeneratingSubquests
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : const Text("Generate Project Plan",
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
 
@@ -242,7 +247,8 @@ class _AiPromptsViewState extends State<AiPromptsView> {
             const SizedBox(height: 32),
             // Saved Prompts Section
             SavedPromptsList(
-              onSelect: (prompt) => setState(() => _promptController.text = prompt),
+              onSelect: (prompt) =>
+                  setState(() => _promptController.text = prompt),
             ),
           ],
         ),

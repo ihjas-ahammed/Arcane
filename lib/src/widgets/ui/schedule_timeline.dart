@@ -60,14 +60,14 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
       // Find min start and max end
       DateTime minStart = sortedEntries.first.startTime;
       DateTime maxEnd = sortedEntries.first.endTime;
-      
+
       for (var s in sortedEntries) {
         if (s.startTime.isBefore(minStart)) minStart = s.startTime;
         if (s.endTime.isAfter(maxEnd)) maxEnd = s.endTime;
       }
-      
+
       startBoundary = minStart;
-      
+
       final reference = minStart;
       final isToday = reference.year == now.year &&
           reference.month == now.month &&
@@ -133,7 +133,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         decoration: BoxDecoration(
                           border: Border(
                             top: BorderSide(
-                              color: AppTheme.fhBorderColor.withOpacity(0.1),
+                              color:
+                                  AppTheme.fhAccentTeal.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -187,8 +188,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
                     // For background items, reduce opacity
                     final Color baseColor = entry.color;
-                    final Color displayColor = entry.isEditable 
-                        ? baseColor.withOpacity(0.4) 
+                    final Color displayColor = entry.isEditable
+                        ? baseColor.withOpacity(0.4)
                         : baseColor.withOpacity(0.15);
                     final Color borderColor = entry.isEditable
                         ? baseColor.withOpacity(0.8)
@@ -200,8 +201,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       right: 16,
                       height: visualHeight,
                       child: GestureDetector(
-                        onTap: entry.isEditable 
-                            ? () => widget.onEditEntry(entry) 
+                        onTap: entry.isEditable
+                            ? () => widget.onEditEntry(entry)
                             : null, // Read-only for background tasks
                         child: Container(
                           decoration: BoxDecoration(
@@ -223,7 +224,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                                       Text(
                                         entry.title,
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(entry.isEditable ? 1.0 : 0.7),
+                                          color: Colors.white.withOpacity(
+                                              entry.isEditable ? 1.0 : 0.7),
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -233,7 +235,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                                     Text(
                                       "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(entry.isEditable ? 0.9 : 0.5),
+                                        color: Colors.white.withOpacity(
+                                            entry.isEditable ? 0.9 : 0.5),
                                         fontSize: 9,
                                       ),
                                       maxLines: 1,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ValueTaskGenerationDialog extends StatefulWidget {
   final List<Map<String, dynamic>> generatedTasks;
@@ -83,8 +82,8 @@ class _ValueTaskGenerationDialogState extends State<ValueTaskGenerationDialog> {
               ),
               dropdownColor: AppTheme.fhBgDark,
               items: provider.mainTasks
-                  .map((t) =>
-                      DropdownMenuItem(value: t.id, child: Text(t.name)))
+                  .map(
+                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                   .toList(),
               onChanged: (val) => setState(() => _selectedMainTaskId = val),
             ),

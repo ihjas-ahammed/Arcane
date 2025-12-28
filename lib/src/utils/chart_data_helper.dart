@@ -25,7 +25,7 @@ class ChartDataHelper {
 
       // --- Activity Data Calculation ---
       double totalMins = 0;
-      Color dominantColor = AppTheme.fhBgLight;
+      Color dominantColor = AppTheme.fhBgMedium;
       double maxMinsForTask = 0;
 
       if (isToday) {
@@ -119,7 +119,7 @@ class ChartDataHelper {
           }
         }
       } else {
-        final summaryData = provider.completedByDay[selectedDate!];
+        final summaryData = provider.completedByDay[selectedDate];
         if (summaryData != null && summaryData['taskTimes'] != null) {
           (summaryData['taskTimes'] as Map<String, dynamic>)
               .forEach((taskId, time) {

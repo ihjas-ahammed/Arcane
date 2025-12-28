@@ -80,12 +80,14 @@ class _SettingsViewState extends State<SettingsView> {
     });
     try {
       await appProvider.changePasswordHandler(_newPasswordController.text);
+      if (!mounted) return;
       setState(() {
         _passwordChangeSuccess = "Password changed successfully!";
         _newPasswordController.clear();
         _confirmPasswordController.clear();
       });
     } catch (e) {
+      if (!mounted) return;
       if (e is FirebaseAuthException) {
         setState(() =>
             _passwordChangeError = e.message ?? "Failed to change password.");
@@ -118,10 +120,12 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       await appProvider
           .updateUserDisplayName(_newUsernameController.text.trim());
+      if (!mounted) return;
       setState(() {
         _usernameChangeSuccess = "Username updated successfully!";
       });
     } catch (e) {
+      if (!mounted) return;
       if (e is FirebaseAuthException) {
         setState(() =>
             _usernameChangeError = e.message ?? "Failed to update username.");
@@ -143,7 +147,7 @@ class _SettingsViewState extends State<SettingsView> {
       await appProvider.logoutUser();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(pageContext).showSnackBar(SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Logout failed: ${e.toString()}'),
           backgroundColor: AppTheme.fhAccentRed));
     } finally {
@@ -157,22 +161,18 @@ class _SettingsViewState extends State<SettingsView> {
       final aiService = AIService();
       final models = await aiService.fetchAvailableModels(
           customApiKey: appProvider.settings.customApiKey);
+      if (!mounted) return;
       setState(() {
         _availableModels = models;
-        // Optionally auto-populate defaults if lists are empty/invalid,
-        // but AppSettings already handles defaults.
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Fetched ${models.length} models.'),
-            backgroundColor: AppTheme.fhAccentGreen));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Fetched ${models.length} models.'),
+          backgroundColor: AppTheme.fhAccentGreen));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Failed to fetch models: $e'),
-            backgroundColor: AppTheme.fhAccentRed));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to fetch models: $e'),
+          backgroundColor: AppTheme.fhAccentRed));
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -203,7 +203,7 @@ class _SettingsViewState extends State<SettingsView> {
                   subtitle: const Text(
                       'Automatically sync changes to cloud every minute.'),
                   value: appProvider.settings.autoSaveEnabled,
-                  activeColor: AppTheme.fhAccentTeal,
+                  activeTrackColor: AppTheme.fhAccentTeal,
                   contentPadding: EdgeInsets.zero,
                   onChanged: (bool value) {
                     appProvider.setSettings(
@@ -226,20 +226,17 @@ class _SettingsViewState extends State<SettingsView> {
                       : () async {
                           try {
                             await appProvider.manuallySaveToCloud();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Data saved to cloud.'),
-                                      backgroundColor: AppTheme.fhAccentGreen));
-                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Data saved to cloud.'),
+                                    backgroundColor: AppTheme.fhAccentGreen));
                           } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Cloud save failed: ${e.toString()}'),
-                                      backgroundColor: AppTheme.fhAccentRed));
-                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content:
+                                    Text('Cloud save failed: ${e.toString()}'),
+                                backgroundColor: AppTheme.fhAccentRed));
                           }
                         },
                   style: ElevatedButton.styleFrom(
@@ -270,8 +267,8 @@ class _SettingsViewState extends State<SettingsView> {
                               title: Row(children: [
                                 Icon(MdiIcons.cloudQuestionOutline,
                                     color: AppTheme.fhAccentOrange),
-                                SizedBox(width: 10),
-                                Text('Confirm Load')
+                                const SizedBox(width: 10),
+                                const Text('Confirm Load')
                               ]),
                               content: const Text(
                                   'This will overwrite any local unsaved changes with data from the cloud. Are you sure?'),
@@ -294,22 +291,18 @@ class _SettingsViewState extends State<SettingsView> {
                           if (confirm == true) {
                             try {
                               await appProvider.manuallyLoadFromCloud();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Data loaded from cloud.'),
-                                        backgroundColor:
-                                            AppTheme.fhAccentGreen));
-                              }
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Data loaded from cloud.'),
+                                      backgroundColor: AppTheme.fhAccentGreen));
                             } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Cloud load failed: ${e.toString()}'),
-                                        backgroundColor: AppTheme.fhAccentRed));
-                              }
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          'Cloud load failed: ${e.toString()}'),
+                                      backgroundColor: AppTheme.fhAccentRed));
                             }
                           }
                         },
@@ -450,8 +443,8 @@ class _SettingsViewState extends State<SettingsView> {
                     labelText: 'Start Day of the Week',
                     prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
                   ),
-                  dropdownColor: AppTheme.fhBgLight,
-                  initialValue: appProvider.settings.startOfWeek,
+                  dropdownColor: AppTheme.fhBgMedium,
+                  value: appProvider.settings.startOfWeek,
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('Monday')),
                     DropdownMenuItem(value: 2, child: Text('Tuesday')),
@@ -633,8 +626,8 @@ class _SettingsViewState extends State<SettingsView> {
                         title: Row(children: [
                           Icon(MdiIcons.alertOutline,
                               color: AppTheme.fhAccentRed),
-                          SizedBox(width: 10),
-                          Text('Confirm System Purge',
+                          const SizedBox(width: 10),
+                          const Text('Confirm System Purge',
                               style: TextStyle(color: AppTheme.fhAccentRed))
                         ]),
                         content: const Text(
@@ -655,12 +648,10 @@ class _SettingsViewState extends State<SettingsView> {
                     );
                     if (confirm == true) {
                       appProvider.clearAllData();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('All data has been purged.'),
-                                backgroundColor: AppTheme.fhAccentGreen));
-                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('All data has been purged.'),
+                          backgroundColor: AppTheme.fhAccentGreen));
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -712,9 +703,8 @@ class _SettingsViewState extends State<SettingsView> {
       List<String> currentList, Function(List<String>) onUpdate) {
     return Column(
       children: List.generate(3, (index) {
-        final label = index == 0
-            ? "Primary $prefix Model"
-            : "$prefix Fallback $index";
+        final label =
+            index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
         // Ensure list has enough items, pad if necessary
         if (currentList.length <= index) {
           currentList.add(_availableModels.isNotEmpty
@@ -728,7 +718,7 @@ class _SettingsViewState extends State<SettingsView> {
           padding: const EdgeInsets.only(bottom: 8.0),
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            initialValue: _availableModels.contains(currentSelection)
+            value: _availableModels.contains(currentSelection)
                 ? currentSelection
                 : null,
             // If not in list, it might be a custom one or default. Show it if we can add it to items or handle null.
@@ -739,7 +729,7 @@ class _SettingsViewState extends State<SettingsView> {
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               border: const OutlineInputBorder(),
             ),
-            dropdownColor: AppTheme.fhBgLight,
+            dropdownColor: AppTheme.fhBgMedium,
             items: {
               ..._availableModels,
               if (!_availableModels.contains(currentSelection)) currentSelection

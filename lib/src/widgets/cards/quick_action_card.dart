@@ -24,17 +24,23 @@ class QuickActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.fhBgDark,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+          border:
+              Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.1)),
         ),
         child: Row(
-          mainAxisAlignment: isFullWidth ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment:
+              isFullWidth ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             Icon(icon, color: AppTheme.fhTextSecondary, size: 20),
             const SizedBox(width: 12),
-            Text(label, style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.w500)),
+            Text(label,
+                style: const TextStyle(
+                    color: AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.w500)),
             if (isFullWidth) ...[
               const Spacer(),
-              const Icon(Icons.arrow_forward_ios, color: AppTheme.fhTextSecondary, size: 14),
+              const Icon(Icons.arrow_forward_ios,
+                  color: AppTheme.fhTextSecondary, size: 14),
             ]
           ],
         ),

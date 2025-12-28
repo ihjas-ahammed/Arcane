@@ -4,8 +4,10 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 class WeeklyActivityBarChart extends StatelessWidget {
-  final Map<int, double> weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
-  final Map<int, Color> dominantColors; // Key matches above, Value: Color of focused task
+  final Map<int, double>
+      weeklyData; // Key: 0 (Today) to 6 (6 days ago), Value: Total Mins
+  final Map<int, Color>
+      dominantColors; // Key matches above, Value: Color of focused task
 
   const WeeklyActivityBarChart({
     super.key,
@@ -16,9 +18,10 @@ class WeeklyActivityBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final double maxY = weeklyData.values.isEmpty 
-        ? 60.0 
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
+    final double maxY = weeklyData.values.isEmpty
+        ? 60.0
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2)
+            .clamp(60.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -30,15 +33,18 @@ class WeeklyActivityBarChart extends StatelessWidget {
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
                 '${rod.toY.toInt()}m',
-                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+                const TextStyle(
+                    color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
               );
             },
           ),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -51,20 +57,22 @@ class WeeklyActivityBarChart extends StatelessWidget {
                   space: 4,
                   child: Text(
                     DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 10),
                   ),
                 );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), 
+          leftTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         gridData: FlGridData(show: false),
         barGroups: List.generate(7, (index) {
           final daysAgo = 6 - index;
           final value = weeklyData[daysAgo] ?? 0.0;
-          final color = dominantColors[daysAgo] ?? AppTheme.fhBgLight;
+          final color = dominantColors[daysAgo] ?? AppTheme.fhBgMedium;
 
           return BarChartGroupData(
             x: index,
@@ -93,7 +101,7 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   final Map<int, Color> dominantVirtueColors; // Key: 0 (Today) -> 6
 
   const WeeklyVirtueBarChart({
-    super.key, 
+    super.key,
     required this.weeklyXp,
     this.dominantVirtueColors = const {},
   });
@@ -101,9 +109,10 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final double maxY = weeklyXp.values.isEmpty 
-        ? 50.0 
-        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(50.0, double.infinity);
+    final double maxY = weeklyXp.values.isEmpty
+        ? 50.0
+        : (weeklyXp.values.reduce((a, b) => a > b ? a : b) * 1.2)
+            .clamp(50.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -115,15 +124,18 @@ class WeeklyVirtueBarChart extends StatelessWidget {
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
                 '+${rod.toY.toInt()} XP',
-                const TextStyle(color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
+                const TextStyle(
+                    color: AppTheme.fhAccentGold, fontWeight: FontWeight.bold),
               );
             },
           ),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -136,13 +148,15 @@ class WeeklyVirtueBarChart extends StatelessWidget {
                   space: 4,
                   child: Text(
                     DateFormat('E').format(date).substring(0, 1),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 10),
                   ),
                 );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         gridData: FlGridData(show: false),

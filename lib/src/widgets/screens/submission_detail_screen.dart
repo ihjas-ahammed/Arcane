@@ -119,9 +119,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           if (session.startTime.year == _selectedDate.year &&
               session.startTime.month == _selectedDate.month &&
               session.startTime.day == _selectedDate.day) {
-            
             final bool isCurrentSubTask = sub.id == currentSubTaskId;
-            
+
             entries.add(TimelineEntry(
               id: session.id,
               startTime: session.startTime,
@@ -141,7 +140,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final liveSubTask = _getLiveSubTask(provider);
 
@@ -386,7 +385,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                           // Checkpoints List
                           SizedBox(
-                            height: 250, 
+                            height: 250,
                             child: ListView(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
@@ -558,10 +557,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                       // Vertical Divider
                       const SizedBox(height: 16),
-                      Container(
-                          height: 1,
-                          color:
-                              Colors.white10),
+                      Container(height: 1, color: Colors.white10),
                       const SizedBox(height: 16),
                     ],
                   ),

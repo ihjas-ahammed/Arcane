@@ -28,17 +28,18 @@ class ProjectDashboardCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark, // Dark card background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ]
-      ),
+          color: AppTheme.fhBgDark, // Dark card background
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ]),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -50,16 +51,20 @@ class ProjectDashboardCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     project.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.fhTextPrimary),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.fhTextPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                Icon(MdiIcons.chevronRight,
+                    color: AppTheme.fhTextSecondary, size: 20),
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Progress Row
             Row(
               children: [
@@ -68,7 +73,7 @@ class ProjectDashboardCard extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     SizedBox(
-                      width: 48, 
+                      width: 48,
                       height: 48,
                       child: CircularProgressIndicator(
                         value: progress,
@@ -80,11 +85,10 @@ class ProjectDashboardCard extends StatelessWidget {
                     Text(
                       "$progressPercentage%",
                       style: TextStyle(
-                        fontSize: 11, 
-                        fontWeight: FontWeight.bold, 
-                        color: accentColor,
-                        fontFamily: "RobotoCondensed"
-                      ),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                          fontFamily: "RobotoCondensed"),
                     ),
                   ],
                 ),
@@ -95,7 +99,10 @@ class ProjectDashboardCard extends StatelessWidget {
                     children: [
                       Text(
                         "$completedSteps/$totalSteps Steps Completed",
-                        style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: accentColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       if (project.description.isNotEmpty)
@@ -103,14 +110,17 @@ class ProjectDashboardCard extends StatelessWidget {
                           project.description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                          style: const TextStyle(
+                              color: AppTheme.fhTextSecondary, fontSize: 12),
                         )
-                      else 
-                          Text(
+                      else
+                        Text(
                           "Linked to: $mainTaskName",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 11),
+                          style: TextStyle(
+                              color: AppTheme.fhTextSecondary.withOpacity(0.6),
+                              fontSize: 11),
                         ),
                     ],
                   ),

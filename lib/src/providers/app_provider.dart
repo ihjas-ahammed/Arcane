@@ -342,12 +342,11 @@ class AppProvider with ChangeNotifier {
       _migrateDataToSeconds();
       _settings.dataVersion = 1;
       _hasUnsavedChanges = true;
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   void _migrateDataToSeconds() {
-    print("MIGRATING DATA TO SECONDS...");
     List<MainTask> migratedTasks = [];
 
     // 1. Migrate Main Tasks & Subtasks
@@ -671,8 +670,9 @@ class AppProvider with ChangeNotifier {
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
-      final qIndex =
-          _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      final qIndex = _lifeValues[valueIndex]
+          .questions
+          .indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
         _hasUnsavedChanges = true;
@@ -689,10 +689,9 @@ class AppProvider with ChangeNotifier {
     try {
       final score = await _aiService.analyzeValueAlignment(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {
-          'question': q.question,
-          'answer': q.answer
-        }).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
@@ -711,7 +710,8 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(
+      String valueId) async {
     final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
     if (value == null) return [];
 
@@ -719,10 +719,9 @@ class AppProvider with ChangeNotifier {
     try {
       final tasks = await _aiService.generateTasksFromValues(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {
-          'question': q.question,
-          'answer': q.answer
-        }).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,

@@ -23,19 +23,17 @@ class OverallProjectProgressCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF2C3E50),
-            AppTheme.fhBgDark
-          ],
+          colors: [const Color(0xFF2C3E50), AppTheme.fhBgDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        border:
+            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           )
         ],
@@ -46,11 +44,11 @@ class OverallProjectProgressCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "OVERALL PROGRESS",
                 style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontSize: 12,
+                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),
@@ -79,7 +77,9 @@ class OverallProjectProgressCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             "${activeProjects.length} Active Projects",
-            style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.7), fontSize: 11),
+            style: TextStyle(
+                color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
+                fontSize: 11),
           ),
         ],
       ),

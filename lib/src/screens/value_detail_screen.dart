@@ -140,7 +140,6 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                         final tasks =
                             await provider.generateTasksFromValue(value.id);
                         if (!mounted) return;
-                        // ignore: use_build_context_synchronously
                         showDialog(
                           context: currentContext,
                           builder: (ctx) =>

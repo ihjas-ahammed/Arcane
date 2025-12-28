@@ -81,7 +81,8 @@ class StepDetailScreen extends StatelessWidget {
                   ),
                 );
 
-                if (result != null && context.mounted) {
+                if (!context.mounted) return;
+                if (result != null) {
                   final String name = result['name'];
                   final String type = result['type'];
 
@@ -119,6 +120,7 @@ class StepDetailScreen extends StatelessWidget {
                   isEditing: true,
                 ),
               );
+              if (!context.mounted) return;
               if (result != null) {
                 final updated = currentStep
                   ..title = result['title']!
@@ -242,6 +244,7 @@ class StepDetailScreen extends StatelessWidget {
                       context: context,
                       builder: (ctx) => const AddEditStepDialog(),
                     );
+                    if (!context.mounted) return;
                     if (result != null) {
                       provider.projectActions.addSubstep(mainTaskId, projectId,
                           currentStep.id, result['title']!, result['desc']!);
@@ -287,7 +290,8 @@ class StepDetailScreen extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
                 onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderSubSteps(mainTaskId, projectId, currentStep.id, oldIndex, newIndex);
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
+                      currentStep.id, oldIndex, newIndex);
                 },
                 proxyDecorator: (child, index, animation) {
                   return Material(

@@ -30,7 +30,7 @@ class ProjectsView extends StatelessWidget {
       for (var project in task.projects) {
         final double progress = project.calculateProgress();
         final bool isComplete = progress >= 1.0;
-        
+
         final map = {
           'project': project,
           'mainTaskId': task.id,
@@ -85,12 +85,15 @@ class ProjectsView extends StatelessWidget {
                   color: AppTheme.fhBgDark,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: AppTheme.fhBorderColor.withOpacity(0.3))),
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
+                  )),
               child: Column(
                 children: [
-                  Icon(MdiIcons.folderOutline,
-                      size: 48,
-                      color: AppTheme.fhTextSecondary.withOpacity(0.3)),
+                  Icon(
+                    MdiIcons.folderOutline,
+                    size: 48,
+                    color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
+                  ),
                   const SizedBox(height: 12),
                   const Text("No active projects.",
                       style: TextStyle(color: AppTheme.fhTextSecondary)),
@@ -131,7 +134,7 @@ class ProjectsView extends StatelessWidget {
 
           // Completed Projects Section
           if (completedProjects.isNotEmpty)
-             CompletedProjectsSection(completedProjects: completedProjects),
+            CompletedProjectsSection(completedProjects: completedProjects),
 
           const SizedBox(height: 32),
 

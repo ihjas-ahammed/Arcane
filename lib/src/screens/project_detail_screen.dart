@@ -56,19 +56,16 @@ class ProjectDetailScreen extends StatelessWidget {
                   initialDescription: currentProject.description,
                 ),
               );
-              
+
               if (result != null) {
-                provider.projectActions.updateProjectDetails(
-                  mainTaskId, 
-                  currentProject.id, 
-                  result['title']!, 
-                  result['desc']!
-                );
+                provider.projectActions.updateProjectDetails(mainTaskId,
+                    currentProject.id, result['title']!, result['desc']!);
               }
             },
           ),
           IconButton(
-            icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed),
+            icon: Icon(MdiIcons.deleteOutline,
+                size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
               _confirmDelete(context, provider, currentProject);
             },
@@ -90,15 +87,15 @@ class ProjectDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              currentProject.description.isNotEmpty 
-                ? currentProject.description 
-                : "No description provided.",
+              currentProject.description.isNotEmpty
+                  ? currentProject.description
+                  : "No description provided.",
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppTheme.fhTextSecondary,
                 height: 1.5,
               ),
             ),
-            
+
             const SizedBox(height: 24),
 
             // Big Progress Header Card
@@ -113,9 +110,8 @@ class ProjectDetailScreen extends StatelessWidget {
                 Text(
                   "Root Steps",
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.fhTextPrimary
-                  ),
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.fhTextPrimary),
                 ),
                 TextButton.icon(
                   onPressed: () => _showAddRootStepDialog(context, provider),
@@ -132,7 +128,10 @@ class ProjectDetailScreen extends StatelessWidget {
             const SizedBox(height: 4),
             const Text(
               "Long press to reorder steps.",
-              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11, fontStyle: FontStyle.italic),
+              style: TextStyle(
+                  color: AppTheme.fhTextDisabled,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 12),
 
@@ -142,12 +141,16 @@ class ProjectDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     children: [
-                      Icon(MdiIcons.stairsBox, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
+                      Icon(MdiIcons.stairsBox,
+                          size: 48,
+                          color:
+                              AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
                       const SizedBox(height: 16),
                       Text(
                         "No steps defined.\nAdd a root step to begin.",
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.fhTextSecondary),
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.fhTextSecondary),
                       ),
                     ],
                   ),
@@ -159,7 +162,8 @@ class ProjectDetailScreen extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentProject.steps.length,
                 onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderRootSteps(mainTaskId, currentProject.id, oldIndex, newIndex);
+                  provider.projectActions.reorderRootSteps(
+                      mainTaskId, currentProject.id, oldIndex, newIndex);
                 },
                 proxyDecorator: (child, index, animation) {
                   return Material(
@@ -183,7 +187,7 @@ class ProjectDetailScreen extends StatelessWidget {
                   );
                 },
               ),
-              
+
             const SizedBox(height: 40),
           ],
         ),
@@ -191,7 +195,8 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showAddRootStepDialog(BuildContext context, AppProvider provider) async {
+  void _showAddRootStepDialog(
+      BuildContext context, AppProvider provider) async {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => const AddEditStepDialog(),
@@ -199,31 +204,34 @@ class ProjectDetailScreen extends StatelessWidget {
 
     if (result != null) {
       provider.projectActions.addRootStep(
-        mainTaskId, 
-        project.id, 
-        result['title']!, 
-        result['desc']!
-      );
+          mainTaskId, project.id, result['title']!, result['desc']!);
     }
   }
 
-  void _confirmDelete(BuildContext context, AppProvider provider, Project project) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("Delete Project?", style: TextStyle(color: AppTheme.fhTextPrimary)),
-      content: const Text("This action cannot be undone."),
-      actions: [
-        TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text("Cancel")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-          onPressed: () {
-            provider.projectActions.deleteProject(mainTaskId, project.id);
-            Navigator.pop(ctx);
-            Navigator.pop(context); // Go back to projects view
-          }, 
-          child: const Text("Delete")
-        )
-      ],
-    ));
+  void _confirmDelete(
+      BuildContext context, AppProvider provider, Project project) {
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              backgroundColor: AppTheme.fhBgMedium,
+              title: const Text("Delete Project?",
+                  style: TextStyle(color: AppTheme.fhTextPrimary)),
+              content: const Text("This action cannot be undone."),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("Cancel")),
+                ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhAccentRed),
+                    onPressed: () {
+                      provider.projectActions
+                          .deleteProject(mainTaskId, project.id);
+                      Navigator.pop(ctx);
+                      Navigator.pop(context); // Go back to projects view
+                    },
+                    child: const Text("Delete"))
+              ],
+            ));
   }
 }

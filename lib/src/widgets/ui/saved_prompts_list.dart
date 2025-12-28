@@ -25,12 +25,12 @@ class SavedPromptsList extends StatelessWidget {
         if (savedPrompts.isEmpty)
           const Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text("No saved prompts yet.",
-                    style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontStyle: FontStyle.italic)),
-              ))
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text("No saved prompts yet.",
+                style: TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontStyle: FontStyle.italic)),
+          ))
         else
           ListView.separated(
             shrinkWrap: true,
@@ -43,21 +43,29 @@ class SavedPromptsList extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                  border: Border.all(
+                      color: AppTheme.fhBorderColor.withOpacity(0.2)),
                 ),
                 child: ListTile(
                   title: Text(
                     prompt,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.fhTextPrimary),
                   ),
                   onTap: () => onSelect(prompt),
                   trailing: IconButton(
-                    icon: Icon(MdiIcons.deleteOutline, size: 20, color: AppTheme.fhAccentRed.withOpacity(0.7)),
+                    icon: Icon(
+                      MdiIcons.deleteOutline,
+                      size: 20,
+                      color: AppTheme.fhAccentRed.withValues(alpha: 0.7),
+                    ),
                     onPressed: () {
-                      final updatedList = List<String>.from(savedPrompts)..removeAt(index);
-                      provider.setSettings(provider.settings..savedPrompts = updatedList);
+                      final updatedList = List<String>.from(savedPrompts)
+                        ..removeAt(index);
+                      provider.setSettings(
+                          provider.settings..savedPrompts = updatedList);
                     },
                   ),
                 ),

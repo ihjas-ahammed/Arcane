@@ -290,7 +290,6 @@ class _ChatbotViewState extends State<ChatbotView> {
       case DynamicUiType.graph:
         return _buildGraphFromPayload(payload.data, theme, dynamicAccent);
       case DynamicUiType.unknown:
-      default:
         return Text(
           "[Dynamic UI Error: Unknown payload type or data error. Raw: ${jsonEncode(payload.data)}]",
           style: TextStyle(
