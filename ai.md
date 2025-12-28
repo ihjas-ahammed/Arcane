@@ -1,6 +1,7 @@
 Make the following changes:
 
-   * Disable rounding of time in project timer, make the time logged absolute to the seconds
+   * Make the scheduler log sjow entries for all submission in the backgroun (bacground I meant they should be unclicable, only the current seleceted submission must be editable), also their color should be the color of mission they belong to, also give them label as the submission name
+      * This way user can always see how the day is going like how much time he actually invested everywhere 
      
 
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
@@ -107,6 +108,37 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
   }
 
+  List<TimelineEntry> _buildTimelineEntries(
+      AppProvider provider, String currentSubTaskId) {
+    final List<TimelineEntry> entries = [];
+
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          // Filter by selected date
+          if (session.startTime.year == _selectedDate.year &&
+              session.startTime.month == _selectedDate.month &&
+              session.startTime.day == _selectedDate.day) {
+            
+            final bool isCurrentSubTask = sub.id == currentSubTaskId;
+            
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: isCurrentSubTask,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+    return entries;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -137,13 +169,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         liveSubTask.subSubTasks.where((s) => s.completed).length;
     final int totalCheckpoints = liveSubTask.subSubTasks.length;
 
-    // Filter sessions
-    final filteredSessions = liveSubTask.sessions
-        .where((s) =>
-            s.startTime.year == _selectedDate.year &&
-            s.startTime.month == _selectedDate.month &&
-            s.startTime.day == _selectedDate.day)
-        .toList();
+    // Build timeline entries for ALL tasks on selected day
+    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
@@ -273,15 +300,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   const Divider(color: Colors.white10),
 
                   // --- Main Content Area ---
-                  // Removed Expanded to allow full screen scrolling
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Left Column (Controls & Checkpoints)
-                      // Formerly Expanded flex: 5
                       Column(
                         children: [
-                          // Timer Control Area (The "Centerpiece")
+                          // Timer Control Area
                           Container(
                             margin: const EdgeInsets.all(16),
                             padding: const EdgeInsets.all(20),
@@ -361,9 +385,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
 
                           // Checkpoints List
-                          // Replaced Expanded with SizedBox/height
                           SizedBox(
-                            height: 250, // Max height for checkpoints
+                            height: 250, 
                             child: ListView(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
@@ -508,13 +531,20 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                         color:
                                             Colors.black.withValues(alpha: 0.2),
                                         child: ScheduleTimeline(
-                                          sessions: filteredSessions,
+                                          entries: timelineEntries,
                                           onAddSession: () =>
                                               _showAddSessionDialog(
                                                   context, provider),
-                                          onEditSession: (s) =>
+                                          onEditEntry: (entry) {
+                                            if (entry.originalObject
+                                                is TaskSession) {
                                               _handleSessionEdit(
-                                                  context, provider, s),
+                                                  context,
+                                                  provider,
+                                                  entry.originalObject
+                                                      as TaskSession);
+                                            }
+                                          },
                                         ),
                                       ),
                                     ),
@@ -531,11 +561,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       Container(
                           height: 1,
                           color:
-                              Colors.white10), // Changed to horizonal divider
+                              Colors.white10),
                       const SizedBox(height: 16),
-
-                      // Right Column (Timeline)
-                      // Formerly Expanded flex: 4
                     ],
                   ),
                 ],

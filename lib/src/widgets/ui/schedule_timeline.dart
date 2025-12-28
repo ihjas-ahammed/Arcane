@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/gestures.dart';
 
 class ScheduleTimeline extends StatefulWidget {
-  final List<TaskSession> sessions;
+  final List<TimelineEntry> entries;
   final VoidCallback onAddSession;
-  final Function(TaskSession) onEditSession;
+  final Function(TimelineEntry) onEditEntry;
 
   const ScheduleTimeline({
     super.key,
-    required this.sessions,
+    required this.entries,
     required this.onAddSession,
-    required this.onEditSession,
+    required this.onEditEntry,
   });
 
   @override
@@ -21,8 +21,6 @@ class ScheduleTimeline extends StatefulWidget {
 }
 
 class _ScheduleTimelineState extends State<ScheduleTimeline> {
-  // Base scale: 60px per hour.
-  // Scale factor allows zooming from 0.5x (30px/hr) to 10x (600px/hr)
   double _scale = 2.0;
   final double _basePixelsPerHour = 60.0;
 
@@ -40,44 +38,58 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
   @override
   Widget build(BuildContext context) {
-    final sortedSessions = List<TaskSession>.from(widget.sessions)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    // Sort entries by time, prioritize editable ones on top if overlapping (handled by painter order ideally, but simple sort works for rendering list)
+    final sortedEntries = List<TimelineEntry>.from(widget.entries)
+      ..sort((a, b) {
+        final cmp = a.startTime.compareTo(b.startTime);
+        if (cmp != 0) return cmp;
+        // If same start time, put editable ones later so they render on top?
+        // Actually rendering order: last is top.
+        return a.isEditable ? 1 : -1;
+      });
 
     DateTime startBoundary;
     DateTime endBoundary;
     final now = DateTime.now();
 
-    if (sortedSessions.isEmpty) {
+    if (sortedEntries.isEmpty) {
       startBoundary = DateTime(now.year, now.month, now.day, 0, 0);
       endBoundary = DateTime(now.year, now.month, now.day, 23, 59);
     } else {
-      startBoundary = sortedSessions.first.startTime;
-      final reference = sortedSessions.first.startTime;
+      startBoundary = sortedEntries.first.startTime;
+      // Find min start and max end
+      DateTime minStart = sortedEntries.first.startTime;
+      DateTime maxEnd = sortedEntries.first.endTime;
+      
+      for (var s in sortedEntries) {
+        if (s.startTime.isBefore(minStart)) minStart = s.startTime;
+        if (s.endTime.isAfter(maxEnd)) maxEnd = s.endTime;
+      }
+      
+      startBoundary = minStart;
+      
+      final reference = minStart;
       final isToday = reference.year == now.year &&
           reference.month == now.month &&
           reference.day == now.day;
 
-      DateTime lastSessionEnd = sortedSessions.last.endTime;
-      for (var s in sortedSessions) {
-        if (s.endTime.isAfter(lastSessionEnd)) {
-          lastSessionEnd = s.endTime;
-        }
-      }
-
-      if (isToday && now.isAfter(lastSessionEnd)) {
+      if (isToday && now.isAfter(maxEnd)) {
         endBoundary = now;
       } else {
-        endBoundary = lastSessionEnd;
+        endBoundary = maxEnd;
       }
     }
 
+    // Adjust boundaries to nearest hour
     final startHour = startBoundary.hour;
     int endHour = endBoundary.hour;
     if (endBoundary.minute > 0) {
       endHour++;
     }
     if (endHour > 24) endHour = 24;
-    if (endHour <= startHour) endHour = startHour + 1;
+    // Ensure we have at least a few hours visible
+    if (endHour <= startHour + 2) endHour = startHour + 4;
+    if (endHour > 24) endHour = 24;
 
     final int hoursCount = endHour - startHour;
     final double pixelsPerHour = _basePixelsPerHour * _scale;
@@ -152,25 +164,35 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     }),
                   ),
 
-                  // Sessions
-                  ...sortedSessions.map((session) {
-                    final startSecondsVal = session.startTime.hour * 3600 +
-                        session.startTime.minute * 60 +
-                        session.startTime.second;
+                  // Entries
+                  ...sortedEntries.map((entry) {
+                    final startSecondsVal = entry.startTime.hour * 3600 +
+                        entry.startTime.minute * 60 +
+                        entry.startTime.second;
                     final offsetSeconds = startHour * 3600;
                     final relativeStartSeconds =
                         startSecondsVal - offsetSeconds;
-                    final durationSeconds = session.durationSeconds;
+                    final durationSeconds = entry.durationSeconds;
 
                     final double top =
                         (relativeStartSeconds / 3600.0) * pixelsPerHour;
                     final double height =
                         (durationSeconds / 3600.0) * pixelsPerHour;
-                    final double visualHeight = height < 2 ? 2 : height;
+                    // Min height for visibility
+                    final double visualHeight = height < 15 ? 15 : height;
 
                     if (top + visualHeight < 0 || top > totalHeight) {
                       return const SizedBox.shrink();
                     }
+
+                    // For background items, reduce opacity
+                    final Color baseColor = entry.color;
+                    final Color displayColor = entry.isEditable 
+                        ? baseColor.withOpacity(0.4) 
+                        : baseColor.withOpacity(0.15);
+                    final Color borderColor = entry.isEditable
+                        ? baseColor.withOpacity(0.8)
+                        : baseColor.withOpacity(0.3);
 
                     return Positioned(
                       top: top,
@@ -178,43 +200,45 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       right: 16,
                       height: visualHeight,
                       child: GestureDetector(
-                        onTap: () => widget.onEditSession(session),
+                        onTap: entry.isEditable 
+                            ? () => widget.onEditEntry(entry) 
+                            : null, // Read-only for background tasks
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppTheme.fhAccentTeal.withOpacity(0.3),
+                            color: displayColor,
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
-                              color: AppTheme.fhAccentTeal.withOpacity(0.6),
+                              color: borderColor,
                               width: 1,
                             ),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           alignment: Alignment.centerLeft,
-                          child: visualHeight > 20
+                          child: visualHeight > 10
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (visualHeight > 25)
+                                      Text(
+                                        entry.title,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(entry.isEditable ? 1.0 : 0.7),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     Text(
-                                      "${DateFormat('HH:mm:ss').format(session.startTime)} - ${DateFormat('HH:mm:ss').format(session.endTime)}",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                                      "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(entry.isEditable ? 0.9 : 0.5),
+                                        fontSize: 9,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    if (visualHeight > 35)
-                                      Text(
-                                        durationSeconds < 60
-                                            ? "${durationSeconds}s"
-                                            : "${(durationSeconds / 60).toStringAsFixed(1)} min",
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.8),
-                                          fontSize: 9,
-                                        ),
-                                      )
                                   ],
                                 )
                               : null,
