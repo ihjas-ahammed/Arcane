@@ -16,7 +16,6 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
-  // ... (existing controllers)
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
@@ -46,10 +45,13 @@ class _SettingsViewState extends State<SettingsView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _apiKeyController.text = appProvider.settings.customApiKey ?? '';
-    _customChatbotPromptController.text =
-        appProvider.settings.customChatbotPrompt ?? '';
-    _customReflectionPromptController.text =
-        appProvider.settings.customReflectionPrompt ?? '';
+    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
+
+    // Auto-load latest AI models when settings screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchModels(appProvider);
+    });
   }
 
   @override
@@ -165,9 +167,7 @@ class _SettingsViewState extends State<SettingsView> {
       setState(() {
         _availableModels = models;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Fetched ${models.length} models.'),
-          backgroundColor: AppTheme.fhAccentGreen));
+      // Silent success for auto-load to not annoy user
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -199,9 +199,9 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Cloud Synchronization',
               children: [
                 SwitchListTile.adaptive(
-                  title: const Text('Auto-Sync Data'),
+                  title: const Text('Real-Time Sync'),
                   subtitle: const Text(
-                      'Automatically sync changes to cloud every minute.'),
+                      'Automatically sync changes to cloud immediately (Recommended).'),
                   value: appProvider.settings.autoSaveEnabled,
                   activeTrackColor: AppTheme.fhAccentTeal,
                   contentPadding: EdgeInsets.zero,
@@ -721,8 +721,6 @@ class _SettingsViewState extends State<SettingsView> {
             value: _availableModels.contains(currentSelection)
                 ? currentSelection
                 : null,
-            // If not in list, it might be a custom one or default. Show it if we can add it to items or handle null.
-            // Ideally we add it to the dropdown items if it's missing.
             decoration: InputDecoration(
               labelText: label,
               contentPadding:
@@ -735,7 +733,6 @@ class _SettingsViewState extends State<SettingsView> {
               if (!_availableModels.contains(currentSelection)) currentSelection
             }
                 .map((m) => DropdownMenuItem(
-                      // toSet to remove dupes
                       value: m,
                       child:
                           Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),

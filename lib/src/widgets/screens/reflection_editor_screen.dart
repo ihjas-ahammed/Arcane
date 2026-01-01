@@ -6,6 +6,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/common/growing_text_field.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -43,7 +44,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     super.dispose();
   }
 
-  Future<void> _saveReflection() async {
+  Future<void> _saveReflection({bool analyze = true}) async {
     if (_triggerController.text.trim().isEmpty) return;
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
@@ -57,9 +58,35 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
     }
 
+    if (widget.initialLog != null) {
+      // Editing existing log - for simplicity in this flow, we update fields but don't re-trigger full AI unless logic changes
+      // Current AppProvider update logic is simple text replacement.
+      appProvider.updateReflectionLog(
+        widget.initialLog!.id,
+        trigger: _triggerController.text.trim(),
+        emotion: _emotionController.text.trim(),
+        reason: _reasonController.text.trim(),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    // New Log
+    if (!analyze) {
+      // Quick Save without AI
+      appProvider.quickSaveReflection(
+        trigger: _triggerController.text.trim(),
+        emotion: _emotionController.text.trim(),
+        reason: _reasonController.text.trim(),
+        timestamp: timestamp,
+      );
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
+      return;
+    }
+
     setState(() => _isLoading = true);
     
-    // ... (Existing save logic) ...
     try {
         final xpGained = await appProvider.processReflection(
           trigger: _triggerController.text.trim(),
@@ -85,6 +112,32 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       }
   }
 
+  void _deleteLog() {
+    if (widget.initialLog == null) return;
+    
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("DELETE LOG?", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold)),
+        content: const Text("This action cannot be undone. XP gained from this reflection will be removed."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () {
+              appProvider.deleteReflectionLog(widget.initialLog!.id);
+              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(context); // Close screen
+            },
+            child: const Text("DELETE")
+          )
+        ],
+      )
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,7 +158,15 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
                   ),
                   const SizedBox(width: 8),
-                  const Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
+                  const Expanded(
+                    child: Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary))
+                  ),
+                  if (widget.initialLog != null)
+                    IconButton(
+                      icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
+                      onPressed: _deleteLog,
+                      tooltip: "Delete Log",
+                    )
                 ],
               ),
             ),
@@ -116,39 +177,75 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   _buildSectionHeader("SITUATION"),
-                  _buildValorantInput(_triggerController, "What triggered this event?", 2),
+                  GrowingTextField(controller: _triggerController, hint: "What triggered this event?", minLines: 2),
                   
                   const SizedBox(height: 24),
                   
                   _buildSectionHeader("FEELING"),
-                  _buildValorantInput(_emotionController, "Emotion felt...", 1),
+                  GrowingTextField(controller: _emotionController, hint: "Emotion felt...", minLines: 1),
 
                   const SizedBox(height: 24),
 
                   _buildSectionHeader("CAUSE"),
-                  _buildValorantInput(_reasonController, "Why did this happen? Root cause...", 5),
+                  GrowingTextField(controller: _reasonController, hint: "Why did this happen? Root cause...", minLines: 3),
 
                   const SizedBox(height: 40),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ValorantButton(
-                          label: "ABORT",
-                          isPrimary: false,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ValorantButton(
-                          label: _isLoading ? "PROCESSING..." : "CONFIRM",
+                  // Actions
+                  if (widget.initialLog == null) ...[
+                    // New Log Actions
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ValorantButton(
+                          label: _isLoading ? "ANALYZING..." : "ANALYZE & SAVE",
                           isPrimary: true,
-                          onPressed: _isLoading ? null : _saveReflection,
+                          onPressed: _isLoading ? null : () => _saveReflection(analyze: true),
                         ),
-                      ),
-                    ],
-                  )
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ValorantButton(
+                                label: "ABORT",
+                                isPrimary: false,
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextButton(
+                                onPressed: _isLoading ? null : () => _saveReflection(analyze: false),
+                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
+                                child: const Text("QUICK SAVE (NO AI)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    )
+                  ] else ...[
+                    // Edit Existing Log Actions (Simpler)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ValorantButton(
+                            label: "CANCEL",
+                            isPrimary: false,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ValorantButton(
+                            label: "UPDATE",
+                            isPrimary: true,
+                            onPressed: () => _saveReflection(analyze: false), // Updates don't re-trigger AI by default here
+                          ),
+                        ),
+                      ],
+                    )
+                  ]
                 ],
               ),
             ),
@@ -164,29 +261,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       child: Text(
         title,
         style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
-      ),
-    );
-  }
-
-  Widget _buildValorantInput(TextEditingController controller, String hint, int lines) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
-        // No rounded corners
-      ),
-      padding: const EdgeInsets.all(16),
-      child: TextField(
-        controller: controller,
-        maxLines: lines,
-        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
-          contentPadding: EdgeInsets.zero,
-          filled: false,
-        ),
       ),
     );
   }

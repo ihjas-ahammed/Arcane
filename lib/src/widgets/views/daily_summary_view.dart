@@ -70,12 +70,21 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     
     // Create a Set of valid dates for O(1) lookup
-    final validDates = appProvider.completedByDay.keys.toSet();
+    // We only want dates that have either task activity or reflection logs
+    final Set<String> validDates = {};
+    
+    // 1. From Task Completion / Time Data
+    validDates.addAll(appProvider.completedByDay.keys);
+    
+    // 2. From Reflection Logs
     for (var log in appProvider.reflectionLogs) {
       validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
-    // Always include today
-    validDates.add(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+    
+    // 3. Always include Today and Tomorrow (for planning context)
+    final today = DateTime.now();
+    validDates.add(DateFormat('yyyy-MM-dd').format(today));
+    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
 
     final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
 
@@ -85,8 +94,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 1)),
       selectableDayPredicate: (DateTime date) {
-        // Optional: restrict to days with data if desired, but "all days" usually implies any selectable date
-        return true; 
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
       },
       builder: (context, child) {
         return Theme(
@@ -197,6 +206,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 chart: WeeklyActivityBarChart(
                   weeklyData: chartData['activityData'],
                   dominantColors: chartData['activityColors'],
+                  isVirtue: false,
                 ),
               ),
               ChartCarouselData(

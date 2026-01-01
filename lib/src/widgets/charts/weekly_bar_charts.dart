@@ -6,18 +6,21 @@ import 'package:intl/intl.dart';
 class WeeklyActivityBarChart extends StatelessWidget {
   final Map<int, double> weeklyData;
   final Map<int, Color> dominantColors;
+  final bool isVirtue;
 
   const WeeklyActivityBarChart({
     super.key,
     required this.weeklyData,
     required this.dominantColors,
+    required this.isVirtue,
   });
 
   @override
   Widget build(BuildContext context) {
     final double maxY = weeklyData.values.isEmpty
         ? 60.0
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2)
+            .clamp(60.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -25,19 +28,23 @@ class WeeklyActivityBarChart extends StatelessWidget {
         maxY: maxY,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark, // Updated to use getTooltipColor
+            getTooltipColor: (group) =>
+                AppTheme.fhBgDeepDark, // Updated to use getTooltipColor
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
-                '${rod.toY.toInt()}m',
-                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+                '${rod.toY.toInt()}${isVirtue ? "XP" : "m"}',
+                const TextStyle(
+                    color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
               );
             },
           ),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -48,19 +55,25 @@ class WeeklyActivityBarChart extends StatelessWidget {
                   meta: meta,
                   child: Text(
                     DateFormat('E').format(date).toUpperCase(),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(color: AppTheme.fhBorderColor.withValues(alpha: 0.1), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(
+              color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
+              strokeWidth: 1),
         ),
         barGroups: List.generate(7, (index) {
           final daysAgo = 6 - index;
@@ -101,6 +114,7 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Similar logic, just different data
-    return WeeklyActivityBarChart(weeklyData: weeklyXp, dominantColors: dominantVirtueColors);
+    return WeeklyActivityBarChart(
+        weeklyData: weeklyXp, dominantColors: dominantVirtueColors,isVirtue: true);
   }
 }

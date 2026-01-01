@@ -174,7 +174,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "DEPLOYMENT SCHEDULE",
+                      "BUS TIME",
                       style: const TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 20,
@@ -211,7 +211,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                       ),
                       child: Column(
                         children: [
-                          _buildLocationRow("ORIGIN POINT", _origin, (val) => setState(() => _origin = val)),
+                          _buildLocationRow("DEPARTURE", _origin, (val) => setState(() => _origin = val)),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
                             child: IconButton(
@@ -219,7 +219,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                               onPressed: _swapLocations,
                             ),
                           ),
-                          _buildLocationRow("EXTRACTION POINT", _destination, (val) => setState(() => _destination = val)),
+                          _buildLocationRow("DESTINATION", _destination, (val) => setState(() => _destination = val)),
                         ],
                       ),
                     ),

@@ -3326,7 +3326,7 @@ class LifeValue {
   final String id;
   final String title;
   final String description;
-  final int iconCodePoint; // Store icon as int for JSON serialization
+  final String iconName; // Store icon as string for JSON serialization
   int score; // 0 to 100 based on AI analysis of answers
   final List<ValueQuestion> questions;
 
@@ -3334,21 +3334,70 @@ class LifeValue {
     required this.id,
     required this.title,
     required this.description,
-    required this.iconCodePoint,
+    required this.iconName,
     this.score = 0,
     required this.questions,
   });
 
-  IconData get icon => IconData(iconCodePoint,
-      fontFamily: 'Material Design Icons',
-      fontPackage: 'material_design_icons_flutter');
+  IconData get icon => _getIconFromName(iconName);
+
+  static IconData _getIconFromName(String name) {
+    switch (name) {
+      case 'homeHeart':
+        return MdiIcons.homeHeart;
+      case 'heartOutline':
+        return MdiIcons.heartOutline;
+      case 'accountGroupOutline':
+        return MdiIcons.accountGroupOutline;
+      case 'briefcaseOutline':
+        return MdiIcons.briefcaseOutline;
+      case 'schoolOutline':
+        return MdiIcons.schoolOutline;
+      case 'controllerClassicOutline':
+        return MdiIcons.controllerClassicOutline;
+      case 'meditation':
+        return MdiIcons.meditation;
+      case 'handHeartOutline':
+        return MdiIcons.handHeartOutline;
+      case 'treeOutline':
+        return MdiIcons.treeOutline;
+      case 'runFast':
+        return MdiIcons.runFast;
+      default:
+        return MdiIcons.helpCircleOutline;
+    }
+  }
+
+  static String _mapCodePointToName(int codePoint) {
+    // Map existing code points back to names for migration
+    if (codePoint == MdiIcons.homeHeart.codePoint) return 'homeHeart';
+    if (codePoint == MdiIcons.heartOutline.codePoint) return 'heartOutline';
+    if (codePoint == MdiIcons.accountGroupOutline.codePoint)
+      return 'accountGroupOutline';
+    if (codePoint == MdiIcons.briefcaseOutline.codePoint)
+      return 'briefcaseOutline';
+    if (codePoint == MdiIcons.schoolOutline.codePoint) return 'schoolOutline';
+    if (codePoint == MdiIcons.controllerClassicOutline.codePoint)
+      return 'controllerClassicOutline';
+    if (codePoint == MdiIcons.meditation.codePoint) return 'meditation';
+    if (codePoint == MdiIcons.handHeartOutline.codePoint)
+      return 'handHeartOutline';
+    if (codePoint == MdiIcons.treeOutline.codePoint) return 'treeOutline';
+    if (codePoint == MdiIcons.runFast.codePoint) return 'runFast';
+    return 'helpCircleOutline';
+  }
 
   factory LifeValue.fromJson(Map<String, dynamic> json) {
+    String? iconName = json['iconName'] as String?;
+    if (iconName == null && json['iconCodePoint'] != null) {
+      iconName = _mapCodePointToName(json['iconCodePoint'] as int);
+    }
+
     return LifeValue(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String? ?? '',
-      iconCodePoint: json['iconCodePoint'] as int,
+      iconName: iconName ?? 'helpCircleOutline',
       score: json['score'] as int? ?? 0,
       questions: (json['questions'] as List<dynamic>)
           .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
@@ -3361,7 +3410,7 @@ class LifeValue {
       'id': id,
       'title': title,
       'description': description,
-      'iconCodePoint': iconCodePoint,
+      'iconName': iconName,
       'score': score,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
@@ -3374,7 +3423,7 @@ class LifeValue {
         id: 'family',
         title: 'Family',
         description: 'Roles, qualities, and relationships with relatives.',
-        iconCodePoint: MdiIcons.homeHeart.codePoint,
+        iconName: 'homeHeart',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3402,7 +3451,7 @@ class LifeValue {
         title: 'Partners',
         description:
             'Intimacy, shared qualities, and treatment of your partner.',
-        iconCodePoint: MdiIcons.heartOutline.codePoint,
+        iconName: 'heartOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3429,7 +3478,7 @@ class LifeValue {
         id: 'friendships',
         title: 'Friendships',
         description: 'Being a good friend and building social bonds.',
-        iconCodePoint: MdiIcons.accountGroupOutline.codePoint,
+        iconName: 'accountGroupOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3455,7 +3504,7 @@ class LifeValue {
         id: 'work',
         title: 'Work',
         description: 'Professional conduct, relationships, and meaning.',
-        iconCodePoint: MdiIcons.briefcaseOutline.codePoint,
+        iconName: 'briefcaseOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3485,7 +3534,7 @@ class LifeValue {
         id: 'education',
         title: 'Education',
         description: 'Learning, skills, and intellectual growth.',
-        iconCodePoint: MdiIcons.schoolOutline.codePoint,
+        iconName: 'schoolOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3514,7 +3563,7 @@ class LifeValue {
         id: 'fun',
         title: 'Fun',
         description: 'Hobbies, relaxation, creativity, and leisure.',
-        iconCodePoint: MdiIcons.controllerClassicOutline.codePoint,
+        iconName: 'controllerClassicOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3540,7 +3589,7 @@ class LifeValue {
         id: 'spirituality',
         title: 'Spirituality',
         description: 'Inner life, faith, or philosophical connection.',
-        iconCodePoint: MdiIcons.meditation.codePoint,
+        iconName: 'meditation',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3555,7 +3604,7 @@ class LifeValue {
         id: 'community',
         title: 'Community',
         description: 'Contribution, volunteering, and civic engagement.',
-        iconCodePoint: MdiIcons.handHeartOutline.codePoint,
+        iconName: 'handHeartOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3570,7 +3619,7 @@ class LifeValue {
         id: 'nature',
         title: 'Nature',
         description: 'Environment, connection to earth, and surroundings.',
-        iconCodePoint: MdiIcons.treeOutline.codePoint,
+        iconName: 'treeOutline',
         questions: [
           ValueQuestion(
               id: 'q1',
@@ -3598,7 +3647,7 @@ class LifeValue {
         id: 'health',
         title: 'Health',
         description: 'Physical well-being, diet, sleep, and exercise.',
-        iconCodePoint: MdiIcons.runFast.codePoint,
+        iconName: 'runFast',
         questions: [
           ValueQuestion(
               id: 'q1', question: 'How would you like to care for your body?'),
@@ -3737,7 +3786,7 @@ class AppProvider with ChangeNotifier {
     });
   }
 
-  // ... [KEEP ALL EXISTING METHODS UNTIL saveDailySummary] ...
+  // ... [KEEP ALL EXISTING METHODS UNTIL processReflection] ...
   void setLoadingTask(String? taskName) {
     if (_loadingTaskName != taskName) {
       _loadingTaskName = taskName;
@@ -4025,7 +4074,6 @@ class AppProvider with ChangeNotifier {
     _completedByDay = migratedHistory;
   }
 
-  // ... [KEEP ALL OTHER METHODS: reset, save, load, login, signup, etc.] ...
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -4282,8 +4330,6 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- NEW: Daily Summary Management ---
-  
   void saveDailySummary(String date, String summary) {
     if (!_completedByDay.containsKey(date)) {
       _completedByDay[date] = {};
@@ -4311,7 +4357,6 @@ class AppProvider with ChangeNotifier {
     return null;
   }
 
-  // ... [KEEP REST OF METHODS] ...
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
@@ -4556,6 +4601,28 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
 
     return xpAllocation;
+  }
+
+  // Save reflection without AI analysis
+  void quickSaveReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    DateTime? timestamp,
+  }) {
+    final log = ReflectionLog(
+      id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: "Log recorded manually. No analysis performed.",
+      xpGained: {}, // No XP allocated for manual without analysis
+    );
+
+    _reflectionLogs.add(log);
+    _hasUnsavedChanges = true;
+    notifyListeners();
   }
 
   void updateReflectionLog(String id,
@@ -6609,10 +6676,12 @@ class LogbookScreen extends StatelessWidget {
 --- START OF FILE lib/src/screens/login_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/valorant/valorant_form_field.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuthException
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -6662,10 +6731,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       setState(() {
         if (e is FirebaseAuthException) {
-          _error =
-              e.message ?? "An unknown Firebase authentication error occurred.";
+          _error = e.message ?? "Authentication failed.";
         } else {
-          _error = "An unexpected error occurred. Please try again.";
+          _error = "Connection error. Retrying...";
         }
       });
     } finally {
@@ -6679,178 +6747,181 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Card(
-              color: AppTheme.fhBgDark,
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                side: const BorderSide(
-                    color: AppTheme.fhBorderColor, width: 1.0),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32.0, vertical: 40.0),
-                child: Form(
-                  key: _formKey,
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header Logo Area
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                       Icon(MdiIcons.shieldCrownOutline,
-                          size: 64, color: AppTheme.fhAccentTealFixed),
-                      const SizedBox(height: 24),
-                      Text(
-                        'ARCANE',
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          color: AppTheme.fhAccentTealFixed,
+                    children: [
+                      Icon(MdiIcons.triangleOutline, size: 64, color: AppTheme.fhAccentRed),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'PRIMUS',
+                        style: TextStyle(
+                          color: AppTheme.fhTextPrimary,
                           fontFamily: AppTheme.fontDisplay,
-                          letterSpacing: 2.0
+                          fontSize: 56,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4.0,
+                          height: 0.9,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _isLogin ? 'Enter the Void' : 'Ascend',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: AppTheme.fhTextSecondary,
-                          fontStyle: FontStyle.italic
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 40),
-                      if (!_isLogin)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child:  TextFormField(
-                            controller: _usernameController,
-                            decoration:  InputDecoration(
-                              labelText: 'Callsign',
-                              prefixIcon:  Icon(MdiIcons.accountOutline),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(width: 20, height: 2, color: AppTheme.fhAccentRed),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'OPERATIVE ACCESS',
+                            style: TextStyle(
+                              color: AppTheme.fhTextSecondary,
+                              fontFamily: 'RobotoMono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
                             ),
-                            style: const TextStyle(
-                                color: AppTheme.fhTextPrimary,
-                                fontFamily: AppTheme.fontBody),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter a username.';
-                              }
-                              if (value.trim().length < 3) {
-                                return 'Username must be at least 3 characters.';
-                              }
-                              return null;
-                            },
-                            onSaved: (value) => _username = value!.trim(),
                           ),
-                        ),
-                      TextFormField(
-                        controller: _emailController,
-                        decoration:  InputDecoration(
-                          labelText: 'Email Address',
-                          prefixIcon: Icon(MdiIcons.emailOutline),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontBody),
-                        validator: (value) {
-                          if (value == null ||
-                              value.isEmpty ||
-                              !value.contains('@')) {
-                            return 'Please enter a valid email.';
-                          }
-                          return null;
-                        },
-                        onSaved: (value) => _email = value!,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: InputDecoration(
-                          labelText: 'Passcode',
-                          prefixIcon:  Icon(MdiIcons.lockOutline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? MdiIcons.eyeOutline
-                                  : MdiIcons.eyeOffOutline,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                        ),
-                        obscureText: _obscurePassword,
-                        style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontBody),
-                        validator: (value) {
-                          if (value == null ||
-                              value.isEmpty ||
-                              value.length < 6) {
-                            return 'Password must be at least 6 characters long.';
-                          }
-                          return null;
-                        },
-                        onSaved: (value) => _password = value!,
-                      ),
-                      if (_error.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Text(
-                            _error,
-                            style: const TextStyle(
-                                color: AppTheme.fhAccentRed,
-                                fontSize: 12,
-                                fontFamily: AppTheme.fontBody),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      const SizedBox(height: 32),
-                      if (_isLoading)
-                        const CircularProgressIndicator(
-                            color: AppTheme.fhAccentTealFixed)
-                      else
-                        ElevatedButton(
-                          onPressed: _submit,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                            backgroundColor: AppTheme.fhAccentTealFixed,
-                            foregroundColor: AppTheme.fhBgDeepDark,
-                          ),
-                          child: Text(_isLogin ? 'LOGIN' : 'SIGN UP'),
-                        ),
-                      const SizedBox(height: 20),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLogin = !_isLogin;
-                            _error = '';
-                            _formKey.currentState?.reset();
-                            _usernameController.clear();
-                            _emailController.clear();
-                            _passwordController.clear();
-                          });
-                        },
-                        child: Text(
-                          _isLogin
-                              ? 'Need an account? Sign Up'
-                              : 'Already have an account? Login',
-                          style: const TextStyle(color: AppTheme.fhTextSecondary),
-                        ),
+                          const SizedBox(width: 12),
+                          Container(width: 20, height: 2, color: AppTheme.fhAccentRed),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
+
+                // Form Card
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withOpacity(0.8),
+                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (!_isLogin) ...[
+                          ValorantFormField(
+                            controller: _usernameController,
+                            label: 'CALLSIGN',
+                            prefixIcon: MdiIcons.accountOutline,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'REQUIRED';
+                              if (value.trim().length < 3) return 'TOO SHORT';
+                              return null;
+                            },
+                            onSaved: (value) => _username = value!.trim(),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        ValorantFormField(
+                          controller: _emailController,
+                          label: 'EMAIL IDENTIFIER',
+                          prefixIcon: MdiIcons.emailOutline,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || !value.contains('@')) return 'INVALID FORMAT';
+                            return null;
+                          },
+                          onSaved: (value) => _email = value!,
+                        ),
+                        const SizedBox(height: 20),
+                        ValorantFormField(
+                          controller: _passwordController,
+                          label: 'PASSCODE',
+                          prefixIcon: MdiIcons.lockOutline,
+                          obscureText: _obscurePassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? MdiIcons.eyeOutline : MdiIcons.eyeOffOutline,
+                              color: AppTheme.fhTextSecondary,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.length < 6) return 'MIN 6 CHARS';
+                            return null;
+                          },
+                          onSaved: (value) => _password = value!,
+                        ),
+                        
+                        if (_error.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 20.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.fhAccentRed.withOpacity(0.1),
+                                border: Border(left: BorderSide(color: AppTheme.fhAccentRed, width: 3))
+                              ),
+                              child: Text(
+                                _error.toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppTheme.fhAccentRed,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'RobotoMono'
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 32),
+
+                        if (_isLoading)
+                          const Center(
+                            child: CircularProgressIndicator(color: AppTheme.fhAccentRed),
+                          )
+                        else
+                          ValorantButton(
+                            label: _isLogin ? 'AUTHENTICATE' : 'INITIATE',
+                            onPressed: _submit,
+                            isPrimary: true,
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _isLogin = !_isLogin;
+                                _error = '';
+                                _formKey.currentState?.reset();
+                                _usernameController.clear();
+                                _emailController.clear();
+                                _passwordController.clear();
+                              });
+                            },
+                            child: Text(
+                              _isLogin
+                                  ? 'REQUEST ACCESS ID'
+                                  : 'RETURN TO LOGIN',
+                              style: const TextStyle(
+                                color: AppTheme.fhTextSecondary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                                fontSize: 12
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -10387,14 +10458,14 @@ class TaskHeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark, // Dark backdrop
+        color: AppTheme.fhBgDeepDark,
         image: const DecorationImage(
-          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"), // Placeholder abstract bg
+          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
           fit: BoxFit.cover,
-          opacity: 0.1,
+          opacity: 0.05,
         ),
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.fhAccentTealFixed, width: 2),
+        border: Border(
+          bottom: BorderSide(color: task.taskColor, width: 2),
         ),
       ),
       child: Column(
@@ -10404,11 +10475,11 @@ class TaskHeaderCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                color: task.taskColor,
+                color: task.taskColor.withOpacity(0.2),
                 child: Text(
                   task.theme.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.black, // High contrast on color
+                  style: TextStyle(
+                    color: task.taskColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                     letterSpacing: 2.0
@@ -10416,30 +10487,33 @@ class TaskHeaderCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary),
+              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary, size: 18),
             ],
           ),
           const SizedBox(height: 16),
-          // Giant Title
+          // Resized Main Title for better wrapping
           Text(
             task.name.toUpperCase(),
             style: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
-              fontSize: 48,
-              height: 0.9,
-              fontWeight: FontWeight.bold,
+              fontSize: 32, // Reduced from 48
+              height: 1.0,
+              fontWeight: FontWeight.w900,
               color: AppTheme.fhTextPrimary,
-              letterSpacing: 1.5
+              letterSpacing: 1.2
             ),
+            softWrap: true,
           ),
           const SizedBox(height: 8),
           Text(
             task.description,
             style: const TextStyle(
               color: AppTheme.fhTextSecondary,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.4,
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 24),
           
@@ -10451,13 +10525,15 @@ class TaskHeaderCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("SESSION TIME", style: TextStyle(color: AppTheme.fhAccentTealFixed, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  const Text("SESSION DURATION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
                   Text(
                     "$timeSpentFormatted / $maxTimeFormatted",
                     style: const TextStyle(
                       fontFamily: "RobotoMono",
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold
                     ),
                   ),
                 ],
@@ -10468,9 +10544,9 @@ class TaskHeaderCard extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 24, bottom: 6),
                   child: LinearProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.white10,
+                    backgroundColor: AppTheme.fhBgMedium,
                     color: task.taskColor,
-                    minHeight: 2,
+                    minHeight: 4,
                   ),
                 ),
               )
@@ -10491,7 +10567,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart'; // Using the new Valorant Card
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -10531,24 +10607,25 @@ class SubmissionCard extends StatelessWidget {
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
-    // Valorant Logic: If running, highlight border with Red.
-    Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
-    if (isRunning) borderColor = AppTheme.fhAccentRed; // Active combat color
-    if (subTask.completed) borderColor = AppTheme.fhAccentTeal; // Success color
+    Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
+    if (isRunning) borderColor = parentTask.taskColor;
+    if (subTask.completed) borderColor = parentTask.taskColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: ValorantCard(
         borderColor: borderColor,
-        isSelected: isRunning, // Use selected state for running effect
+        isSelected: isRunning,
         onTap: () => _openDetailScreen(context),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Status Icon / Checkbox
+            // Checkbox
             Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: const EdgeInsets.only(right: 12.0),
               child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal)
+                  ? Icon(MdiIcons.checkAll, color: parentTask.taskColor, size: 20)
                   : RhombusCheckbox(
                       checked: subTask.completed,
                       onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
@@ -10556,7 +10633,7 @@ class SubmissionCard extends StatelessWidget {
                     ),
             ),
 
-            // Text Info
+            // Name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -10565,130 +10642,81 @@ class SubmissionCard extends StatelessWidget {
                     subTask.name.toUpperCase(),
                     style: TextStyle(
                       fontFamily: AppTheme.fontDisplay,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                       letterSpacing: 0.5,
+                      height: 1.1,
                       decoration: subTask.completed ? TextDecoration.lineThrough : null,
                       color: subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
                     ),
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (isRunning)
-                    Text(
-                      "// ACTIVE COMBAT //",
-                      style: TextStyle(
-                        color: AppTheme.fhAccentRed, 
-                        fontSize: 10, 
-                        fontWeight: FontWeight.bold, 
-                        letterSpacing: 2.0
-                      ),
-                    ),
+                  
                 ],
               ),
             ),
 
-            // Actions & Context Menu (Fixed: Added access to delete/duplicate)
-            Row(
-              children: [
-                if (!subTask.completed) ...[
-                  Text(
-                    formattedTime,
-                    style: TextStyle(
-                      fontFamily: "RobotoMono",
-                      color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Play/Pause Button
-                  GestureDetector(
-                    onTap: () {
-                      if (isRunning) {
-                        provider.pauseTimer(subTask.id);
-                        provider.logTimerAndReset(subTask.id);
-                      } else {
-                        provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary),
-                        shape: BoxShape.rectangle, // Square buttons in Valorant
-                      ),
-                      child: Icon(
-                        isRunning ? MdiIcons.pause : MdiIcons.play,
-                        size: 16,
-                        color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                // Options Menu (The fix)
-                PopupMenuButton<String>(
-                  icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 20),
-                  color: AppTheme.fhBgDark,
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _confirmDelete(context, provider);
-                    } else if (value == 'duplicate') {
-                      provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sub-Mission Duplicated")));
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if (subTask.completed)
-                      const PopupMenuItem(
-                        value: 'duplicate',
-                        child: Row(
-                          children: [
-                            Icon(Icons.copy, size: 16, color: AppTheme.fhTextPrimary),
-                            SizedBox(width: 8),
-                            Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary)),
-                          ],
-                        ),
-                      ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 16, color: AppTheme.fhAccentRed),
-                          SizedBox(width: 8),
-                          Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed)),
-                        ],
-                      ),
-                    ),
-                  ],
+            // Time & Controls
+            const SizedBox(width: 8),
+            if (!subTask.completed) ...[
+              Text(
+                formattedTime,
+                style: TextStyle(
+                  fontFamily: "RobotoMono",
+                  color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold
                 ),
+              ),
+              const SizedBox(width: 12),
+              // Play/Pause
+              InkWell(
+                onTap: () {
+                  if (isRunning) {
+                    provider.pauseTimer(subTask.id);
+                    provider.logTimerAndReset(subTask.id);
+                  } else {
+                    provider.startTimer(subTask.id, 'subtask', parentTask.id);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isRunning ? AppTheme.fhAccentTeal.withOpacity(0.1) : Colors.transparent,
+                    border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withOpacity(0.5)),
+                  ),
+                  child: Icon(
+                    isRunning ? MdiIcons.pause : MdiIcons.play,
+                    size: 16,
+                    color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
+                  ),
+                ),
+              ),
+            ],
+            
+            // Context Menu
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 18),
+              color: AppTheme.fhBgDark,
+              onSelected: (value) {
+                if (value == 'delete') {
+                  // _confirmDelete(context, provider); // Needs method logic
+                  provider.deleteSubtask(parentTask.id, subTask.id); // Direct for now or add confirm
+                } else if (value == 'duplicate') {
+                  provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
+                }
+              },
+              itemBuilder: (context) => [
+                if (subTask.completed)
+                  const PopupMenuItem(value: 'duplicate', child: Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                const PopupMenuItem(value: 'delete', child: Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
               ],
-            )
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, AppProvider provider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("Delete Mission?", style: TextStyle(color: AppTheme.fhTextPrimary)),
-        content: const Text("This action cannot be undone."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-            onPressed: () {
-              provider.deleteSubtask(parentTask.id, subTask.id);
-              Navigator.pop(ctx);
-            },
-            child: const Text("Confirm"),
-          )
-        ],
-      )
     );
   }
 }
@@ -10991,18 +11019,21 @@ import 'package:intl/intl.dart';
 class WeeklyActivityBarChart extends StatelessWidget {
   final Map<int, double> weeklyData;
   final Map<int, Color> dominantColors;
+  final bool isVirtue;
 
   const WeeklyActivityBarChart({
     super.key,
     required this.weeklyData,
     required this.dominantColors,
+    required this.isVirtue,
   });
 
   @override
   Widget build(BuildContext context) {
     final double maxY = weeklyData.values.isEmpty
         ? 60.0
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(60.0, double.infinity);
+        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2)
+            .clamp(60.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -11010,19 +11041,23 @@ class WeeklyActivityBarChart extends StatelessWidget {
         maxY: maxY,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => AppTheme.fhBgDeepDark, // Updated to use getTooltipColor
+            getTooltipColor: (group) =>
+                AppTheme.fhBgDeepDark, // Updated to use getTooltipColor
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
-                '${rod.toY.toInt()}m',
-                const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
+                '${rod.toY.toInt()}${isVirtue ? "XP" : "m"}',
+                const TextStyle(
+                    color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold),
               );
             },
           ),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -11033,19 +11068,25 @@ class WeeklyActivityBarChart extends StatelessWidget {
                   meta: meta,
                   child: Text(
                     DateFormat('E').format(date).toUpperCase(),
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(color: AppTheme.fhBorderColor.withValues(alpha: 0.1), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(
+              color: AppTheme.fhBorderColor.withValues(alpha: 0.1),
+              strokeWidth: 1),
         ),
         barGroups: List.generate(7, (index) {
           final daysAgo = 6 - index;
@@ -11086,9 +11127,11 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Similar logic, just different data
-    return WeeklyActivityBarChart(weeklyData: weeklyXp, dominantColors: dominantVirtueColors);
+    return WeeklyActivityBarChart(
+        weeklyData: weeklyXp, dominantColors: dominantVirtueColors,isVirtue: true);
   }
 }
+
 --- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
 
 --- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
@@ -12618,6 +12661,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/common/growing_text_field.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -12655,7 +12699,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     super.dispose();
   }
 
-  Future<void> _saveReflection() async {
+  Future<void> _saveReflection({bool analyze = true}) async {
     if (_triggerController.text.trim().isEmpty) return;
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
@@ -12669,9 +12713,35 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
     }
 
+    if (widget.initialLog != null) {
+      // Editing existing log - for simplicity in this flow, we update fields but don't re-trigger full AI unless logic changes
+      // Current AppProvider update logic is simple text replacement.
+      appProvider.updateReflectionLog(
+        widget.initialLog!.id,
+        trigger: _triggerController.text.trim(),
+        emotion: _emotionController.text.trim(),
+        reason: _reasonController.text.trim(),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    // New Log
+    if (!analyze) {
+      // Quick Save without AI
+      appProvider.quickSaveReflection(
+        trigger: _triggerController.text.trim(),
+        emotion: _emotionController.text.trim(),
+        reason: _reasonController.text.trim(),
+        timestamp: timestamp,
+      );
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
+      return;
+    }
+
     setState(() => _isLoading = true);
     
-    // ... (Existing save logic) ...
     try {
         final xpGained = await appProvider.processReflection(
           trigger: _triggerController.text.trim(),
@@ -12697,6 +12767,32 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       }
   }
 
+  void _deleteLog() {
+    if (widget.initialLog == null) return;
+    
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("DELETE LOG?", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold)),
+        content: const Text("This action cannot be undone. XP gained from this reflection will be removed."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () {
+              appProvider.deleteReflectionLog(widget.initialLog!.id);
+              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(context); // Close screen
+            },
+            child: const Text("DELETE")
+          )
+        ],
+      )
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -12717,7 +12813,15 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
                   ),
                   const SizedBox(width: 8),
-                  const Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary)),
+                  const Expanded(
+                    child: Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary))
+                  ),
+                  if (widget.initialLog != null)
+                    IconButton(
+                      icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
+                      onPressed: _deleteLog,
+                      tooltip: "Delete Log",
+                    )
                 ],
               ),
             ),
@@ -12728,39 +12832,75 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   _buildSectionHeader("SITUATION"),
-                  _buildValorantInput(_triggerController, "What triggered this event?", 2),
+                  GrowingTextField(controller: _triggerController, hint: "What triggered this event?", minLines: 2),
                   
                   const SizedBox(height: 24),
                   
                   _buildSectionHeader("FEELING"),
-                  _buildValorantInput(_emotionController, "Emotion felt...", 1),
+                  GrowingTextField(controller: _emotionController, hint: "Emotion felt...", minLines: 1),
 
                   const SizedBox(height: 24),
 
                   _buildSectionHeader("CAUSE"),
-                  _buildValorantInput(_reasonController, "Why did this happen? Root cause...", 5),
+                  GrowingTextField(controller: _reasonController, hint: "Why did this happen? Root cause...", minLines: 3),
 
                   const SizedBox(height: 40),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ValorantButton(
-                          label: "ABORT",
-                          isPrimary: false,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ValorantButton(
-                          label: _isLoading ? "PROCESSING..." : "CONFIRM",
+                  // Actions
+                  if (widget.initialLog == null) ...[
+                    // New Log Actions
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ValorantButton(
+                          label: _isLoading ? "ANALYZING..." : "ANALYZE & SAVE",
                           isPrimary: true,
-                          onPressed: _isLoading ? null : _saveReflection,
+                          onPressed: _isLoading ? null : () => _saveReflection(analyze: true),
                         ),
-                      ),
-                    ],
-                  )
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ValorantButton(
+                                label: "ABORT",
+                                isPrimary: false,
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextButton(
+                                onPressed: _isLoading ? null : () => _saveReflection(analyze: false),
+                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
+                                child: const Text("QUICK SAVE (NO AI)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    )
+                  ] else ...[
+                    // Edit Existing Log Actions (Simpler)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ValorantButton(
+                            label: "CANCEL",
+                            isPrimary: false,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ValorantButton(
+                            label: "UPDATE",
+                            isPrimary: true,
+                            onPressed: () => _saveReflection(analyze: false), // Updates don't re-trigger AI by default here
+                          ),
+                        ),
+                      ],
+                    )
+                  ]
                 ],
               ),
             ),
@@ -12776,29 +12916,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       child: Text(
         title,
         style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
-      ),
-    );
-  }
-
-  Widget _buildValorantInput(TextEditingController controller, String hint, int lines) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
-        // No rounded corners
-      ),
-      padding: const EdgeInsets.all(16),
-      child: TextField(
-        controller: controller,
-        maxLines: lines,
-        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
-          contentPadding: EdgeInsets.zero,
-          filled: false,
-        ),
       ),
     );
   }
@@ -12846,10 +12963,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     super.dispose();
   }
 
+  // ... (Keep existing methods: _getLiveSubTask, _handleAddCheckpoint, _handleEditSubtask, _showAddSessionDialog, _handleSessionEdit, _buildTimelineEntries)
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
+      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
       return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
     } catch (e) {
       return null;
@@ -12866,15 +12983,13 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     _checkpointController.clear();
   }
 
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask textSubTask) async {
+  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
     final String? newName = await showDialog<String>(
       context: context,
       builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
     );
     if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, {'name': newName});
+      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
     }
   }
 
@@ -12886,49 +13001,38 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (result != null) {
       final startBase = result['start']!;
       final endBase = result['end']!;
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, endBase.hour, endBase.minute);
+      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
+      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
       if (realEnd.isBefore(realStart)) {
         realEnd = realEnd.add(const Duration(days: 1));
       }
-      provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
+      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
+  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
+      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
+        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
       } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
+        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
       }
     }
   }
 
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
+  List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
     final List<TimelineEntry> entries = [];
-
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          // Filter by selected date
           if (session.startTime.year == _selectedDate.year &&
               session.startTime.month == _selectedDate.month &&
               session.startTime.day == _selectedDate.day) {
             final bool isCurrentSubTask = sub.id == currentSubTaskId;
-
             entries.add(TimelineEntry(
               id: session.id,
               startTime: session.startTime,
@@ -12948,7 +13052,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // final theme = Theme.of(context);
     final provider = Provider.of<AppProvider>(context);
     final liveSubTask = _getLiveSubTask(provider);
 
@@ -12962,94 +13065,80 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final timerState = provider.activeTimers[liveSubTask.id];
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now()
-                        .difference(timerState.startTime)
-                        .inMilliseconds /
-                    1000)
+            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
             : timerState.accumulatedDisplayTime)
         : liveSubTask.currentTimeSpent.toDouble();
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints =
-        liveSubTask.subSubTasks.where((s) => s.completed).length;
+    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
     final int totalCheckpoints = liveSubTask.subSubTasks.length;
-
-    // Build timeline entries for ALL tasks on selected day
     final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       body: Stack(
         children: [
-          // Layer 1: Background Watermark
+          // Background Watermark
           Positioned(
-            right: -50,
-            top: 50,
+            right: -50, top: 50,
             child: Opacity(
               opacity: 0.05,
-              child:
-                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
             ),
           ),
 
-          // Layer 2: Main Content
           SafeArea(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // --- Header ---
+                  // Top Bar
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white70),
+                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
                           onPressed: () => Navigator.pop(context),
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: Icon(MdiIcons.pencilOutline,
-                              color: Colors.white70),
-                          onPressed: () => _handleEditSubtask(
-                              context, provider, liveSubTask),
+                          icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
+                          onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
                         ),
                       ],
                     ),
                   ),
 
+                  // Header Info - Resized
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.parentTask.name
-                              .toUpperCase(), // "INITIATOR" style
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTealFixed,
+                          widget.parentTask.name.toUpperCase(), 
+                          style: TextStyle(
+                            color: widget.parentTask.taskColor,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.5,
-                            fontSize: 14,
+                            fontSize: 12,
                             fontFamily: AppTheme.fontDisplay,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
-                          liveSubTask.name.toUpperCase(), // "BREACH" style
+                          liveSubTask.name.toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 48,
-                            height: 0.9,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 36, // Reduced from 48
+                            height: 1.0,
                             fontFamily: AppTheme.fontDisplay,
-                            letterSpacing: 2.0,
+                            letterSpacing: 1.0,
                           ),
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -13058,7 +13147,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // --- Ability/Stat Row ---
+                  // Ability/Stat Row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -13077,8 +13166,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           label: "STEPS",
                           value: "$completedCheckpoints/$totalCheckpoints",
                           icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 &&
-                              completedCheckpoints == totalCheckpoints,
+                          isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
                         ),
                         const SizedBox(width: 16),
                         ValorantAbilitySlot(
@@ -13092,12 +13180,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           hotkey: "X",
                           label: "STATUS",
                           value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed
-                              ? MdiIcons.checkAll
-                              : MdiIcons.target,
+                          icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
                           isActive: liveSubTask.completed,
-                          onTap: () => provider.completeSubtask(
-                              widget.parentTask.id, liveSubTask.id),
+                          onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
                         ),
                       ],
                     ),
@@ -13106,267 +13191,178 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(color: Colors.white10),
 
-                  // --- Main Content Area ---
+                  // Main Content
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        children: [
-                          // Timer Control Area
-                          Container(
-                            margin: const EdgeInsets.all(16),
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isRunning
-                                    ? [
-                                        AppTheme.fhAccentRed
-                                            .withValues(alpha: 0.2),
-                                        Colors.transparent
-                                      ]
-                                    : [
-                                        Colors.white.withValues(alpha: 0.05),
-                                        Colors.transparent
-                                      ],
-                                begin: Alignment.bottomLeft,
-                                end: Alignment.topRight,
-                              ),
-                              border: Border(
-                                  left: BorderSide(
-                                      color: isRunning
-                                          ? AppTheme.fhAccentRed
-                                          : AppTheme.fhTextSecondary,
-                                      width: 2)),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Timer Control
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isRunning
+                                ? [AppTheme.fhAccentRed.withOpacity(0.2), Colors.transparent]
+                                : [Colors.white.withOpacity(0.05), Colors.transparent],
+                            begin: Alignment.bottomLeft, end: Alignment.topRight,
+                          ),
+                          border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isRunning
-                                          ? "SESSION ACTIVE"
-                                          : "READY TO DEPLOY",
-                                      style: TextStyle(
-                                        color: isRunning
-                                            ? AppTheme.fhAccentRed
-                                            : AppTheme.fhTextSecondary,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.0,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      formattedTime,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 32,
-                                        fontFamily: AppTheme.fontDisplay,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
+                                  style: TextStyle(
+                                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                    fontSize: 10,
+                                  ),
                                 ),
-                                FloatingActionButton.small(
-                                  backgroundColor: isRunning
-                                      ? AppTheme.fhAccentRed
-                                      : AppTheme.fhAccentTealFixed,
-                                  foregroundColor: Colors.black,
-                                  onPressed: () {
-                                    if (isRunning) {
-                                      provider.pauseTimer(liveSubTask.id);
-                                      provider.logTimerAndReset(liveSubTask.id);
-                                    } else {
-                                      provider.startTimer(liveSubTask.id,
-                                          'subtask', widget.parentTask.id);
-                                    }
-                                  },
-                                  child: Icon(isRunning
-                                      ? MdiIcons.pause
-                                      : MdiIcons.play),
+                                const SizedBox(height: 4),
+                                Text(
+                                  formattedTime,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-
-                          // Checkpoints List
-                          SizedBox(
-                            height: 250,
-                            child: ListView(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
-                                  child: Text(
-                                    "TACTICAL OBJECTIVES",
-                                    style: TextStyle(
-                                        color: AppTheme.fhTextSecondary
-                                            .withValues(alpha: 0.5),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10,
-                                        letterSpacing: 1.5),
-                                  ),
-                                ),
-                                ...liveSubTask.subSubTasks
-                                    .map((sss) => ValorantListItem(
-                                          title: sss.name,
-                                          isCompleted: sss.completed,
-                                          onToggle: () =>
-                                              provider.completeSubSubtask(
-                                                  widget.parentTask.id,
-                                                  liveSubTask.id,
-                                                  sss.id),
-                                          onDelete: () =>
-                                              provider.deleteSubSubtask(
-                                                  widget.parentTask.id,
-                                                  liveSubTask.id,
-                                                  sss.id),
-                                        )),
-                                // Quick Add Field
-                                Container(
-                                  margin: const EdgeInsets.only(top: 8),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.1))),
-                                  ),
-                                  child: TextField(
-                                    controller: _checkpointController,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 13),
-                                    decoration: const InputDecoration(
-                                      hintText: "+ Add Objective",
-                                      hintStyle:
-                                          TextStyle(color: Colors.white24),
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding:
-                                          EdgeInsets.symmetric(vertical: 12),
-                                    ),
-                                    onSubmitted: (_) =>
-                                        _handleAddCheckpoint(provider),
-                                  ),
-                                ),
-                                Column(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () async {
-                                              final picked =
-                                                  await showDatePicker(
-                                                context: context,
-                                                initialDate: _selectedDate,
-                                                firstDate: DateTime(2020),
-                                                lastDate: DateTime.now().add(
-                                                    const Duration(days: 365)),
-                                                builder: (context, child) =>
-                                                    Theme(
-                                                  data: Theme.of(context)
-                                                      .copyWith(
-                                                    colorScheme:
-                                                        ColorScheme.dark(
-                                                      primary: AppTheme
-                                                          .fhAccentTealFixed,
-                                                      onPrimary: Colors.black,
-                                                      surface:
-                                                          AppTheme.fhBgDark,
-                                                      onSurface: Colors.white,
-                                                    ),
-                                                    dialogTheme:
-                                                        DialogThemeData(
-                                                            backgroundColor:
-                                                                AppTheme
-                                                                    .fhBgDark),
-                                                  ),
-                                                  child: child!,
-                                                ),
-                                              );
-                                              if (picked != null) {
-                                                setState(() =>
-                                                    _selectedDate = picked);
-                                              }
-                                            },
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  DateFormat('MMM dd')
-                                                      .format(_selectedDate)
-                                                      .toUpperCase(),
-                                                  style: const TextStyle(
-                                                      color: AppTheme
-                                                          .fhAccentTealFixed,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontFamily:
-                                                          AppTheme.fontDisplay,
-                                                      fontSize: 16),
-                                                ),
-                                                const Icon(
-                                                    Icons.arrow_drop_down,
-                                                    color: AppTheme
-                                                        .fhAccentTealFixed,
-                                                    size: 16),
-                                              ],
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.add,
-                                                size: 20,
-                                                color: Colors.white54),
-                                            onPressed: () =>
-                                                _showAddSessionDialog(
-                                                    context, provider),
-                                            tooltip: "Log Manual Session",
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      child: Container(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.2),
-                                        child: ScheduleTimeline(
-                                          entries: timelineEntries,
-                                          onAddSession: () =>
-                                              _showAddSessionDialog(
-                                                  context, provider),
-                                          onEditEntry: (entry) {
-                                            if (entry.originalObject
-                                                is TaskSession) {
-                                              _handleSessionEdit(
-                                                  context,
-                                                  provider,
-                                                  entry.originalObject
-                                                      as TaskSession);
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            FloatingActionButton.small(
+                              backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
+                              foregroundColor: Colors.black,
+                              onPressed: () {
+                                if (isRunning) {
+                                  provider.pauseTimer(liveSubTask.id);
+                                  provider.logTimerAndReset(liveSubTask.id);
+                                } else {
+                                  provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                }
+                              },
+                              child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
-                      // Vertical Divider
-                      const SizedBox(height: 16),
-                      Container(height: 1, color: Colors.white10),
-                      const SizedBox(height: 16),
+                      // Checkpoints & Timeline
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "TACTICAL OBJECTIVES",
+                              style: TextStyle(
+                                color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                letterSpacing: 1.5
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
+                              title: sss.name,
+                              isCompleted: sss.completed,
+                              onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                              onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
+                            )),
+                            
+                            // Quick Add
+                            Container(
+                              margin: const EdgeInsets.only(top: 8, bottom: 24),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.2),
+                                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                              ),
+                              child: TextField(
+                                controller: _checkpointController,
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                decoration: const InputDecoration(
+                                  hintText: "+ ADD OBJECTIVE",
+                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                onSubmitted: (_) => _handleAddCheckpoint(provider),
+                              ),
+                            ),
+
+                            // Timeline
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _selectedDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      builder: (context, child) => Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: const ColorScheme.dark(
+                                            primary: AppTheme.fhAccentTealFixed,
+                                            onPrimary: Colors.black,
+                                            surface: AppTheme.fhBgDark,
+                                            onSurface: Colors.white,
+                                          ),
+                                          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+                                        ),
+                                        child: child!,
+                                      ),
+                                    );
+                                    if (picked != null) {
+                                      setState(() => _selectedDate = picked);
+                                    }
+                                  },
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                                        style: const TextStyle(
+                                          color: AppTheme.fhAccentTealFixed,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: AppTheme.fontDisplay,
+                                          fontSize: 16
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add, size: 20, color: Colors.white54),
+                                  onPressed: () => _showAddSessionDialog(context, provider),
+                                  tooltip: "Log Manual Session",
+                                ),
+                              ],
+                            ),
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              color: Colors.black.withOpacity(0.2),
+                              child: ScheduleTimeline(
+                                entries: timelineEntries,
+                                onAddSession: () => _showAddSessionDialog(context, provider),
+                                onEditEntry: (entry) {
+                                  if (entry.originalObject is TaskSession) {
+                                    _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -13378,7 +13374,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     );
   }
 }
-
 --- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
 
 --- START OF FILE lib/src/widgets/sheets/create_project_sheet.dart ---
@@ -16197,12 +16192,21 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     
     // Create a Set of valid dates for O(1) lookup
-    final validDates = appProvider.completedByDay.keys.toSet();
+    // We only want dates that have either task activity or reflection logs
+    final Set<String> validDates = {};
+    
+    // 1. From Task Completion / Time Data
+    validDates.addAll(appProvider.completedByDay.keys);
+    
+    // 2. From Reflection Logs
     for (var log in appProvider.reflectionLogs) {
       validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
-    // Always include today
-    validDates.add(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+    
+    // 3. Always include Today and Tomorrow (for planning context)
+    final today = DateTime.now();
+    validDates.add(DateFormat('yyyy-MM-dd').format(today));
+    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
 
     final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
 
@@ -16212,8 +16216,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 1)),
       selectableDayPredicate: (DateTime date) {
-        // Optional: restrict to days with data if desired, but "all days" usually implies any selectable date
-        return true; 
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
       },
       builder: (context, child) {
         return Theme(
@@ -16324,6 +16328,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 chart: WeeklyActivityBarChart(
                   weeklyData: chartData['activityData'],
                   dominantColors: chartData['activityColors'],
+                  isVirtue: false,
                 ),
               ),
               ChartCarouselData(
@@ -16385,7 +16390,54 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           // --- AI Daily Briefing Section ---
           // Always show card, content depends on if summary exists
-          ValorantCard(
+          
+
+          // --- Daily Breakdown (Pie Charts) ---
+          Row(
+            children: [
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: TimePieChart(
+                          taskData: chartData['dailyTaskTimeData'],
+                          taskColors: chartData['taskColors'],
+                          selectedTask: _selectedTaskFilter,
+                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: VirtuePieChart(
+                          logs: reflectionsForDate,
+                          selectedVirtue: _selectedVirtueFilter,
+                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+ValorantCard(
             borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -16449,51 +16501,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
           ),
           
-          const SizedBox(height: 24),
-
-          // --- Daily Breakdown (Pie Charts) ---
-          Row(
-            children: [
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: TimePieChart(
-                          taskData: chartData['dailyTaskTimeData'],
-                          taskColors: chartData['taskColors'],
-                          selectedTask: _selectedTaskFilter,
-                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: VirtuePieChart(
-                          logs: reflectionsForDate,
-                          selectedVirtue: _selectedVirtueFilter,
-                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
 
           const SizedBox(height: 24),
 
@@ -17552,7 +17559,6 @@ class _SettingsViewState extends State<SettingsView> {
 --- END OF FILE lib/src/widgets/views/settings_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/task_details_view.dart ---
-// lib/src/widgets/views/task_details_view.dart
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -17594,10 +17600,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
     if (_aiUserInputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text("Please provide input for the AI to generate sub-quests."),
-            backgroundColor: AppTheme.fhAccentOrange),
+        const SnackBar(content: Text("Please provide input for the AI."), backgroundColor: AppTheme.fhAccentOrange),
       );
       return;
     }
@@ -17623,17 +17626,14 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(MdiIcons.textBoxSearchOutline,
-                    size: 56, color: AppTheme.fhAccentTealFixed),
+                Icon(MdiIcons.targetVariant, size: 56, color: AppTheme.fhAccentTealFixed),
                 const SizedBox(height: 16),
-                Text('Select a Mission',
-                    style: theme.textTheme.displaySmall
-                        ?.copyWith(color: AppTheme.fhAccentTealFixed)),
+                const Text('NO PROTOCOL SELECTED',
+                    style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.fhAccentTealFixed)),
                 const SizedBox(height: 8),
-                Text(
-                  'Details of the selected mission will appear here.',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: AppTheme.fhTextSecondary),
+                const Text(
+                  'Select a mission from the menu to view details.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -17641,20 +17641,15 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           ));
         }
 
-        final weeklyCompletion =
-            appProviderConsumer.getCompletionStatusForCurrentWeek(task);
-        // Get Yesterday's time for comparison
-        final int yesterdayTime =
-            appProviderConsumer.getYesterdaysTimeForTask(task.id);
+        final weeklyCompletion = appProviderConsumer.getCompletionStatusForCurrentWeek(task);
+        final int yesterdayTime = appProviderConsumer.getYesterdaysTimeForTask(task.id);
 
         return SingleChildScrollView(
-          padding:
-              const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
+          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- MAIN TASK HEADER CARD ---
               TaskHeaderCard(
                 task: task,
                 yesterdayTime: yesterdayTime,
@@ -17662,27 +17657,35 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               ),
 
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-                child: Text('Sub-Missions',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                        fontFamily: AppTheme.fontDisplay,
-                        color: AppTheme.fhTextPrimary,
-                        fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                child: Row(
+                  children: [
+                    Container(width: 4, height: 16, color: task.taskColor),
+                    const SizedBox(width: 8),
+                    Text('SUB-MISSIONS',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                            fontFamily: AppTheme.fontDisplay,
+                            color: AppTheme.fhTextPrimary,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0
+                        )),
+                  ],
+                ),
               ),
 
-              // --- SUB-MISSIONS LIST ---
               if (task.subTasks.isEmpty)
-                Padding(
+                Container(
                   padding: const EdgeInsets.all(24.0),
-                  child: Center(
-                      child: Text(
-                          'No sub-missions recorded yet. Add some manually or use AI.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                              color: AppTheme.fhTextSecondary
-                                  .withValues(alpha: 0.8),
-                              fontStyle: FontStyle.italic))),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                    color: AppTheme.fhBgDark.withOpacity(0.3)
+                  ),
+                  child: const Text(
+                      'NO ACTIVE SUB-MISSIONS.\nADD MANUALLY OR INITIALIZE AI PROTOCOL.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 0.5)
+                  ),
                 )
               else
                 ListView.builder(
@@ -17691,14 +17694,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   itemCount: task.subTasks.length,
                   itemBuilder: (ctx, index) {
                     final st = task.subTasks[index];
-                    // IMPORTANT: Key is essential here to ensure widgets update
-                    // correctly when data in the list changes, especially for edits.
-                    return SubmissionCard(
-                        key: ValueKey(st.id), parentTask: task, subTask: st);
+                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
                   },
                 ),
 
-              // --- ADD / AI CARDS ---
               _buildAddNewSubTaskButton(context, appProviderConsumer, task),
               _buildAISubQuestCard(theme, appProviderConsumer, task),
             ],
@@ -17708,8 +17707,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 
-  Widget _buildAddNewSubTaskButton(
-      BuildContext context, AppProvider provider, MainTask task) {
+  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
       child: Column(
@@ -17717,28 +17715,30 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           TextField(
             controller: _newSubTaskController,
             decoration: const InputDecoration(
-              hintText: "Enter new sub-mission title...",
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              hintText: "NEW SUB-MISSION TITLE...",
+              hintStyle: TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary),
+              filled: true,
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
+            style: const TextStyle(fontSize: 14, color: AppTheme.fhTextPrimary),
             onSubmitted: (value) {
               if (value.trim().isNotEmpty) {
-                provider.addSubtask(
-                    task.id, {'name': value.trim(), 'isCountable': false});
+                provider.addSubtask(task.id, {'name': value.trim(), 'isCountable': false});
                 _newSubTaskController.clear();
               }
             },
           ),
           const SizedBox(height: 8),
           ElevatedButton.icon(
-            icon: Icon(MdiIcons.plusBoxOutline),
-            label: const Text("ADD NEW SUB-MISSION"),
+            icon: Icon(MdiIcons.plus, size: 18),
+            label: const Text("ADD OBJECTIVE"),
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.fhBgMedium,
-                foregroundColor: AppTheme.fhTextPrimary,
-                minimumSize: const Size(double.infinity, 48),
-                side: BorderSide(
-                    color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
+                backgroundColor: AppTheme.fhBgDark,
+                foregroundColor: AppTheme.fhAccentTeal,
+                minimumSize: const Size(double.infinity, 44),
+                shape: const BeveledRectangleBorder(),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
             onPressed: () {
               if (_newSubTaskController.text.trim().isNotEmpty) {
                 provider.addSubtask(task.id, {
@@ -17754,14 +17754,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 
-  Widget _buildAISubQuestCard(
-      ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
+  Widget _buildAISubQuestCard(ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
     return Card(
-      color: AppTheme.fhBgMedium,
-      margin: const EdgeInsets.only(top: 16, left: 0, right: 0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: AppTheme.fhAccentPurple, width: 1),
+      color: AppTheme.fhBgDark.withOpacity(0.5),
+      margin: const EdgeInsets.only(top: 24),
+      shape: const BeveledRectangleBorder(
+        side: BorderSide(color: AppTheme.fhAccentPurple, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -17770,87 +17768,85 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           children: [
             Row(
               children: [
-                Icon(MdiIcons.robotHappyOutline,
-                    color: AppTheme.fhAccentPurple, size: 22),
+                Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 20),
                 const SizedBox(width: 10),
-                Text('Generate Sub-Missions with AI',
-                    style: theme.textTheme.titleMedium?.copyWith(
+                const Text('AI GENERATION PROTOCOL',
+                    style: TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         color: AppTheme.fhTextPrimary,
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        fontSize: 14
+                    )),
               ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                  labelText: 'Generation Mode',
-                  labelStyle:
-                      TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
-              dropdownColor: AppTheme.fhBgMedium,
-              initialValue: _aiGenerationMode,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
-              items: const [
-                DropdownMenuItem(
-                    value: 'text_list',
-                    child: Text('From Text List / Outline')),
-                DropdownMenuItem(
-                    value: 'book_chapter',
-                    child: Text('From Book Chapter/Section')),
-                DropdownMenuItem(
-                    value: 'general_plan',
-                    child: Text('From General Plan/Goal')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _aiGenerationMode = value);
-                }
-              },
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _aiUserInputController,
               decoration: const InputDecoration(
-                labelText: 'Your Input for AI...',
-                alignLabelWithHint: true,
-                labelStyle:
-                    TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody),
+                labelText: 'INPUT PARAMETERS',
+                labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0),
+                hintText: "e.g. 'Read chapters 1-3 of Design Patterns'",
+                hintStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                filled: true,
+                border: OutlineInputBorder(),
               ),
-              maxLines: null,
-              minLines: 2,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                        labelText: 'MODE',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    dropdownColor: AppTheme.fhBgMedium,
+                    value: _aiGenerationMode,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                    items: const [
+                      DropdownMenuItem(value: 'text_list', child: Text('List')),
+                      DropdownMenuItem(value: 'book_chapter', child: Text('Chapter')),
+                      DropdownMenuItem(value: 'general_plan', child: Text('General')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _aiGenerationMode = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: _aiNumSubquestsController,
+                    decoration: const InputDecoration(
+                        labelText: 'COUNT',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _aiNumSubquestsController,
-              decoration: const InputDecoration(
-                  labelText: 'Approx. # Sub-Missions',
-                  labelStyle:
-                      TextStyle(fontSize: 13, fontFamily: AppTheme.fontBody)),
-              keyboardType: TextInputType.number,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontSize: 14, color: AppTheme.fhTextPrimary),
-            ),
-            const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: appProviderConsumer.isGeneratingSubquests
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppTheme.fhBgDeepDark))
-                  : Icon(MdiIcons.creationOutline, size: 18),
-              label: Text(appProviderConsumer.isGeneratingSubquests
-                  ? 'GENERATING...'
-                  : 'INITIATE AI PROTOCOL'),
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(MdiIcons.check, size: 16),
+              label: Text(appProviderConsumer.isGeneratingSubquests ? 'PROCESSING...' : 'EXECUTE'),
               onPressed: appProviderConsumer.isGeneratingSubquests
                   ? null
                   : () => _handleAiGenerateSubquests(appProviderConsumer, task),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.fhAccentPurple,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48)),
+                  shape: const BeveledRectangleBorder(),
+                  minimumSize: const Size(double.infinity, 40)),
             ),
           ],
         ),
@@ -17858,7 +17854,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 }
-
 --- END OF FILE lib/src/widgets/views/task_details_view.dart ---
 
 --- START OF FILE lib/src/widgets/valorant/valorant_card.dart ---
@@ -17889,10 +17884,7 @@ class ValorantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderColor = isSelected
-        ? AppTheme.fhAccentTeal
-        : (borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3));
-    
+    final effectiveBorderColor = borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3);
     final effectiveBgColor = backgroundColor ?? AppTheme.fhBgDark.withValues(alpha: 0.6);
 
     return Container(
@@ -17930,11 +17922,11 @@ class ValorantCard extends StatelessWidget {
                 if (isSelected) ...[
                   Positioned(
                     top: 0, left: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                   Positioned(
                     bottom: 0, right: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                 ] else ...[
                    // Subtle decoration for normal state
@@ -18338,6 +18330,139 @@ class ValorantDropdown<T> extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/valorant/valorant_dropdown.dart ---
+
+--- START OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class ValorantFormField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData? prefixIcon;
+  final Widget? suffixIcon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final void Function(String?)? onSaved;
+
+  const ValorantFormField({
+    super.key,
+    required this.controller,
+    required this.label,
+    this.prefixIcon,
+    this.suffixIcon,
+    this.obscureText = false,
+    this.keyboardType,
+    this.validator,
+    this.onSaved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: AppTheme.fhTextSecondary,
+            fontFamily: AppTheme.fontDisplay,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          validator: validator,
+          onSaved: onSaved,
+          style: const TextStyle(
+            color: AppTheme.fhTextPrimary,
+            fontFamily: AppTheme.fontBody,
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            contentPadding: const EdgeInsets.all(16),
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.fhTextSecondary) : null,
+            suffixIcon: suffixIcon,
+            border: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhBorderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhAccentRed, width: 1.0),
+            ),
+            errorBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: AppTheme.fhAccentRed),
+            ),
+            errorStyle: const TextStyle(
+              color: AppTheme.fhAccentRed,
+              fontFamily: AppTheme.fontBody,
+              fontSize: 11
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
+
+--- START OF FILE lib/src/widgets/common/growing_text_field.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class GrowingTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final int minLines;
+
+  const GrowingTextField({
+    super.key,
+    required this.controller,
+    required this.hint,
+    this.minLines = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+        // No rounded corners as per Valorant style preference in editor
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: TextField(
+        controller: controller,
+        minLines: minLines,
+        maxLines: null, // Allows unlimited growth
+        keyboardType: TextInputType.multiline,
+        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+          contentPadding: EdgeInsets.zero,
+          filled: false,
+          isDense: true,
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/common/growing_text_field.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

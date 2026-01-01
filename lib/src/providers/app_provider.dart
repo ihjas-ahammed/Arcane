@@ -23,12 +23,12 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
-  // ... [KEEP ALL EXISTING VARIABLES AND GETTERS] ...
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
   Timer? _periodicUiTimer;
-  Timer? _autoSaveTimer;
+  Timer? _autoSaveTimer; // Keep as backup
+  Timer? _realtimeSyncDebouncer; // New for real-time sync
 
   // Global Loading State
   String? _loadingTaskName;
@@ -95,7 +95,6 @@ class AppProvider with ChangeNotifier {
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
 
-  // ... [KEEP CONSTRUCTOR AND INIT] ...
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
@@ -113,7 +112,6 @@ class AppProvider with ChangeNotifier {
     });
   }
 
-  // ... [KEEP ALL EXISTING METHODS UNTIL saveDailySummary] ...
   void setLoadingTask(String? taskName) {
     if (_loadingTaskName != taskName) {
       _loadingTaskName = taskName;
@@ -124,30 +122,12 @@ class AppProvider with ChangeNotifier {
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
-        Skill(
-            id: 'wis',
-            name: 'Wisdom',
-            description: 'Good judgment, learning, perspective.'),
-        Skill(
-            id: 'cou',
-            name: 'Courage',
-            description: 'Bravery, persistence, integrity.'),
-        Skill(
-            id: 'hum',
-            name: 'Humanity',
-            description: 'Love, kindness, social intelligence.'),
-        Skill(
-            id: 'jus',
-            name: 'Justice',
-            description: 'Teamwork, fairness, leadership.'),
-        Skill(
-            id: 'tem',
-            name: 'Temperance',
-            description: 'Forgiveness, humility, self-regulation.'),
-        Skill(
-            id: 'tra',
-            name: 'Transcendence',
-            description: 'Appreciation of beauty, gratitude, hope.'),
+        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
+        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
+        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
+        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
+        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
+        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
       ];
     }
   }
@@ -162,18 +142,33 @@ class AppProvider with ChangeNotifier {
   void dispose() {
     _periodicUiTimer?.cancel();
     _autoSaveTimer?.cancel();
+    _realtimeSyncDebouncer?.cancel();
     super.dispose();
   }
 
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
+    // Backup timer: ensures save happens eventually if debounce is weird or app is closing
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges &&
-          _currentUser != null &&
-          !_isManuallySaving &&
-          !_isManuallyLoading &&
-          _settings.autoSaveEnabled) {
+      if (_hasUnsavedChanges && _currentUser != null && !_isManuallySaving && !_isManuallyLoading && _settings.autoSaveEnabled) {
+        _performActualSave();
+      }
+    });
+  }
+
+  /// Triggers a save after a short delay to batch rapid changes (Real-time Sync)
+  void _scheduleRealtimeSync() {
+    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
+
+    if (_realtimeSyncDebouncer?.isActive ?? false) {
+      _realtimeSyncDebouncer!.cancel();
+    }
+
+    // Save 3 seconds after the last change
+    _realtimeSyncDebouncer = Timer(const Duration(seconds: 3), () {
+      if (_hasUnsavedChanges && !_isManuallySaving) {
+        if (kDebugMode) print("Executing Real-time Sync...");
         _performActualSave();
       }
     });
@@ -229,7 +224,7 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ... [KEEP SAVE/LOAD STATE LOGIC] ...
+  // ... [KEEP MAP CONVERSION METHODS] ...
   Map<String, dynamic> _appStateToMap() {
     return {
       'lastLoginDate': _lastLoginDate,
@@ -254,9 +249,11 @@ class AppProvider with ChangeNotifier {
   void loadAppStateFromMap(Map<String, dynamic> data) {
     _loadStateFromMap(data);
     _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
     notifyListeners();
   }
 
+  // ... [KEEP _loadStateFromMap & _migrateDataToSeconds] ...
   void _loadStateFromMap(Map<String, dynamic> data) {
     _lastLoginDate = data['lastLoginDate'] as String?;
     _mainTasks = (data['mainTasks'] as List<dynamic>?)
@@ -273,7 +270,6 @@ class AppProvider with ChangeNotifier {
             'subtasksCompleted', () => <Map<String, dynamic>>[]);
         dayDataMap.putIfAbsent(
             'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        // Ensure aiSummary key exists if present in data, otherwise it's null/absent
       }
     });
 
@@ -401,7 +397,6 @@ class AppProvider with ChangeNotifier {
     _completedByDay = migratedHistory;
   }
 
-  // ... [KEEP ALL OTHER METHODS: reset, save, load, login, signup, etc.] ...
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
     _mainTasks =
@@ -423,6 +418,7 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _performActualSave() async {
     if (_currentUser != null) {
+      // Don't show loading overlay for auto-saves to keep UI smooth
       bool isAutoSave = !_isManuallySaving;
       if (!isAutoSave) setLoadingTask("Syncing Database...");
 
@@ -440,6 +436,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // ... [Keep manuallySaveToCloud, manuallyLoadFromCloud, login, signup, logout methods] ...
   Future<void> manuallySaveToCloud() async {
     if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
     _isManuallySaving = true;
@@ -483,13 +480,11 @@ class AppProvider with ChangeNotifier {
     await fb_service.signInWithEmail(email, password);
   }
 
-  Future<void> signupUser(
-      String email, String password, String username) async {
+  Future<void> signupUser(String email, String password, String username) async {
     _authLoading = true;
     notifyListeners();
     try {
-      UserCredential userCredential =
-          await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(
+      UserCredential userCredential = await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -533,6 +528,7 @@ class AppProvider with ChangeNotifier {
     }
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
     notifyListeners();
   }
 
@@ -551,6 +547,7 @@ class AppProvider with ChangeNotifier {
     if (_selectedTaskId != taskId) {
       _selectedTaskId = taskId;
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     }
   }
@@ -558,6 +555,7 @@ class AppProvider with ChangeNotifier {
   void setSettings(AppSettings newSettings) {
     _settings = newSettings;
     _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
     notifyListeners();
   }
 
@@ -567,14 +565,11 @@ class AppProvider with ChangeNotifier {
         _mainTasks.firstOrNull;
   }
 
+  // ... [Keep helpers like _getWeekKey, getCompletionStatusForCurrentWeek, markDailyTaskGoalMet etc] ...
   String _getWeekKey(DateTime date, int startOfWeek) {
     int day = date.weekday;
-    DateTime adjustedDate =
-        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
-    int weekOfYear =
-        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
-                .ceil() +
-            1;
+    DateTime adjustedDate = date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
+    int weekOfYear = (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7).ceil() + 1;
     return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
   }
 
@@ -591,11 +586,11 @@ class AppProvider with ChangeNotifier {
     final weekKey = _getWeekKey(today, _settings.startOfWeek);
     final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
 
-    task.weeklyCompletionStatus
-        .putIfAbsent(weekKey, () => List.filled(7, false));
+    task.weeklyCompletionStatus.putIfAbsent(weekKey, () => List.filled(7, false));
     if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
       task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     }
   }
@@ -636,6 +631,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // ... [Keep Chatbot helpers] ...
   String _generateWeeklySummaryForChatbot() {
     return "Summary placeholder";
   }
@@ -649,8 +645,7 @@ class AppProvider with ChangeNotifier {
     if (_chatbotMemory.conversationHistory.isEmpty) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'init_${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
+          text: "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
     }
@@ -658,8 +653,6 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- NEW: Daily Summary Management ---
-  
   void saveDailySummary(String date, String summary) {
     if (!_completedByDay.containsKey(date)) {
       _completedByDay[date] = {};
@@ -669,6 +662,7 @@ class AppProvider with ChangeNotifier {
     }
     _completedByDay[date]['aiSummary'] = summary;
     _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
     notifyListeners();
   }
 
@@ -676,6 +670,7 @@ class AppProvider with ChangeNotifier {
     if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
       _completedByDay[date].remove('aiSummary');
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     }
   }
@@ -687,16 +682,14 @@ class AppProvider with ChangeNotifier {
     return null;
   }
 
-  // ... [KEEP REST OF METHODS] ...
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex]
-          .questions
-          .indexWhere((q) => q.id == questionId);
+      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
         _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
         notifyListeners();
       }
     }
@@ -710,9 +703,7 @@ class AppProvider with ChangeNotifier {
     try {
       final score = await _aiService.analyzeValueAlignment(
         valueName: value.title,
-        questionsAndAnswers: value.questions
-            .map((q) => {'question': q.question, 'answer': q.answer})
-            .toList(),
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
@@ -722,6 +713,7 @@ class AppProvider with ChangeNotifier {
 
       value.score = score;
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     } catch (e) {
       debugPrint("Error analyzing value: $e");
@@ -731,8 +723,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(
-      String valueId) async {
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
     final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
     if (value == null) return [];
 
@@ -740,9 +731,7 @@ class AppProvider with ChangeNotifier {
     try {
       final tasks = await _aiService.generateTasksFromValues(
         valueName: value.title,
-        questionsAndAnswers: value.questions
-            .map((q) => {'question': q.question, 'answer': q.answer})
-            .toList(),
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
@@ -758,6 +747,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // ... [Keep _buildUserDataContext, sendMessageToChatbot, getXpGainedForSkillToday, get7DaySkillMomentum] ...
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -765,8 +755,7 @@ class AppProvider with ChangeNotifier {
       sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
       sb.writeln("  Sub-missions:");
       for (var st in t.subTasks) {
-        sb.writeln(
-            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+        sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
       }
       if (t.projects.isNotEmpty) {
         sb.writeln("  Projects:");
@@ -775,7 +764,6 @@ class AppProvider with ChangeNotifier {
         }
       }
     }
-
     sb.writeln("\nLogs from Last 7 Days:");
     final today = DateTime.now();
     for (int i = 6; i >= 0; i--) {
@@ -783,16 +771,10 @@ class AppProvider with ChangeNotifier {
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
       if (_completedByDay.containsKey(dateStr)) {
         sb.writeln("Date: $dateStr");
-        // Reflections
-        final reflections = _reflectionLogs
-            .where((r) {
+        final reflections = _reflectionLogs.where((r) {
               final rd = r.timestamp;
-              return rd.year == d.year &&
-                  rd.month == d.month &&
-                  rd.day == d.day;
-            })
-            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
-            .join("\n");
+              return rd.year == d.year && rd.month == d.month && rd.day == d.day;
+            }).map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}").join("\n");
         if (reflections.isNotEmpty) sb.writeln(reflections);
       }
     }
@@ -833,8 +815,7 @@ class AppProvider with ChangeNotifier {
     } catch (e) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
+          text: "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
           sender: MessageSender.bot,
           timestamp: DateTime.now()));
     } finally {
@@ -845,22 +826,17 @@ class AppProvider with ChangeNotifier {
 
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
-
     return _reflectionLogs.where((log) {
       final logDt = log.timestamp;
-      return logDt.year == today.year &&
-          logDt.month == today.month &&
-          logDt.day == today.day;
+      return logDt.year == today.year && logDt.month == today.month && logDt.day == today.day;
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
   int get7DaySkillMomentum(String skillName) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-
     return _reflectionLogs.where((log) {
-      return log.timestamp.isAfter(sevenDaysAgo) &&
-          log.timestamp.isBefore(now.add(const Duration(days: 1)));
+      return log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1)));
     }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
@@ -872,19 +848,14 @@ class AppProvider with ChangeNotifier {
   }) async {
     final actualTimestamp = timestamp ?? DateTime.now();
 
-    final dailyReflections = _reflectionLogs
-        .where((log) {
+    final dailyReflections = _reflectionLogs.where((log) {
           final logDt = log.timestamp;
-          return logDt.year == actualTimestamp.year &&
-              logDt.month == actualTimestamp.month &&
-              logDt.day == actualTimestamp.day;
-        })
-        .map((r) => {
+          return logDt.year == actualTimestamp.year && logDt.month == actualTimestamp.month && logDt.day == actualTimestamp.day;
+        }).map((r) => {
               'trigger': r.trigger,
               'emotion': r.emotion,
               'reason': r.reason,
-            })
-        .toList();
+            }).toList();
 
     setLoadingTask("Analyzing Reflection...");
 
@@ -909,8 +880,7 @@ class AppProvider with ChangeNotifier {
 
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull(
-          (s) => s.name.toLowerCase() == skillName.toLowerCase());
+      final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
       if (skill != null) {
         skill.addXp(xp);
       }
@@ -929,13 +899,35 @@ class AppProvider with ChangeNotifier {
     _reflectionLogs.add(log);
     _skills = updatedSkills;
     _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
     notifyListeners();
 
     return xpAllocation;
   }
 
-  void updateReflectionLog(String id,
-      {String? trigger, String? emotion, String? reason}) {
+  void quickSaveReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    DateTime? timestamp,
+  }) {
+    final log = ReflectionLog(
+      id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: "Log recorded manually. No analysis performed.",
+      xpGained: {},
+    );
+
+    _reflectionLogs.add(log);
+    _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
     final index = _reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
       final old = _reflectionLogs[index];
@@ -944,6 +936,7 @@ class AppProvider with ChangeNotifier {
       if (reason != null) old.reason = reason;
 
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     }
   }
@@ -954,8 +947,7 @@ class AppProvider with ChangeNotifier {
       final log = _reflectionLogs[index];
       List<Skill> updatedSkills = List.from(_skills);
       log.xpGained.forEach((skillName, xp) {
-        final skill = updatedSkills.firstWhereOrNull(
-            (s) => s.name.toLowerCase() == skillName.toLowerCase());
+        final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
         if (skill != null) {
           skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
         }
@@ -963,6 +955,7 @@ class AppProvider with ChangeNotifier {
       _skills = updatedSkills;
       _reflectionLogs.removeAt(index);
       _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
       notifyListeners();
     }
   }
@@ -1018,7 +1011,10 @@ class AppProvider with ChangeNotifier {
     }
 
     if (changed) {
-      if (doPersist) _hasUnsavedChanges = true;
+      if (doPersist) {
+        _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
+      }
       if (doNotify) notifyListeners();
     }
   }
