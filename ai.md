@@ -1,6 +1,9 @@
 Make the following changes:
 
-  * 
+  * Update projects screen:
+    - Make it possible to rearrange projects by dragging
+    - Make it possible to change a project agent
+    - Make it possible to set projects inactive (without completeing them) like temporarly stop working on them, so that they are not counted in for overall progress and they goes into a section below called INACTIVE OPS, i can activate inactive projects anytime I need
   
 
 

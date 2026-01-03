@@ -3328,6 +3328,7 @@ class LifeValue {
   final String description;
   final String iconName; // Store icon as string for JSON serialization
   int score; // 0 to 100 based on AI analysis of answers
+  String? lastInsight; // Brief insight note from AI
   final List<ValueQuestion> questions;
 
   LifeValue({
@@ -3336,6 +3337,7 @@ class LifeValue {
     required this.description,
     required this.iconName,
     this.score = 0,
+    this.lastInsight,
     required this.questions,
   });
 
@@ -3399,6 +3401,7 @@ class LifeValue {
       description: json['description'] as String? ?? '',
       iconName: iconName ?? 'helpCircleOutline',
       score: json['score'] as int? ?? 0,
+      lastInsight: json['lastInsight'] as String?,
       questions: (json['questions'] as List<dynamic>)
           .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
           .toList(),
@@ -3412,6 +3415,7 @@ class LifeValue {
       'description': description,
       'iconName': iconName,
       'score': score,
+      'lastInsight': lastInsight,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
   }
@@ -3696,7 +3700,7 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
-  // ... [Keep existing fields and methods]
+  // ... [Existing fields]
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
@@ -3781,16 +3785,84 @@ class AppProvider with ChangeNotifier {
     });
   }
 
-  // ... [Existing logic and boilerplate]
+  // Reorder values list
+  void reorderValues(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = _lifeValues.removeAt(oldIndex);
+    _lifeValues.insert(newIndex, item);
+    _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
 
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) =>
-      _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+    setLoadingTask("Analyzing Value...");
+    try {
+      final result = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      
+      value.score = result['score'] as int;
+      value.lastInsight = result['insight'] as String?;
+      
+      _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
 
-  // ... [Rest of the existing methods]
   void setLoadingTask(String? taskName) {
     if (_loadingTaskName != taskName) {
       _loadingTaskName = taskName;
       notifyListeners();
+    }
+  }
+  
+  void setProviderApiKeyIndex(int index) {
+    if (_apiKeyIndex != index) _apiKeyIndex = index;
+  }
+  
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
+        notifyListeners();
+      }
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+    setLoadingTask("Generating Actions...");
+    try {
+      return await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+    } finally {
+      setLoadingTask(null);
     }
   }
 
@@ -3812,15 +3884,7 @@ class AppProvider with ChangeNotifier {
       _lifeValues = LifeValue.getDefaults();
     }
   }
-
-  @override
-  void dispose() {
-    _periodicUiTimer?.cancel();
-    _autoSaveTimer?.cancel();
-    _realtimeSyncDebouncer?.cancel();
-    super.dispose();
-  }
-
+  
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
@@ -4240,61 +4304,6 @@ class AppProvider with ChangeNotifier {
     return null;
   }
 
-  void updateValueAnswer(String valueId, String questionId, String answer) {
-    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
-    if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
-      if (qIndex != -1) {
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _hasUnsavedChanges = true;
-        _scheduleRealtimeSync();
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> analyzeValueAlignment(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return;
-    setLoadingTask("Analyzing Value...");
-    try {
-      final score = await _aiService.analyzeValueAlignment(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-      value.score = score;
-      _hasUnsavedChanges = true;
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return [];
-    setLoadingTask("Generating Actions...");
-    try {
-      return await _aiService.generateTasksFromValues(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -4440,10 +4449,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  void setProviderApiKeyIndex(int index) {
-    if (_apiKeyIndex != index) _apiKeyIndex = index;
-  }
-
   Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
   void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
@@ -4462,6 +4467,7 @@ class AppProvider with ChangeNotifier {
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
@@ -7700,6 +7706,41 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                       ),
                     ),
 
+                    // Insight Note
+                    if (value.lastInsight != null &&
+                        value.lastInsight!.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhAccentPurple.withOpacity(0.1),
+                          border: Border.all(
+                              color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("AI INSIGHT",
+                                style: TextStyle(
+                                    color: AppTheme.fhAccentPurple,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 1.0)),
+                            const SizedBox(height: 8),
+                            Text(
+                              value.lastInsight!,
+                              style: const TextStyle(
+                                  color: AppTheme.fhTextPrimary,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                  fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 32),
 
                     // Questions Header
@@ -7866,7 +7907,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/value_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_value_card.dart'; // New Widget
+import 'package:arcane/src/widgets/valorant/valorant_value_card.dart';
 import 'package:provider/provider.dart';
 
 class ValuesScreen extends StatelessWidget {
@@ -7876,6 +7917,19 @@ class ValuesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final values = provider.lifeValues;
+
+    // Calculate overall alignment
+    double totalScore = 0;
+    for (var v in values) {
+      totalScore += v.score;
+    }
+    final double averageScore =
+        values.isEmpty ? 0 : totalScore / values.length / 100.0;
+    final int averagePercent = (averageScore * 100).toInt();
+
+    Color progressColor = AppTheme.fhAccentRed;
+    if (averagePercent >= 80) progressColor = AppTheme.fhAccentTeal;
+    else if (averagePercent >= 50) progressColor = AppTheme.fhAccentGold;
 
     return Container(
       color: AppTheme.fhBgDeepDark,
@@ -7891,13 +7945,12 @@ class ValuesScreen extends StatelessWidget {
                 Text(
                   "SELECT PROTOCOL",
                   style: TextStyle(
-                    fontFamily: AppTheme.fontDisplay,
-                    fontSize: 48,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.fhTextPrimary,
-                    height: 0.9,
-                    letterSpacing: 2.0
-                  ),
+                      fontFamily: AppTheme.fontDisplay,
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.fhTextPrimary,
+                      height: 0.9,
+                      letterSpacing: 2.0),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -7909,32 +7962,75 @@ class ValuesScreen extends StatelessWidget {
                     letterSpacing: 1.5,
                   ),
                 ),
+                const SizedBox(height: 24),
+                
+                // Overall Alignment Bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("OVERALL ALIGNMENT",
+                        style: TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            letterSpacing: 1.0)),
+                    Text("$averagePercent%",
+                        style: TextStyle(
+                            color: progressColor,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 16)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: averageScore,
+                    backgroundColor: AppTheme.fhBgDark,
+                    color: progressColor,
+                    minHeight: 6,
+                  ),
+                ),
               ],
             ),
           ),
-          
+
           Expanded(
-            child: GridView.builder(
+            // Use ReorderableListView for dragging sorting
+            child: ReorderableListView.builder(
               padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.75, // Taller cards for agent look
-              ),
               itemCount: values.length,
+              onReorder: (oldIndex, newIndex) {
+                provider.reorderValues(oldIndex, newIndex);
+              },
+              proxyDecorator: (child, index, animation) {
+                return Material(
+                  color: Colors.transparent,
+                  elevation: 6,
+                  child: child,
+                );
+              },
               itemBuilder: (context, index) {
                 final value = values[index];
-                return ValorantValueCard(
-                  value: value,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ValueDetailScreen(valueId: value.id),
-                      ),
-                    );
-                  },
+                return Padding(
+                  key: ValueKey(value.id),
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: SizedBox(
+                    height: 120, // Fixed height for consistency
+                    child: ValorantValueCard(
+                      value: value,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ValueDetailScreen(valueId: value.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 );
               },
             ),
@@ -8314,7 +8410,7 @@ class AIService {
   }
 
   // --- Value Analysis ---
-  Future<int> analyzeValueAlignment({
+  Future<Map<String, dynamic>> analyzeValueAlignment({
     required String valueName,
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
@@ -8336,17 +8432,20 @@ class AIService {
     Here are their answers to reflective questions:
     ${buffer.toString()}
     
-    Task: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
+    Task 1: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
     - 0 means they have no clear idea or haven't answered.
     - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
     
+    Task 2: Provide a brief, actionable insight or encouragement based on their answers (max 2 sentences).
+    
     Output strictly JSON:
     {
-      "score": int
+      "score": int,
+      "insight": "string"
     }
     """;
 
-    final result = await makeAICall(
+    return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
       customApiKey: customApiKey,
@@ -8354,8 +8453,6 @@ class AIService {
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
     );
-
-    return result['score'] as int? ?? 0;
   }
 
   Future<List<Map<String, dynamic>>> generateTasksFromValues({
@@ -12699,6 +12796,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/task_generation_row.dart';
 import 'package:provider/provider.dart';
 
 class ValueTaskGenerationDialog extends StatefulWidget {
@@ -12712,107 +12810,136 @@ class ValueTaskGenerationDialog extends StatefulWidget {
 }
 
 class _ValueTaskGenerationDialogState extends State<ValueTaskGenerationDialog> {
-  final List<bool> _selected = [];
-  String? _selectedMainTaskId;
+  final List<Map<String, dynamic>> _finalTasksConfig = [];
+  String? _defaultMainTaskId;
 
   @override
   void initState() {
     super.initState();
-    _selected.addAll(List.filled(widget.generatedTasks.length, true));
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _selectedMainTaskId =
+    _defaultMainTaskId =
         provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+
+    // Initialize config list
+    for (var task in widget.generatedTasks) {
+      _finalTasksConfig.add({}); // Will be populated by row callbacks
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
 
-    return AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("Generated Tasks",
-          style: TextStyle(color: AppTheme.fhTextPrimary)),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-                "Review actions suggested by AI to align with your values.",
-                style: TextStyle(color: AppTheme.fhTextSecondary)),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: widget.generatedTasks.length,
-                separatorBuilder: (ctx, i) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final task = widget.generatedTasks[index];
-                  return CheckboxListTile(
-                    value: _selected[index],
-                    onChanged: (val) {
-                      setState(() => _selected[index] = val ?? false);
-                    },
-                    title: Text(task['name'],
-                        style: const TextStyle(color: AppTheme.fhTextPrimary)),
-                    subtitle: task['isCountable'] == true
-                        ? Text("Count: ${task['targetCount']}",
-                            style: const TextStyle(
-                                color: AppTheme.fhTextSecondary))
-                        : null,
-                    activeColor: AppTheme.fhAccentTeal,
-                    checkColor: AppTheme.fhBgDeepDark,
-                    tileColor: AppTheme.fhBgDark,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  );
-                },
+    return Dialog(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      insetPadding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
+            ),
+            child: const Text("TACTICAL INTEGRATION",
+                style: TextStyle(
+                    fontFamily: AppTheme.fontDisplay,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: AppTheme.fhTextPrimary)),
+          ),
+
+          // Content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      "Configure generated actions and assign them to active protocols.",
+                      style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  const SizedBox(height: 16),
+                  ...widget.generatedTasks.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final taskData = entry.value;
+                    return TaskGenerationRow(
+                      taskData: taskData,
+                      availableMissions: provider.mainTasks,
+                      defaultMissionId: _defaultMainTaskId,
+                      onChanged: (config) {
+                        _finalTasksConfig[index] = config;
+                      },
+                    );
+                  }),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            DropdownButtonFormField<String>(
-              value: _selectedMainTaskId,
-              decoration: const InputDecoration(
-                labelText: "Add to Mission",
-                filled: true,
-                fillColor: AppTheme.fhBgDark,
-              ),
-              dropdownColor: AppTheme.fhBgDark,
-              items: provider.mainTasks
-                  .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedMainTaskId = val),
+          ),
+
+          // Footer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
             ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel")),
-        ElevatedButton(
-          style:
-              ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
-          onPressed: _selectedMainTaskId == null
-              ? null
-              : () {
-                  int count = 0;
-                  for (int i = 0; i < widget.generatedTasks.length; i++) {
-                    if (_selected[i]) {
-                      provider.addSubtask(
-                          _selectedMainTaskId!, widget.generatedTasks[i]);
-                      count++;
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("CANCEL")),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.fhAccentTeal,
+                      foregroundColor: AppTheme.fhBgDeepDark),
+                  onPressed: () {
+                    int count = 0;
+                    for (var config in _finalTasksConfig) {
+                      if (config['isSelected'] == true &&
+                          config['missionId'] != null) {
+                        final missionId = config['missionId'] as String;
+                        final name = config['name'] as String;
+                        final isCountable =
+                            config['isCountable'] as bool? ?? false;
+                        final targetCount =
+                            config['targetCount'] as int? ?? 0;
+
+                        if (config['type'] == 'Task') {
+                          // Add as SubTask
+                          provider.addSubtask(missionId, {
+                            'name': name,
+                            'isCountable': isCountable,
+                            'targetCount': targetCount,
+                          });
+                          count++;
+                        } else if (config['type'] == 'Checkpoint' &&
+                            config['parentId'] != null) {
+                          // Add as SubSubTask
+                          provider.addSubSubtask(
+                              missionId, config['parentId'] as String, {
+                            'name': name,
+                            'isCountable': isCountable,
+                            'targetCount': targetCount,
+                          });
+                          count++;
+                        }
+                      }
                     }
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text("$count tasks added to mission!")));
-                  Navigator.pop(context);
-                },
-          child: const Text("Add Selected"),
-        )
-      ],
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("$count actions integrated!")));
+                    Navigator.pop(context);
+                  },
+                  child: const Text("INTEGRATE"),
+                )
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 }
@@ -15851,6 +15978,435 @@ class CompletedSubmissionsSection extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/ui/completed_submissions_section.dart ---
+
+--- START OF FILE lib/src/widgets/ui/value_generation_item_row.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+
+class ValueGenerationItemRow extends StatefulWidget {
+  final Map<String, dynamic> taskData;
+  final ValueChanged<Map<String, dynamic>> onUpdate;
+
+  const ValueGenerationItemRow({
+    super.key,
+    required this.taskData,
+    required this.onUpdate,
+  });
+
+  @override
+  State<ValueGenerationItemRow> createState() => _ValueGenerationItemRowState();
+}
+
+class _ValueGenerationItemRowState extends State<ValueGenerationItemRow> {
+  late bool _isSelected;
+  late String _type; // 'task' or 'checkpoint'
+  String? _selectedMainTaskId;
+  String? _selectedParentSubTaskId;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSelected = true;
+    _type = 'task';
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Safety check for selected ID
+    final initialId = provider.selectedTaskId;
+    if (initialId != null && provider.mainTasks.any((t) => t.id == initialId)) {
+        _selectedMainTaskId = initialId;
+    } else {
+        _selectedMainTaskId = provider.mainTasks.firstOrNull?.id;
+    }
+    
+    // We do NOT call widget.onUpdate here to avoid setState during build.
+    // Instead, the parent handles initial data aggregation based on defaults if needed, 
+    // or we wait for user interaction. 
+    // *Correction*: We need to sync initial state. We can use addPostFrameCallback.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateParentData();
+    });
+  }
+
+  void _updateParentData() {
+    widget.onUpdate({
+      'selected': _isSelected,
+      'type': _type,
+      'mainTaskId': _selectedMainTaskId,
+      'parentSubTaskId': _selectedParentSubTaskId,
+      'originalData': widget.taskData,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final mainTasks = provider.mainTasks;
+    
+    List<SubTask> availableSubTasks = [];
+    if (_selectedMainTaskId != null) {
+      try {
+        final task = mainTasks.firstWhere((t) => t.id == _selectedMainTaskId);
+        availableSubTasks = task.subTasks;
+      } catch (e) {
+        // Handle case where task might be deleted
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        border: Border.all(color: _isSelected ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Checkbox + Name
+          Row(
+            children: [
+              Checkbox(
+                value: _isSelected,
+                activeColor: AppTheme.fhAccentTeal,
+                checkColor: AppTheme.fhBgDeepDark,
+                onChanged: (val) {
+                  setState(() => _isSelected = val ?? false);
+                  _updateParentData();
+                },
+              ),
+              Expanded(
+                child: Text(
+                  widget.taskData['name'] ?? 'Unknown Action',
+                  style: TextStyle(
+                    color: _isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextDisabled,
+                    fontWeight: FontWeight.bold
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          if (_isSelected) ...[
+            const SizedBox(height: 8),
+            // Row 2: Type + Main Task
+            Row(
+              children: [
+                // Type Dropdown
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _type,
+                    decoration: const InputDecoration(
+                      labelText: "TYPE",
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                    dropdownColor: AppTheme.fhBgDark,
+                    items: const [
+                      DropdownMenuItem(value: 'task', child: Text("SUB-MISSION")),
+                      DropdownMenuItem(value: 'checkpoint', child: Text("CHECKPOINT")),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        _type = val!;
+                        // Reset parent subtask if switching to task
+                        if (_type == 'task') _selectedParentSubTaskId = null;
+                      });
+                      _updateParentData();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Main Task Dropdown
+                Expanded(
+                  flex: 3,
+                  child: DropdownButtonFormField<String>(
+                    value: mainTasks.any((t) => t.id == _selectedMainTaskId) ? _selectedMainTaskId : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: "MISSION",
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                    dropdownColor: AppTheme.fhBgDark,
+                    items: mainTasks.map((t) => DropdownMenuItem(
+                      value: t.id, 
+                      child: Text(t.name.toUpperCase(), overflow: TextOverflow.ellipsis)
+                    )).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedMainTaskId = val;
+                        _selectedParentSubTaskId = null; // Reset subtask choice on mission change
+                      });
+                      _updateParentData();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            
+            // Row 3: Parent Subtask (Only if Checkpoint)
+            if (_type == 'checkpoint') ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: availableSubTasks.any((st) => st.id == _selectedParentSubTaskId) ? _selectedParentSubTaskId : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: "PARENT SUB-MISSION",
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                ),
+                style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                dropdownColor: AppTheme.fhBgDark,
+                items: availableSubTasks.isEmpty 
+                  ? [const DropdownMenuItem(value: null, child: Text("No Sub-Missions Available"))]
+                  : availableSubTasks.map((st) => DropdownMenuItem(
+                      value: st.id, 
+                      child: Text(st.name, overflow: TextOverflow.ellipsis)
+                    )).toList(),
+                onChanged: availableSubTasks.isEmpty ? null : (val) {
+                  setState(() => _selectedParentSubTaskId = val);
+                  _updateParentData();
+                },
+              ),
+            ],
+          ]
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/value_generation_item_row.dart ---
+
+--- START OF FILE lib/src/widgets/ui/task_generation_row.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+
+class TaskGenerationRow extends StatefulWidget {
+  final Map<String, dynamic> taskData;
+  final List<MainTask> availableMissions;
+  final String? defaultMissionId;
+  final ValueChanged<Map<String, dynamic>> onChanged;
+
+  const TaskGenerationRow({
+    super.key,
+    required this.taskData,
+    required this.availableMissions,
+    required this.onChanged,
+    this.defaultMissionId,
+  });
+
+  @override
+  State<TaskGenerationRow> createState() => _TaskGenerationRowState();
+}
+
+class _TaskGenerationRowState extends State<TaskGenerationRow> {
+  late bool _isSelected;
+  late String _taskName;
+  late String _type; // 'Task' or 'Checkpoint'
+  String? _selectedMissionId;
+  String? _selectedParentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSelected = true;
+    _taskName = widget.taskData['name'] ?? '';
+    _type = 'Task';
+    _selectedMissionId = widget.defaultMissionId;
+    _updateState();
+  }
+
+  void _updateState() {
+    widget.onChanged({
+      'isSelected': _isSelected,
+      'name': _taskName,
+      'isCountable': widget.taskData['isCountable'],
+      'targetCount': widget.taskData['targetCount'],
+      'type': _type,
+      'missionId': _selectedMissionId,
+      'parentId': _selectedParentId,
+    });
+  }
+
+  List<SubTask> _getAvailableParents() {
+    if (_selectedMissionId == null) return [];
+    try {
+      final mission = widget.availableMissions
+          .firstWhere((m) => m.id == _selectedMissionId);
+      return mission.subTasks;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final availableParents = _getAvailableParents();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _isSelected
+            ? AppTheme.fhBgDark
+            : AppTheme.fhBgDark.withOpacity(0.3),
+        border: Border.all(
+            color: _isSelected
+                ? AppTheme.fhAccentTeal.withOpacity(0.5)
+                : Colors.transparent),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Checkbox + Name
+          Row(
+            children: [
+              Checkbox(
+                value: _isSelected,
+                activeColor: AppTheme.fhAccentTeal,
+                checkColor: AppTheme.fhBgDeepDark,
+                onChanged: (val) {
+                  setState(() => _isSelected = val ?? false);
+                  _updateState();
+                },
+              ),
+              Expanded(
+                child: TextFormField(
+                  initialValue: _taskName,
+                  style: TextStyle(
+                      color: _isSelected
+                          ? AppTheme.fhTextPrimary
+                          : AppTheme.fhTextDisabled,
+                      decoration: _isSelected ? null : TextDecoration.lineThrough),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (val) {
+                    _taskName = val;
+                    _updateState();
+                  },
+                ),
+              ),
+            ],
+          ),
+
+          if (_isSelected) ...[
+            const SizedBox(height: 8),
+            // Mission Selector
+            DropdownButtonFormField<String>(
+              value: _selectedMissionId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: "MISSION",
+                labelStyle: const TextStyle(fontSize: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                filled: true,
+                fillColor: AppTheme.fhBgMedium,
+                border: const OutlineInputBorder(),
+              ),
+              items: widget.availableMissions.map((m) {
+                return DropdownMenuItem(
+                  value: m.id,
+                  child: Text(m.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12)),
+                );
+              }).toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedMissionId = val;
+                  _selectedParentId = null; // Reset parent if mission changes
+                });
+                _updateState();
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                // Type Selector
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _type,
+                    decoration: InputDecoration(
+                      labelText: "TYPE",
+                      labelStyle: const TextStyle(fontSize: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 0),
+                      filled: true,
+                      fillColor: AppTheme.fhBgMedium,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'Task',
+                          child: Text('Task', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(
+                          value: 'Checkpoint',
+                          child: Text('Step',
+                              style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _type = val!);
+                      _updateState();
+                    },
+                  ),
+                ),
+                if (_type == 'Checkpoint') ...[
+                  const SizedBox(width: 8),
+                  // Parent Selector
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedParentId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: "PARENT SUB-MISSION",
+                        labelStyle: const TextStyle(fontSize: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 0),
+                        filled: true,
+                        fillColor: AppTheme.fhBgMedium,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: availableParents.isEmpty
+                          ? []
+                          : availableParents.map((p) {
+                              return DropdownMenuItem(
+                                value: p.id,
+                                child: Text(p.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12)),
+                              );
+                            }).toList(),
+                      onChanged: (val) {
+                        setState(() => _selectedParentId = val);
+                        _updateState();
+                      },
+                    ),
+                  ),
+                ]
+              ],
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+--- END OF FILE lib/src/widgets/ui/task_generation_row.dart ---
 
 --- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
 import 'package:flutter/material.dart';

@@ -1,8 +1,9 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
+import 'package:collection/collection.dart';
 
 class ProjectActions {
   final AppProvider _provider;
@@ -10,9 +11,9 @@ class ProjectActions {
 
   ProjectActions(this._provider);
 
-  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  // --- Core Project Management ---
+
   void addProject(String title, String description, {String? mainTaskId}) {
-    // If no specific task is targeted, use the currently selected one, or the first one.
     final targetTaskId = mainTaskId ??
         _provider.selectedTaskId ??
         _provider.mainTasks.firstOrNull?.id;
@@ -27,6 +28,8 @@ class ProjectActions {
       title: title,
       description: description,
       linkedMainTaskId: targetTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch, // Default sort to end
     );
 
     _updateMainTaskProjects(targetTaskId, (projects) {
@@ -62,15 +65,86 @@ class ProjectActions {
     });
   }
 
-  void _updateMainTaskProjects(
-      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+  // --- New Feature: Status & Agent Changes ---
+
+  void toggleProjectStatus(String mainTaskId, String projectId, bool isActive) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.isActive = isActive;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void changeProjectAgent(String currentMainTaskId, String newMainTaskId, String projectId) {
+    if (currentMainTaskId == newMainTaskId) return;
+
+    // 1. Find and Remove from Old Task
+    Project? projectToMove;
+    
+    // Create new list for old task
     final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final updatedProjects = updateFn(task.projects);
-        // Use copyWith to prevent data loss on other fields
+      if (task.id == currentMainTaskId) {
+        final existingProject = task.projects.firstWhereOrNull((p) => p.id == projectId);
+        if (existingProject != null) {
+          projectToMove = existingProject;
+          // Update linked ID on the object itself
+          projectToMove!.linkedMainTaskId = newMainTaskId;
+          return task.copyWith(
+            projects: task.projects.where((p) => p.id != projectId).toList(),
+          );
+        }
+      }
+      return task;
+    }).toList();
+
+    if (projectToMove == null) {
+      debugPrint("Project not found in source task");
+      return;
+    }
+
+    // 2. Add to New Task
+    final finalMainTasks = newMainTasks.map((task) {
+      if (task.id == newMainTaskId) {
         return task.copyWith(
-          projects: updatedProjects,
+          projects: [...task.projects, projectToMove!],
         );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: finalMainTasks);
+  }
+
+  void reorderProjectsGlobal(List<Project> reorderedList) {
+    // This receives the flattened list in the desired order.
+    // We need to update the sortOrder of all projects involved.
+    
+    // 1. Create a map of updates: ProjectID -> NewSortOrder
+    final Map<String, int> sortUpdates = {};
+    for (int i = 0; i < reorderedList.length; i++) {
+      sortUpdates[reorderedList[i].id] = i; // Simple 0-based index
+    }
+
+    // 2. Iterate through all MainTasks and update their projects if present in the update map
+    final newMainTasks = _provider.mainTasks.map((task) {
+      bool taskUpdated = false;
+      final updatedProjects = task.projects.map((p) {
+        if (sortUpdates.containsKey(p.id)) {
+          taskUpdated = true;
+          // Use copyWith logic manually since Project is mutable object in list context for now,
+          // but we should set the property directly if we are just updating sortOrder.
+          // However, provider flow prefers immutability for triggering updates.
+          p.sortOrder = sortUpdates[p.id]!;
+          return p;
+        }
+        return p;
+      }).toList();
+
+      if (taskUpdated) {
+        return task.copyWith(projects: updatedProjects);
       }
       return task;
     }).toList();
@@ -78,7 +152,7 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // --- Step Management ---
+  // --- Step Management (Existing) ---
 
   void addRootStep(
       String mainTaskId, String projectId, String title, String description) {
@@ -151,7 +225,6 @@ class ProjectActions {
     return false;
   }
 
-  // New: Reorder Root Steps
   void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -164,7 +237,6 @@ class ProjectActions {
     });
   }
 
-  // New: Reorder Sub-steps (needs recursion to find the parent list)
   void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -193,16 +265,18 @@ class ProjectActions {
   void _performStepAction(
       String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
-        }
-      }
+    // Find the project. Note: We need a way to find it if mainTaskId is wrong, 
+    // but here we enforce correct mainTaskId.
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      targetProject = mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
     }
+
     if (targetProject != null) {
       action(targetProject);
       updateProject(mainTaskId, targetProject);
+    } else {
+      debugPrint("Project not found for action.");
     }
   }
 
@@ -224,7 +298,7 @@ class ProjectActions {
     _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
-        modelCandidates: _provider.settings.heavyModels, // Heavy for projects
+        modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
         currentApiKeyIndex: _provider.apiKeyIndex,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -234,6 +308,8 @@ class ProjectActions {
       final newProject = Project.fromJson(projectData);
       newProject.id = const Uuid().v4();
       newProject.linkedMainTaskId = mainTaskId;
+      newProject.isActive = true;
+      newProject.sortOrder = DateTime.now().millisecondsSinceEpoch;
 
       _updateMainTaskProjects(
           mainTaskId, (projects) => [...projects, newProject]);
@@ -243,5 +319,21 @@ class ProjectActions {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
     }
+  }
+
+  // Internal Helper
+  void _updateMainTaskProjects(
+      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        return task.copyWith(
+          projects: updatedProjects,
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
   }
 }

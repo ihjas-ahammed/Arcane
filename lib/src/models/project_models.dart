@@ -6,7 +6,9 @@ class Project {
   String description;
   List<ProjectStep> steps;
   double progress;
-  String? linkedMainTaskId; 
+  String? linkedMainTaskId;
+  bool isActive; // New field for Active/Inactive state
+  int sortOrder; // New field for global sorting
 
   Project({
     required this.id,
@@ -15,6 +17,8 @@ class Project {
     List<ProjectStep>? steps,
     this.progress = 0.0,
     this.linkedMainTaskId,
+    this.isActive = true,
+    this.sortOrder = 0,
   }) : steps = steps ?? [];
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -24,6 +28,8 @@ class Project {
       description: json['description'] as String? ?? '',
       progress: (json['progress'] as num? ?? 0.0).toDouble(),
       linkedMainTaskId: json['linkedMainTaskId'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
+      sortOrder: json['sortOrder'] as int? ?? 0,
       steps: (json['steps'] as List<dynamic>?)
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -38,6 +44,8 @@ class Project {
       'description': description,
       'progress': calculateProgress(),
       'linkedMainTaskId': linkedMainTaskId,
+      'isActive': isActive,
+      'sortOrder': sortOrder,
       'steps': steps.map((e) => e.toJson()).toList(),
     };
   }

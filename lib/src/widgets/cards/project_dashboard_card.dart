@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/sheets/project_options_sheet.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ProjectDashboardCard extends StatelessWidget {
@@ -9,6 +10,7 @@ class ProjectDashboardCard extends StatelessWidget {
   final String mainTaskId;
   final String mainTaskName;
   final Color accentColor;
+  final VoidCallback onTap;
 
   const ProjectDashboardCard({
     super.key,
@@ -16,7 +18,20 @@ class ProjectDashboardCard extends StatelessWidget {
     required this.mainTaskId,
     required this.mainTaskName,
     required this.accentColor,
+    required this.onTap,
   });
+
+  void _openOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProjectOptionsSheet(
+        project: project,
+        currentMainTaskId: mainTaskId,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,44 +39,59 @@ class ProjectDashboardCard extends StatelessWidget {
     final totalSteps = project.steps.length;
     final completedSteps = project.completedStepsCount;
     final int progressPercentage = (progress * 100).toInt();
+    
+    // Visual tweak for inactive projects
+    final effectiveBorderColor = project.isActive ? accentColor.withValues(alpha: 0.3) : AppTheme.fhBorderColor.withValues(alpha: 0.1);
+    final effectiveTextColor = project.isActive ? AppTheme.fhTextPrimary : AppTheme.fhTextDisabled;
 
-    // Use ValorantCard for styling
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: ValorantCard(
-        borderColor: accentColor.withValues(alpha: 0.3),
+        borderColor: effectiveBorderColor,
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     project.title.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         fontFamily: AppTheme.fontDisplay,
                         letterSpacing: 1.0,
-                        color: AppTheme.fhTextPrimary),
+                        color: effectiveTextColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: accentColor.withValues(alpha: 0.2),
+                  color: project.isActive 
+                      ? accentColor.withValues(alpha: 0.2) 
+                      : Colors.black12,
                   child: Text(
                     "$progressPercentage%",
                     style: TextStyle(
-                      color: accentColor,
+                      color: project.isActive ? accentColor : AppTheme.fhTextDisabled,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       fontFamily: AppTheme.fontDisplay
                     ),
                   ),
-                )
+                ),
+                const SizedBox(width: 8),
+                // Options Button
+                GestureDetector(
+                  onTap: () => _openOptions(context),
+                  child: Icon(
+                    MdiIcons.dotsVertical,
+                    size: 20,
+                    color: AppTheme.fhTextSecondary,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -76,7 +106,7 @@ class ProjectDashboardCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Custom Linear Progress Bar (Sharp)
+            // Progress Bar
             Container(
               height: 4,
               width: double.infinity,
@@ -84,7 +114,7 @@ class ProjectDashboardCard extends StatelessWidget {
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: progress,
-                child: Container(color: accentColor),
+                child: Container(color: project.isActive ? accentColor : AppTheme.fhTextDisabled),
               ),
             ),
             
