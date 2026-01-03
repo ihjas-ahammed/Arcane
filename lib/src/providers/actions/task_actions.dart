@@ -1,7 +1,7 @@
 // lib/src/providers/actions/task_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/app_state_models.dart'; // FIX: Added missing import for ActiveTimerInfo
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +11,26 @@ class TaskActions {
 
   TaskActions(this._provider);
 
-  // ... (previous methods addMainTask, editMainTask, logToDailySummary)
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final List<SubTask> updatedSubtasks = List.from(task.subTasks);
+        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
+          final SubTask item = updatedSubtasks.removeAt(oldIndex);
+          updatedSubtasks.insert(newIndex, item);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   void addMainTask(
       {required String name,
       required String description,
@@ -144,6 +163,10 @@ class TaskActions {
     if (updates.containsKey('currentTimeSpent')) {
       subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
     }
+    if (updates.containsKey('completed')) {
+      subtaskToUpdate.completed = updates['completed'] as bool;
+      if (!subtaskToUpdate.completed) subtaskToUpdate.completedDate = null;
+    }
 
     int timeDifference = 0;
     if (updates.containsKey('currentTimeSpent')) {
@@ -164,8 +187,6 @@ class TaskActions {
 
     _provider.setProviderState(mainTasks: newMainTasks);
   }
-
-  // --- Session Management ---
 
   void addSessionToSubtask(
       String mainTaskId, String subTaskId, DateTime start, DateTime end) {
@@ -203,13 +224,11 @@ class TaskActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
-    // Sync for the specific day
     _syncDateWithSessions(start);
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId,
       String sessionId, DateTime newStart, DateTime newEnd) {
-    // Lookup old session date to sync it too
     DateTime? oldDate;
     final oldTask =
         _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -225,7 +244,6 @@ class TaskActions {
         return task.copyWith(
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
-            // Recalculate total time
             int totalTime = 0;
             final updatedSessions = st.sessions.map((s) {
               if (s.id == sessionId) {
@@ -260,8 +278,6 @@ class TaskActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
-
-    // Sync for both old and new dates if they differ, or just one if same
     _syncDateWithSessions(newStart);
     if (oldDate != null &&
         (oldDate.year != newStart.year ||
@@ -273,7 +289,6 @@ class TaskActions {
 
   void deleteSessionFromSubtask(
       String mainTaskId, String subTaskId, String sessionId) {
-    // Lookup old session date to sync
     DateTime? oldDate;
     final oldTask =
         _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -286,13 +301,11 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
+        int deduction = oldSession?.durationSeconds ?? 0;
         return task.copyWith(
+            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
-            final sessionToRemove =
-                st.sessions.firstWhereOrNull((s) => s.id == sessionId);
-            final deduction = sessionToRemove?.durationSeconds ?? 0;
-
             return SubTask(
               id: st.id,
               name: st.name,
@@ -314,15 +327,6 @@ class TaskActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
-
-    // We don't know the date of the deleted session easily without lookup.
-    // But usually we are looking at a specific day in UI.
-    // If we want to be safe, we should traverse everything? No that's expensive.
-    // For now, let's assume the user is usually on "Today" or we accept we might need to refresh if they delete from history.
-    // But wait, we can just sync "Today" if we assume mostly current ops?
-    // Or better: The caller likely knows the date.
-    // But the signature is fixed.
-    // Let's rely on the fact that if it was "Today", we want it updated.
     _syncDateWithSessions(DateTime.now());
     if (oldDate != null &&
         (oldDate.year != DateTime.now().year ||
@@ -334,8 +338,6 @@ class TaskActions {
 
   void _syncDateWithSessions(DateTime date) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
-
-    // Prepare map for task times on this day
     final Map<String, int> taskTimes = {};
 
     for (var task in _provider.mainTasks) {
@@ -369,7 +371,6 @@ class TaskActions {
     _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
-  // ... (previous methods completeSubtask, deleteSubtask, duplicateCompletedSubtask, addSubSubtask, updateSubSubtask, completeSubSubtask, deleteSubSubtask)
   bool completeSubtask(String mainTaskId, String subtaskId) {
     MainTask? mainTask =
         _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -431,6 +432,33 @@ class TaskActions {
       'targetCount': subTask.targetCount
     });
     return true;
+  }
+
+  void uncompleteSubtask(String mainTaskId, String subtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subtaskId) {
+              return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  completed: false,
+                  completedDate: null,
+                  currentTimeSpent: st.currentTimeSpent,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions);
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
   }
 
   void deleteSubtask(String mainTaskId, String subtaskId) {

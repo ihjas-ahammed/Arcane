@@ -1,12 +1,11 @@
 Make the following changes:
 
-  * Update settings:
-    - Make sure to auto load latest ai models everytiem settings is opened
-    - Make sure database is continuesly synced in realtime (like in every save to storage so there will be no data loss) if internet is working
-  * Database Import and Export:
-      - Enable database import and export in database editor
-      -   - For android, use document API and sharing
-          - For web, use regular uplaod and download
+  * Update submission screen:
+    - Add a button near edit button to edit session log data
+      - Clicking on button will open this drawer which has a regular list of all sessions and i can manually edit them
+  * Update submission list screen:
+     - Make it possible to change position of tasks in list by dragging (like i can align them the way I want)
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1600 with 320 dpi
 

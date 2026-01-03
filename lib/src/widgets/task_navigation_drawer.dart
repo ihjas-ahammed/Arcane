@@ -3,6 +3,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/models/task_models.dart';
@@ -15,7 +16,6 @@ class TaskNavigationDrawer extends StatefulWidget {
 }
 
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
-  // ... (Controllers kept same as before)
   final _newTaskNameController = TextEditingController();
   final _newTaskDescController = TextEditingController();
   final _editTaskNameController = TextEditingController();
@@ -23,9 +23,8 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
 
   String _dialogSelectedTheme = 'tech';
   String _dialogSelectedColorHex =
-      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
+      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
 
-  // ... (Available Themes Data kept same)
   final List<Map<String, dynamic>> _availableThemes = [
     {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
     {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
@@ -51,7 +50,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
         orElse: () => _availableThemes.last)['icon'] as IconData;
   }
 
-  // ... (Dispose kept same)
   @override
   void dispose() {
     _newTaskNameController.dispose();
@@ -61,28 +59,25 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     super.dispose();
   }
 
-  // Reuse existing logic for dialogs but update UI inside them? 
-  // For brevity, I will apply standard Material styles in dialogs but use new colors.
-  // Ideally, create a ValorantDialog widget, but context constraints apply.
-  
   void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
-    // ... logic reset ...
     _newTaskNameController.clear();
     _newTaskDescController.clear();
     _dialogSelectedTheme = 'tech';
-    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase();
+    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
 
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
             builder: (BuildContext context, StateSetter setStateDialog) {
+          final currentColor = Color(int.parse("0xFF$_dialogSelectedColorHex"));
+
           return AlertDialog(
-            // Dialog Theme comes from AppTheme
             title: const Text('NEW PROTOCOL'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   TextField(controller: _newTaskNameController, decoration: const InputDecoration(labelText: 'CODENAME')),
                   const SizedBox(height: 12),
@@ -100,12 +95,38 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                       if (val != null) {
                         setStateDialog(() {
                           _dialogSelectedTheme = val;
-                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase();
+                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
                         });
                       }
                     },
                   ),
-                  // Color picker logic omitted for brevity, utilizing theme default
+                  const SizedBox(height: 16),
+                  const Text("CLASS COLOR", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => ColorSelectorDialog(
+                          selectedColor: currentColor,
+                          onColorSelected: (color) {
+                            setStateDialog(() {
+                              _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
+                            });
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 40,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: currentColor,
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
+                    ),
+                  )
                 ],
               ),
             ),
@@ -142,7 +163,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drawer Header
           Container(
             padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: const BoxDecoration(
@@ -158,7 +178,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
           ),
           
-          // List
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(12),
@@ -166,7 +185,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
               itemBuilder: (context, index) {
                 final task = appProvider.mainTasks[index];
                 final isSelected = appProvider.selectedTaskId == task.id;
-                final color = Color(int.parse("0x${task.colorHex}"));
+                final color = task.taskColor;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
@@ -179,7 +198,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                     },
                     child: Row(
                       children: [
-                        // Icon Box
                         Container(
                           width: 48, height: 48,
                           decoration: BoxDecoration(
@@ -224,7 +242,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
             ),
           ),
 
-          // Footer Action
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ValorantButton(

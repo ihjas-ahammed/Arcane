@@ -35,19 +35,35 @@ class SubmissionCard extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
+    // FIX: Retrieve the live subtask from the provider to ensure we have the latest state (e.g. isCompleted)
+    SubTask currentSubTask = subTask;
+    try {
+      final liveParent =
+          provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+      currentSubTask =
+          liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
+    } catch (_) {
+      // Fallback if not found (e.g. deleted/filtered out momentarily)
+    }
+
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
             ? timerState.accumulatedDisplayTime +
-                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+                (DateTime.now()
+                        .difference(timerState.startTime)
+                        .inMilliseconds /
+                    1000)
             : timerState.accumulatedDisplayTime)
-        : subTask.currentTimeSpent.toDouble();
+        : currentSubTask.currentTimeSpent.toDouble();
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
     Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
     if (isRunning) borderColor = parentTask.taskColor;
-    if (subTask.completed) borderColor = parentTask.taskColor;
+    borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
+    if (isRunning) borderColor = parentTask.taskColor;
+    if (currentSubTask.completed) borderColor = parentTask.taskColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -59,56 +75,59 @@ class SubmissionCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Checkbox
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
-              child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: parentTask.taskColor, size: 20)
-                  : RhombusCheckbox(
-                      checked: subTask.completed,
-                      onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
-                      size: CheckboxSize.small,
-                    ),
+              child: RhombusCheckbox(
+                checked: currentSubTask.completed,
+                onChanged: (val) {
+                  if (val == true) {
+                    provider.completeSubtask(parentTask.id, currentSubTask.id);
+                  } else {
+                    provider.updateSubtask(
+                        parentTask.id, currentSubTask.id, {'completed': false});
+                  }
+                },
+                size: CheckboxSize.small,
+              ),
             ),
-
-            // Name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    subTask.name.toUpperCase(),
+                    currentSubTask.name.toUpperCase(),
                     style: TextStyle(
                       fontFamily: AppTheme.fontDisplay,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                       letterSpacing: 0.5,
                       height: 1.1,
-                      decoration: subTask.completed ? TextDecoration.lineThrough : null,
-                      color: subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
+                      decoration: currentSubTask.completed
+                          ? TextDecoration.lineThrough
+                          : null,
+                      color: currentSubTask.completed
+                          ? AppTheme.fhTextDisabled
+                          : AppTheme.fhTextPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
                 ],
               ),
             ),
-
-            // Time & Controls
             const SizedBox(width: 8),
-            if (!subTask.completed) ...[
+            if (!currentSubTask.completed) ...[
               Text(
                 formattedTime,
                 style: TextStyle(
-                  fontFamily: "RobotoMono",
-                  color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold
-                ),
+                    fontFamily: "RobotoMono",
+                    color: isRunning
+                        ? AppTheme.fhAccentTeal
+                        : AppTheme.fhTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 12),
-              // Play/Pause
               InkWell(
                 onTap: () {
                   if (isRunning) {
@@ -121,35 +140,55 @@ class SubmissionCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isRunning ? AppTheme.fhAccentTeal.withOpacity(0.1) : Colors.transparent,
-                    border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withOpacity(0.5)),
+                    color: isRunning
+                        ? AppTheme.fhAccentTeal.withOpacity(0.1)
+                        : Colors.transparent,
+                    border: Border.all(
+                        color: isRunning
+                            ? AppTheme.fhAccentTeal
+                            : AppTheme.fhTextSecondary.withOpacity(0.5)),
                   ),
                   child: Icon(
                     isRunning ? MdiIcons.pause : MdiIcons.play,
                     size: 16,
-                    color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
+                    color: isRunning
+                        ? AppTheme.fhAccentTeal
+                        : AppTheme.fhTextPrimary,
                   ),
                 ),
               ),
             ],
-            
-            // Context Menu
             const SizedBox(width: 4),
             PopupMenuButton<String>(
-              icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 18),
+              icon: Icon(MdiIcons.dotsVertical,
+                  color: AppTheme.fhTextSecondary, size: 18),
               color: AppTheme.fhBgDark,
               onSelected: (value) {
                 if (value == 'delete') {
-                  // _confirmDelete(context, provider); // Needs method logic
-                  provider.deleteSubtask(parentTask.id, subTask.id); // Direct for now or add confirm
+                  provider.deleteSubtask(parentTask.id, currentSubTask.id);
                 } else if (value == 'duplicate') {
-                  provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
+                  provider.duplicateCompletedSubtask(
+                      parentTask.id, currentSubTask.id);
+                } else if (value == 'uncomplete') {
+                  provider.updateSubtask(
+                      parentTask.id, currentSubTask.id, {'completed': false});
                 }
               },
               itemBuilder: (context) => [
-                if (subTask.completed)
-                  const PopupMenuItem(value: 'duplicate', child: Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                const PopupMenuItem(value: 'delete', child: Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
+                if (currentSubTask.completed) ...[
+                  const PopupMenuItem(
+                      value: 'uncomplete',
+                      child: Text("Uncomplete",
+                          style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  const PopupMenuItem(
+                      value: 'duplicate',
+                      child: Text("Duplicate",
+                          style: TextStyle(color: AppTheme.fhTextPrimary))),
+                ],
+                const PopupMenuItem(
+                    value: 'delete',
+                    child: Text("Delete",
+                        style: TextStyle(color: AppTheme.fhAccentRed))),
               ],
             ),
           ],

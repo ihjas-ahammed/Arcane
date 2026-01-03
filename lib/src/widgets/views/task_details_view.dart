@@ -4,6 +4,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:arcane/src/widgets/cards/task_header_card.dart';
+import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -19,22 +20,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   final _aiUserInputController = TextEditingController();
   final _aiNumSubquestsController = TextEditingController(text: '3');
   final _newSubTaskController = TextEditingController();
-
-  late AppProvider appProvider;
-
-  @override
-  void initState() {
-    super.initState();
-    appProvider = Provider.of<AppProvider>(context, listen: false);
-  }
-
-  @override
-  void dispose() {
-    _aiUserInputController.dispose();
-    _aiNumSubquestsController.dispose();
-    _newSubTaskController.dispose();
-    super.dispose();
-  }
 
   void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
     if (_aiUserInputController.text.trim().isEmpty) {
@@ -54,39 +39,23 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
-      builder: (context, appProviderConsumer, child) {
-        final task = appProviderConsumer.getSelectedTask();
+      builder: (context, appProvider, child) {
+        final task = appProvider.getSelectedTask();
         final theme = Theme.of(context);
 
         if (task == null) {
-          return Center(
-              child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(MdiIcons.targetVariant, size: 56, color: AppTheme.fhAccentTealFixed),
-                const SizedBox(height: 16),
-                const Text('NO PROTOCOL SELECTED',
-                    style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.fhAccentTealFixed)),
-                const SizedBox(height: 8),
-                const Text(
-                  'Select a mission from the menu to view details.',
-                  style: TextStyle(color: AppTheme.fhTextSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ));
+          return const Center(child: Text('NO PROTOCOL SELECTED'));
         }
 
-        final weeklyCompletion = appProviderConsumer.getCompletionStatusForCurrentWeek(task);
-        final int yesterdayTime = appProviderConsumer.getYesterdaysTimeForTask(task.id);
+        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
+        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
+
+        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
+        final completedSubtasks = task.subTasks.where((st) => st.completed).toList();
 
         return SingleChildScrollView(
           padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TaskHeaderCard(
@@ -101,7 +70,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   children: [
                     Container(width: 4, height: 16, color: task.taskColor),
                     const SizedBox(width: 8),
-                    Text('SUB-MISSIONS',
+                    Text('ACTIVE SUB-MISSIONS',
                         style: theme.textTheme.titleMedium?.copyWith(
                             fontFamily: AppTheme.fontDisplay,
                             color: AppTheme.fhTextPrimary,
@@ -112,7 +81,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 ),
               ),
 
-              if (task.subTasks.isEmpty)
+              if (activeSubtasks.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24.0),
                   alignment: Alignment.center,
@@ -121,24 +90,29 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     color: AppTheme.fhBgDark.withOpacity(0.3)
                   ),
                   child: const Text(
-                      'NO ACTIVE SUB-MISSIONS.\nADD MANUALLY OR INITIALIZE AI PROTOCOL.',
+                      'ALL SUB-MISSIONS COMPLETED.\nLOG NEW ACTIVITY BELOW.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 0.5)
+                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
                   ),
                 )
               else
-                ListView.builder(
+                ReorderableListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: task.subTasks.length,
+                  itemCount: activeSubtasks.length,
+                  onReorder: (oldIndex, newIndex) {
+                    appProvider.reorderSubtasks(task.id, oldIndex, newIndex);
+                  },
                   itemBuilder: (ctx, index) {
-                    final st = task.subTasks[index];
+                    final st = activeSubtasks[index];
                     return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
                   },
                 ),
 
-              _buildAddNewSubTaskButton(context, appProviderConsumer, task),
-              _buildAISubQuestCard(theme, appProviderConsumer, task),
+              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedSubtasks),
+
+              _buildAddNewSubTaskButton(context, appProvider, task),
+              _buildAISubQuestCard(theme, appProvider, task),
             ],
           ),
         );
@@ -146,9 +120,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 
+  // ... [Keep _buildAddNewSubTaskButton and _buildAISubQuestCard unchanged]
   Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16.0),
+      padding: const EdgeInsets.only(top: 24.0),
       child: Column(
         children: [
           TextField(

@@ -13,6 +13,7 @@ import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:arcane/src/widgets/drawers/session_log_drawer.dart';
 
 class SubmissionDetailScreen extends StatefulWidget {
   final MainTask parentTask;
@@ -41,7 +42,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   // ... (Keep existing methods: _getLiveSubTask, _handleAddCheckpoint, _handleEditSubtask, _showAddSessionDialog, _handleSessionEdit, _buildTimelineEntries)
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
+      final parent =
+          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
       return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
     } catch (e) {
       return null;
@@ -58,13 +60,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     _checkpointController.clear();
   }
 
-  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
+  Future<void> _handleEditSubtask(
+      BuildContext context, AppProvider provider, SubTask textSubTask) async {
     final String? newName = await showDialog<String>(
       context: context,
       builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
     );
     if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
+      provider.updateSubtask(
+          widget.parentTask.id, widget.subTask.id, {'name': newName});
     }
   }
 
@@ -76,30 +80,38 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (result != null) {
       final startBase = result['start']!;
       final endBase = result['end']!;
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
+      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
+          _selectedDate.day, startBase.hour, startBase.minute);
+      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
+          _selectedDate.day, endBase.hour, endBase.minute);
       if (realEnd.isBefore(realStart)) {
         realEnd = realEnd.add(const Duration(days: 1));
       }
-      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
+      provider.addSessionToSubtask(
+          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
-  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
+  void _handleSessionEdit(
+      BuildContext context, AppProvider provider, TaskSession session) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
+      builder: (ctx) => SessionEditDialog(
+          initialStart: session.startTime, initialEnd: session.endTime),
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
+        provider.deleteSessionFromSubtask(
+            widget.parentTask.id, widget.subTask.id, session.id);
       } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
+        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+            session.id, result['start'], result['end']);
       }
     }
   }
 
-  List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
+  List<TimelineEntry> _buildTimelineEntries(
+      AppProvider provider, String currentSubTaskId) {
     final List<TimelineEntry> entries = [];
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
@@ -140,26 +152,35 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final timerState = provider.activeTimers[liveSubTask.id];
     final double displayTimeSeconds = timerState != null
         ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
+            ? timerState.accumulatedDisplayTime +
+                (DateTime.now()
+                        .difference(timerState.startTime)
+                        .inMilliseconds /
+                    1000)
             : timerState.accumulatedDisplayTime)
         : liveSubTask.currentTimeSpent.toDouble();
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
+    final int completedCheckpoints =
+        liveSubTask.subSubTasks.where((s) => s.completed).length;
     final int totalCheckpoints = liveSubTask.subSubTasks.length;
     final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
+      endDrawer:
+          SessionLogDrawer(parentTask: widget.parentTask, subTask: liveSubTask),
       body: Stack(
         children: [
           // Background Watermark
           Positioned(
-            right: -50, top: 50,
+            right: -50,
+            top: 50,
             child: Opacity(
               opacity: 0.05,
-              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+              child:
+                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
             ),
           ),
 
@@ -170,17 +191,27 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                 children: [
                   // Top Bar
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                          icon: const Icon(Icons.arrow_back_ios_new,
+                              color: Colors.white70),
                           onPressed: () => Navigator.pop(context),
                         ),
                         const Spacer(),
+                        Builder(
+                          builder: (context) => IconButton(
+                            icon: Icon(MdiIcons.history, color: Colors.white70),
+                            onPressed: () => Scaffold.of(context).openEndDrawer(),
+                          ),
+                        ),
                         IconButton(
-                          icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
-                          onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
+                          icon: Icon(MdiIcons.pencilOutline,
+                              color: Colors.white70),
+                          onPressed: () => _handleEditSubtask(
+                              context, provider, liveSubTask),
                         ),
                       ],
                     ),
@@ -193,7 +224,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.parentTask.name.toUpperCase(), 
+                          widget.parentTask.name.toUpperCase(),
                           style: TextStyle(
                             color: widget.parentTask.taskColor,
                             fontWeight: FontWeight.bold,
@@ -241,7 +272,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           label: "STEPS",
                           value: "$completedCheckpoints/$totalCheckpoints",
                           icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
+                          isActive: completedCheckpoints > 0 &&
+                              completedCheckpoints == totalCheckpoints,
                         ),
                         const SizedBox(width: 16),
                         ValorantAbilitySlot(
@@ -255,9 +287,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           hotkey: "X",
                           label: "STATUS",
                           value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
+                          icon: liveSubTask.completed
+                              ? MdiIcons.checkAll
+                              : MdiIcons.target,
                           isActive: liveSubTask.completed,
-                          onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
+                          onTap: () => provider.completeSubtask(
+                              widget.parentTask.id, liveSubTask.id),
                         ),
                       ],
                     ),
@@ -276,11 +311,23 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isRunning
-                                ? [AppTheme.fhAccentRed.withOpacity(0.2), Colors.transparent]
-                                : [Colors.white.withOpacity(0.05), Colors.transparent],
-                            begin: Alignment.bottomLeft, end: Alignment.topRight,
+                                ? [
+                                    AppTheme.fhAccentRed.withOpacity(0.2),
+                                    Colors.transparent
+                                  ]
+                                : [
+                                    Colors.white.withOpacity(0.05),
+                                    Colors.transparent
+                                  ],
+                            begin: Alignment.bottomLeft,
+                            end: Alignment.topRight,
                           ),
-                          border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
+                          border: Border(
+                              left: BorderSide(
+                                  color: isRunning
+                                      ? AppTheme.fhAccentRed
+                                      : AppTheme.fhTextSecondary,
+                                  width: 2)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -289,9 +336,13 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
+                                  isRunning
+                                      ? "SESSION ACTIVE"
+                                      : "READY TO DEPLOY",
                                   style: TextStyle(
-                                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
+                                    color: isRunning
+                                        ? AppTheme.fhAccentRed
+                                        : AppTheme.fhTextSecondary,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.0,
                                     fontSize: 10,
@@ -310,17 +361,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               ],
                             ),
                             FloatingActionButton.small(
-                              backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
+                              backgroundColor: isRunning
+                                  ? AppTheme.fhAccentRed
+                                  : AppTheme.fhAccentTealFixed,
                               foregroundColor: Colors.black,
                               onPressed: () {
                                 if (isRunning) {
                                   provider.pauseTimer(liveSubTask.id);
                                   provider.logTimerAndReset(liveSubTask.id);
                                 } else {
-                                  provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                  provider.startTimer(liveSubTask.id, 'subtask',
+                                      widget.parentTask.id);
                                 }
                               },
-                              child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
+                              child: Icon(
+                                  isRunning ? MdiIcons.pause : MdiIcons.play),
                             ),
                           ],
                         ),
@@ -335,39 +390,56 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             Text(
                               "TACTICAL OBJECTIVES",
                               style: TextStyle(
-                                color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                                letterSpacing: 1.5
-                              ),
+                                  color:
+                                      AppTheme.fhTextSecondary.withOpacity(0.5),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                  letterSpacing: 1.5),
                             ),
                             const SizedBox(height: 8),
-                            ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
-                              title: sss.name,
-                              isCompleted: sss.completed,
-                              onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                              onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                            )),
-                            
+                            ...liveSubTask.subSubTasks
+                                .map((sss) => ValorantListItem(
+                                      title: sss.name,
+                                      isCompleted: sss.completed,
+                                      onToggle: () =>
+                                          provider.completeSubSubtask(
+                                              widget.parentTask.id,
+                                              liveSubTask.id,
+                                              sss.id),
+                                      onDelete: () => provider.deleteSubSubtask(
+                                          widget.parentTask.id,
+                                          liveSubTask.id,
+                                          sss.id),
+                                    )),
+
                             // Quick Add
                             Container(
                               margin: const EdgeInsets.only(top: 8, bottom: 24),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: Colors.black.withOpacity(0.2),
-                                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                                border: Border(
+                                    bottom: BorderSide(
+                                        color: Colors.white.withOpacity(0.1))),
                               ),
                               child: TextField(
                                 controller: _checkpointController,
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13),
                                 decoration: const InputDecoration(
                                   hintText: "+ ADD OBJECTIVE",
-                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
+                                  hintStyle: TextStyle(
+                                      color: Colors.white24,
+                                      fontSize: 12,
+                                      letterSpacing: 1.0),
                                   border: InputBorder.none,
                                   isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 12),
                                 ),
-                                onSubmitted: (_) => _handleAddCheckpoint(provider),
+                                onSubmitted: (_) =>
+                                    _handleAddCheckpoint(provider),
                               ),
                             ),
 
@@ -381,7 +453,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                       context: context,
                                       initialDate: _selectedDate,
                                       firstDate: DateTime(2020),
-                                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      lastDate: DateTime.now()
+                                          .add(const Duration(days: 365)),
                                       builder: (context, child) => Theme(
                                         data: Theme.of(context).copyWith(
                                           colorScheme: const ColorScheme.dark(
@@ -390,7 +463,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                             surface: AppTheme.fhBgDark,
                                             onSurface: Colors.white,
                                           ),
-                                          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+                                          dialogTheme: const DialogThemeData(
+                                              backgroundColor:
+                                                  AppTheme.fhBgDark),
                                         ),
                                         child: child!,
                                       ),
@@ -402,21 +477,26 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                   child: Row(
                                     children: [
                                       Text(
-                                        DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                                        DateFormat('MMM dd')
+                                            .format(_selectedDate)
+                                            .toUpperCase(),
                                         style: const TextStyle(
-                                          color: AppTheme.fhAccentTealFixed,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: AppTheme.fontDisplay,
-                                          fontSize: 16
-                                        ),
+                                            color: AppTheme.fhAccentTealFixed,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: AppTheme.fontDisplay,
+                                            fontSize: 16),
                                       ),
-                                      const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
+                                      const Icon(Icons.arrow_drop_down,
+                                          color: AppTheme.fhAccentTealFixed,
+                                          size: 16),
                                     ],
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.add, size: 20, color: Colors.white54),
-                                  onPressed: () => _showAddSessionDialog(context, provider),
+                                  icon: const Icon(Icons.add,
+                                      size: 20, color: Colors.white54),
+                                  onPressed: () =>
+                                      _showAddSessionDialog(context, provider),
                                   tooltip: "Log Manual Session",
                                 ),
                               ],
@@ -426,10 +506,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               color: Colors.black.withOpacity(0.2),
                               child: ScheduleTimeline(
                                 entries: timelineEntries,
-                                onAddSession: () => _showAddSessionDialog(context, provider),
+                                onAddSession: () =>
+                                    _showAddSessionDialog(context, provider),
                                 onEditEntry: (entry) {
                                   if (entry.originalObject is TaskSession) {
-                                    _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
+                                    _handleSessionEdit(context, provider,
+                                        entry.originalObject as TaskSession);
                                   }
                                 },
                               ),
