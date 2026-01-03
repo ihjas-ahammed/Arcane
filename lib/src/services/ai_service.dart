@@ -110,7 +110,7 @@ class AIService {
   }
 
   // --- Value Analysis ---
-  Future<int> analyzeValueAlignment({
+  Future<Map<String, dynamic>> analyzeValueAlignment({
     required String valueName,
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
@@ -132,17 +132,20 @@ class AIService {
     Here are their answers to reflective questions:
     ${buffer.toString()}
     
-    Task: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
+    Task 1: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
     - 0 means they have no clear idea or haven't answered.
     - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
     
+    Task 2: Provide a brief, actionable insight or encouragement based on their answers (max 2 sentences).
+    
     Output strictly JSON:
     {
-      "score": int
+      "score": int,
+      "insight": "string"
     }
     """;
 
-    final result = await makeAICall(
+    return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
       customApiKey: customApiKey,
@@ -150,8 +153,6 @@ class AIService {
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
     );
-
-    return result['score'] as int? ?? 0;
   }
 
   Future<List<Map<String, dynamic>>> generateTasksFromValues({

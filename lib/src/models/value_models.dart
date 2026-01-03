@@ -35,6 +35,7 @@ class LifeValue {
   final String description;
   final String iconName; // Store icon as string for JSON serialization
   int score; // 0 to 100 based on AI analysis of answers
+  String? lastInsight; // Brief insight note from AI
   final List<ValueQuestion> questions;
 
   LifeValue({
@@ -43,6 +44,7 @@ class LifeValue {
     required this.description,
     required this.iconName,
     this.score = 0,
+    this.lastInsight,
     required this.questions,
   });
 
@@ -106,6 +108,7 @@ class LifeValue {
       description: json['description'] as String? ?? '',
       iconName: iconName ?? 'helpCircleOutline',
       score: json['score'] as int? ?? 0,
+      lastInsight: json['lastInsight'] as String?,
       questions: (json['questions'] as List<dynamic>)
           .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
           .toList(),
@@ -119,6 +122,7 @@ class LifeValue {
       'description': description,
       'iconName': iconName,
       'score': score,
+      'lastInsight': lastInsight,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
   }

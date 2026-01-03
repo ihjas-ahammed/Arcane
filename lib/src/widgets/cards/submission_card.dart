@@ -3,6 +3,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/task_calculations.dart'; // Import calculations
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
@@ -46,22 +47,13 @@ class SubmissionCard extends StatelessWidget {
       // Fallback if not found (e.g. deleted/filtered out momentarily)
     }
 
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now()
-                        .difference(timerState.startTime)
-                        .inMilliseconds /
-                    1000)
-            : timerState.accumulatedDisplayTime)
-        : currentSubTask.currentTimeSpent.toDouble();
+    // Calculate time spent TODAY instead of total
+    final double displayTimeSeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
     Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
-    if (isRunning) borderColor = parentTask.taskColor;
-    borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
     if (isRunning) borderColor = parentTask.taskColor;
     if (currentSubTask.completed) borderColor = parentTask.taskColor;
 
@@ -83,8 +75,7 @@ class SubmissionCard extends StatelessWidget {
                   if (val == true) {
                     provider.completeSubtask(parentTask.id, currentSubTask.id);
                   } else {
-                    provider.updateSubtask(
-                        parentTask.id, currentSubTask.id, {'completed': false});
+                    provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
                   }
                 },
                 size: CheckboxSize.small,
@@ -118,7 +109,7 @@ class SubmissionCard extends StatelessWidget {
             const SizedBox(width: 8),
             if (!currentSubTask.completed) ...[
               Text(
-                formattedTime,
+                formattedTime, // Shows Today's Time
                 style: TextStyle(
                     fontFamily: "RobotoMono",
                     color: isRunning
@@ -170,8 +161,7 @@ class SubmissionCard extends StatelessWidget {
                   provider.duplicateCompletedSubtask(
                       parentTask.id, currentSubTask.id);
                 } else if (value == 'uncomplete') {
-                  provider.updateSubtask(
-                      parentTask.id, currentSubTask.id, {'completed': false});
+                  provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
                 }
               },
               itemBuilder: (context) => [

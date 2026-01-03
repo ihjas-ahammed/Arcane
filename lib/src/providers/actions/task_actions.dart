@@ -1,7 +1,7 @@
 // lib/src/providers/actions/task_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart'; // FIX: Added missing import for ActiveTimerInfo
+import 'package:arcane/src/models/app_state_models.dart'; 
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
@@ -696,6 +696,49 @@ class TaskActions {
             'N/A'
       });
     }
+  }
+
+  void uncompleteSubSubtask(
+      String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id,
+                name: st.name,
+                completed: st.completed,
+                currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate,
+                isCountable: st.isCountable,
+                targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && sss.completed) {
+                    return SubSubTask(
+                      id: sss.id,
+                      name: sss.name,
+                      completed: false, // Uncheck
+                      isCountable: sss.isCountable,
+                      targetCount: sss.targetCount,
+                      currentCount: sss.currentCount,
+                      completionTimestamp: null, // Clear timestamp
+                    );
+                  }
+                  return sss;
+                }).toList(),
+                sessions: st.sessions,
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
   }
 
   void deleteSubSubtask(

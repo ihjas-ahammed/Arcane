@@ -4,6 +4,7 @@ import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/task_calculations.dart'; // Calculations
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
@@ -39,7 +40,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     super.dispose();
   }
 
-  // ... (Keep existing methods: _getLiveSubTask, _handleAddCheckpoint, _handleEditSubtask, _showAddSessionDialog, _handleSessionEdit, _buildTimelineEntries)
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
       final parent =
@@ -150,15 +150,11 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
 
     final timerState = provider.activeTimers[liveSubTask.id];
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now()
-                        .difference(timerState.startTime)
-                        .inMilliseconds /
-                    1000)
-            : timerState.accumulatedDisplayTime)
-        : liveSubTask.currentTimeSpent.toDouble();
+    // Use the helper for consistency across screens (Time Spend Today)
+    // Note: Detail screen usually shows Total Time or Today? 
+    // Usually detail shows total progress, but for session management today is relevant. 
+    // Let's keep it consistent with the card: Today's Time.
+    final double displayTimeSeconds = TaskCalculations.getTodaySeconds(liveSubTask, timerState);
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
@@ -217,7 +213,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  // Header Info - Resized
+                  // Header Info
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
@@ -239,7 +235,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
-                            fontSize: 36, // Reduced from 48
+                            fontSize: 36,
                             height: 1.0,
                             fontFamily: AppTheme.fontDisplay,
                             letterSpacing: 1.0,
@@ -261,7 +257,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       children: [
                         ValorantAbilitySlot(
                           hotkey: "Q",
-                          label: "TIME",
+                          label: "TODAY", // Explicit label change
                           value: formattedTime,
                           icon: MdiIcons.clockFast,
                           isActive: isRunning,
@@ -291,8 +287,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               ? MdiIcons.checkAll
                               : MdiIcons.target,
                           isActive: liveSubTask.completed,
-                          onTap: () => provider.completeSubtask(
-                              widget.parentTask.id, liveSubTask.id),
+                          onTap: () {
+                            if (liveSubTask.completed) {
+                              provider.taskActions.uncompleteSubtask(
+                                  widget.parentTask.id, liveSubTask.id);
+                            } else {
+                              provider.completeSubtask(
+                                  widget.parentTask.id, liveSubTask.id);
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -401,11 +404,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 .map((sss) => ValorantListItem(
                                       title: sss.name,
                                       isCompleted: sss.completed,
-                                      onToggle: () =>
+                                      onToggle: () {
+                                        if (sss.completed) {
+                                          provider.taskActions.uncompleteSubSubtask(
+                                              widget.parentTask.id,
+                                              liveSubTask.id,
+                                              sss.id);
+                                        } else {
                                           provider.completeSubSubtask(
                                               widget.parentTask.id,
                                               liveSubTask.id,
-                                              sss.id),
+                                              sss.id);
+                                        }
+                                      },
                                       onDelete: () => provider.deleteSubSubtask(
                                           widget.parentTask.id,
                                           liveSubTask.id,

@@ -118,6 +118,41 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                       ),
                     ),
 
+                    // Insight Note
+                    if (value.lastInsight != null &&
+                        value.lastInsight!.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhAccentPurple.withOpacity(0.1),
+                          border: Border.all(
+                              color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("AI INSIGHT",
+                                style: TextStyle(
+                                    color: AppTheme.fhAccentPurple,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 1.0)),
+                            const SizedBox(height: 8),
+                            Text(
+                              value.lastInsight!,
+                              style: const TextStyle(
+                                  color: AppTheme.fhTextPrimary,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                  fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 32),
 
                     // Questions Header

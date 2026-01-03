@@ -23,7 +23,7 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
-  // ... [Keep existing fields and methods]
+  // ... [Existing fields]
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
@@ -108,16 +108,84 @@ class AppProvider with ChangeNotifier {
     });
   }
 
-  // ... [Existing logic and boilerplate]
+  // Reorder values list
+  void reorderValues(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = _lifeValues.removeAt(oldIndex);
+    _lifeValues.insert(newIndex, item);
+    _hasUnsavedChanges = true;
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
 
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) =>
-      _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> analyzeValueAlignment(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return;
+    setLoadingTask("Analyzing Value...");
+    try {
+      final result = await _aiService.analyzeValueAlignment(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+      
+      value.score = result['score'] as int;
+      value.lastInsight = result['insight'] as String?;
+      
+      _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
 
-  // ... [Rest of the existing methods]
   void setLoadingTask(String? taskName) {
     if (_loadingTaskName != taskName) {
       _loadingTaskName = taskName;
       notifyListeners();
+    }
+  }
+  
+  void setProviderApiKeyIndex(int index) {
+    if (_apiKeyIndex != index) _apiKeyIndex = index;
+  }
+  
+  void updateValueAnswer(String valueId, String questionId, String answer) {
+    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
+    if (valueIndex != -1) {
+      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      if (qIndex != -1) {
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
+        notifyListeners();
+      }
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
+    if (value == null) return [];
+    setLoadingTask("Generating Actions...");
+    try {
+      return await _aiService.generateTasksFromValues(
+        valueName: value.title,
+        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ValueAI] $msg"),
+      );
+    } finally {
+      setLoadingTask(null);
     }
   }
 
@@ -139,15 +207,7 @@ class AppProvider with ChangeNotifier {
       _lifeValues = LifeValue.getDefaults();
     }
   }
-
-  @override
-  void dispose() {
-    _periodicUiTimer?.cancel();
-    _autoSaveTimer?.cancel();
-    _realtimeSyncDebouncer?.cancel();
-    super.dispose();
-  }
-
+  
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
@@ -567,61 +627,6 @@ class AppProvider with ChangeNotifier {
     return null;
   }
 
-  void updateValueAnswer(String valueId, String questionId, String answer) {
-    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
-    if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
-      if (qIndex != -1) {
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _hasUnsavedChanges = true;
-        _scheduleRealtimeSync();
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> analyzeValueAlignment(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return;
-    setLoadingTask("Analyzing Value...");
-    try {
-      final score = await _aiService.analyzeValueAlignment(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-      value.score = score;
-      _hasUnsavedChanges = true;
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return [];
-    setLoadingTask("Generating Actions...");
-    try {
-      return await _aiService.generateTasksFromValues(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
   String _buildUserDataContext() {
     final sb = StringBuffer();
     sb.writeln("Active Missions:");
@@ -767,10 +772,6 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  void setProviderApiKeyIndex(int index) {
-    if (_apiKeyIndex != index) _apiKeyIndex = index;
-  }
-
   Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
   void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
@@ -781,14 +782,18 @@ class AppProvider with ChangeNotifier {
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
   bool completeSubtask(String mainTaskId, String subtaskId) => _taskActions.completeSubtask(mainTaskId, subtaskId);
+  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
   void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
   void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   ProjectActions get projectActions => _projectActions;
+  TaskActions get taskActions => _taskActions;
 }
