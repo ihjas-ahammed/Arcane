@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -45,8 +46,10 @@ class _SettingsViewState extends State<SettingsView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _apiKeyController.text = appProvider.settings.customApiKey ?? '';
-    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
-    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
+    _customChatbotPromptController.text =
+        appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text =
+        appProvider.settings.customReflectionPrompt ?? '';
 
     // Auto-load latest AI models when settings screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -312,6 +315,21 @@ class _SettingsViewState extends State<SettingsView> {
                           (appProvider.getSelectedTask()?.taskColor ??
                               AppTheme.fhAccentTealFixed),
                       foregroundColor: AppTheme.fhBgDark),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.backupRestore, size: 18),
+                  label: const Text('RECOVER FROM LOCAL BACKUP'),
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const DataRecoveryScreen()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      side: BorderSide(
+                          color:
+                              AppTheme.fhTextSecondary.withValues(alpha: 0.5))),
                 ),
                 const SizedBox(height: 12),
                 Center(

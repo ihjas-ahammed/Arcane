@@ -7,8 +7,12 @@ import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:collection/collection.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
@@ -28,7 +32,7 @@ class AppProvider with ChangeNotifier {
   final AIService _aiService = AIService();
 
   Timer? _periodicUiTimer;
-  Timer? _autoSaveTimer; 
+  Timer? _autoSaveTimer;
   Timer? _realtimeSyncDebouncer;
 
   String? _loadingTaskName;
@@ -44,7 +48,8 @@ class AppProvider with ChangeNotifier {
   bool get isUsernameMissing => _isUsernameMissing;
 
   String? _lastLoginDate;
-  List<MainTask> _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+  List<MainTask> _mainTasks =
+      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
   Map<String, dynamic> _completedByDay = {};
 
   List<Skill> _skills = [];
@@ -59,6 +64,8 @@ class AppProvider with ChangeNotifier {
   String? _selectedTaskId;
   int _apiKeyIndex = 0;
   Map<String, ActiveTimerInfo> _activeTimers = {};
+
+  final Set<String> _dirtyCollections = {};
 
   bool _hasUnsavedChanges = false;
   bool _isManuallySaving = false;
@@ -80,7 +87,8 @@ class AppProvider with ChangeNotifier {
   int get apiKeyIndex => _apiKeyIndex;
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
 
-  TimeOfDay get wakeupTime => TimeOfDay(hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
+  TimeOfDay get wakeupTime => TimeOfDay(
+      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
 
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   ChatbotMemory get chatbotMemory => _chatbotMemory;
@@ -106,6 +114,28 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+
+    // Initial check for backups dir
+    _ensureBackupDir();
+  }
+
+  Future<void> _ensureBackupDir() async {
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error creating backup dir: $e");
+    }
+  }
+
+  void _markDirty(String collection) {
+    _dirtyCollections.add(collection);
+    _hasUnsavedChanges = true;
   }
 
   // Reorder values list
@@ -127,17 +157,19 @@ class AppProvider with ChangeNotifier {
     try {
       final result = await _aiService.analyzeValueAlignment(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
-      
+
       value.score = result['score'] as int;
       value.lastInsight = result['insight'] as String?;
-      
+
       _hasUnsavedChanges = true;
       _scheduleRealtimeSync();
       notifyListeners();
@@ -152,32 +184,38 @@ class AppProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   void setProviderApiKeyIndex(int index) {
     if (_apiKeyIndex != index) _apiKeyIndex = index;
   }
-  
+
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      final qIndex = _lifeValues[valueIndex]
+          .questions
+          .indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _hasUnsavedChanges = true;
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _markDirty('settings');
         _scheduleRealtimeSync();
         notifyListeners();
       }
     }
   }
-  
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(
+      String valueId) async {
     final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
     if (value == null) return [];
     setLoadingTask("Generating Actions...");
     try {
       return await _aiService.generateTasksFromValues(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
@@ -192,12 +230,30 @@ class AppProvider with ChangeNotifier {
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
+        Skill(
+            id: 'wis',
+            name: 'Wisdom',
+            description: 'Good judgment, learning, perspective.'),
+        Skill(
+            id: 'cou',
+            name: 'Courage',
+            description: 'Bravery, persistence, integrity.'),
+        Skill(
+            id: 'hum',
+            name: 'Humanity',
+            description: 'Love, kindness, social intelligence.'),
+        Skill(
+            id: 'jus',
+            name: 'Justice',
+            description: 'Teamwork, fairness, leadership.'),
+        Skill(
+            id: 'tem',
+            name: 'Temperance',
+            description: 'Forgiveness, humility, self-regulation.'),
+        Skill(
+            id: 'tra',
+            name: 'Transcendence',
+            description: 'Appreciation of beauty, gratitude, hope.'),
       ];
     }
   }
@@ -207,19 +263,25 @@ class AppProvider with ChangeNotifier {
       _lifeValues = LifeValue.getDefaults();
     }
   }
-  
+
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges && _currentUser != null && !_isManuallySaving && !_isManuallyLoading && _settings.autoSaveEnabled) {
+      if (_hasUnsavedChanges &&
+          _currentUser != null &&
+          !_isManuallySaving &&
+          !_isManuallyLoading &&
+          _settings.autoSaveEnabled) {
         _performActualSave();
       }
     });
   }
 
   void _scheduleRealtimeSync() {
-    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
+    if (!_settings.autoSaveEnabled ||
+        _currentUser == null ||
+        _isManuallyLoading) return;
     if (_realtimeSyncDebouncer?.isActive ?? false) {
       _realtimeSyncDebouncer!.cancel();
     }
@@ -231,7 +293,10 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (_authLoading && _currentUser != null && user != null && _currentUser!.uid == user.uid) return;
+    if (_authLoading &&
+        _currentUser != null &&
+        user != null &&
+        _currentUser!.uid == user.uid) return;
     _authLoading = true;
     notifyListeners();
     if (user != null) {
@@ -252,7 +317,8 @@ class AppProvider with ChangeNotifier {
       }
       _isChatbotMemoryInitialized = false;
       initializeChatbotMemory();
-      _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
+      _isUsernameMissing = _currentUser?.displayName == null ||
+          _currentUser!.displayName!.trim().isEmpty;
       _isDataLoadingAfterLogin = false;
     } else {
       _currentUser = null;
@@ -273,8 +339,10 @@ class AppProvider with ChangeNotifier {
       'settings': settings.toJson(),
       'selectedTaskId': _selectedTaskId,
       'apiKeyIndex': _apiKeyIndex,
-      'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-      'lastSuccessfulSaveTimestamp': _lastSuccessfulSaveTimestamp?.toIso8601String(),
+      'activeTimers':
+          _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
+      'lastSuccessfulSaveTimestamp':
+          _lastSuccessfulSaveTimestamp?.toIso8601String(),
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
@@ -301,28 +369,48 @@ class AppProvider with ChangeNotifier {
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
-        dayDataMap.putIfAbsent('subtasksCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent('checkpointsCompleted', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'subtasksCompleted', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'checkpointsCompleted', () => <Map<String, dynamic>>[]);
       }
     });
-    _settings = data['settings'] != null ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>) : AppSettings();
-    _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
+    _settings = data['settings'] != null
+        ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>)
+        : AppSettings();
+    _selectedTaskId = data['selectedTaskId'] as String? ??
+        (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
     _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ?? {};
+    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key,
+                ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
+        {};
     final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
-    _lastSuccessfulSaveTimestamp = timestampString != null ? DateTime.tryParse(timestampString) : null;
-    _chatbotMemory = data['chatbotMemory'] != null ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>) : ChatbotMemory();
+    _lastSuccessfulSaveTimestamp =
+        timestampString != null ? DateTime.tryParse(timestampString) : null;
+    _chatbotMemory = data['chatbotMemory'] != null
+        ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
+        : ChatbotMemory();
     if (data['skills'] != null && data['skills'] is List) {
-      _skills = (data['skills'] as List).where((s) => s != null && s is Map<String, dynamic>).map((s) => Skill.fromJson(s as Map<String, dynamic>)).toList();
+      _skills = (data['skills'] as List)
+          .where((s) => s != null && s is Map<String, dynamic>)
+          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
+          .toList();
     } else {
       _initializeSkills();
     }
     if (_skills.isEmpty) _initializeSkills();
     if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
-      _reflectionLogs = (data['reflectionLogs'] as List).where((l) => l != null && l is Map<String, dynamic>).map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      _reflectionLogs = (data['reflectionLogs'] as List)
+          .where((l) => l != null && l is Map<String, dynamic>)
+          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
+          .toList();
     }
     if (data['lifeValues'] != null && data['lifeValues'] is List) {
-      _lifeValues = (data['lifeValues'] as List).where((v) => v != null && v is Map<String, dynamic>).map((v) => LifeValue.fromJson(v as Map<String, dynamic>)).toList();
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
     } else {
       _initializeValues();
     }
@@ -334,57 +422,16 @@ class AppProvider with ChangeNotifier {
     }
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
-      _migrateDataToSeconds();
       _settings.dataVersion = 1;
       _hasUnsavedChanges = true;
     }
     notifyListeners();
   }
 
-  void _migrateDataToSeconds() {
-    List<MainTask> migratedTasks = [];
-    for (var task in _mainTasks) {
-      int newTaskTotalTime = 0;
-      List<SubTask> migratedSubtasks = [];
-      for (var sub in task.subTasks) {
-        int newSubTime = 0;
-        if (sub.sessions.isNotEmpty) {
-          for (var s in sub.sessions) newSubTime += s.durationSeconds;
-        } else if (sub.currentTimeSpent > 0) {
-          newSubTime = sub.currentTimeSpent * 60;
-        }
-        migratedSubtasks.add(SubTask(
-          id: sub.id, name: sub.name, completed: sub.completed, currentTimeSpent: newSubTime, completedDate: sub.completedDate,
-          isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount, subSubTasks: sub.subSubTasks, sessions: sub.sessions,
-        ));
-        newTaskTotalTime += newSubTime;
-      }
-      migratedTasks.add(task.copyWith(subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
-    }
-    _mainTasks = migratedTasks;
-    Map<String, dynamic> migratedHistory = {};
-    _completedByDay.forEach((dateKey, dayData) {
-      if (dayData is Map<String, dynamic>) {
-        final newDayData = Map<String, dynamic>.from(dayData);
-        if (newDayData['taskTimes'] != null) {
-          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
-          final Map<String, int> newTimes = {};
-          oldTimes.forEach((taskId, timeVal) {
-            if (timeVal is num) newTimes[taskId] = (timeVal * 60).toInt();
-          });
-          newDayData['taskTimes'] = newTimes;
-        }
-        migratedHistory[dateKey] = newDayData;
-      } else {
-        migratedHistory[dateKey] = dayData;
-      }
-    });
-    _completedByDay = migratedHistory;
-  }
-
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
-    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _mainTasks =
+        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
     _completedByDay = {};
     _settings = AppSettings();
     _selectedTaskId = _mainTasks.isNotEmpty ? _mainTasks[0].id : null;
@@ -405,7 +452,51 @@ class AppProvider with ChangeNotifier {
       bool isAutoSave = !_isManuallySaving;
       if (!isAutoSave) setLoadingTask("Syncing Database...");
       try {
-        final success = await _storageService.setUserData(_currentUser!.uid, _appStateToMap());
+        await _saveLocalSnapshot();
+
+        bool success = true;
+        if (_dirtyCollections.isNotEmpty) {
+          if (_dirtyCollections.contains('tasks')) {
+            if (!await _storageService.saveTasks(_currentUser!.uid, {
+              'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()
+            })) success = false;
+          }
+          if (_dirtyCollections.contains('history')) {
+            if (!await _storageService.saveHistory(
+                _currentUser!.uid, {'completedByDay': _completedByDay}))
+              success = false;
+          }
+          if (_dirtyCollections.contains('reflections')) {
+            if (!await _storageService.saveReflections(_currentUser!.uid, {
+              'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
+            })) success = false;
+          }
+          if (_dirtyCollections.contains('settings') || success) {
+            // Default or settings
+            // If nothing dirty but code reached here, implies settings/misc.
+            // Check if specific setting dirty? For now just save settings if 'settings' tag present OR if we are doing a full save equivalent.
+            // Actually, let's stick to explicit tags.
+            if (_dirtyCollections.contains('settings')) {
+              final settingsData = {
+                'lastLoginDate': _lastLoginDate,
+                'settings': settings.toJson(),
+                'selectedTaskId': _selectedTaskId,
+                'apiKeyIndex': _apiKeyIndex,
+                'activeTimers': _activeTimers
+                    .map((key, value) => MapEntry(key, value.toJson())),
+                'lastSuccessfulSaveTimestamp':
+                    _lastSuccessfulSaveTimestamp?.toIso8601String(),
+                'chatbotMemory': _chatbotMemory.toJson(),
+                'skills': _skills.map((s) => s.toJson()).toList(),
+                'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
+              };
+              if (!await _storageService.saveSettings(
+                  _currentUser!.uid, settingsData)) success = false;
+            }
+          }
+          if (success) _dirtyCollections.clear();
+        }
+
         if (success) {
           _lastSuccessfulSaveTimestamp = DateTime.now();
           _hasUnsavedChanges = false;
@@ -438,7 +529,8 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _handleDailyReset();
-        _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
+        _isUsernameMissing = _currentUser?.displayName == null ||
+            _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;
         _isChatbotMemoryInitialized = false;
         initializeChatbotMemory();
@@ -451,13 +543,16 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> loginUser(String email, String password) async =>
+      await fb_service.signInWithEmail(email, password);
 
-  Future<void> signupUser(String email, String password, String username) async {
+  Future<void> signupUser(
+      String email, String password, String username) async {
     _authLoading = true;
     notifyListeners();
     try {
-      UserCredential userCredential = await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await fb_service.firebaseAuthInstance
+          .createUserWithEmailAndPassword(email: email, password: password);
       _currentUser = userCredential.user;
       if (_currentUser != null) {
         await _currentUser!.updateDisplayName(username);
@@ -490,7 +585,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null) throw Exception("No user is currently signed in.");
+    if (_currentUser == null)
+      throw Exception("No user is currently signed in.");
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
     _scheduleRealtimeSync();
@@ -503,7 +599,9 @@ class AppProvider with ChangeNotifier {
     await _currentUser!.reload();
     _currentUser = fb_service.firebaseAuthInstance.currentUser;
     _isUsernameMissing = false;
-    _hasUnsavedChanges = true;
+    _currentUser = fb_service.firebaseAuthInstance.currentUser;
+    _isUsernameMissing = false;
+    _markDirty('settings');
     notifyListeners();
     await _performActualSave();
   }
@@ -526,13 +624,18 @@ class AppProvider with ChangeNotifier {
 
   MainTask? getSelectedTask() {
     if (_selectedTaskId == null) return _mainTasks.firstOrNull;
-    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ?? _mainTasks.firstOrNull;
+    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
+        _mainTasks.firstOrNull;
   }
 
   String _getWeekKey(DateTime date, int startOfWeek) {
     int day = date.weekday;
-    DateTime adjustedDate = date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
-    int weekOfYear = (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7).ceil() + 1;
+    DateTime adjustedDate =
+        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
+    int weekOfYear =
+        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
+                .ceil() +
+            1;
     return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
   }
 
@@ -547,10 +650,12 @@ class AppProvider with ChangeNotifier {
     final today = DateTime.now();
     final weekKey = _getWeekKey(today, _settings.startOfWeek);
     final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
-    task.weeklyCompletionStatus.putIfAbsent(weekKey, () => List.filled(7, false));
+    task.weeklyCompletionStatus
+        .putIfAbsent(weekKey, () => List.filled(7, false));
     if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
       task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
-      _hasUnsavedChanges = true;
+      // This is inside mainTasks, so mark tasks dirty
+      _markDirty('tasks');
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -574,10 +679,11 @@ class AppProvider with ChangeNotifier {
     if (_lastLoginDate != today) {
       hasResetRun = true;
       _lastLoginDate = today;
-      _hasUnsavedChanges = true;
+      _markDirty('settings'); // lastLoginDate changed
       for (var task in _mainTasks) {
         if (task.lastWorkedDate != today) task.dailyTimeSpent = 0;
       }
+      _markDirty('tasks'); // tasks changed
     }
     if (hasResetRun) {
       _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
@@ -597,8 +703,10 @@ class AppProvider with ChangeNotifier {
     if (_chatbotMemory.conversationHistory.isEmpty) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'init_${DateTime.now().millisecondsSinceEpoch}',
-          text: "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
-          sender: MessageSender.bot, timestamp: DateTime.now()));
+          text:
+              "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     }
     _isChatbotMemoryInitialized = true;
     notifyListeners();
@@ -606,9 +714,12 @@ class AppProvider with ChangeNotifier {
 
   void saveDailySummary(String date, String summary) {
     if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
-    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
+    if (_completedByDay[date] is! Map)
+      _completedByDay[date] = <String, dynamic>{};
+    if (_completedByDay[date] is! Map)
+      _completedByDay[date] = <String, dynamic>{};
     _completedByDay[date]['aiSummary'] = summary;
-    _hasUnsavedChanges = true;
+    _markDirty('history');
     _scheduleRealtimeSync();
     notifyListeners();
   }
@@ -616,14 +727,15 @@ class AppProvider with ChangeNotifier {
   void deleteDailySummary(String date) {
     if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
       _completedByDay[date].remove('aiSummary');
-      _hasUnsavedChanges = true;
+      _markDirty('history');
       _scheduleRealtimeSync();
       notifyListeners();
     }
   }
 
   String? getDailySummary(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) return _completedByDay[date]['aiSummary'] as String?;
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map)
+      return _completedByDay[date]['aiSummary'] as String?;
     return null;
   }
 
@@ -632,8 +744,11 @@ class AppProvider with ChangeNotifier {
     sb.writeln("Active Missions:");
     for (var t in _mainTasks) {
       sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
-      for (var st in t.subTasks) sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
-      for (var p in t.projects) sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
+      for (var st in t.subTasks)
+        sb.writeln(
+            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      for (var p in t.projects)
+        sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
     }
     sb.writeln("\nLogs from Last 7 Days:");
     final today = DateTime.now();
@@ -642,8 +757,13 @@ class AppProvider with ChangeNotifier {
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
       if (_completedByDay.containsKey(dateStr)) {
         sb.writeln("Date: $dateStr");
-        final reflections = _reflectionLogs.where((r) => r.timestamp.year == d.year && r.timestamp.month == d.month && r.timestamp.day == d.day)
-            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}").join("\n");
+        final reflections = _reflectionLogs
+            .where((r) =>
+                r.timestamp.year == d.year &&
+                r.timestamp.month == d.month &&
+                r.timestamp.day == d.day)
+            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
+            .join("\n");
         if (reflections.isNotEmpty) sb.writeln(reflections);
       }
     }
@@ -652,18 +772,36 @@ class AppProvider with ChangeNotifier {
 
   Future<void> sendMessageToChatbot(String userMessageText) async {
     if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
-    _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'user_${DateTime.now().millisecondsSinceEpoch}', text: userMessageText, sender: MessageSender.user, timestamp: DateTime.now()));
+    _chatbotMemory.conversationHistory.add(ChatbotMessage(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        text: userMessageText,
+        sender: MessageSender.user,
+        timestamp: DateTime.now()));
     notifyListeners();
     setLoadingTask("Consulting Advisor...");
     try {
       final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels, memory: _chatbotMemory, userMessage: userMessageText, dataContext: _buildUserDataContext(),
-        currentApiKeyIndex: _apiKeyIndex, customApiKey: settings.customApiKey, systemInstruction: settings.customChatbotPrompt,
-        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex, onLog: (logMsg) => {},
+        modelCandidates: settings.liteModels,
+        memory: _chatbotMemory,
+        userMessage: userMessageText,
+        dataContext: _buildUserDataContext(),
+        currentApiKeyIndex: _apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        systemInstruction: settings.customChatbotPrompt,
+        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
+        onLog: (logMsg) => {},
       );
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'bot_${DateTime.now().millisecondsSinceEpoch}', text: botResponseText, sender: MessageSender.bot, timestamp: DateTime.now()));
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
+          text: botResponseText,
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     } catch (e) {
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'error_${DateTime.now().millisecondsSinceEpoch}', text: "Error connecting. ${e.toString()}", sender: MessageSender.bot, timestamp: DateTime.now()));
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          text: "Error connecting. ${e.toString()}",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     } finally {
       setLoadingTask(null);
       setProviderState(chatbotMemory: _chatbotMemory);
@@ -672,54 +810,101 @@ class AppProvider with ChangeNotifier {
 
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
-    return _reflectionLogs.where((log) => log.timestamp.year == today.year && log.timestamp.month == today.month && log.timestamp.day == today.day)
+    return _reflectionLogs
+        .where((log) =>
+            log.timestamp.year == today.year &&
+            log.timestamp.month == today.month &&
+            log.timestamp.day == today.day)
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
   int get7DaySkillMomentum(String skillName) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    return _reflectionLogs.where((log) => log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1))))
+    return _reflectionLogs
+        .where((log) =>
+            log.timestamp.isAfter(sevenDaysAgo) &&
+            log.timestamp.isBefore(now.add(const Duration(days: 1))))
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
-  Future<Map<String, int>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async {
+  Future<Map<String, int>> processReflection(
+      {required String trigger,
+      required String emotion,
+      required String reason,
+      DateTime? timestamp}) async {
     final actualTimestamp = timestamp ?? DateTime.now();
-    final dailyReflections = _reflectionLogs.where((log) => log.timestamp.year == actualTimestamp.year && log.timestamp.month == actualTimestamp.month && log.timestamp.day == actualTimestamp.day)
-        .map((r) => {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason}).toList();
+    final dailyReflections = _reflectionLogs
+        .where((log) =>
+            log.timestamp.year == actualTimestamp.year &&
+            log.timestamp.month == actualTimestamp.month &&
+            log.timestamp.day == actualTimestamp.day)
+        .map((r) =>
+            {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason})
+        .toList();
     setLoadingTask("Analyzing Reflection...");
-    final result = await _aiService.evaluateReflection(trigger: trigger, emotion: emotion, reason: reason, modelCandidates: settings.liteModels, dailyReflections: dailyReflections, customApiKey: settings.customApiKey, systemInstruction: settings.customReflectionPrompt);
+    final result = await _aiService.evaluateReflection(
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        modelCandidates: settings.liteModels,
+        dailyReflections: dailyReflections,
+        customApiKey: settings.customApiKey,
+        systemInstruction: settings.customReflectionPrompt);
     setLoadingTask(null);
     Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map) (result['xp_allocation'] as Map).forEach((key, value) => xpAllocation[key.toString()] = (value as num).toInt());
+    if (result['xp_allocation'] is Map)
+      (result['xp_allocation'] as Map).forEach((key, value) =>
+          xpAllocation[key.toString()] = (value as num).toInt());
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
+      final skill = updatedSkills.firstWhereOrNull(
+          (s) => s.name.toLowerCase() == skillName.toLowerCase());
       if (skill != null) skill.addXp(xp);
     });
-    _reflectionLogs.add(ReflectionLog(id: 'ref_${DateTime.now().millisecondsSinceEpoch}', timestamp: actualTimestamp, trigger: trigger, emotion: emotion, reason: reason, aiFeedback: result['feedback'] ?? "Log recorded.", xpGained: xpAllocation));
+    _reflectionLogs.add(ReflectionLog(
+        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: actualTimestamp,
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        aiFeedback: result['feedback'] ?? "Log recorded.",
+        xpGained: xpAllocation));
     _skills = updatedSkills;
-    _hasUnsavedChanges = true;
+    _markDirty('reflections');
+    _markDirty('settings'); // skills changed
     _scheduleRealtimeSync();
     notifyListeners();
     return xpAllocation;
   }
 
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) {
-    _reflectionLogs.add(ReflectionLog(id: 'ref_${DateTime.now().millisecondsSinceEpoch}', timestamp: timestamp ?? DateTime.now(), trigger: trigger, emotion: emotion, reason: reason, aiFeedback: "Log recorded manually. No analysis performed.", xpGained: {}));
-    _hasUnsavedChanges = true;
+  void quickSaveReflection(
+      {required String trigger,
+      required String emotion,
+      required String reason,
+      DateTime? timestamp}) {
+    _reflectionLogs.add(ReflectionLog(
+        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: timestamp ?? DateTime.now(),
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        aiFeedback: "Log recorded manually. No analysis performed.",
+        xpGained: {}));
+    _markDirty('reflections');
     _scheduleRealtimeSync();
     notifyListeners();
   }
 
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
+  void updateReflectionLog(String id,
+      {String? trigger, String? emotion, String? reason}) {
     final index = _reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
       final old = _reflectionLogs[index];
       if (trigger != null) old.trigger = trigger;
       if (emotion != null) old.emotion = emotion;
       if (reason != null) old.reason = reason;
-      _hasUnsavedChanges = true;
+      _markDirty('reflections');
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -731,12 +916,15 @@ class AppProvider with ChangeNotifier {
       final log = _reflectionLogs[index];
       List<Skill> updatedSkills = List.from(_skills);
       log.xpGained.forEach((skillName, xp) {
-        final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
-        if (skill != null) skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
+        final skill = updatedSkills.firstWhereOrNull(
+            (s) => s.name.toLowerCase() == skillName.toLowerCase());
+        if (skill != null)
+          skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
       });
       _skills = updatedSkills;
       _reflectionLogs.removeAt(index);
-      _hasUnsavedChanges = true;
+      _markDirty('reflections');
+      _markDirty('settings'); // skills
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -746,21 +934,72 @@ class AppProvider with ChangeNotifier {
     if (_currentUser == null) return;
     await _storageService.deleteUserData(_currentUser!.uid);
     await _resetToInitialState();
-    await _performActualSave();
+    await _storageService.deleteUserData(_currentUser!.uid);
+    await _resetToInitialState();
+    // Do not save here, as we just deleted everything. If we save, we might restore empty state.
+    // But resetToInitialState sets hasUnsavedChanges=true.
+    // We should clear dirty.
+    _dirtyCollections.clear();
+    _hasUnsavedChanges = false;
     notifyListeners();
   }
 
-  void setProviderState({String? lastLoginDate, List<MainTask>? mainTasks, Map<String, dynamic>? completedByDay, Map<String, ActiveTimerInfo>? activeTimers, DateTime? lastSuccessfulSaveTimestamp, bool? isUsernameMissing, ChatbotMemory? chatbotMemory, bool doNotify = true, bool doPersist = true}) {
+  void setProviderState(
+      {String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, ActiveTimerInfo>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      bool doNotify = true,
+      bool doPersist = true}) {
     bool changed = false;
-    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) { _lastLoginDate = lastLoginDate; changed = true; }
-    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) { _mainTasks = List.from(mainTasks); changed = true; }
-    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) { _completedByDay = Map.from(completedByDay); changed = true; }
-    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) { _activeTimers = Map.from(activeTimers); changed = true; }
-    if (lastSuccessfulSaveTimestamp != null && _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) { _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp; changed = true; }
-    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) { _isUsernameMissing = isUsernameMissing; changed = true; }
-    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) { _chatbotMemory = chatbotMemory; changed = true; }
+    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
+      _lastLoginDate = lastLoginDate;
+      changed = true;
+    }
+    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
+      _mainTasks = List.from(mainTasks);
+      changed = true;
+    }
+    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
+      _completedByDay = Map.from(completedByDay);
+      changed = true;
+    }
+    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
+      _activeTimers = Map.from(activeTimers);
+      changed = true;
+    }
+    if (lastSuccessfulSaveTimestamp != null &&
+        _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
+      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp;
+      changed = true;
+    }
+    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
+      _isUsernameMissing = isUsernameMissing;
+      changed = true;
+    }
+    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
+      _chatbotMemory = chatbotMemory;
+      changed = true;
+    }
     if (changed) {
-      if (doPersist) { _hasUnsavedChanges = true; _scheduleRealtimeSync(); }
+      if (doPersist) {
+        // Deduce what changed from the non-null arguments
+        if (mainTasks != null) _markDirty('tasks');
+        if (completedByDay != null) _markDirty('history');
+        if (lastLoginDate != null ||
+            activeTimers != null ||
+            lastSuccessfulSaveTimestamp != null ||
+            isUsernameMissing != null ||
+            chatbotMemory != null) _markDirty('settings');
+        // If none specifically matched but changed was true (e.g. from a catch-all?), fallback?
+        // This covers most cases.
+
+        _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
+      }
       if (doNotify) notifyListeners();
     }
   }
@@ -772,28 +1011,123 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
-  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
-  bool completeSubtask(String mainTaskId, String subtaskId) => _taskActions.completeSubtask(mainTaskId, subtaskId);
-  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
-  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask,
+          String generationMode, String userInput, int numSubquests) =>
+      _aiGenerationActions.triggerAISubquestGeneration(
+          mainTask, generationMode, userInput, numSubquests);
+  void addMainTask(
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.addMainTask(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void editMainTask(String taskId,
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.editMainTask(taskId,
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) =>
+      _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
+      _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(
+          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
+      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.completeSubtask(mainTaskId, subtaskId);
+  void uncompleteSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
+  void deleteSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId,
+          Map<String, dynamic> subSubtaskData) =>
+      _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
+          String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void uncompleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.uncompleteSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) =>
+      _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  void startTimer(String id, String type, String mainTaskId) =>
+      _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
+
+  Future<void> _saveLocalSnapshot() async {
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+
+        final timestamp = DateTime.now()
+            .toIso8601String()
+            .replaceAll(':', '-')
+            .split('.')
+            .first;
+        final file = File('${backupDir.path}/backup_$timestamp.json');
+        final fullData = _appStateToMap();
+        await file.writeAsString(jsonEncode(fullData));
+
+        // Cleanup old backups
+        final files = backupDir.listSync().whereType<File>().toList();
+        // Sort by path (timestamp is in name so should be chronological)
+        files.sort((a, b) => a.path.compareTo(b.path));
+        if (files.length > 5) {
+          for (var i = 0; i < files.length - 5; i++) {
+            await files[i].delete();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Snapshot save failed: $e");
+    }
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final content = await backupFile.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+      loadAppStateFromMap(data);
+    } catch (e) {
+      debugPrint("Error restoring snapshot: $e");
+      rethrow;
+    }
+  }
 }
