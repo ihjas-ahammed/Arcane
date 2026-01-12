@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -158,13 +159,26 @@ class ProjectDetailScreen extends StatelessWidget {
                       color: AppTheme.fhTextPrimary),
                 ),
                 // Tiny Add Button
-                InkWell(
-                  onTap: () => _showAddRootStepDialog(context, provider),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
-                    child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
-                  ),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => _showAiStepGenerationDialog(context, provider, currentProject),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _showAddRootStepDialog(context, provider),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
+                        child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
+                      ),
+                    ),
+                  ],
                 )
               ],
             ),
@@ -220,11 +234,27 @@ class ProjectDetailScreen extends StatelessWidget {
             const SizedBox(height: 40),
             
             // Generate Steps Button (If empty or want more)
-            ValorantButton(
-              label: "ADD OBJECTIVE",
-              onPressed: () => _showAddRootStepDialog(context, provider),
-              isPrimary: false,
-              icon: Icons.add,
+            Row(
+              children: [
+                Expanded(
+                  child: ValorantButton(
+                    label: "ADD OBJECTIVE",
+                    onPressed: () => _showAddRootStepDialog(context, provider),
+                    isPrimary: false,
+                    icon: Icons.add,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ValorantButton(
+                    label: "GENERATE STEPS",
+                    onPressed: () => _showAiStepGenerationDialog(context, provider, currentProject),
+                    isPrimary: true,
+                    color: AppTheme.fhAccentPurple,
+                    icon: MdiIcons.creation,
+                  ),
+                ),
+              ],
             ),
             
             const SizedBox(height: 40),
@@ -244,6 +274,24 @@ class ProjectDetailScreen extends StatelessWidget {
     if (result != null) {
       provider.projectActions.addRootStep(
           mainTaskId, project.id, result['title']!, result['desc']!);
+    }
+  }
+
+  void _showAiStepGenerationDialog(BuildContext context, AppProvider provider, Project currentProject) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE STEPS", 
+        hintText: "E.g., Suggest testing phases for this project...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateStepsForProject(mainTaskId, currentProject.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
     }
   }
 

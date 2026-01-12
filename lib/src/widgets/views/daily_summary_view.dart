@@ -33,11 +33,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Default to today if no date is selected
     if (_selectedDate == null) {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      // Even if today has no data yet, it's the logical starting point
       _selectedDate = today;
     }
   }
@@ -69,19 +66,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _pickDate(BuildContext context) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     
-    // Create a Set of valid dates for O(1) lookup
-    // We only want dates that have either task activity or reflection logs
     final Set<String> validDates = {};
-    
-    // 1. From Task Completion / Time Data
     validDates.addAll(appProvider.completedByDay.keys);
     
-    // 2. From Reflection Logs
     for (var log in appProvider.reflectionLogs) {
       validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
     
-    // 3. Always include Today and Tomorrow (for planning context)
     final today = DateTime.now();
     validDates.add(DateFormat('yyyy-MM-dd').format(today));
     validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
@@ -135,12 +126,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         }).toList(),
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKey: provider.settings.customApiKey,
+        customApiKeys: provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint(msg),
       );
       
-      // Save summary to provider
       provider.saveDailySummary(_selectedDate!, summary);
       
     } catch (e) {
@@ -156,7 +146,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
-    // Prepare Data
     final chartData = ChartDataHelper.prepareWeeklyData(
       appProvider, 
       _selectedDate, 
@@ -180,7 +169,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
     
-    // Retrieve AI Summary from provider
     final String? aiDailySummary = _selectedDate != null ? appProvider.getDailySummary(_selectedDate!) : null;
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
@@ -197,7 +185,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Carousel ---
           ChartCarousel(
             height: 250,
             pages: [
@@ -221,7 +208,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- Date Picker with Valorant Style ---
           InkWell(
             onTap: () => _pickDate(context),
             child: Container(
@@ -229,7 +215,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 border: Border.all(color: AppTheme.fhBorderColor),
-                // No border radius or very small for Valorant style
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -266,11 +251,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- AI Daily Briefing Section ---
-          // Always show card, content depends on if summary exists
-          
-
-          // --- Daily Breakdown (Pie Charts) ---
           Row(
             children: [
               Expanded(
@@ -315,7 +295,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
 
           const SizedBox(height: 24),
-ValorantCard(
+          ValorantCard(
             borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,7 +362,6 @@ ValorantCard(
 
           const SizedBox(height: 24),
 
-          // --- Activity List ---
           const Text("COMBAT LOG // DETAILS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ActivityLogList(
@@ -394,7 +373,6 @@ ValorantCard(
 
           const SizedBox(height: 24),
 
-          // --- Reflections Section ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

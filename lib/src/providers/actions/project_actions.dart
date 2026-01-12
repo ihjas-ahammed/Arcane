@@ -29,7 +29,7 @@ class ProjectActions {
       description: description,
       linkedMainTaskId: targetTaskId,
       isActive: true,
-      sortOrder: DateTime.now().millisecondsSinceEpoch, // Default sort to end
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
     );
 
     _updateMainTaskProjects(targetTaskId, (projects) {
@@ -78,19 +78,18 @@ class ProjectActions {
     });
   }
 
-  void changeProjectAgent(String currentMainTaskId, String newMainTaskId, String projectId) {
+  void changeProjectAgent(
+      String currentMainTaskId, String newMainTaskId, String projectId) {
     if (currentMainTaskId == newMainTaskId) return;
 
-    // 1. Find and Remove from Old Task
     Project? projectToMove;
-    
-    // Create new list for old task
+
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == currentMainTaskId) {
-        final existingProject = task.projects.firstWhereOrNull((p) => p.id == projectId);
+        final existingProject =
+            task.projects.firstWhereOrNull((p) => p.id == projectId);
         if (existingProject != null) {
           projectToMove = existingProject;
-          // Update linked ID on the object itself
           projectToMove!.linkedMainTaskId = newMainTaskId;
           return task.copyWith(
             projects: task.projects.where((p) => p.id != projectId).toList(),
@@ -105,7 +104,6 @@ class ProjectActions {
       return;
     }
 
-    // 2. Add to New Task
     final finalMainTasks = newMainTasks.map((task) {
       if (task.id == newMainTaskId) {
         return task.copyWith(
@@ -119,24 +117,16 @@ class ProjectActions {
   }
 
   void reorderProjectsGlobal(List<Project> reorderedList) {
-    // This receives the flattened list in the desired order.
-    // We need to update the sortOrder of all projects involved.
-    
-    // 1. Create a map of updates: ProjectID -> NewSortOrder
     final Map<String, int> sortUpdates = {};
     for (int i = 0; i < reorderedList.length; i++) {
-      sortUpdates[reorderedList[i].id] = i; // Simple 0-based index
+      sortUpdates[reorderedList[i].id] = i;
     }
 
-    // 2. Iterate through all MainTasks and update their projects if present in the update map
     final newMainTasks = _provider.mainTasks.map((task) {
       bool taskUpdated = false;
       final updatedProjects = task.projects.map((p) {
         if (sortUpdates.containsKey(p.id)) {
           taskUpdated = true;
-          // Use copyWith logic manually since Project is mutable object in list context for now,
-          // but we should set the property directly if we are just updating sortOrder.
-          // However, provider flow prefers immutability for triggering updates.
           p.sortOrder = sortUpdates[p.id]!;
           return p;
         }
@@ -152,7 +142,7 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // --- Step Management (Existing) ---
+  // --- Step Management ---
 
   void addRootStep(
       String mainTaskId, String projectId, String title, String description) {
@@ -216,8 +206,7 @@ class ProjectActions {
     for (var s in steps) {
       if (s.id == parentId) {
         s.substeps.add(newStep);
-        s.isCompleted =
-            false; // Parent can't be complete if new incomplete child added
+        s.isCompleted = false;
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
@@ -225,19 +214,24 @@ class ProjectActions {
     return false;
   }
 
-  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
+  void reorderRootSteps(
+      String mainTaskId, String projectId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
     _performStepAction(mainTaskId, projectId, (project) {
-      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
+      if (oldIndex >= 0 &&
+          oldIndex < project.steps.length &&
+          newIndex >= 0 &&
+          newIndex < project.steps.length) {
         final ProjectStep item = project.steps.removeAt(oldIndex);
         project.steps.insert(newIndex, item);
       }
     });
   }
 
-  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId,
+      int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
@@ -246,10 +240,14 @@ class ProjectActions {
     });
   }
 
-  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+  bool _reorderSubStepRecursive(
+      List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
     for (var s in steps) {
       if (s.id == parentId) {
-        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
+        if (oldIndex >= 0 &&
+            oldIndex < s.substeps.length &&
+            newIndex >= 0 &&
+            newIndex < s.substeps.length) {
           final ProjectStep item = s.substeps.removeAt(oldIndex);
           s.substeps.insert(newIndex, item);
           return true;
@@ -265,11 +263,11 @@ class ProjectActions {
   void _performStepAction(
       String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
-    // Find the project. Note: We need a way to find it if mainTaskId is wrong, 
-    // but here we enforce correct mainTaskId.
-    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (mainTask != null) {
-      targetProject = mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
+      targetProject =
+          mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
     }
 
     if (targetProject != null) {
@@ -279,8 +277,6 @@ class ProjectActions {
       debugPrint("Project not found for action.");
     }
   }
-
-  // --- Integration ---
 
   void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
     _provider.addSubtask(mainTaskId, {
@@ -301,6 +297,7 @@ class ProjectActions {
         modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
         currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ProjectAI] $msg"),
       );
@@ -321,7 +318,48 @@ class ProjectActions {
     }
   }
 
-  // Internal Helper
+  Future<void> generateStepsForProject(
+      String mainTaskId, String projectId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    
+    if (project == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Steps...");
+    try {
+      final existingStepTitles = project.steps.map((s) => s.title).toList();
+      
+      final newStepsData = await _aiService.generateStepsForProject(
+        projectTitle: project.title,
+        projectDescription: project.description,
+        existingSteps: existingStepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.heavyModels, // Use heavy for better planning
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        for (var stepData in newStepsData) {
+          proj.steps.add(ProjectStep(
+            id: const Uuid().v4(),
+            title: stepData['title'] ?? 'New Step',
+            description: stepData['description'] ?? '',
+          ));
+        }
+      });
+
+    } catch (e) {
+      debugPrint("Error generating steps: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
   void _updateMainTaskProjects(
       String mainTaskId, List<Project> Function(List<Project>) updateFn) {
     final newMainTasks = _provider.mainTasks.map((task) {

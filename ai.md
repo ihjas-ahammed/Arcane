@@ -1,8 +1,7 @@
 Make the following changes:
 
-  * In the submission detail screen,
-    - It needs bar graph lie in logbook to see last svene day time spend,
-    - The date picker for session logs must only have days with logs enabled , the session timer should show current time spend after clicking start, instead of whol day time, it should be shown only when its paused
+  * Update AI Generation: In projects, just like for objectives, make it possible to add steps using ai in any level of steps 
+  
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

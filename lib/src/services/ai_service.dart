@@ -30,14 +30,15 @@ class AIService {
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Custom API Key
-    final apiKeysToTry = (customApiKey != null && customApiKey.isNotEmpty)
-        ? [customApiKey]
-        : geminiApiKeys;
+    // 1. Prioritize Inbuild Keys, then Custom Keys
+    final List<String> apiKeysToTry = [
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    ].toSet().toList(); // Remove duplicates
 
     if (apiKeysToTry.isEmpty) {
       throw Exception("No valid Gemini API keys found.");
@@ -45,29 +46,23 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        String effectiveKey = apiKeysToTry[i];
-        int effectiveIndex = i;
+        // Simple rotation strategy: start from current index
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
 
-        if (customApiKey == null) {
-          effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-          effectiveKey = apiKeysToTry[effectiveIndex];
-          if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
-        }
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
 
         try {
           if (kDebugMode) {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
           }
           final result = await requestFn(effectiveKey, model);
-          if (customApiKey == null) onNewApiKeyIndex(effectiveIndex);
+          // Update the index so next call starts here (load balancing/avoid dead keys)
+          onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-        }
-
-        if (customApiKey != null) {
-          break; // If custom key fails, move to next model
         }
       }
     }
@@ -77,15 +72,15 @@ class AIService {
 
   Future<Map<String, dynamic>> makeAICall({
     required String prompt,
-    required List<String> modelCandidates, // Changed from modelName
-    String? customApiKey,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
     required int currentApiKeyIndex,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
     return await _executeWithModelAndKeyRotation(
       currentApiKeyIndex: currentApiKeyIndex,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
       modelCandidates: modelCandidates,
@@ -109,13 +104,111 @@ class AIService {
     );
   }
 
+  // --- New Generation Methods ---
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a project manager AI assistant.
+    Project: "$projectTitle"
+    Description: "$projectDescription"
+    Existing Steps: ${existingSteps.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 new, actionable steps for this project based on the user request.
+    Structure:
+    - Title
+    - Description
+    
+    Output strictly JSON matching this structure:
+    {
+      "steps": [
+        {
+          "title": "string",
+          "description": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['steps'] as List?)
+            ?.map((s) => s as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a tactical assistant.
+    Mission: "$parentTaskName"
+    Sub-Mission: "$subtaskName"
+    Existing Objectives: ${existingCheckpoints.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 concrete, checkable objectives (checkpoints) for this sub-mission.
+    
+    Output strictly JSON matching this structure:
+    {
+      "checkpoints": [
+        {
+          "name": "string (short actionable title)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['checkpoints'] as List?)
+            ?.map((c) => c as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
   // --- Value Analysis ---
   Future<Map<String, dynamic>> analyzeValueAlignment({
     required String valueName,
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -148,7 +241,7 @@ class AIService {
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -160,7 +253,7 @@ class AIService {
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -192,7 +285,7 @@ class AIService {
     final result = await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -212,7 +305,7 @@ class AIService {
     required String reason,
     required List<String> modelCandidates,
     List<Map<String, String>>? dailyReflections,
-    String? customApiKey,
+    List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
     final String baseSystemPrompt = systemInstruction ??
@@ -260,7 +353,7 @@ class AIService {
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: 0,
       onNewApiKeyIndex: (_) {},
       onLog: (_) {},
@@ -276,7 +369,7 @@ class AIService {
     required String userInput,
     required int numSubquests,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -300,7 +393,7 @@ Return ONLY the JSON object.
     final rawData = await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -316,7 +409,7 @@ Return ONLY the JSON object.
     required List<String> modelCandidates,
     required String userPrompt,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -345,7 +438,7 @@ Return ONLY the JSON object.
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -356,7 +449,7 @@ Return ONLY the JSON object.
     required List<Map<String, String>> reflections,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -384,7 +477,7 @@ Return ONLY the JSON object.
 
     return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
-        customApiKey: customApiKey,
+        customApiKeys: customApiKeys,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
@@ -402,7 +495,7 @@ Return ONLY the JSON object.
     required String userMessage,
     required String dataContext,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     String? systemInstruction,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
@@ -437,7 +530,7 @@ Return ONLY the JSON object.
 
     return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
-        customApiKey: customApiKey,
+        customApiKeys: customApiKeys,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,

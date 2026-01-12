@@ -8,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
+import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -20,7 +21,6 @@ class _SettingsViewState extends State<SettingsView> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
-  final _apiKeyController = TextEditingController();
   final _customChatbotPromptController = TextEditingController();
   final _customReflectionPromptController = TextEditingController();
 
@@ -45,13 +45,11 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
-    _apiKeyController.text = appProvider.settings.customApiKey ?? '';
     _customChatbotPromptController.text =
         appProvider.settings.customChatbotPrompt ?? '';
     _customReflectionPromptController.text =
         appProvider.settings.customReflectionPrompt ?? '';
 
-    // Auto-load latest AI models when settings screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchModels(appProvider);
     });
@@ -62,7 +60,6 @@ class _SettingsViewState extends State<SettingsView> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _newUsernameController.dispose();
-    _apiKeyController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
     super.dispose();
@@ -165,17 +162,16 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final aiService = AIService();
       final models = await aiService.fetchAvailableModels(
-          customApiKey: appProvider.settings.customApiKey);
+          customApiKey: appProvider.settings.customApiKeys.isNotEmpty
+              ? appProvider.settings.customApiKeys.first
+              : null);
       if (!mounted) return;
       setState(() {
         _availableModels = models;
       });
-      // Silent success for auto-load to not annoy user
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to fetch models: $e'),
-          backgroundColor: AppTheme.fhAccentRed));
+      // Silent error or retry later
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -263,7 +259,6 @@ class _SettingsViewState extends State<SettingsView> {
                           appProvider.isManuallyLoading
                       ? null
                       : () async {
-                          // ... confirm dialog
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
@@ -319,7 +314,7 @@ class _SettingsViewState extends State<SettingsView> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   icon: Icon(MdiIcons.backupRestore, size: 18),
-                  label: const Text('RECOVER FROM LOCAL BACKUP'),
+                  label: const Text('DATA RECOVERY & BACKUPS'),
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => const DataRecoveryScreen()));
@@ -374,7 +369,6 @@ class _SettingsViewState extends State<SettingsView> {
                 }),
                 const SizedBox(height: 16),
 
-                // --- Fetch Button ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -393,27 +387,12 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _apiKeyController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                      labelText: 'Custom Gemini API Key (Optional)',
-                      hintText: 'Paste your API Key here',
-                      prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(MdiIcons.contentSave, size: 20),
-                        onPressed: () {
-                          appProvider.setSettings(appProvider.settings
-                            ..customApiKey = _apiKeyController.text.trim());
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("API Key saved locally.")));
-                        },
-                      )),
-                  onChanged: (val) {
-                    // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
-                  },
-                ),
+                
+                // API Key Manager Component
+                const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                const SizedBox(height: 8),
+                const ApiKeyManager(),
+
                 const SizedBox(height: 16),
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
@@ -723,7 +702,6 @@ class _SettingsViewState extends State<SettingsView> {
       children: List.generate(3, (index) {
         final label =
             index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
-        // Ensure list has enough items, pad if necessary
         if (currentList.length <= index) {
           currentList.add(_availableModels.isNotEmpty
               ? _availableModels.first

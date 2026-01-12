@@ -4,17 +4,17 @@
 class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
-  bool autoSaveEnabled; // New setting
+  bool autoSaveEnabled;
   int wakeupTimeHour;
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  String? customApiKey;
+  List<String> customApiKeys; // Changed to List
   String? customChatbotPrompt;
   String? customReflectionPrompt;
-  List<String> savedPrompts; // New: Saved AI Prompts
-  int startOfWeek; // 1 for Monday, 7 for Sunday
-  int dataVersion; // 0 for minutes, 1 for seconds
+  List<String> savedPrompts;
+  int startOfWeek;
+  int dataVersion;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -32,15 +32,24 @@ class AppSettings {
       'gemini-2.0-pro-exp-02-05',
       'gemini-1.5-pro'
     ],
-    this.customApiKey,
+    this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
-    this.savedPrompts = const [], // Default empty
+    this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
+    // Migration for legacy single key
+    List<String> keys = [];
+    if (json['customApiKeys'] != null) {
+      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
+    } else if (json['customApiKey'] != null &&
+        json['customApiKey'].toString().isNotEmpty) {
+      keys.add(json['customApiKey'].toString());
+    }
+
     return AppSettings(
       descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
@@ -77,7 +86,7 @@ class AppSettings {
                   'gemini-2.0-pro-exp-02-05',
                   'gemini-1.5-pro'
                 ]),
-      customApiKey: json['customApiKey'] as String?,
+      customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
@@ -97,7 +106,7 @@ class AppSettings {
       'wakeupTimeMinute': wakeupTimeMinute,
       'liteModels': liteModels,
       'heavyModels': heavyModels,
-      'customApiKey': customApiKey,
+      'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
       'savedPrompts': savedPrompts,

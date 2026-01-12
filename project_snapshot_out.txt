@@ -2458,7 +2458,7 @@ class _MyAppState extends State<MyApp> {
 // lib/src/config/api_keys.dart
 // IMPORTANT: Add this file to your .gitignore
 // ignore_for_file: constant_identifier_names
-const List<String> geminiApiKeys = ['AIzaSyBwcteaKH-SKxAlbj-woct1seot8Wo3axA'];
+const List<String> geminiApiKeys = ['AIzaSyD8NW3sxZ7tUQflncPHX4nG1yvWDI680I0'];
 
 const String geminiModelName = 'gemini-flash-latest'; // Updated to consistent model name
 
@@ -2471,17 +2471,17 @@ const String geminiModelName = 'gemini-flash-latest'; // Updated to consistent m
 class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
-  bool autoSaveEnabled; // New setting
+  bool autoSaveEnabled;
   int wakeupTimeHour;
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  String? customApiKey;
+  List<String> customApiKeys; // Changed to List
   String? customChatbotPrompt;
   String? customReflectionPrompt;
-  List<String> savedPrompts; // New: Saved AI Prompts
-  int startOfWeek; // 1 for Monday, 7 for Sunday
-  int dataVersion; // 0 for minutes, 1 for seconds
+  List<String> savedPrompts;
+  int startOfWeek;
+  int dataVersion;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -2499,15 +2499,24 @@ class AppSettings {
       'gemini-2.0-pro-exp-02-05',
       'gemini-1.5-pro'
     ],
-    this.customApiKey,
+    this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
-    this.savedPrompts = const [], // Default empty
+    this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
+    // Migration for legacy single key
+    List<String> keys = [];
+    if (json['customApiKeys'] != null) {
+      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
+    } else if (json['customApiKey'] != null &&
+        json['customApiKey'].toString().isNotEmpty) {
+      keys.add(json['customApiKey'].toString());
+    }
+
     return AppSettings(
       descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
@@ -2544,7 +2553,7 @@ class AppSettings {
                   'gemini-2.0-pro-exp-02-05',
                   'gemini-1.5-pro'
                 ]),
-      customApiKey: json['customApiKey'] as String?,
+      customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
@@ -2564,7 +2573,7 @@ class AppSettings {
       'wakeupTimeMinute': wakeupTimeMinute,
       'liteModels': liteModels,
       'heavyModels': heavyModels,
-      'customApiKey': customApiKey,
+      'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
       'savedPrompts': savedPrompts,
@@ -3692,7 +3701,6 @@ import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -3800,7 +3808,6 @@ class AppProvider with ChangeNotifier {
       }
     });
 
-    // Initial check for backups dir
     _ensureBackupDir();
   }
 
@@ -3821,6 +3828,19 @@ class AppProvider with ChangeNotifier {
   void _markDirty(String collection) {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
+  }
+
+  // --- API Key Management ---
+  void addCustomApiKey(String key) {
+    if (key.trim().isNotEmpty && !settings.customApiKeys.contains(key)) {
+      final updatedKeys = List<String>.from(settings.customApiKeys)..add(key.trim());
+      setSettings(settings..customApiKeys = updatedKeys);
+    }
+  }
+
+  void removeCustomApiKey(String key) {
+    final updatedKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = updatedKeys);
   }
 
   // Reorder values list
@@ -3847,7 +3867,7 @@ class AppProvider with ChangeNotifier {
             .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
@@ -3882,7 +3902,6 @@ class AppProvider with ChangeNotifier {
           .indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
         _markDirty('settings');
         _scheduleRealtimeSync();
         notifyListeners();
@@ -3903,7 +3922,7 @@ class AppProvider with ChangeNotifier {
             .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
@@ -4157,10 +4176,6 @@ class AppProvider with ChangeNotifier {
             })) success = false;
           }
           if (_dirtyCollections.contains('settings') || success) {
-            // Default or settings
-            // If nothing dirty but code reached here, implies settings/misc.
-            // Check if specific setting dirty? For now just save settings if 'settings' tag present OR if we are doing a full save equivalent.
-            // Actually, let's stick to explicit tags.
             if (_dirtyCollections.contains('settings')) {
               final settingsData = {
                 'lastLoginDate': _lastLoginDate,
@@ -4471,7 +4486,7 @@ class AppProvider with ChangeNotifier {
         userMessage: userMessageText,
         dataContext: _buildUserDataContext(),
         currentApiKeyIndex: _apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customChatbotPrompt,
         onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
         onLog: (logMsg) => {},
@@ -4534,7 +4549,7 @@ class AppProvider with ChangeNotifier {
         reason: reason,
         modelCandidates: settings.liteModels,
         dailyReflections: dailyReflections,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
     setLoadingTask(null);
     Map<String, int> xpAllocation = {};
@@ -4847,7 +4862,7 @@ class AIGenerationActions {
 
     try {
       final generatedSubquestsRaw = await _aiService.generateAISubquests(
-        modelCandidates: _provider.settings.liteModels, // Lite for sub-missions
+        modelCandidates: _provider.settings.liteModels,
         mainTaskName: mainTaskForSubquests.name,
         mainTaskDescription: mainTaskForSubquests.description,
         mainTaskTheme: mainTaskForSubquests.theme,
@@ -4855,6 +4870,7 @@ class AIGenerationActions {
         userInput: userInput,
         numSubquests: numSubquests,
         currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (newIndex) {
           _provider.setProviderApiKeyIndex(newIndex);
         },
@@ -4896,7 +4912,6 @@ class AIGenerationActions {
 
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskForSubquests.id) {
-          // Use copyWith to preserve other fields like 'projects'
           return task.copyWith(
             subTasks: [...task.subTasks, ...newSubTasksForParent],
           );
@@ -4953,7 +4968,7 @@ class ProjectActions {
       description: description,
       linkedMainTaskId: targetTaskId,
       isActive: true,
-      sortOrder: DateTime.now().millisecondsSinceEpoch, // Default sort to end
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
     );
 
     _updateMainTaskProjects(targetTaskId, (projects) {
@@ -5002,19 +5017,18 @@ class ProjectActions {
     });
   }
 
-  void changeProjectAgent(String currentMainTaskId, String newMainTaskId, String projectId) {
+  void changeProjectAgent(
+      String currentMainTaskId, String newMainTaskId, String projectId) {
     if (currentMainTaskId == newMainTaskId) return;
 
-    // 1. Find and Remove from Old Task
     Project? projectToMove;
-    
-    // Create new list for old task
+
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == currentMainTaskId) {
-        final existingProject = task.projects.firstWhereOrNull((p) => p.id == projectId);
+        final existingProject =
+            task.projects.firstWhereOrNull((p) => p.id == projectId);
         if (existingProject != null) {
           projectToMove = existingProject;
-          // Update linked ID on the object itself
           projectToMove!.linkedMainTaskId = newMainTaskId;
           return task.copyWith(
             projects: task.projects.where((p) => p.id != projectId).toList(),
@@ -5029,7 +5043,6 @@ class ProjectActions {
       return;
     }
 
-    // 2. Add to New Task
     final finalMainTasks = newMainTasks.map((task) {
       if (task.id == newMainTaskId) {
         return task.copyWith(
@@ -5043,24 +5056,16 @@ class ProjectActions {
   }
 
   void reorderProjectsGlobal(List<Project> reorderedList) {
-    // This receives the flattened list in the desired order.
-    // We need to update the sortOrder of all projects involved.
-    
-    // 1. Create a map of updates: ProjectID -> NewSortOrder
     final Map<String, int> sortUpdates = {};
     for (int i = 0; i < reorderedList.length; i++) {
-      sortUpdates[reorderedList[i].id] = i; // Simple 0-based index
+      sortUpdates[reorderedList[i].id] = i;
     }
 
-    // 2. Iterate through all MainTasks and update their projects if present in the update map
     final newMainTasks = _provider.mainTasks.map((task) {
       bool taskUpdated = false;
       final updatedProjects = task.projects.map((p) {
         if (sortUpdates.containsKey(p.id)) {
           taskUpdated = true;
-          // Use copyWith logic manually since Project is mutable object in list context for now,
-          // but we should set the property directly if we are just updating sortOrder.
-          // However, provider flow prefers immutability for triggering updates.
           p.sortOrder = sortUpdates[p.id]!;
           return p;
         }
@@ -5076,7 +5081,7 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // --- Step Management (Existing) ---
+  // --- Step Management ---
 
   void addRootStep(
       String mainTaskId, String projectId, String title, String description) {
@@ -5140,8 +5145,7 @@ class ProjectActions {
     for (var s in steps) {
       if (s.id == parentId) {
         s.substeps.add(newStep);
-        s.isCompleted =
-            false; // Parent can't be complete if new incomplete child added
+        s.isCompleted = false;
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
@@ -5149,19 +5153,24 @@ class ProjectActions {
     return false;
   }
 
-  void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
+  void reorderRootSteps(
+      String mainTaskId, String projectId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
     _performStepAction(mainTaskId, projectId, (project) {
-      if (oldIndex >= 0 && oldIndex < project.steps.length && newIndex >= 0 && newIndex < project.steps.length) {
+      if (oldIndex >= 0 &&
+          oldIndex < project.steps.length &&
+          newIndex >= 0 &&
+          newIndex < project.steps.length) {
         final ProjectStep item = project.steps.removeAt(oldIndex);
         project.steps.insert(newIndex, item);
       }
     });
   }
 
-  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId,
+      int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
@@ -5170,10 +5179,14 @@ class ProjectActions {
     });
   }
 
-  bool _reorderSubStepRecursive(List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+  bool _reorderSubStepRecursive(
+      List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
     for (var s in steps) {
       if (s.id == parentId) {
-        if (oldIndex >= 0 && oldIndex < s.substeps.length && newIndex >= 0 && newIndex < s.substeps.length) {
+        if (oldIndex >= 0 &&
+            oldIndex < s.substeps.length &&
+            newIndex >= 0 &&
+            newIndex < s.substeps.length) {
           final ProjectStep item = s.substeps.removeAt(oldIndex);
           s.substeps.insert(newIndex, item);
           return true;
@@ -5189,11 +5202,11 @@ class ProjectActions {
   void _performStepAction(
       String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
-    // Find the project. Note: We need a way to find it if mainTaskId is wrong, 
-    // but here we enforce correct mainTaskId.
-    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (mainTask != null) {
-      targetProject = mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
+      targetProject =
+          mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
     }
 
     if (targetProject != null) {
@@ -5203,8 +5216,6 @@ class ProjectActions {
       debugPrint("Project not found for action.");
     }
   }
-
-  // --- Integration ---
 
   void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
     _provider.addSubtask(mainTaskId, {
@@ -5225,6 +5236,7 @@ class ProjectActions {
         modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
         currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ProjectAI] $msg"),
       );
@@ -5245,7 +5257,6 @@ class ProjectActions {
     }
   }
 
-  // Internal Helper
   void _updateMainTaskProjects(
       String mainTaskId, List<Project> Function(List<Project>) updateFn) {
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -5261,6 +5272,7 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 }
+
 --- END OF FILE lib/src/providers/actions/project_actions.dart ---
 
 --- START OF FILE lib/src/providers/actions/task_actions.dart ---
@@ -8477,260 +8489,6 @@ class ValuesScreen extends StatelessWidget {
 
 --- END OF FILE lib/src/screens/values_screen.dart ---
 
---- START OF FILE lib/src/screens/submission_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
-import 'package:arcane/src/widgets/drawers/session_history_drawer.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionDetailScreen({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
-
-  @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
-}
-
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  @override
-  void dispose() {
-    _checkpointController.dispose();
-    super.dispose();
-  }
-
-  // ... [Keep existing helper methods: _getLiveSubTask, _handleAddCheckpoint, etc.]
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) { return null; }
-  }
-
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {'name': _checkpointController.text.trim()});
-    _checkpointController.clear();
-  }
-
-  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
-    final String? newName = await showDialog<String>(context: context, builder: (context) => EditSubtaskDialog(initialName: textSubTask.name));
-    if (newName != null && newName.isNotEmpty) provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
-  }
-
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, dynamic>>(context: context, builder: (ctx) => const AddSessionDialog());
-    if (result != null) provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
-  }
-
-  List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries = [];
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.year == _selectedDate.year && session.startTime.month == _selectedDate.month && session.startTime.day == _selectedDate.day) {
-            entries.add(TimelineEntry(id: session.id, startTime: session.startTime, endTime: session.endTime, title: sub.name, subtitle: task.name, color: task.taskColor, isEditable: sub.id == currentSubTaskId, originalObject: session));
-          }
-        }
-      }
-    }
-    return entries;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
-
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.of(context).pop(); });
-      return const SizedBox.shrink();
-    }
-
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double displayTimeSeconds = timerState != null ? (timerState.isRunning ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000) : timerState.accumulatedDisplayTime) : liveSubTask.currentTimeSpent.toDouble();
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
-
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppTheme.fhBgDeepDark,
-      endDrawer: SessionHistoryDrawer(mainTaskId: widget.parentTask.id, subTask: liveSubTask),
-      body: Stack(
-        children: [
-          Positioned(right: -50, top: 50, child: Opacity(opacity: 0.05, child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white))),
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70), onPressed: () => Navigator.pop(context)),
-                        const Spacer(),
-                        // New Button to open session history drawer
-                        IconButton(
-                          icon: Icon(MdiIcons.history, color: Colors.white70),
-                          tooltip: "Manage Sessions",
-                          onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                        ),
-                        IconButton(icon: Icon(MdiIcons.pencilOutline, color: Colors.white70), onPressed: () => _handleEditSubtask(context, provider, liveSubTask)),
-                      ],
-                    ),
-                  ),
-                  
-                  // Resized header for mobile target
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.parentTask.name.toUpperCase(), style: TextStyle(color: widget.parentTask.taskColor, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12, fontFamily: AppTheme.fontDisplay)),
-                        const SizedBox(height: 8),
-                        Text(liveSubTask.name.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 32, height: 1.0, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0), maxLines: 3, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  
-                  // Stat Row
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      children: [
-                        ValorantAbilitySlot(hotkey: "Q", label: "TIME", value: formattedTime, icon: MdiIcons.clockFast, isActive: isRunning),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(hotkey: "E", label: "STEPS", value: "$completedCheckpoints/$totalCheckpoints", icon: MdiIcons.formatListChecks, isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(hotkey: "X", label: "STATUS", value: liveSubTask.completed ? "DONE" : "ACTIVE", icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target, isActive: liveSubTask.completed, onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id)),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(color: Colors.white10),
-
-                  // Timer & Tasks
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: isRunning ? [AppTheme.fhAccentRed.withOpacity(0.2), Colors.transparent] : [Colors.white.withOpacity(0.05), Colors.transparent], begin: Alignment.bottomLeft, end: Alignment.topRight),
-                      border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY", style: TextStyle(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
-                            const SizedBox(height: 4),
-                            Text(formattedTime, style: const TextStyle(color: Colors.white, fontSize: 32, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        FloatingActionButton.small(
-                          backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
-                          foregroundColor: Colors.black,
-                          onPressed: () {
-                            if (isRunning) { provider.pauseTimer(liveSubTask.id); provider.logTimerAndReset(liveSubTask.id); }
-                            else { provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id); }
-                          },
-                          child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("TACTICAL OBJECTIVES", style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.5)),
-                        const SizedBox(height: 8),
-                        ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(title: sss.name, isCompleted: sss.completed, onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id), onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id))),
-                        
-                        Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1)))),
-                          child: TextField(
-                            controller: _checkpointController,
-                            style: const TextStyle(color: Colors.white, fontSize: 13),
-                            decoration: const InputDecoration(hintText: "+ ADD OBJECTIVE", hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12)),
-                            onSubmitted: (_) => _handleAddCheckpoint(provider),
-                          ),
-                        ),
-
-                        // Timeline View
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("DEPLOYMENT LOG", style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.5)),
-                            IconButton(icon: const Icon(Icons.add, size: 20, color: Colors.white54), onPressed: () => _showAddSessionDialog(context, provider), tooltip: "Log Manual Session"),
-                          ],
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          color: Colors.black.withOpacity(0.2),
-                          child: ScheduleTimeline(
-                            entries: _buildTimelineEntries(provider, liveSubTask.id),
-                            onAddSession: () => _showAddSessionDialog(context, provider),
-                            onEditEntry: (entry) {
-                              if (entry.originalObject is TaskSession) {
-                                showDialog(context: context, builder: (ctx) => SessionEditDialog(initialStart: entry.startTime, initialEnd: entry.endTime)).then((result) {
-                                  if (result != null) {
-                                    if (result['action'] == 'delete') provider.deleteSessionFromSubtask(widget.parentTask.id, liveSubTask.id, (entry.originalObject as TaskSession).id);
-                                    else if (result['action'] == 'save') provider.updateSessionInSubtask(widget.parentTask.id, liveSubTask.id, (entry.originalObject as TaskSession).id, result['start'], result['end']);
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/submission_detail_screen.dart ---
-
 --- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -8738,6 +8496,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class DataRecoveryScreen extends StatefulWidget {
   const DataRecoveryScreen({super.key});
@@ -8749,6 +8510,7 @@ class DataRecoveryScreen extends StatefulWidget {
 class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   List<File> _backupFiles = [];
   bool _isLoading = true;
+  final DataExportService _exportService = DataExportService();
 
   @override
   void initState() {
@@ -8764,7 +8526,6 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         final backupDir = Directory('${docsDir.path}/backups');
         if (await backupDir.exists()) {
           final files = backupDir.listSync().whereType<File>().toList();
-          // Sort by modification time desc
           files.sort(
               (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
           setState(() {
@@ -8775,7 +8536,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     } catch (e) {
       debugPrint("Error loading backups: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -8814,35 +8575,175 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  Future<void> _deleteBackup(File file) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Backup?"),
+        content: const Text("This action cannot be undone."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Delete",
+                  style: TextStyle(color: AppTheme.fhAccentRed))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await file.delete();
+      _loadBackups();
+    }
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final provider = context.read<AppProvider>();
+      final data = provider.getAppStateAsMap();
+      await _exportService.exportJson(data, 'arcane_export');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Export initiated.")));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Export failed: $e")));
+      }
+    }
+  }
+
+  Future<void> _importData() async {
+    try {
+      final importedData = await _exportService.importJson();
+      if (importedData != null && mounted) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Import Data?"),
+            content: const Text(
+                "This will overwrite your current data with the imported file. Are you sure?"),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel")),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Import")),
+            ],
+          ),
+        );
+
+        if (confirm == true && mounted) {
+          context.read<AppProvider>().loadAppStateFromMap(importedData);
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Data imported successfully.")));
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Import failed: $e")));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
         title: const Text("Data Recovery"),
+        backgroundColor: AppTheme.fhBgDeepDark,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _backupFiles.isEmpty
-              ? const Center(child: Text("No local backups found."))
-              : ListView.builder(
-                  itemCount: _backupFiles.length,
-                  itemBuilder: (context, index) {
-                    final file = _backupFiles[index];
-                    final date = file.lastModifiedSync();
-                    final size = file.lengthSync();
-
-                    return ListTile(
-                      leading: const Icon(Icons.restore_page),
-                      title: Text(
-                          "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}"),
-                      subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB"),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.restore),
-                        onPressed: () => _restoreBackup(file),
-                      ),
-                    );
-                  },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: Icon(MdiIcons.upload, size: 18),
+                    label: const Text("EXPORT DATA"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.fhBgDark,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      side: BorderSide(
+                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                    ),
+                    onPressed: _exportData,
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: Icon(MdiIcons.download, size: 18),
+                    label: const Text("IMPORT DATA"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.fhBgDark,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      side: BorderSide(
+                          color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
+                    ),
+                    onPressed: _importData,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: AppTheme.fhBorderColor),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _backupFiles.isEmpty
+                    ? const Center(child: Text("No local backups found."))
+                    : ListView.builder(
+                        itemCount: _backupFiles.length,
+                        itemBuilder: (context, index) {
+                          final file = _backupFiles[index];
+                          final date = file.lastModifiedSync();
+                          final size = file.lengthSync();
+
+                          return ListTile(
+                            leading: Icon(MdiIcons.fileClockOutline,
+                                color: AppTheme.fhTextSecondary),
+                            title: Text(
+                              "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
+                              style: const TextStyle(
+                                  color: AppTheme.fhTextPrimary),
+                            ),
+                            subtitle: Text(
+                                "${(size / 1024).toStringAsFixed(1)} KB",
+                                style: const TextStyle(
+                                    color: AppTheme.fhTextSecondary)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.restore),
+                                  tooltip: "Restore",
+                                  onPressed: () => _restoreBackup(file),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      color: AppTheme.fhAccentRed
+                                          .withValues(alpha: 0.7)),
+                                  tooltip: "Delete",
+                                  onPressed: () => _deleteBackup(file),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -8882,13 +8783,13 @@ class AIService {
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Custom API Key
-    final apiKeysToTry = (customApiKey != null && customApiKey.isNotEmpty)
-        ? [customApiKey]
+    // 1. Prioritize Custom API Keys list if available, else use default list
+    final apiKeysToTry = (customApiKeys != null && customApiKeys.isNotEmpty)
+        ? customApiKeys
         : geminiApiKeys;
 
     if (apiKeysToTry.isEmpty) {
@@ -8897,29 +8798,23 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        String effectiveKey = apiKeysToTry[i];
-        int effectiveIndex = i;
+        // Simple rotation strategy: start from current index
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
 
-        if (customApiKey == null) {
-          effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-          effectiveKey = apiKeysToTry[effectiveIndex];
-          if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
-        }
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
 
         try {
           if (kDebugMode) {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
           }
           final result = await requestFn(effectiveKey, model);
-          if (customApiKey == null) onNewApiKeyIndex(effectiveIndex);
+          // Update the index so next call starts here (load balancing/avoid dead keys)
+          onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-        }
-
-        if (customApiKey != null) {
-          break; // If custom key fails, move to next model
         }
       }
     }
@@ -8929,15 +8824,15 @@ class AIService {
 
   Future<Map<String, dynamic>> makeAICall({
     required String prompt,
-    required List<String> modelCandidates, // Changed from modelName
-    String? customApiKey,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
     required int currentApiKeyIndex,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
     return await _executeWithModelAndKeyRotation(
       currentApiKeyIndex: currentApiKeyIndex,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
       modelCandidates: modelCandidates,
@@ -8967,7 +8862,7 @@ class AIService {
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -9000,7 +8895,7 @@ class AIService {
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -9012,7 +8907,7 @@ class AIService {
     required List<Map<String, String>> questionsAndAnswers,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -9044,7 +8939,7 @@ class AIService {
     final result = await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -9064,7 +8959,7 @@ class AIService {
     required String reason,
     required List<String> modelCandidates,
     List<Map<String, String>>? dailyReflections,
-    String? customApiKey,
+    List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
     final String baseSystemPrompt = systemInstruction ??
@@ -9112,7 +9007,7 @@ class AIService {
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: 0,
       onNewApiKeyIndex: (_) {},
       onLog: (_) {},
@@ -9128,7 +9023,7 @@ class AIService {
     required String userInput,
     required int numSubquests,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -9152,7 +9047,7 @@ Return ONLY the JSON object.
     final rawData = await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -9168,7 +9063,7 @@ Return ONLY the JSON object.
     required List<String> modelCandidates,
     required String userPrompt,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -9197,7 +9092,7 @@ Return ONLY the JSON object.
     return await makeAICall(
       prompt: prompt,
       modelCandidates: modelCandidates,
-      customApiKey: customApiKey,
+      customApiKeys: customApiKeys,
       currentApiKeyIndex: currentApiKeyIndex,
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
@@ -9208,7 +9103,7 @@ Return ONLY the JSON object.
     required List<Map<String, String>> reflections,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -9236,7 +9131,7 @@ Return ONLY the JSON object.
 
     return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
-        customApiKey: customApiKey,
+        customApiKeys: customApiKeys,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
@@ -9254,7 +9149,7 @@ Return ONLY the JSON object.
     required String userMessage,
     required String dataContext,
     required int currentApiKeyIndex,
-    String? customApiKey,
+    List<String>? customApiKeys,
     String? systemInstruction,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
@@ -9289,7 +9184,7 @@ Return ONLY the JSON object.
 
     return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
-        customApiKey: customApiKey,
+        customApiKeys: customApiKeys,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
@@ -12186,6 +12081,91 @@ class VirtuePieChart extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
 
+--- START OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+
+class SubtaskWeeklyChart extends StatelessWidget {
+  final SubTask subTask;
+  final Color accentColor;
+
+  const SubtaskWeeklyChart({
+    super.key,
+    required this.subTask,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Calculate Data
+    final Map<int, double> weeklyData = {};
+    final Map<int, Color> weeklyColors = {};
+    final now = DateTime.now();
+
+    for (int i = 0; i < 7; i++) {
+      final date = now.subtract(Duration(days: i));
+      double dailySeconds = 0;
+
+      for (var session in subTask.sessions) {
+        if (session.startTime.year == date.year &&
+            session.startTime.month == date.month &&
+            session.startTime.day == date.day) {
+          dailySeconds += session.durationSeconds;
+        }
+      }
+
+      weeklyData[i] = dailySeconds / 60.0; // Minutes
+      weeklyColors[i] = accentColor;
+    }
+
+    // 2. Check if empty
+    final bool hasData = weeklyData.values.any((v) => v > 0);
+
+    return ValorantCard(
+      borderColor: accentColor.withValues(alpha: 0.3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "PERFORMANCE HISTORY (7 DAYS)",
+            style: TextStyle(
+              color: AppTheme.fhTextSecondary,
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: hasData
+                ? WeeklyActivityBarChart(
+                    weeklyData: weeklyData,
+                    dominantColors: weeklyColors,
+                    isVirtue: false,
+                  )
+                : Center(
+                    child: Text(
+                      "NO RECENT ACTIVITY",
+                      style: TextStyle(
+                        color: AppTheme.fhTextDisabled,
+                        fontFamily: AppTheme.fontDisplay,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---
+
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
 import 'package:flutter/material.dart';
@@ -13963,13 +13943,15 @@ import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/task_calculations.dart'; // Calculations
+import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
 import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
+import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; // Component 1
+import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; // Component 2
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -14039,6 +14021,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (result != null) {
       final startBase = result['start']!;
       final endBase = result['end']!;
+      // Use selected date as base
       final realStart = DateTime(_selectedDate.year, _selectedDate.month,
           _selectedDate.day, startBase.hour, startBase.minute);
       var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
@@ -14096,6 +14079,44 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     return entries;
   }
 
+  Future<void> _pickDateFiltered(BuildContext context, SubTask subTask) async {
+    // 1. Gather valid dates
+    final Set<String> validDates = {};
+    for (var s in subTask.sessions) {
+      validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
+    }
+    // Always enable today
+    final today = DateTime.now();
+    validDates.add(DateFormat('yyyy-MM-dd').format(today));
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      selectableDayPredicate: (DateTime day) {
+        // Allow selection only if it has logs or is today
+        return validDates.contains(DateFormat('yyyy-MM-dd').format(day));
+      },
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTealFixed,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -14109,13 +14130,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
 
     final timerState = provider.activeTimers[liveSubTask.id];
-    // Use the helper for consistency across screens (Time Spend Today)
-    // Note: Detail screen usually shows Total Time or Today? 
-    // Usually detail shows total progress, but for session management today is relevant. 
-    // Let's keep it consistent with the card: Today's Time.
-    final double displayTimeSeconds = TaskCalculations.getTodaySeconds(liveSubTask, timerState);
+    final double todaySeconds =
+        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
+    final String formattedTotalToday = helper.formatTime(todaySeconds);
 
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
     final int completedCheckpoints =
         liveSubTask.subSubTasks.where((s) => s.completed).length;
@@ -14159,12 +14177,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         Builder(
                           builder: (context) => IconButton(
                             icon: Icon(MdiIcons.history, color: Colors.white70),
-                            onPressed: () => Scaffold.of(context).openEndDrawer(),
+                            tooltip: "Session History",
+                            onPressed: () =>
+                                Scaffold.of(context).openEndDrawer(),
                           ),
                         ),
                         IconButton(
                           icon: Icon(MdiIcons.pencilOutline,
                               color: Colors.white70),
+                          tooltip: "Edit Title",
                           onPressed: () => _handleEditSubtask(
                               context, provider, liveSubTask),
                         ),
@@ -14208,7 +14229,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Ability/Stat Row
+                  // Stats Row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -14216,8 +14237,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       children: [
                         ValorantAbilitySlot(
                           hotkey: "Q",
-                          label: "TODAY", // Explicit label change
-                          value: formattedTime,
+                          label: "TODAY",
+                          value: formattedTotalToday,
                           icon: MdiIcons.clockFast,
                           isActive: isRunning,
                         ),
@@ -14263,234 +14284,191 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(color: Colors.white10),
 
-                  // Main Content
-                  Column(
-                    children: [
-                      // Timer Control
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isRunning
-                                ? [
-                                    AppTheme.fhAccentRed.withOpacity(0.2),
-                                    Colors.transparent
-                                  ]
-                                : [
-                                    Colors.white.withOpacity(0.05),
-                                    Colors.transparent
-                                  ],
-                            begin: Alignment.bottomLeft,
-                            end: Alignment.topRight,
-                          ),
-                          border: Border(
-                              left: BorderSide(
-                                  color: isRunning
-                                      ? AppTheme.fhAccentRed
-                                      : AppTheme.fhTextSecondary,
-                                  width: 2)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isRunning
-                                      ? "SESSION ACTIVE"
-                                      : "READY TO DEPLOY",
-                                  style: TextStyle(
-                                    color: isRunning
-                                        ? AppTheme.fhAccentRed
-                                        : AppTheme.fhTextSecondary,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.0,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  formattedTime,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontFamily: AppTheme.fontDisplay,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                  // Timer Control
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isRunning
+                            ? [
+                                AppTheme.fhAccentRed.withOpacity(0.2),
+                                Colors.transparent
+                              ]
+                            : [
+                                Colors.white.withOpacity(0.05),
+                                Colors.transparent
                               ],
-                            ),
-                            FloatingActionButton.small(
-                              backgroundColor: isRunning
-                                  ? AppTheme.fhAccentRed
-                                  : AppTheme.fhAccentTealFixed,
-                              foregroundColor: Colors.black,
-                              onPressed: () {
-                                if (isRunning) {
-                                  provider.pauseTimer(liveSubTask.id);
-                                  provider.logTimerAndReset(liveSubTask.id);
-                                } else {
-                                  provider.startTimer(liveSubTask.id, 'subtask',
-                                      widget.parentTask.id);
-                                }
-                              },
-                              child: Icon(
-                                  isRunning ? MdiIcons.pause : MdiIcons.play),
-                            ),
-                          ],
-                        ),
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
                       ),
+                      border: Border(
+                          left: BorderSide(
+                              color: isRunning
+                                  ? AppTheme.fhAccentRed
+                                  : AppTheme.fhTextSecondary,
+                              width: 2)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Modular Timer Component
+                        ActiveSessionTimerDisplay(
+                          isRunning: isRunning,
+                          startTime: timerState?.startTime,
+                          totalTodaySeconds: todaySeconds,
+                        ),
+                        FloatingActionButton.small(
+                          backgroundColor: isRunning
+                              ? AppTheme.fhAccentRed
+                              : AppTheme.fhAccentTealFixed,
+                          foregroundColor: Colors.black,
+                          onPressed: () {
+                            if (isRunning) {
+                              provider.pauseTimer(liveSubTask.id);
+                              provider.logTimerAndReset(liveSubTask.id);
+                            } else {
+                              provider.startTimer(liveSubTask.id, 'subtask',
+                                  widget.parentTask.id);
+                            }
+                          },
+                          child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                      // Checkpoints & Timeline
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "TACTICAL OBJECTIVES",
-                              style: TextStyle(
-                                  color:
-                                      AppTheme.fhTextSecondary.withOpacity(0.5),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                  letterSpacing: 1.5),
-                            ),
-                            const SizedBox(height: 8),
-                            ...liveSubTask.subSubTasks
-                                .map((sss) => ValorantListItem(
-                                      title: sss.name,
-                                      isCompleted: sss.completed,
-                                      onToggle: () {
-                                        if (sss.completed) {
-                                          provider.taskActions.uncompleteSubSubtask(
-                                              widget.parentTask.id,
-                                              liveSubTask.id,
-                                              sss.id);
-                                        } else {
-                                          provider.completeSubSubtask(
-                                              widget.parentTask.id,
-                                              liveSubTask.id,
-                                              sss.id);
-                                        }
-                                      },
-                                      onDelete: () => provider.deleteSubSubtask(
+                  // Weekly Bar Graph
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: SubtaskWeeklyChart(
+                      subTask: liveSubTask,
+                      accentColor: widget.parentTask.taskColor,
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Checkpoints & Timeline
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "TACTICAL OBJECTIVES",
+                          style: TextStyle(
+                              color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                              letterSpacing: 1.5),
+                        ),
+                        const SizedBox(height: 8),
+                        ...liveSubTask.subSubTasks
+                            .map((sss) => ValorantListItem(
+                                  title: sss.name,
+                                  isCompleted: sss.completed,
+                                  onToggle: () {
+                                    if (sss.completed) {
+                                      provider.taskActions.uncompleteSubSubtask(
                                           widget.parentTask.id,
                                           liveSubTask.id,
-                                          sss.id),
-                                    )),
-
-                            // Quick Add
-                            Container(
-                              margin: const EdgeInsets.only(top: 8, bottom: 24),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.2),
-                                border: Border(
-                                    bottom: BorderSide(
-                                        color: Colors.white.withOpacity(0.1))),
-                              ),
-                              child: TextField(
-                                controller: _checkpointController,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
-                                  hintText: "+ ADD OBJECTIVE",
-                                  hintStyle: TextStyle(
-                                      color: Colors.white24,
-                                      fontSize: 12,
-                                      letterSpacing: 1.0),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                onSubmitted: (_) =>
-                                    _handleAddCheckpoint(provider),
-                              ),
-                            ),
-
-                            // Timeline
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                GestureDetector(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _selectedDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime.now()
-                                          .add(const Duration(days: 365)),
-                                      builder: (context, child) => Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: const ColorScheme.dark(
-                                            primary: AppTheme.fhAccentTealFixed,
-                                            onPrimary: Colors.black,
-                                            surface: AppTheme.fhBgDark,
-                                            onSurface: Colors.white,
-                                          ),
-                                          dialogTheme: const DialogThemeData(
-                                              backgroundColor:
-                                                  AppTheme.fhBgDark),
-                                        ),
-                                        child: child!,
-                                      ),
-                                    );
-                                    if (picked != null) {
-                                      setState(() => _selectedDate = picked);
+                                          sss.id);
+                                    } else {
+                                      provider.completeSubSubtask(
+                                          widget.parentTask.id,
+                                          liveSubTask.id,
+                                          sss.id);
                                     }
                                   },
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        DateFormat('MMM dd')
-                                            .format(_selectedDate)
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                            color: AppTheme.fhAccentTealFixed,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: AppTheme.fontDisplay,
-                                            fontSize: 16),
-                                      ),
-                                      const Icon(Icons.arrow_drop_down,
-                                          color: AppTheme.fhAccentTealFixed,
-                                          size: 16),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add,
-                                      size: 20, color: Colors.white54),
-                                  onPressed: () =>
-                                      _showAddSessionDialog(context, provider),
-                                  tooltip: "Log Manual Session",
-                                ),
-                              ],
+                                  onDelete: () => provider.deleteSubSubtask(
+                                      widget.parentTask.id,
+                                      liveSubTask.id,
+                                      sss.id),
+                                )),
+
+                        // Quick Add
+                        Container(
+                          margin: const EdgeInsets.only(top: 8, bottom: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.2),
+                            border: Border(
+                                bottom: BorderSide(
+                                    color: Colors.white.withOpacity(0.1))),
+                          ),
+                          child: TextField(
+                            controller: _checkpointController,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                            decoration: const InputDecoration(
+                              hintText: "+ ADD OBJECTIVE",
+                              hintStyle: TextStyle(
+                                  color: Colors.white24,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 12),
                             ),
-                            Container(
-                              margin: const EdgeInsets.only(top: 8),
-                              color: Colors.black.withOpacity(0.2),
-                              child: ScheduleTimeline(
-                                entries: timelineEntries,
-                                onAddSession: () =>
-                                    _showAddSessionDialog(context, provider),
-                                onEditEntry: (entry) {
-                                  if (entry.originalObject is TaskSession) {
-                                    _handleSessionEdit(context, provider,
-                                        entry.originalObject as TaskSession);
-                                  }
-                                },
+                            onSubmitted: (_) => _handleAddCheckpoint(provider),
+                          ),
+                        ),
+
+                        // Timeline Header with Filtered Date Picker
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () =>
+                                  _pickDateFiltered(context, liveSubTask),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    DateFormat('MMM dd')
+                                        .format(_selectedDate)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                        color: AppTheme.fhAccentTealFixed,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: AppTheme.fontDisplay,
+                                        fontSize: 16),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.arrow_drop_down,
+                                      color: AppTheme.fhAccentTealFixed,
+                                      size: 16),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 40),
+                            IconButton(
+                              icon: const Icon(Icons.add,
+                                  size: 20, color: Colors.white54),
+                              onPressed: () =>
+                                  _showAddSessionDialog(context, provider),
+                              tooltip: "Log Manual Session",
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          color: Colors.black.withOpacity(0.2),
+                          child: ScheduleTimeline(
+                            entries: timelineEntries,
+                            onAddSession: () =>
+                                _showAddSessionDialog(context, provider),
+                            onEditEntry: (entry) {
+                              if (entry.originalObject is TaskSession) {
+                                _handleSessionEdit(context, provider,
+                                    entry.originalObject as TaskSession);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -17327,6 +17305,119 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
 
 --- END OF FILE lib/src/widgets/ui/task_generation_row.dart ---
 
+--- START OF FILE lib/src/widgets/ui/active_session_timer_display.dart ---
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+
+class ActiveSessionTimerDisplay extends StatefulWidget {
+  final bool isRunning;
+  final DateTime? startTime;
+  final double totalTodaySeconds;
+
+  const ActiveSessionTimerDisplay({
+    super.key,
+    required this.isRunning,
+    required this.startTime,
+    required this.totalTodaySeconds,
+  });
+
+  @override
+  State<ActiveSessionTimerDisplay> createState() =>
+      _ActiveSessionTimerDisplayState();
+}
+
+class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
+  Timer? _timer;
+  String _displayTime = "00:00";
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTime();
+    if (widget.isRunning) {
+      _startTicker();
+    }
+  }
+
+  @override
+  void didUpdateWidget(ActiveSessionTimerDisplay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRunning != oldWidget.isRunning) {
+      if (widget.isRunning) {
+        _startTicker();
+      } else {
+        _stopTicker();
+      }
+    }
+    _updateTime();
+  }
+
+  @override
+  void dispose() {
+    _stopTicker();
+    super.dispose();
+  }
+
+  void _startTicker() {
+    _stopTicker();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _updateTime();
+    });
+  }
+
+  void _stopTicker() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _updateTime() {
+    setState(() {
+      if (widget.isRunning && widget.startTime != null) {
+        // Show Current Session Elapsed Time
+        final elapsed =
+            DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
+        _displayTime = helper.formatTime(elapsed);
+      } else {
+        // Show Total Day Time
+        _displayTime = helper.formatTime(widget.totalTodaySeconds);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.isRunning ? "CURRENT SESSION" : "TOTAL TODAY",
+          style: TextStyle(
+            color: widget.isRunning
+                ? AppTheme.fhAccentRed
+                : AppTheme.fhTextSecondary,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            fontSize: 10,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _displayTime,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontFamily: AppTheme.fontDisplay,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/active_session_timer_display.dart ---
+
 --- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -17948,11 +18039,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Default to today if no date is selected
     if (_selectedDate == null) {
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      // Even if today has no data yet, it's the logical starting point
       _selectedDate = today;
     }
   }
@@ -17984,19 +18072,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _pickDate(BuildContext context) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     
-    // Create a Set of valid dates for O(1) lookup
-    // We only want dates that have either task activity or reflection logs
     final Set<String> validDates = {};
-    
-    // 1. From Task Completion / Time Data
     validDates.addAll(appProvider.completedByDay.keys);
     
-    // 2. From Reflection Logs
     for (var log in appProvider.reflectionLogs) {
       validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
     }
     
-    // 3. Always include Today and Tomorrow (for planning context)
     final today = DateTime.now();
     validDates.add(DateFormat('yyyy-MM-dd').format(today));
     validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
@@ -18050,12 +18132,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         }).toList(),
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKey: provider.settings.customApiKey,
+        customApiKeys: provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint(msg),
       );
       
-      // Save summary to provider
       provider.saveDailySummary(_selectedDate!, summary);
       
     } catch (e) {
@@ -18071,7 +18152,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
-    // Prepare Data
     final chartData = ChartDataHelper.prepareWeeklyData(
       appProvider, 
       _selectedDate, 
@@ -18095,7 +18175,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
     final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
     
-    // Retrieve AI Summary from provider
     final String? aiDailySummary = _selectedDate != null ? appProvider.getDailySummary(_selectedDate!) : null;
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
@@ -18112,7 +18191,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Carousel ---
           ChartCarousel(
             height: 250,
             pages: [
@@ -18136,7 +18214,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- Date Picker with Valorant Style ---
           InkWell(
             onTap: () => _pickDate(context),
             child: Container(
@@ -18144,7 +18221,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 border: Border.all(color: AppTheme.fhBorderColor),
-                // No border radius or very small for Valorant style
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -18181,11 +18257,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // --- AI Daily Briefing Section ---
-          // Always show card, content depends on if summary exists
-          
-
-          // --- Daily Breakdown (Pie Charts) ---
           Row(
             children: [
               Expanded(
@@ -18230,7 +18301,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
 
           const SizedBox(height: 24),
-ValorantCard(
+          ValorantCard(
             borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -18297,7 +18368,6 @@ ValorantCard(
 
           const SizedBox(height: 24),
 
-          // --- Activity List ---
           const Text("COMBAT LOG // DETAILS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ActivityLogList(
@@ -18309,7 +18379,6 @@ ValorantCard(
 
           const SizedBox(height: 24),
 
-          // --- Reflections Section ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -18688,6 +18757,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
+import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -18700,7 +18770,6 @@ class _SettingsViewState extends State<SettingsView> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _newUsernameController = TextEditingController();
-  final _apiKeyController = TextEditingController();
   final _customChatbotPromptController = TextEditingController();
   final _customReflectionPromptController = TextEditingController();
 
@@ -18725,13 +18794,11 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
-    _apiKeyController.text = appProvider.settings.customApiKey ?? '';
     _customChatbotPromptController.text =
         appProvider.settings.customChatbotPrompt ?? '';
     _customReflectionPromptController.text =
         appProvider.settings.customReflectionPrompt ?? '';
 
-    // Auto-load latest AI models when settings screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchModels(appProvider);
     });
@@ -18742,7 +18809,6 @@ class _SettingsViewState extends State<SettingsView> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _newUsernameController.dispose();
-    _apiKeyController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
     super.dispose();
@@ -18845,17 +18911,16 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final aiService = AIService();
       final models = await aiService.fetchAvailableModels(
-          customApiKey: appProvider.settings.customApiKey);
+          customApiKey: appProvider.settings.customApiKeys.isNotEmpty
+              ? appProvider.settings.customApiKeys.first
+              : null);
       if (!mounted) return;
       setState(() {
         _availableModels = models;
       });
-      // Silent success for auto-load to not annoy user
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to fetch models: $e'),
-          backgroundColor: AppTheme.fhAccentRed));
+      // Silent error or retry later
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -18943,7 +19008,6 @@ class _SettingsViewState extends State<SettingsView> {
                           appProvider.isManuallyLoading
                       ? null
                       : () async {
-                          // ... confirm dialog
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
@@ -18999,7 +19063,7 @@ class _SettingsViewState extends State<SettingsView> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   icon: Icon(MdiIcons.backupRestore, size: 18),
-                  label: const Text('RECOVER FROM LOCAL BACKUP'),
+                  label: const Text('DATA RECOVERY & BACKUPS'),
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => const DataRecoveryScreen()));
@@ -19054,7 +19118,6 @@ class _SettingsViewState extends State<SettingsView> {
                 }),
                 const SizedBox(height: 16),
 
-                // --- Fetch Button ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -19073,27 +19136,12 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _apiKeyController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                      labelText: 'Custom Gemini API Key (Optional)',
-                      hintText: 'Paste your API Key here',
-                      prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(MdiIcons.contentSave, size: 20),
-                        onPressed: () {
-                          appProvider.setSettings(appProvider.settings
-                            ..customApiKey = _apiKeyController.text.trim());
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("API Key saved locally.")));
-                        },
-                      )),
-                  onChanged: (val) {
-                    // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
-                  },
-                ),
+                
+                // API Key Manager Component
+                const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                const SizedBox(height: 8),
+                const ApiKeyManager(),
+
                 const SizedBox(height: 16),
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
@@ -19403,7 +19451,6 @@ class _SettingsViewState extends State<SettingsView> {
       children: List.generate(3, (index) {
         final label =
             index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
-        // Ensure list has enough items, pad if necessary
         if (currentList.length <= index) {
           currentList.add(_availableModels.isNotEmpty
               ? _availableModels.first
@@ -20702,6 +20749,121 @@ class SessionLogDrawer extends StatelessWidget {
 }
 
 --- END OF FILE lib/src/widgets/drawers/session_log_drawer.dart ---
+
+--- START OF FILE lib/src/widgets/settings/api_key_manager.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ApiKeyManager extends StatefulWidget {
+  const ApiKeyManager({super.key});
+
+  @override
+  State<ApiKeyManager> createState() => _ApiKeyManagerState();
+}
+
+class _ApiKeyManagerState extends State<ApiKeyManager> {
+  final TextEditingController _keyController = TextEditingController();
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  void _addKey() {
+    final key = _keyController.text.trim();
+    if (key.isNotEmpty) {
+      final provider = context.read<AppProvider>();
+      provider.addCustomApiKey(key);
+      _keyController.clear();
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final keys = provider.settings.customApiKeys;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (keys.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              "No custom API keys added. Using built-in keys.",
+              style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13, fontStyle: FontStyle.italic),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: keys.length,
+            separatorBuilder: (c, i) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final key = keys[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgDark,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                ),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(MdiIcons.keyVariant, color: AppTheme.fhAccentTeal, size: 20),
+                  title: Text(
+                    "${key.substring(0, 4)}...${key.substring(key.length - 4)}",
+                    style: const TextStyle(fontFamily: 'RobotoMono', color: AppTheme.fhTextPrimary),
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed, size: 20),
+                    onPressed: () => provider.removeCustomApiKey(key),
+                  ),
+                ),
+              );
+            },
+          ),
+        
+        const SizedBox(height: 12),
+        ElevatedButton.icon(
+          onPressed: () {
+            showDialog(
+              context: context, 
+              builder: (ctx) => AlertDialog(
+                backgroundColor: AppTheme.fhBgDeepDark,
+                title: const Text("Add API Key"),
+                content: TextField(
+                  controller: _keyController,
+                  decoration: const InputDecoration(
+                    hintText: "Enter Gemini API Key",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                  ElevatedButton(onPressed: _addKey, child: const Text("Add")),
+                ],
+              )
+            );
+          },
+          icon: Icon(MdiIcons.plus, size: 18),
+          label: const Text("ADD API KEY"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.fhBgDark,
+            foregroundColor: AppTheme.fhTextPrimary,
+            side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/settings/api_key_manager.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

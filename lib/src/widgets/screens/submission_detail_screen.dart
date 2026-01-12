@@ -8,6 +8,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
 import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
@@ -60,6 +61,28 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       'targetCount': 0,
     });
     _checkpointController.clear();
+  }
+
+  void _showAiCheckpointGenerationDialog(BuildContext context, AppProvider provider) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE CHECKPOINTS", 
+        hintText: "E.g., List key milestones for this task...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.aiGenerationActions.generateCheckpointsForSubtask(
+        widget.parentTask.id, 
+        widget.subTask.id, 
+        prompt
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
   }
 
   Future<void> _handleEditSubtask(
@@ -416,13 +439,26 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "TACTICAL OBJECTIVES",
-                          style: TextStyle(
-                              color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                              letterSpacing: 1.5),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "TACTICAL OBJECTIVES",
+                              style: TextStyle(
+                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                  letterSpacing: 1.5),
+                            ),
+                            InkWell(
+                              onTap: () => _showAiCheckpointGenerationDialog(context, provider),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.5))),
+                                child: Icon(MdiIcons.robotExcitedOutline, size: 14, color: AppTheme.fhAccentPurple),
+                              ),
+                            )
+                          ],
                         ),
                         const SizedBox(height: 8),
                         ...liveSubTask.subSubTasks

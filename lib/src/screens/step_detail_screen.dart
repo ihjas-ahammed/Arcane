@@ -71,13 +71,16 @@ class StepDetailScreen extends StatelessWidget {
               try {
                 final task =
                     provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+                
+                // Filter for incomplete subtasks
+                final incompleteSubtasks = task.subTasks.where((s) => !s.completed).toList();
 
                 // 2. Show Dialog
                 final result = await showDialog<Map<String, dynamic>>(
                   context: context,
                   builder: (ctx) => LinkSubmissionDialog(
                     initialName: currentStep.title,
-                    availableSubmissions: task.subTasks,
+                    availableSubmissions: incompleteSubtasks,
                   ),
                 );
 

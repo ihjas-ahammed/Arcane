@@ -7,7 +7,6 @@ import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -115,7 +114,6 @@ class AppProvider with ChangeNotifier {
       }
     });
 
-    // Initial check for backups dir
     _ensureBackupDir();
   }
 
@@ -136,6 +134,19 @@ class AppProvider with ChangeNotifier {
   void _markDirty(String collection) {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
+  }
+
+  // --- API Key Management ---
+  void addCustomApiKey(String key) {
+    if (key.trim().isNotEmpty && !settings.customApiKeys.contains(key)) {
+      final updatedKeys = List<String>.from(settings.customApiKeys)..add(key.trim());
+      setSettings(settings..customApiKeys = updatedKeys);
+    }
+  }
+
+  void removeCustomApiKey(String key) {
+    final updatedKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = updatedKeys);
   }
 
   // Reorder values list
@@ -162,7 +173,7 @@ class AppProvider with ChangeNotifier {
             .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
@@ -197,7 +208,6 @@ class AppProvider with ChangeNotifier {
           .indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
         _markDirty('settings');
         _scheduleRealtimeSync();
         notifyListeners();
@@ -218,7 +228,7 @@ class AppProvider with ChangeNotifier {
             .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
@@ -472,10 +482,6 @@ class AppProvider with ChangeNotifier {
             })) success = false;
           }
           if (_dirtyCollections.contains('settings') || success) {
-            // Default or settings
-            // If nothing dirty but code reached here, implies settings/misc.
-            // Check if specific setting dirty? For now just save settings if 'settings' tag present OR if we are doing a full save equivalent.
-            // Actually, let's stick to explicit tags.
             if (_dirtyCollections.contains('settings')) {
               final settingsData = {
                 'lastLoginDate': _lastLoginDate,
@@ -786,7 +792,7 @@ class AppProvider with ChangeNotifier {
         userMessage: userMessageText,
         dataContext: _buildUserDataContext(),
         currentApiKeyIndex: _apiKeyIndex,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customChatbotPrompt,
         onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
         onLog: (logMsg) => {},
@@ -849,7 +855,7 @@ class AppProvider with ChangeNotifier {
         reason: reason,
         modelCandidates: settings.liteModels,
         dailyReflections: dailyReflections,
-        customApiKey: settings.customApiKey,
+        customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
     setLoadingTask(null);
     Map<String, int> xpAllocation = {};
@@ -1086,6 +1092,7 @@ class AppProvider with ChangeNotifier {
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
 
   Future<void> _saveLocalSnapshot() async {
     try {
