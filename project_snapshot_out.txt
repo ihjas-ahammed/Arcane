@@ -2458,9 +2458,9 @@ class _MyAppState extends State<MyApp> {
 // lib/src/config/api_keys.dart
 // IMPORTANT: Add this file to your .gitignore
 // ignore_for_file: constant_identifier_names
-const List<String> geminiApiKeys = ['AIzaSyARWwdM_8PwHjHggR7Jcf-V6o9nKcIGOZE'];
+const List<String> geminiApiKeys = ['AIzaSyBwcteaKH-SKxAlbj-woct1seot8Wo3axA'];
 
-const String geminiModelName = 'gemini-2.5-flash'; // Updated to consistent model name
+const String geminiModelName = 'gemini-flash-latest'; // Updated to consistent model name
 
 --- END OF FILE lib/src/config/api_keys.dart ---
 
@@ -2743,7 +2743,9 @@ class Project {
   String description;
   List<ProjectStep> steps;
   double progress;
-  String? linkedMainTaskId; 
+  String? linkedMainTaskId;
+  bool isActive; // New field for Active/Inactive state
+  int sortOrder; // New field for global sorting
 
   Project({
     required this.id,
@@ -2752,6 +2754,8 @@ class Project {
     List<ProjectStep>? steps,
     this.progress = 0.0,
     this.linkedMainTaskId,
+    this.isActive = true,
+    this.sortOrder = 0,
   }) : steps = steps ?? [];
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -2761,6 +2765,8 @@ class Project {
       description: json['description'] as String? ?? '',
       progress: (json['progress'] as num? ?? 0.0).toDouble(),
       linkedMainTaskId: json['linkedMainTaskId'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
+      sortOrder: json['sortOrder'] as int? ?? 0,
       steps: (json['steps'] as List<dynamic>?)
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -2775,6 +2781,8 @@ class Project {
       'description': description,
       'progress': calculateProgress(),
       'linkedMainTaskId': linkedMainTaskId,
+      'isActive': isActive,
+      'sortOrder': sortOrder,
       'steps': steps.map((e) => e.toJson()).toList(),
     };
   }
@@ -3684,8 +3692,12 @@ import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:collection/collection.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
@@ -3705,7 +3717,7 @@ class AppProvider with ChangeNotifier {
   final AIService _aiService = AIService();
 
   Timer? _periodicUiTimer;
-  Timer? _autoSaveTimer; 
+  Timer? _autoSaveTimer;
   Timer? _realtimeSyncDebouncer;
 
   String? _loadingTaskName;
@@ -3721,7 +3733,8 @@ class AppProvider with ChangeNotifier {
   bool get isUsernameMissing => _isUsernameMissing;
 
   String? _lastLoginDate;
-  List<MainTask> _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+  List<MainTask> _mainTasks =
+      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
   Map<String, dynamic> _completedByDay = {};
 
   List<Skill> _skills = [];
@@ -3736,6 +3749,8 @@ class AppProvider with ChangeNotifier {
   String? _selectedTaskId;
   int _apiKeyIndex = 0;
   Map<String, ActiveTimerInfo> _activeTimers = {};
+
+  final Set<String> _dirtyCollections = {};
 
   bool _hasUnsavedChanges = false;
   bool _isManuallySaving = false;
@@ -3757,7 +3772,8 @@ class AppProvider with ChangeNotifier {
   int get apiKeyIndex => _apiKeyIndex;
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
 
-  TimeOfDay get wakeupTime => TimeOfDay(hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
+  TimeOfDay get wakeupTime => TimeOfDay(
+      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
 
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   ChatbotMemory get chatbotMemory => _chatbotMemory;
@@ -3783,6 +3799,28 @@ class AppProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+
+    // Initial check for backups dir
+    _ensureBackupDir();
+  }
+
+  Future<void> _ensureBackupDir() async {
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error creating backup dir: $e");
+    }
+  }
+
+  void _markDirty(String collection) {
+    _dirtyCollections.add(collection);
+    _hasUnsavedChanges = true;
   }
 
   // Reorder values list
@@ -3804,17 +3842,19 @@ class AppProvider with ChangeNotifier {
     try {
       final result = await _aiService.analyzeValueAlignment(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ValueAI] $msg"),
       );
-      
+
       value.score = result['score'] as int;
       value.lastInsight = result['insight'] as String?;
-      
+
       _hasUnsavedChanges = true;
       _scheduleRealtimeSync();
       notifyListeners();
@@ -3829,32 +3869,38 @@ class AppProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   void setProviderApiKeyIndex(int index) {
     if (_apiKeyIndex != index) _apiKeyIndex = index;
   }
-  
+
   void updateValueAnswer(String valueId, String questionId, String answer) {
     final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
     if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
+      final qIndex = _lifeValues[valueIndex]
+          .questions
+          .indexWhere((q) => q.id == questionId);
       if (qIndex != -1) {
         _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _hasUnsavedChanges = true;
+        _lifeValues[valueIndex].questions[qIndex].answer = answer;
+        _markDirty('settings');
         _scheduleRealtimeSync();
         notifyListeners();
       }
     }
   }
-  
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(
+      String valueId) async {
     final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
     if (value == null) return [];
     setLoadingTask("Generating Actions...");
     try {
       return await _aiService.generateTasksFromValues(
         valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
+        questionsAndAnswers: value.questions
+            .map((q) => {'question': q.question, 'answer': q.answer})
+            .toList(),
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKey: settings.customApiKey,
@@ -3869,12 +3915,30 @@ class AppProvider with ChangeNotifier {
   void _initializeSkills() {
     if (_skills.isEmpty) {
       _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
+        Skill(
+            id: 'wis',
+            name: 'Wisdom',
+            description: 'Good judgment, learning, perspective.'),
+        Skill(
+            id: 'cou',
+            name: 'Courage',
+            description: 'Bravery, persistence, integrity.'),
+        Skill(
+            id: 'hum',
+            name: 'Humanity',
+            description: 'Love, kindness, social intelligence.'),
+        Skill(
+            id: 'jus',
+            name: 'Justice',
+            description: 'Teamwork, fairness, leadership.'),
+        Skill(
+            id: 'tem',
+            name: 'Temperance',
+            description: 'Forgiveness, humility, self-regulation.'),
+        Skill(
+            id: 'tra',
+            name: 'Transcendence',
+            description: 'Appreciation of beauty, gratitude, hope.'),
       ];
     }
   }
@@ -3884,19 +3948,25 @@ class AppProvider with ChangeNotifier {
       _lifeValues = LifeValue.getDefaults();
     }
   }
-  
+
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges && _currentUser != null && !_isManuallySaving && !_isManuallyLoading && _settings.autoSaveEnabled) {
+      if (_hasUnsavedChanges &&
+          _currentUser != null &&
+          !_isManuallySaving &&
+          !_isManuallyLoading &&
+          _settings.autoSaveEnabled) {
         _performActualSave();
       }
     });
   }
 
   void _scheduleRealtimeSync() {
-    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
+    if (!_settings.autoSaveEnabled ||
+        _currentUser == null ||
+        _isManuallyLoading) return;
     if (_realtimeSyncDebouncer?.isActive ?? false) {
       _realtimeSyncDebouncer!.cancel();
     }
@@ -3908,7 +3978,10 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (_authLoading && _currentUser != null && user != null && _currentUser!.uid == user.uid) return;
+    if (_authLoading &&
+        _currentUser != null &&
+        user != null &&
+        _currentUser!.uid == user.uid) return;
     _authLoading = true;
     notifyListeners();
     if (user != null) {
@@ -3929,7 +4002,8 @@ class AppProvider with ChangeNotifier {
       }
       _isChatbotMemoryInitialized = false;
       initializeChatbotMemory();
-      _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
+      _isUsernameMissing = _currentUser?.displayName == null ||
+          _currentUser!.displayName!.trim().isEmpty;
       _isDataLoadingAfterLogin = false;
     } else {
       _currentUser = null;
@@ -3950,8 +4024,10 @@ class AppProvider with ChangeNotifier {
       'settings': settings.toJson(),
       'selectedTaskId': _selectedTaskId,
       'apiKeyIndex': _apiKeyIndex,
-      'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-      'lastSuccessfulSaveTimestamp': _lastSuccessfulSaveTimestamp?.toIso8601String(),
+      'activeTimers':
+          _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
+      'lastSuccessfulSaveTimestamp':
+          _lastSuccessfulSaveTimestamp?.toIso8601String(),
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
@@ -3978,28 +4054,48 @@ class AppProvider with ChangeNotifier {
     _completedByDay.forEach((date, dayDataMap) {
       if (dayDataMap is Map<String, dynamic>) {
         dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
-        dayDataMap.putIfAbsent('subtasksCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent('checkpointsCompleted', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'subtasksCompleted', () => <Map<String, dynamic>>[]);
+        dayDataMap.putIfAbsent(
+            'checkpointsCompleted', () => <Map<String, dynamic>>[]);
       }
     });
-    _settings = data['settings'] != null ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>) : AppSettings();
-    _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
+    _settings = data['settings'] != null
+        ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>)
+        : AppSettings();
+    _selectedTaskId = data['selectedTaskId'] as String? ??
+        (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
     _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map((key, value) => MapEntry(key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ?? {};
+    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key,
+                ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
+        {};
     final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
-    _lastSuccessfulSaveTimestamp = timestampString != null ? DateTime.tryParse(timestampString) : null;
-    _chatbotMemory = data['chatbotMemory'] != null ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>) : ChatbotMemory();
+    _lastSuccessfulSaveTimestamp =
+        timestampString != null ? DateTime.tryParse(timestampString) : null;
+    _chatbotMemory = data['chatbotMemory'] != null
+        ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
+        : ChatbotMemory();
     if (data['skills'] != null && data['skills'] is List) {
-      _skills = (data['skills'] as List).where((s) => s != null && s is Map<String, dynamic>).map((s) => Skill.fromJson(s as Map<String, dynamic>)).toList();
+      _skills = (data['skills'] as List)
+          .where((s) => s != null && s is Map<String, dynamic>)
+          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
+          .toList();
     } else {
       _initializeSkills();
     }
     if (_skills.isEmpty) _initializeSkills();
     if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
-      _reflectionLogs = (data['reflectionLogs'] as List).where((l) => l != null && l is Map<String, dynamic>).map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      _reflectionLogs = (data['reflectionLogs'] as List)
+          .where((l) => l != null && l is Map<String, dynamic>)
+          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
+          .toList();
     }
     if (data['lifeValues'] != null && data['lifeValues'] is List) {
-      _lifeValues = (data['lifeValues'] as List).where((v) => v != null && v is Map<String, dynamic>).map((v) => LifeValue.fromJson(v as Map<String, dynamic>)).toList();
+      _lifeValues = (data['lifeValues'] as List)
+          .where((v) => v != null && v is Map<String, dynamic>)
+          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
+          .toList();
     } else {
       _initializeValues();
     }
@@ -4011,57 +4107,16 @@ class AppProvider with ChangeNotifier {
     }
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
-      _migrateDataToSeconds();
       _settings.dataVersion = 1;
       _hasUnsavedChanges = true;
     }
     notifyListeners();
   }
 
-  void _migrateDataToSeconds() {
-    List<MainTask> migratedTasks = [];
-    for (var task in _mainTasks) {
-      int newTaskTotalTime = 0;
-      List<SubTask> migratedSubtasks = [];
-      for (var sub in task.subTasks) {
-        int newSubTime = 0;
-        if (sub.sessions.isNotEmpty) {
-          for (var s in sub.sessions) newSubTime += s.durationSeconds;
-        } else if (sub.currentTimeSpent > 0) {
-          newSubTime = sub.currentTimeSpent * 60;
-        }
-        migratedSubtasks.add(SubTask(
-          id: sub.id, name: sub.name, completed: sub.completed, currentTimeSpent: newSubTime, completedDate: sub.completedDate,
-          isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount, subSubTasks: sub.subSubTasks, sessions: sub.sessions,
-        ));
-        newTaskTotalTime += newSubTime;
-      }
-      migratedTasks.add(task.copyWith(subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
-    }
-    _mainTasks = migratedTasks;
-    Map<String, dynamic> migratedHistory = {};
-    _completedByDay.forEach((dateKey, dayData) {
-      if (dayData is Map<String, dynamic>) {
-        final newDayData = Map<String, dynamic>.from(dayData);
-        if (newDayData['taskTimes'] != null) {
-          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
-          final Map<String, int> newTimes = {};
-          oldTimes.forEach((taskId, timeVal) {
-            if (timeVal is num) newTimes[taskId] = (timeVal * 60).toInt();
-          });
-          newDayData['taskTimes'] = newTimes;
-        }
-        migratedHistory[dateKey] = newDayData;
-      } else {
-        migratedHistory[dateKey] = dayData;
-      }
-    });
-    _completedByDay = migratedHistory;
-  }
-
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
-    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _mainTasks =
+        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
     _completedByDay = {};
     _settings = AppSettings();
     _selectedTaskId = _mainTasks.isNotEmpty ? _mainTasks[0].id : null;
@@ -4082,7 +4137,51 @@ class AppProvider with ChangeNotifier {
       bool isAutoSave = !_isManuallySaving;
       if (!isAutoSave) setLoadingTask("Syncing Database...");
       try {
-        final success = await _storageService.setUserData(_currentUser!.uid, _appStateToMap());
+        await _saveLocalSnapshot();
+
+        bool success = true;
+        if (_dirtyCollections.isNotEmpty) {
+          if (_dirtyCollections.contains('tasks')) {
+            if (!await _storageService.saveTasks(_currentUser!.uid, {
+              'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()
+            })) success = false;
+          }
+          if (_dirtyCollections.contains('history')) {
+            if (!await _storageService.saveHistory(
+                _currentUser!.uid, {'completedByDay': _completedByDay}))
+              success = false;
+          }
+          if (_dirtyCollections.contains('reflections')) {
+            if (!await _storageService.saveReflections(_currentUser!.uid, {
+              'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
+            })) success = false;
+          }
+          if (_dirtyCollections.contains('settings') || success) {
+            // Default or settings
+            // If nothing dirty but code reached here, implies settings/misc.
+            // Check if specific setting dirty? For now just save settings if 'settings' tag present OR if we are doing a full save equivalent.
+            // Actually, let's stick to explicit tags.
+            if (_dirtyCollections.contains('settings')) {
+              final settingsData = {
+                'lastLoginDate': _lastLoginDate,
+                'settings': settings.toJson(),
+                'selectedTaskId': _selectedTaskId,
+                'apiKeyIndex': _apiKeyIndex,
+                'activeTimers': _activeTimers
+                    .map((key, value) => MapEntry(key, value.toJson())),
+                'lastSuccessfulSaveTimestamp':
+                    _lastSuccessfulSaveTimestamp?.toIso8601String(),
+                'chatbotMemory': _chatbotMemory.toJson(),
+                'skills': _skills.map((s) => s.toJson()).toList(),
+                'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
+              };
+              if (!await _storageService.saveSettings(
+                  _currentUser!.uid, settingsData)) success = false;
+            }
+          }
+          if (success) _dirtyCollections.clear();
+        }
+
         if (success) {
           _lastSuccessfulSaveTimestamp = DateTime.now();
           _hasUnsavedChanges = false;
@@ -4115,7 +4214,8 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _handleDailyReset();
-        _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
+        _isUsernameMissing = _currentUser?.displayName == null ||
+            _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;
         _isChatbotMemoryInitialized = false;
         initializeChatbotMemory();
@@ -4128,13 +4228,16 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> loginUser(String email, String password) async =>
+      await fb_service.signInWithEmail(email, password);
 
-  Future<void> signupUser(String email, String password, String username) async {
+  Future<void> signupUser(
+      String email, String password, String username) async {
     _authLoading = true;
     notifyListeners();
     try {
-      UserCredential userCredential = await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await fb_service.firebaseAuthInstance
+          .createUserWithEmailAndPassword(email: email, password: password);
       _currentUser = userCredential.user;
       if (_currentUser != null) {
         await _currentUser!.updateDisplayName(username);
@@ -4167,7 +4270,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null) throw Exception("No user is currently signed in.");
+    if (_currentUser == null)
+      throw Exception("No user is currently signed in.");
     await fb_service.changePassword(newPassword);
     _hasUnsavedChanges = true;
     _scheduleRealtimeSync();
@@ -4180,7 +4284,9 @@ class AppProvider with ChangeNotifier {
     await _currentUser!.reload();
     _currentUser = fb_service.firebaseAuthInstance.currentUser;
     _isUsernameMissing = false;
-    _hasUnsavedChanges = true;
+    _currentUser = fb_service.firebaseAuthInstance.currentUser;
+    _isUsernameMissing = false;
+    _markDirty('settings');
     notifyListeners();
     await _performActualSave();
   }
@@ -4203,13 +4309,18 @@ class AppProvider with ChangeNotifier {
 
   MainTask? getSelectedTask() {
     if (_selectedTaskId == null) return _mainTasks.firstOrNull;
-    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ?? _mainTasks.firstOrNull;
+    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
+        _mainTasks.firstOrNull;
   }
 
   String _getWeekKey(DateTime date, int startOfWeek) {
     int day = date.weekday;
-    DateTime adjustedDate = date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
-    int weekOfYear = (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7).ceil() + 1;
+    DateTime adjustedDate =
+        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
+    int weekOfYear =
+        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
+                .ceil() +
+            1;
     return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
   }
 
@@ -4224,10 +4335,12 @@ class AppProvider with ChangeNotifier {
     final today = DateTime.now();
     final weekKey = _getWeekKey(today, _settings.startOfWeek);
     final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
-    task.weeklyCompletionStatus.putIfAbsent(weekKey, () => List.filled(7, false));
+    task.weeklyCompletionStatus
+        .putIfAbsent(weekKey, () => List.filled(7, false));
     if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
       task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
-      _hasUnsavedChanges = true;
+      // This is inside mainTasks, so mark tasks dirty
+      _markDirty('tasks');
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -4251,10 +4364,11 @@ class AppProvider with ChangeNotifier {
     if (_lastLoginDate != today) {
       hasResetRun = true;
       _lastLoginDate = today;
-      _hasUnsavedChanges = true;
+      _markDirty('settings'); // lastLoginDate changed
       for (var task in _mainTasks) {
         if (task.lastWorkedDate != today) task.dailyTimeSpent = 0;
       }
+      _markDirty('tasks'); // tasks changed
     }
     if (hasResetRun) {
       _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
@@ -4274,8 +4388,10 @@ class AppProvider with ChangeNotifier {
     if (_chatbotMemory.conversationHistory.isEmpty) {
       _chatbotMemory.conversationHistory.add(ChatbotMessage(
           id: 'init_${DateTime.now().millisecondsSinceEpoch}',
-          text: "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
-          sender: MessageSender.bot, timestamp: DateTime.now()));
+          text:
+              "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     }
     _isChatbotMemoryInitialized = true;
     notifyListeners();
@@ -4283,9 +4399,12 @@ class AppProvider with ChangeNotifier {
 
   void saveDailySummary(String date, String summary) {
     if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
-    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
+    if (_completedByDay[date] is! Map)
+      _completedByDay[date] = <String, dynamic>{};
+    if (_completedByDay[date] is! Map)
+      _completedByDay[date] = <String, dynamic>{};
     _completedByDay[date]['aiSummary'] = summary;
-    _hasUnsavedChanges = true;
+    _markDirty('history');
     _scheduleRealtimeSync();
     notifyListeners();
   }
@@ -4293,14 +4412,15 @@ class AppProvider with ChangeNotifier {
   void deleteDailySummary(String date) {
     if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
       _completedByDay[date].remove('aiSummary');
-      _hasUnsavedChanges = true;
+      _markDirty('history');
       _scheduleRealtimeSync();
       notifyListeners();
     }
   }
 
   String? getDailySummary(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) return _completedByDay[date]['aiSummary'] as String?;
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map)
+      return _completedByDay[date]['aiSummary'] as String?;
     return null;
   }
 
@@ -4309,8 +4429,11 @@ class AppProvider with ChangeNotifier {
     sb.writeln("Active Missions:");
     for (var t in _mainTasks) {
       sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
-      for (var st in t.subTasks) sb.writeln("  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
-      for (var p in t.projects) sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
+      for (var st in t.subTasks)
+        sb.writeln(
+            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
+      for (var p in t.projects)
+        sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
     }
     sb.writeln("\nLogs from Last 7 Days:");
     final today = DateTime.now();
@@ -4319,8 +4442,13 @@ class AppProvider with ChangeNotifier {
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
       if (_completedByDay.containsKey(dateStr)) {
         sb.writeln("Date: $dateStr");
-        final reflections = _reflectionLogs.where((r) => r.timestamp.year == d.year && r.timestamp.month == d.month && r.timestamp.day == d.day)
-            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}").join("\n");
+        final reflections = _reflectionLogs
+            .where((r) =>
+                r.timestamp.year == d.year &&
+                r.timestamp.month == d.month &&
+                r.timestamp.day == d.day)
+            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
+            .join("\n");
         if (reflections.isNotEmpty) sb.writeln(reflections);
       }
     }
@@ -4329,18 +4457,36 @@ class AppProvider with ChangeNotifier {
 
   Future<void> sendMessageToChatbot(String userMessageText) async {
     if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
-    _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'user_${DateTime.now().millisecondsSinceEpoch}', text: userMessageText, sender: MessageSender.user, timestamp: DateTime.now()));
+    _chatbotMemory.conversationHistory.add(ChatbotMessage(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        text: userMessageText,
+        sender: MessageSender.user,
+        timestamp: DateTime.now()));
     notifyListeners();
     setLoadingTask("Consulting Advisor...");
     try {
       final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels, memory: _chatbotMemory, userMessage: userMessageText, dataContext: _buildUserDataContext(),
-        currentApiKeyIndex: _apiKeyIndex, customApiKey: settings.customApiKey, systemInstruction: settings.customChatbotPrompt,
-        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex, onLog: (logMsg) => {},
+        modelCandidates: settings.liteModels,
+        memory: _chatbotMemory,
+        userMessage: userMessageText,
+        dataContext: _buildUserDataContext(),
+        currentApiKeyIndex: _apiKeyIndex,
+        customApiKey: settings.customApiKey,
+        systemInstruction: settings.customChatbotPrompt,
+        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
+        onLog: (logMsg) => {},
       );
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'bot_${DateTime.now().millisecondsSinceEpoch}', text: botResponseText, sender: MessageSender.bot, timestamp: DateTime.now()));
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
+          text: botResponseText,
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     } catch (e) {
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'error_${DateTime.now().millisecondsSinceEpoch}', text: "Error connecting. ${e.toString()}", sender: MessageSender.bot, timestamp: DateTime.now()));
+      _chatbotMemory.conversationHistory.add(ChatbotMessage(
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          text: "Error connecting. ${e.toString()}",
+          sender: MessageSender.bot,
+          timestamp: DateTime.now()));
     } finally {
       setLoadingTask(null);
       setProviderState(chatbotMemory: _chatbotMemory);
@@ -4349,54 +4495,101 @@ class AppProvider with ChangeNotifier {
 
   int getXpGainedForSkillToday(String skillName) {
     final today = DateTime.now();
-    return _reflectionLogs.where((log) => log.timestamp.year == today.year && log.timestamp.month == today.month && log.timestamp.day == today.day)
+    return _reflectionLogs
+        .where((log) =>
+            log.timestamp.year == today.year &&
+            log.timestamp.month == today.month &&
+            log.timestamp.day == today.day)
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
   int get7DaySkillMomentum(String skillName) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    return _reflectionLogs.where((log) => log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1))))
+    return _reflectionLogs
+        .where((log) =>
+            log.timestamp.isAfter(sevenDaysAgo) &&
+            log.timestamp.isBefore(now.add(const Duration(days: 1))))
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
-  Future<Map<String, int>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async {
+  Future<Map<String, int>> processReflection(
+      {required String trigger,
+      required String emotion,
+      required String reason,
+      DateTime? timestamp}) async {
     final actualTimestamp = timestamp ?? DateTime.now();
-    final dailyReflections = _reflectionLogs.where((log) => log.timestamp.year == actualTimestamp.year && log.timestamp.month == actualTimestamp.month && log.timestamp.day == actualTimestamp.day)
-        .map((r) => {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason}).toList();
+    final dailyReflections = _reflectionLogs
+        .where((log) =>
+            log.timestamp.year == actualTimestamp.year &&
+            log.timestamp.month == actualTimestamp.month &&
+            log.timestamp.day == actualTimestamp.day)
+        .map((r) =>
+            {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason})
+        .toList();
     setLoadingTask("Analyzing Reflection...");
-    final result = await _aiService.evaluateReflection(trigger: trigger, emotion: emotion, reason: reason, modelCandidates: settings.liteModels, dailyReflections: dailyReflections, customApiKey: settings.customApiKey, systemInstruction: settings.customReflectionPrompt);
+    final result = await _aiService.evaluateReflection(
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        modelCandidates: settings.liteModels,
+        dailyReflections: dailyReflections,
+        customApiKey: settings.customApiKey,
+        systemInstruction: settings.customReflectionPrompt);
     setLoadingTask(null);
     Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map) (result['xp_allocation'] as Map).forEach((key, value) => xpAllocation[key.toString()] = (value as num).toInt());
+    if (result['xp_allocation'] is Map)
+      (result['xp_allocation'] as Map).forEach((key, value) =>
+          xpAllocation[key.toString()] = (value as num).toInt());
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
+      final skill = updatedSkills.firstWhereOrNull(
+          (s) => s.name.toLowerCase() == skillName.toLowerCase());
       if (skill != null) skill.addXp(xp);
     });
-    _reflectionLogs.add(ReflectionLog(id: 'ref_${DateTime.now().millisecondsSinceEpoch}', timestamp: actualTimestamp, trigger: trigger, emotion: emotion, reason: reason, aiFeedback: result['feedback'] ?? "Log recorded.", xpGained: xpAllocation));
+    _reflectionLogs.add(ReflectionLog(
+        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: actualTimestamp,
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        aiFeedback: result['feedback'] ?? "Log recorded.",
+        xpGained: xpAllocation));
     _skills = updatedSkills;
-    _hasUnsavedChanges = true;
+    _markDirty('reflections');
+    _markDirty('settings'); // skills changed
     _scheduleRealtimeSync();
     notifyListeners();
     return xpAllocation;
   }
 
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) {
-    _reflectionLogs.add(ReflectionLog(id: 'ref_${DateTime.now().millisecondsSinceEpoch}', timestamp: timestamp ?? DateTime.now(), trigger: trigger, emotion: emotion, reason: reason, aiFeedback: "Log recorded manually. No analysis performed.", xpGained: {}));
-    _hasUnsavedChanges = true;
+  void quickSaveReflection(
+      {required String trigger,
+      required String emotion,
+      required String reason,
+      DateTime? timestamp}) {
+    _reflectionLogs.add(ReflectionLog(
+        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: timestamp ?? DateTime.now(),
+        trigger: trigger,
+        emotion: emotion,
+        reason: reason,
+        aiFeedback: "Log recorded manually. No analysis performed.",
+        xpGained: {}));
+    _markDirty('reflections');
     _scheduleRealtimeSync();
     notifyListeners();
   }
 
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
+  void updateReflectionLog(String id,
+      {String? trigger, String? emotion, String? reason}) {
     final index = _reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
       final old = _reflectionLogs[index];
       if (trigger != null) old.trigger = trigger;
       if (emotion != null) old.emotion = emotion;
       if (reason != null) old.reason = reason;
-      _hasUnsavedChanges = true;
+      _markDirty('reflections');
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -4408,12 +4601,15 @@ class AppProvider with ChangeNotifier {
       final log = _reflectionLogs[index];
       List<Skill> updatedSkills = List.from(_skills);
       log.xpGained.forEach((skillName, xp) {
-        final skill = updatedSkills.firstWhereOrNull((s) => s.name.toLowerCase() == skillName.toLowerCase());
-        if (skill != null) skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
+        final skill = updatedSkills.firstWhereOrNull(
+            (s) => s.name.toLowerCase() == skillName.toLowerCase());
+        if (skill != null)
+          skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
       });
       _skills = updatedSkills;
       _reflectionLogs.removeAt(index);
-      _hasUnsavedChanges = true;
+      _markDirty('reflections');
+      _markDirty('settings'); // skills
       _scheduleRealtimeSync();
       notifyListeners();
     }
@@ -4423,21 +4619,72 @@ class AppProvider with ChangeNotifier {
     if (_currentUser == null) return;
     await _storageService.deleteUserData(_currentUser!.uid);
     await _resetToInitialState();
-    await _performActualSave();
+    await _storageService.deleteUserData(_currentUser!.uid);
+    await _resetToInitialState();
+    // Do not save here, as we just deleted everything. If we save, we might restore empty state.
+    // But resetToInitialState sets hasUnsavedChanges=true.
+    // We should clear dirty.
+    _dirtyCollections.clear();
+    _hasUnsavedChanges = false;
     notifyListeners();
   }
 
-  void setProviderState({String? lastLoginDate, List<MainTask>? mainTasks, Map<String, dynamic>? completedByDay, Map<String, ActiveTimerInfo>? activeTimers, DateTime? lastSuccessfulSaveTimestamp, bool? isUsernameMissing, ChatbotMemory? chatbotMemory, bool doNotify = true, bool doPersist = true}) {
+  void setProviderState(
+      {String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, ActiveTimerInfo>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      bool doNotify = true,
+      bool doPersist = true}) {
     bool changed = false;
-    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) { _lastLoginDate = lastLoginDate; changed = true; }
-    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) { _mainTasks = List.from(mainTasks); changed = true; }
-    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) { _completedByDay = Map.from(completedByDay); changed = true; }
-    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) { _activeTimers = Map.from(activeTimers); changed = true; }
-    if (lastSuccessfulSaveTimestamp != null && _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) { _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp; changed = true; }
-    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) { _isUsernameMissing = isUsernameMissing; changed = true; }
-    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) { _chatbotMemory = chatbotMemory; changed = true; }
+    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
+      _lastLoginDate = lastLoginDate;
+      changed = true;
+    }
+    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
+      _mainTasks = List.from(mainTasks);
+      changed = true;
+    }
+    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
+      _completedByDay = Map.from(completedByDay);
+      changed = true;
+    }
+    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
+      _activeTimers = Map.from(activeTimers);
+      changed = true;
+    }
+    if (lastSuccessfulSaveTimestamp != null &&
+        _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
+      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp;
+      changed = true;
+    }
+    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
+      _isUsernameMissing = isUsernameMissing;
+      changed = true;
+    }
+    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
+      _chatbotMemory = chatbotMemory;
+      changed = true;
+    }
     if (changed) {
-      if (doPersist) { _hasUnsavedChanges = true; _scheduleRealtimeSync(); }
+      if (doPersist) {
+        // Deduce what changed from the non-null arguments
+        if (mainTasks != null) _markDirty('tasks');
+        if (completedByDay != null) _markDirty('history');
+        if (lastLoginDate != null ||
+            activeTimers != null ||
+            lastSuccessfulSaveTimestamp != null ||
+            isUsernameMissing != null ||
+            chatbotMemory != null) _markDirty('settings');
+        // If none specifically matched but changed was true (e.g. from a catch-all?), fallback?
+        // This covers most cases.
+
+        _hasUnsavedChanges = true;
+        _scheduleRealtimeSync();
+      }
       if (doNotify) notifyListeners();
     }
   }
@@ -4449,31 +4696,127 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
-  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
-  bool completeSubtask(String mainTaskId, String subtaskId) => _taskActions.completeSubtask(mainTaskId, subtaskId);
-  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
-  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask,
+          String generationMode, String userInput, int numSubquests) =>
+      _aiGenerationActions.triggerAISubquestGeneration(
+          mainTask, generationMode, userInput, numSubquests);
+  void addMainTask(
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.addMainTask(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void editMainTask(String taskId,
+          {required String name,
+          required String description,
+          required String theme,
+          required String colorHex}) =>
+      _taskActions.editMainTask(taskId,
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) =>
+      _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
+      _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(
+          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  void addSessionToSubtask(
+          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
+      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+          String sessionId, DateTime newStart, DateTime newEnd) =>
+      _taskActions.updateSessionInSubtask(
+          mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(
+          String mainTaskId, String subTaskId, String sessionId) =>
+      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.completeSubtask(mainTaskId, subtaskId);
+  void uncompleteSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
+  void deleteSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
+      _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId,
+          Map<String, dynamic> subSubtaskData) =>
+      _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
+          String subSubtaskId, Map<String, dynamic> updates) =>
+      _taskActions.updateSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.completeSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void uncompleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.uncompleteSubSubtask(
+          mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(
+          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
+      _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) =>
+      _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  void startTimer(String id, String type, String mainTaskId) =>
+      _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
+
+  Future<void> _saveLocalSnapshot() async {
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+
+        final timestamp = DateTime.now()
+            .toIso8601String()
+            .replaceAll(':', '-')
+            .split('.')
+            .first;
+        final file = File('${backupDir.path}/backup_$timestamp.json');
+        final fullData = _appStateToMap();
+        await file.writeAsString(jsonEncode(fullData));
+
+        // Cleanup old backups
+        final files = backupDir.listSync().whereType<File>().toList();
+        // Sort by path (timestamp is in name so should be chronological)
+        files.sort((a, b) => a.path.compareTo(b.path));
+        if (files.length > 5) {
+          for (var i = 0; i < files.length - 5; i++) {
+            await files[i].delete();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Snapshot save failed: $e");
+    }
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final content = await backupFile.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+      loadAppStateFromMap(data);
+    } catch (e) {
+      debugPrint("Error restoring snapshot: $e");
+      rethrow;
+    }
+  }
 }
+
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
 --- START OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
@@ -4579,11 +4922,12 @@ class AIGenerationActions {
 --- END OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
 
 --- START OF FILE lib/src/providers/actions/project_actions.dart ---
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
+import 'package:collection/collection.dart';
 
 class ProjectActions {
   final AppProvider _provider;
@@ -4591,9 +4935,9 @@ class ProjectActions {
 
   ProjectActions(this._provider);
 
-  // Updated: Now accepts optional mainTaskId. If null, tries to find a default or active task.
+  // --- Core Project Management ---
+
   void addProject(String title, String description, {String? mainTaskId}) {
-    // If no specific task is targeted, use the currently selected one, or the first one.
     final targetTaskId = mainTaskId ??
         _provider.selectedTaskId ??
         _provider.mainTasks.firstOrNull?.id;
@@ -4608,6 +4952,8 @@ class ProjectActions {
       title: title,
       description: description,
       linkedMainTaskId: targetTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch, // Default sort to end
     );
 
     _updateMainTaskProjects(targetTaskId, (projects) {
@@ -4643,15 +4989,86 @@ class ProjectActions {
     });
   }
 
-  void _updateMainTaskProjects(
-      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+  // --- New Feature: Status & Agent Changes ---
+
+  void toggleProjectStatus(String mainTaskId, String projectId, bool isActive) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.isActive = isActive;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void changeProjectAgent(String currentMainTaskId, String newMainTaskId, String projectId) {
+    if (currentMainTaskId == newMainTaskId) return;
+
+    // 1. Find and Remove from Old Task
+    Project? projectToMove;
+    
+    // Create new list for old task
     final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final updatedProjects = updateFn(task.projects);
-        // Use copyWith to prevent data loss on other fields
+      if (task.id == currentMainTaskId) {
+        final existingProject = task.projects.firstWhereOrNull((p) => p.id == projectId);
+        if (existingProject != null) {
+          projectToMove = existingProject;
+          // Update linked ID on the object itself
+          projectToMove!.linkedMainTaskId = newMainTaskId;
+          return task.copyWith(
+            projects: task.projects.where((p) => p.id != projectId).toList(),
+          );
+        }
+      }
+      return task;
+    }).toList();
+
+    if (projectToMove == null) {
+      debugPrint("Project not found in source task");
+      return;
+    }
+
+    // 2. Add to New Task
+    final finalMainTasks = newMainTasks.map((task) {
+      if (task.id == newMainTaskId) {
         return task.copyWith(
-          projects: updatedProjects,
+          projects: [...task.projects, projectToMove!],
         );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: finalMainTasks);
+  }
+
+  void reorderProjectsGlobal(List<Project> reorderedList) {
+    // This receives the flattened list in the desired order.
+    // We need to update the sortOrder of all projects involved.
+    
+    // 1. Create a map of updates: ProjectID -> NewSortOrder
+    final Map<String, int> sortUpdates = {};
+    for (int i = 0; i < reorderedList.length; i++) {
+      sortUpdates[reorderedList[i].id] = i; // Simple 0-based index
+    }
+
+    // 2. Iterate through all MainTasks and update their projects if present in the update map
+    final newMainTasks = _provider.mainTasks.map((task) {
+      bool taskUpdated = false;
+      final updatedProjects = task.projects.map((p) {
+        if (sortUpdates.containsKey(p.id)) {
+          taskUpdated = true;
+          // Use copyWith logic manually since Project is mutable object in list context for now,
+          // but we should set the property directly if we are just updating sortOrder.
+          // However, provider flow prefers immutability for triggering updates.
+          p.sortOrder = sortUpdates[p.id]!;
+          return p;
+        }
+        return p;
+      }).toList();
+
+      if (taskUpdated) {
+        return task.copyWith(projects: updatedProjects);
       }
       return task;
     }).toList();
@@ -4659,7 +5076,7 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // --- Step Management ---
+  // --- Step Management (Existing) ---
 
   void addRootStep(
       String mainTaskId, String projectId, String title, String description) {
@@ -4732,7 +5149,6 @@ class ProjectActions {
     return false;
   }
 
-  // New: Reorder Root Steps
   void reorderRootSteps(String mainTaskId, String projectId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -4745,7 +5161,6 @@ class ProjectActions {
     });
   }
 
-  // New: Reorder Sub-steps (needs recursion to find the parent list)
   void reorderSubSteps(String mainTaskId, String projectId, String parentStepId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -4774,16 +5189,18 @@ class ProjectActions {
   void _performStepAction(
       String mainTaskId, String projectId, Function(Project) action) {
     Project? targetProject;
-    for (var t in _provider.mainTasks) {
-      if (t.id == mainTaskId) {
-        for (var p in t.projects) {
-          if (p.id == projectId) targetProject = p;
-        }
-      }
+    // Find the project. Note: We need a way to find it if mainTaskId is wrong, 
+    // but here we enforce correct mainTaskId.
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      targetProject = mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
     }
+
     if (targetProject != null) {
       action(targetProject);
       updateProject(mainTaskId, targetProject);
+    } else {
+      debugPrint("Project not found for action.");
     }
   }
 
@@ -4805,7 +5222,7 @@ class ProjectActions {
     _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
-        modelCandidates: _provider.settings.heavyModels, // Heavy for projects
+        modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
         currentApiKeyIndex: _provider.apiKeyIndex,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -4815,6 +5232,8 @@ class ProjectActions {
       final newProject = Project.fromJson(projectData);
       newProject.id = const Uuid().v4();
       newProject.linkedMainTaskId = mainTaskId;
+      newProject.isActive = true;
+      newProject.sortOrder = DateTime.now().millisecondsSinceEpoch;
 
       _updateMainTaskProjects(
           mainTaskId, (projects) => [...projects, newProject]);
@@ -4825,8 +5244,23 @@ class ProjectActions {
       _provider.setLoadingTask(null);
     }
   }
-}
 
+  // Internal Helper
+  void _updateMainTaskProjects(
+      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        return task.copyWith(
+          projects: updatedProjects,
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+}
 --- END OF FILE lib/src/providers/actions/project_actions.dart ---
 
 --- START OF FILE lib/src/providers/actions/task_actions.dart ---
@@ -8297,6 +8731,124 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 }
 --- END OF FILE lib/src/screens/submission_detail_screen.dart ---
 
+--- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:intl/intl.dart';
+
+class DataRecoveryScreen extends StatefulWidget {
+  const DataRecoveryScreen({super.key});
+
+  @override
+  State<DataRecoveryScreen> createState() => _DataRecoveryScreenState();
+}
+
+class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
+  List<File> _backupFiles = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackups();
+  }
+
+  Future<void> _loadBackups() async {
+    setState(() => _isLoading = true);
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (await backupDir.exists()) {
+          final files = backupDir.listSync().whereType<File>().toList();
+          // Sort by modification time desc
+          files.sort(
+              (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+          setState(() {
+            _backupFiles = files;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading backups: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreBackup(File file) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Restore Backup?"),
+        content: const Text(
+            "This will overwrite your current data with the data from this backup. Are you sure?"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Restore")),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await context.read<AppProvider>().restoreFromLocalSnapshot(file);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Backup restored successfully.")));
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Error restoring backup: $e")));
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Data Recovery"),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _backupFiles.isEmpty
+              ? const Center(child: Text("No local backups found."))
+              : ListView.builder(
+                  itemCount: _backupFiles.length,
+                  itemBuilder: (context, index) {
+                    final file = _backupFiles[index];
+                    final date = file.lastModifiedSync();
+                    final size = file.lengthSync();
+
+                    return ListTile(
+                      leading: const Icon(Icons.restore_page),
+                      title: Text(
+                          "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}"),
+                      subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB"),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.restore),
+                        onPressed: () => _restoreBackup(file),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+--- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
+
 --- START OF FILE lib/src/services/ai_service.dart ---
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -8870,85 +9422,170 @@ Future<void> changePassword(String newPassword) async {
 --- START OF FILE lib/src/services/storage_service.dart ---
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-const String _userCollection = 'users';
-const String _userSubcollectionDocId = 'data';
-const String _gameStateDocId = 'gameState';
+const String _userCollection = 'users'; // Users collection
+const String _userSubcollectionDocId =
+    'data'; // Subcollection name under user doc
+const String _gameStateDocId = 'gameState'; // The legacy monolithic document ID
+
+// Sub-collection document IDs (actually documents inside the 'data' collection now, for better organization,
+// OR we can make 'data' the collection and these the documents.
+// The prompt asked for "data/gameState" -> "data/tasks", "data/history", etc.
+// Let's interpret the structure:
+// users/{uid}/data/gameState (OLD)
+// users/{uid}/data/tasks (NEW)
+// users/{uid}/data/history (NEW)
+// users/{uid}/data/reflections (NEW)
+// users/{uid}/data/settings (NEW - includes small stuff like user profile, misc)
+const String _docTasks = 'tasks';
+const String _docHistory = 'history';
+const String _docReflections = 'reflections';
+const String _docSettings = 'settings';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  DocumentReference<Map<String, dynamic>> _userDocRef(String userId) {
+  // users/{userId}/data/{docId}
+  DocumentReference<Map<String, dynamic>> _dataDocRef(
+      String userId, String docId) {
     return _firestore
         .collection(_userCollection)
         .doc(userId)
-        .collection(_userSubcollectionDocId)
-        .doc(_gameStateDocId);
+        .collection(_userSubcollectionDocId) // 'data' collection
+        .doc(docId);
   }
 
   Future<Map<String, dynamic>?> getUserData(String userId) async {
-    if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for getUserData.");
-      return null;
-    }
+    if (userId.isEmpty) return null;
+
     try {
-      final docSnap = await _userDocRef(userId).get();
-      if (docSnap.exists) {
-        return docSnap.data();
-      } else {
-        // print("No game data found for user $userId, will initialize.");
-        return null; // Indicates no data, GameProvider will initialize
+      // 1. Try to fetch the new split documents first.
+      final tasksSnap = await _dataDocRef(userId, _docTasks).get();
+      final historySnap = await _dataDocRef(userId, _docHistory).get();
+      final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
+      final settingsSnap = await _dataDocRef(userId, _docSettings).get();
+
+      bool hasNewData =
+          tasksSnap.exists || historySnap.exists || settingsSnap.exists;
+
+      if (hasNewData) {
+        // Construct the monolithic-like map from the pieces so the app logic remains mostly same
+        // or we return them as is. Ideally, we reconstruct the map for AppProvider compatibility.
+        Map<String, dynamic> fullData = {};
+        if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
+        if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
+        if (historySnap.exists) fullData.addAll(historySnap.data()!);
+        if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+        return fullData;
       }
+
+      // 2. Fallback to old monolithic 'gameState' document
+      final oldDocSnap = await _dataDocRef(userId, _gameStateDocId).get();
+      if (oldDocSnap.exists) {
+        return oldDocSnap.data();
+      }
+
+      return null; // No data found
     } catch (e) {
-      // print("Error getting user data from Firestore: $e");
+      // print("Error getting user data: $e");
       return null;
     }
   }
 
-  Future<bool> setUserData(String userId, Map<String, dynamic> data) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for setUserData.");
-      return false;
-    }
+  // Methods to save individual chunks
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async {
+    return _saveChunk(userId, _docTasks, data);
+  }
+
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
+    return _saveChunk(userId, _docHistory, data);
+  }
+
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
+    return _saveChunk(userId, _docReflections, data);
+  }
+
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async {
+    return _saveChunk(userId, _docSettings, data);
+  }
+
+  Future<bool> _saveChunk(
+      String userId, String docId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
     try {
-      await _userDocRef(userId).set(data);
+      await _dataDocRef(userId, docId).set(data);
       return true;
     } catch (e) {
-      // print("Error setting user data in Firestore: $e");
+      // print("Error saving $docId: $e");
       return false;
     }
   }
 
-  Future<bool> updateUserData(String userId, Map<String, dynamic> partialData) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for updateUserData.");
-      return false;
-    }
+  Future<bool> deleteLegacyData(String userId) async {
+    if (userId.isEmpty) return false;
     try {
-      await _userDocRef(userId).update(partialData);
+      await _dataDocRef(userId, _gameStateDocId).delete();
       return true;
     } catch (e) {
-      // print("Error updating user data in Firestore: $e");
-      // If the document doesn't exist, update will fail.
-      // Consider checking doc existence or using set with merge:true if needed.
       return false;
     }
   }
 
   Future<bool> deleteUserData(String userId) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for deleteUserData.");
-      return false;
-    }
+    if (userId.isEmpty) return false;
     try {
-      await _userDocRef(userId).delete();
-      // print("Game data deleted for user $userId.");
+      final batch = _firestore.batch();
+      batch.delete(_dataDocRef(userId, _gameStateDocId));
+      batch.delete(_dataDocRef(userId, _docTasks));
+      batch.delete(_dataDocRef(userId, _docHistory));
+      batch.delete(_dataDocRef(userId, _docReflections));
+      batch.delete(_dataDocRef(userId, _docSettings));
+      await batch.commit();
       return true;
     } catch (e) {
-      // print("Error deleting user data from Firestore: $e");
+      return false;
+    }
+  }
+
+  // Helper for AppProvider to update what it thinks needed
+  // This is generic, but practically we will use the specific save methods above.
+  Future<bool> setUserData(String userId, Map<String, dynamic> fullData) async {
+    // This method is now "save everything".
+    // It should distribute the keys to the correct documents.
+    if (userId.isEmpty) return false;
+
+    // Split data
+    final tasksData = <String, dynamic>{};
+    if (fullData.containsKey('mainTasks'))
+      tasksData['mainTasks'] = fullData['mainTasks'];
+
+    final historyData = <String, dynamic>{};
+    if (fullData.containsKey('completedByDay'))
+      historyData['completedByDay'] = fullData['completedByDay'];
+
+    final reflectionsData = <String, dynamic>{};
+    if (fullData.containsKey('reflectionLogs'))
+      reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
+
+    final settingsData = Map<String, dynamic>.from(fullData);
+    settingsData.remove('mainTasks');
+    settingsData.remove('completedByDay');
+    settingsData.remove('reflectionLogs');
+
+    // Execute batch set
+    try {
+      final batch = _firestore.batch();
+      batch.set(_dataDocRef(userId, _docTasks), tasksData);
+      batch.set(_dataDocRef(userId, _docHistory), historyData);
+      batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
+      batch.set(_dataDocRef(userId, _docSettings), settingsData);
+      await batch.commit();
+      return true;
+    } catch (e) {
       return false;
     }
   }
 }
+
 --- END OF FILE lib/src/services/storage_service.dart ---
 
 --- START OF FILE lib/src/services/data_export_service.dart ---
@@ -10409,6 +11046,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/sheets/project_options_sheet.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ProjectDashboardCard extends StatelessWidget {
@@ -10416,6 +11054,7 @@ class ProjectDashboardCard extends StatelessWidget {
   final String mainTaskId;
   final String mainTaskName;
   final Color accentColor;
+  final VoidCallback onTap;
 
   const ProjectDashboardCard({
     super.key,
@@ -10423,7 +11062,20 @@ class ProjectDashboardCard extends StatelessWidget {
     required this.mainTaskId,
     required this.mainTaskName,
     required this.accentColor,
+    required this.onTap,
   });
+
+  void _openOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProjectOptionsSheet(
+        project: project,
+        currentMainTaskId: mainTaskId,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10431,44 +11083,59 @@ class ProjectDashboardCard extends StatelessWidget {
     final totalSteps = project.steps.length;
     final completedSteps = project.completedStepsCount;
     final int progressPercentage = (progress * 100).toInt();
+    
+    // Visual tweak for inactive projects
+    final effectiveBorderColor = project.isActive ? accentColor.withValues(alpha: 0.3) : AppTheme.fhBorderColor.withValues(alpha: 0.1);
+    final effectiveTextColor = project.isActive ? AppTheme.fhTextPrimary : AppTheme.fhTextDisabled;
 
-    // Use ValorantCard for styling
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: ValorantCard(
-        borderColor: accentColor.withValues(alpha: 0.3),
+        borderColor: effectiveBorderColor,
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     project.title.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         fontFamily: AppTheme.fontDisplay,
                         letterSpacing: 1.0,
-                        color: AppTheme.fhTextPrimary),
+                        color: effectiveTextColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: accentColor.withValues(alpha: 0.2),
+                  color: project.isActive 
+                      ? accentColor.withValues(alpha: 0.2) 
+                      : Colors.black12,
                   child: Text(
                     "$progressPercentage%",
                     style: TextStyle(
-                      color: accentColor,
+                      color: project.isActive ? accentColor : AppTheme.fhTextDisabled,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       fontFamily: AppTheme.fontDisplay
                     ),
                   ),
-                )
+                ),
+                const SizedBox(width: 8),
+                // Options Button
+                GestureDetector(
+                  onTap: () => _openOptions(context),
+                  child: Icon(
+                    MdiIcons.dotsVertical,
+                    size: 20,
+                    color: AppTheme.fhTextSecondary,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -10483,7 +11150,7 @@ class ProjectDashboardCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Custom Linear Progress Bar (Sharp)
+            // Progress Bar
             Container(
               height: 4,
               width: double.infinity,
@@ -10491,7 +11158,7 @@ class ProjectDashboardCard extends StatelessWidget {
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: progress,
-                child: Container(color: accentColor),
+                child: Container(color: project.isActive ? accentColor : AppTheme.fhTextDisabled),
               ),
             ),
             
@@ -14182,6 +14849,272 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
 }
 --- END OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
 
+--- START OF FILE lib/src/widgets/sheets/change_agent_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
+import 'package:provider/provider.dart';
+
+class ChangeAgentSheet extends StatefulWidget {
+  final String projectId;
+  final String currentMainTaskId;
+
+  const ChangeAgentSheet({
+    super.key,
+    required this.projectId,
+    required this.currentMainTaskId,
+  });
+
+  @override
+  State<ChangeAgentSheet> createState() => _ChangeAgentSheetState();
+}
+
+class _ChangeAgentSheetState extends State<ChangeAgentSheet> {
+  String? _selectedAgentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedAgentId = widget.currentMainTaskId;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "TRANSFER OPERATION",
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontFamily: AppTheme.fontDisplay,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppTheme.fhTextPrimary
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Select a new protocol agent for this project.",
+                style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 24),
+              ValorantDropdown<String>(
+                label: "DESTINATION AGENT",
+                value: _selectedAgentId,
+                items: provider.mainTasks.map((t) {
+                  return DropdownMenuItem(
+                    value: t.id,
+                    child: Text(t.name.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedAgentId = val);
+                },
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: ValorantButton(
+                      label: "CANCEL",
+                      isPrimary: false,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ValorantButton(
+                      label: "TRANSFER",
+                      isPrimary: true,
+                      onPressed: () {
+                        if (_selectedAgentId != null && _selectedAgentId != widget.currentMainTaskId) {
+                          provider.projectActions.changeProjectAgent(
+                            widget.currentMainTaskId, 
+                            _selectedAgentId!, 
+                            widget.projectId
+                          );
+                          Navigator.pop(context, true); // Close this sheet
+                        } else {
+                          Navigator.pop(context); // Just close if same
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/change_agent_sheet.dart ---
+
+--- START OF FILE lib/src/widgets/sheets/project_options_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/sheets/change_agent_sheet.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class ProjectOptionsSheet extends StatelessWidget {
+  final Project project;
+  final String currentMainTaskId;
+
+  const ProjectOptionsSheet({
+    super.key,
+    required this.project,
+    required this.currentMainTaskId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(color: AppTheme.fhBorderColor, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            
+            Text(
+              project.title.toUpperCase(),
+              style: const TextStyle(
+                fontFamily: AppTheme.fontDisplay,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+                letterSpacing: 1.2
+              ),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 24),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.pencilOutline,
+              label: "EDIT DETAILS",
+              onTap: () async {
+                Navigator.pop(context); // Close sheet first
+                final result = await showDialog<Map<String, String>>(
+                  context: context,
+                  builder: (ctx) => AddEditProjectDialog(
+                    mainTaskId: currentMainTaskId,
+                    projectId: project.id,
+                    initialTitle: project.title,
+                    initialDescription: project.description,
+                  ),
+                );
+                if (result != null) {
+                  provider.projectActions.updateProjectDetails(
+                    currentMainTaskId, project.id, result['title']!, result['desc']!
+                  );
+                }
+              },
+            ),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.accountSwitchOutline,
+              label: "CHANGE AGENT",
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (context) => ChangeAgentSheet(projectId: project.id, currentMainTaskId: currentMainTaskId),
+                );
+              },
+            ),
+
+            _buildOption(
+              context,
+              icon: project.isActive ? MdiIcons.pauseCircleOutline : MdiIcons.playCircleOutline,
+              label: project.isActive ? "DEACTIVATE OPERATION" : "ACTIVATE OPERATION",
+              color: project.isActive ? AppTheme.fhAccentOrange : AppTheme.fhAccentGreen,
+              onTap: () {
+                provider.projectActions.toggleProjectStatus(currentMainTaskId, project.id, !project.isActive);
+                Navigator.pop(context);
+              },
+            ),
+
+            Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.deleteOutline,
+              label: "DELETE PROJECT",
+              color: AppTheme.fhAccentRed,
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(context, provider);
+              },
+            ),
+            
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOption(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap, Color? color}) {
+    final effectiveColor = color ?? AppTheme.fhTextPrimary;
+    return ListTile(
+      leading: Icon(icon, color: effectiveColor),
+      title: Text(label, style: TextStyle(color: effectiveColor, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontBody, fontSize: 14)),
+      onTap: onTap,
+    );
+  }
+
+  void _confirmDelete(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("DELETE PROJECT?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: const Text("This action cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () {
+              provider.projectActions.deleteProject(currentMainTaskId, project.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text("DELETE")
+          )
+        ],
+      )
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/project_options_sheet.dart ---
+
 --- START OF FILE lib/src/widgets/ui/activity_log_list.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -15771,17 +16704,6 @@ class CompletedProjectsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (completedProjects.isEmpty) return const SizedBox.shrink();
 
-    // Group by Month (using a naive approach since Project doesn't have a 'completedDate' explicitly,
-    // but in a real app you'd want a 'completedDate' field.
-    // For now, we'll group them all under "Recently Completed" or simulate month based on an assumed date
-    // OR just list them if we don't have dates.
-    // Assuming for this requirement we group simply or treat all as current month if no date.)
-
-    // To strictly follow "Filtered by Month", we'd need a date field.
-    // Since 'Project' model lacks 'completedDate', we will render them in a single expandable list for now
-    // or group by an arbitrary key if we had one.
-    // Let's wrap the whole list in an ExpansionTile titled "Completed Archives".
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -15806,15 +16728,19 @@ class CompletedProjectsSection extends StatelessWidget {
             ),
             childrenPadding: EdgeInsets.zero,
             children: [
-              // We can show a dropdown-like filter here if we had dates,
-              // for now we just show the list.
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: completedProjects.length,
                 itemBuilder: (context, index) {
                   final item = completedProjects[index];
-                  return GestureDetector(
+                  // Passed onTap directly to ProjectDashboardCard instead of wrapping with GestureDetector
+                  return ProjectDashboardCard(
+                    project: item['project'] as Project,
+                    mainTaskId: item['mainTaskId'] as String,
+                    mainTaskName: item['mainTaskName'] as String,
+                    accentColor:
+                        AppTheme.fhTextDisabled, // Gray out completed
                     onTap: () {
                       Navigator.push(
                         context,
@@ -15826,13 +16752,6 @@ class CompletedProjectsSection extends StatelessWidget {
                         ),
                       );
                     },
-                    child: ProjectDashboardCard(
-                      project: item['project'] as Project,
-                      mainTaskId: item['mainTaskId'] as String,
-                      mainTaskName: item['mainTaskName'] as String,
-                      accentColor:
-                          AppTheme.fhTextDisabled, // Gray out completed
-                    ),
                   );
                 },
               ),
@@ -17456,200 +18375,286 @@ import 'package:arcane/src/screens/project_detail_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
-class ProjectsView extends StatelessWidget {
+// Helper class to wrap project data for the view
+class _ProjectViewItem {
+  final Project project;
+  final String mainTaskId;
+  final String mainTaskName;
+  final Color color;
+
+  _ProjectViewItem({
+    required this.project,
+    required this.mainTaskId,
+    required this.mainTaskName,
+    required this.color,
+  });
+}
+
+class ProjectsView extends StatefulWidget {
   const ProjectsView({super.key});
 
+  @override
+  State<ProjectsView> createState() => _ProjectsViewState();
+}
+
+class _ProjectsViewState extends State<ProjectsView> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
 
-    // Aggregate all projects
-    final List<Map<String, dynamic>> ongoingProjects = [];
-    final List<Map<String, dynamic>> completedProjects = [];
-    final List<Project> rawActiveProjects = [];
-
+    // Flatten all projects from all agents
+    final List<_ProjectViewItem> allProjects = [];
+    
     for (var task in provider.mainTasks) {
       for (var project in task.projects) {
-        final double progress = project.calculateProgress();
-        final bool isComplete = progress >= 1.0;
-
-        final map = {
-          'project': project,
-          'mainTaskId': task.id,
-          'mainTaskName': task.name,
-          'color': task.taskColor,
-        };
-
-        if (isComplete) {
-          completedProjects.add(map);
-        } else {
-          ongoingProjects.add(map);
-          rawActiveProjects.add(project);
-        }
+        allProjects.add(_ProjectViewItem(
+          project: project,
+          mainTaskId: task.id,
+          mainTaskName: task.name,
+          color: task.taskColor,
+        ));
       }
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Text("PROJECT PROTOCOLS",
-              style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.5)),
-          const Text("ACTIVE OPERATIONS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 2.0, fontWeight: FontWeight.bold)),
+    // Filter and Sort
+    // 1. Ongoing Active
+    final activeOngoing = allProjects.where((i) => i.project.isActive && i.project.calculateProgress() < 1.0).toList()
+      ..sort((a, b) => a.project.sortOrder.compareTo(b.project.sortOrder));
 
-          const SizedBox(height: 24),
+    // 2. Ongoing Inactive
+    final inactiveOngoing = allProjects.where((i) => !i.project.isActive && i.project.calculateProgress() < 1.0).toList();
 
-          // Overall Progress for Ongoing Projects
-          OverallProjectProgressCard(activeProjects: rawActiveProjects),
+    // 3. Completed
+    final completed = allProjects.where((i) => i.project.calculateProgress() >= 1.0).toList();
 
-          const SizedBox(height: 32),
+    // For ReorderableListView, we need a list of widgets or a list of items to map.
+    // However, ReorderableListView requires the full list to be reorderable or we use a CustomScrollView with SliverReorderableList.
+    // Given we want headers above, we can use ReorderableListView with headers if we treat headers as non-reorderable items (complex).
+    // OR we use the `header` parameter of `ReorderableListView` (available in Flutter 3+).
+    
+    return Column(
+      children: [
+        Expanded(
+          child: ReorderableListView(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
+            header: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text("PROJECT PROTOCOLS",
+                    style: theme.textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.5)),
+                const Text("ACTIVE OPERATIONS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 2.0, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
 
-          // Ongoing Projects Header
-          Row(
-            children: [
-              Container(width: 4, height: 16, color: AppTheme.fhAccentOrange),
-              const SizedBox(width: 8),
-              Text("ONGOING OPS",
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
-            ],
-          ),
-          const SizedBox(height: 16),
+                // Overall Progress
+                OverallProjectProgressCard(activeProjects: activeOngoing.map((e) => e.project).toList()),
+                const SizedBox(height: 32),
 
-          // Project List
-          if (ongoingProjects.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                  border: Border.all(
-                    color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
-                  )),
-              child: Column(
-                children: [
-                  Icon(
-                    MdiIcons.folderOutline,
-                    size: 48,
-                    color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text("NO ACTIVE PROJECTS",
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => _showCreateProjectSheet(context),
-                    child: const Text("INITIALIZE NEW PROJECT", style: TextStyle(color: AppTheme.fhAccentTeal)),
-                  )
-                ],
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: ongoingProjects.length,
-              itemBuilder: (context, index) {
-                final item = ongoingProjects[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => ProjectDetailScreen(
-                                project: item['project'] as Project,
-                                mainTaskId: item['mainTaskId'] as String)));
-                  },
-                  child: ProjectDashboardCard(
-                    project: item['project'] as Project,
-                    mainTaskId: item['mainTaskId'] as String,
-                    mainTaskName: item['mainTaskName'] as String,
-                    accentColor: item['color'] as Color,
-                  ),
-                );
-              },
-            ),
-
-          // Completed Projects Section
-          if (completedProjects.isNotEmpty)
-            CompletedProjectsSection(completedProjects: completedProjects),
-
-          const SizedBox(height: 32),
-
-          // Quick Actions
-          Row(
-            children: [
-              Container(width: 4, height: 16, color: AppTheme.fhAccentTeal),
-              const SizedBox(width: 8),
-              Text("QUICK ACTIONS",
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Primary Create Button (Valorant Style)
-          GestureDetector(
-            onTap: () => _showCreateProjectSheet(context),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                  color: AppTheme.fhAccentRed,
-                  borderRadius: BorderRadius.circular(0), // Sharp edges
-                  border: Border.all(color: AppTheme.fhAccentRed.withValues(alpha: 0.5))
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(MdiIcons.plus, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text("CREATE NEW PROJECT",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: AppTheme.fontDisplay,
-                          letterSpacing: 1.5,
-                          fontSize: 16)),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Secondary Actions Grid
-          Row(
-            children: [
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.robotOutline,
-                  label: "AI PROMPTS",
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AiPromptsView())),
+                // Active Header
+                Row(
+                  children: [
+                    Container(width: 4, height: 16, color: AppTheme.fhAccentOrange),
+                    const SizedBox(width: 8),
+                    Text("ONGOING OPS",
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: QuickActionCard(
-                  icon: MdiIcons.targetVariant,
-                  label: "LINK TASK",
-                  onTap: () => _showLinkSubmissionSheet(context),
+                const SizedBox(height: 16),
+                
+                if (activeOngoing.isEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.all(24),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                        border: Border.all(
+                          color: AppTheme.fhBgMedium.withValues(alpha: 0.5),
+                        )),
+                    child: Column(
+                      children: [
+                        Icon(MdiIcons.folderOutline, size: 48, color: AppTheme.fhTextSecondary.withValues(alpha: 0.6)),
+                        const SizedBox(height: 12),
+                        const Text("NO ACTIVE PROJECTS", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _showCreateProjectSheet(context),
+                          child: const Text("INITIALIZE NEW PROJECT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                        )
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            
+            // The Reorderable Items (Active Projects)
+            onReorder: (int oldIndex, int newIndex) {
+              if (oldIndex < newIndex) newIndex -= 1;
+              
+              final item = activeOngoing.removeAt(oldIndex);
+              activeOngoing.insert(newIndex, item);
+              
+              // Persist order
+              // We need to pass the list of Project objects to the provider to update sortOrder
+              provider.projectActions.reorderProjectsGlobal(activeOngoing.map((e) => e.project).toList());
+            },
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: Colors.transparent,
+                elevation: 5,
+                shadowColor: Colors.black,
+                child: child,
+              );
+            },
+            children: activeOngoing.map((item) {
+              return Container(
+                key: ValueKey("proj_${item.project.id}"),
+                margin: const EdgeInsets.only(bottom: 4), // Small margin handled by padding in card usually, but list view needs care
+                child: ProjectDashboardCard(
+                  project: item.project,
+                  mainTaskId: item.mainTaskId,
+                  mainTaskName: item.mainTaskName,
+                  accentColor: item.color,
+                  onTap: () => _navigateToDetail(context, item),
                 ),
-              ),
-            ],
-          ),
+              );
+            }).toList(),
 
-          const SizedBox(height: 80), 
-        ],
-      ),
+            // Footer (Inactive, Completed, Actions)
+            footer: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                
+                // Inactive Ops
+                if (inactiveOngoing.isNotEmpty) ...[
+                  Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Row(
+                        children: [
+                          Icon(MdiIcons.pauseCircleOutline, color: AppTheme.fhTextSecondary, size: 20),
+                          const SizedBox(width: 8),
+                          const Text("INACTIVE OPS", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: AppTheme.fhBgMedium, borderRadius: BorderRadius.circular(4)),
+                            child: Text("${inactiveOngoing.length}", style: const TextStyle(fontSize: 10, color: Colors.white)),
+                          )
+                        ],
+                      ),
+                      children: inactiveOngoing.map((item) {
+                        return ProjectDashboardCard(
+                          project: item.project,
+                          mainTaskId: item.mainTaskId,
+                          mainTaskName: item.mainTaskName,
+                          accentColor: AppTheme.fhTextDisabled,
+                          onTap: () => _navigateToDetail(context, item),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Completed
+                if (completed.isNotEmpty)
+                  CompletedProjectsSection(
+                    completedProjects: completed.map((e) => {
+                      'project': e.project,
+                      'mainTaskId': e.mainTaskId,
+                      'mainTaskName': e.mainTaskName,
+                      'color': e.color
+                    }).toList()
+                  ),
+
+                const SizedBox(height: 32),
+
+                // Actions
+                Row(
+                  children: [
+                    Container(width: 4, height: 16, color: AppTheme.fhAccentTeal),
+                    const SizedBox(width: 8),
+                    Text("QUICK ACTIONS",
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Primary Create Button
+                GestureDetector(
+                  onTap: () => _showCreateProjectSheet(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                        color: AppTheme.fhAccentRed,
+                        borderRadius: BorderRadius.circular(0),
+                        border: Border.all(color: AppTheme.fhAccentRed.withValues(alpha: 0.5))
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(MdiIcons.plus, color: Colors.white),
+                        const SizedBox(width: 8),
+                        const Text("CREATE NEW PROJECT",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppTheme.fontDisplay,
+                                letterSpacing: 1.5,
+                                fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Secondary Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: QuickActionCard(
+                        icon: MdiIcons.robotOutline,
+                        label: "AI PROMPTS",
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const AiPromptsView())),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: QuickActionCard(
+                        icon: MdiIcons.targetVariant,
+                        label: "LINK TASK",
+                        onTap: () => _showLinkSubmissionSheet(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  void _navigateToDetail(BuildContext context, _ProjectViewItem item) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => ProjectDetailScreen(
+                project: item.project,
+                mainTaskId: item.mainTaskId)));
   }
 
   void _showCreateProjectSheet(BuildContext context) {
@@ -17682,6 +18687,7 @@ import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -17720,8 +18726,10 @@ class _SettingsViewState extends State<SettingsView> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _apiKeyController.text = appProvider.settings.customApiKey ?? '';
-    _customChatbotPromptController.text = appProvider.settings.customChatbotPrompt ?? '';
-    _customReflectionPromptController.text = appProvider.settings.customReflectionPrompt ?? '';
+    _customChatbotPromptController.text =
+        appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text =
+        appProvider.settings.customReflectionPrompt ?? '';
 
     // Auto-load latest AI models when settings screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -17987,6 +18995,21 @@ class _SettingsViewState extends State<SettingsView> {
                           (appProvider.getSelectedTask()?.taskColor ??
                               AppTheme.fhAccentTealFixed),
                       foregroundColor: AppTheme.fhBgDark),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.backupRestore, size: 18),
+                  label: const Text('RECOVER FROM LOCAL BACKUP'),
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const DataRecoveryScreen()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      side: BorderSide(
+                          color:
+                              AppTheme.fhTextSecondary.withValues(alpha: 0.5))),
                 ),
                 const SizedBox(height: 12),
                 Center(
@@ -18426,6 +19449,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 }
+
 --- END OF FILE lib/src/widgets/views/settings_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/task_details_view.dart ---
