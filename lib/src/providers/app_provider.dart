@@ -834,6 +834,93 @@ class AppProvider with ChangeNotifier {
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
+  // --- Helper for Weekly Report Data Gathering ---
+  Map<String, dynamic> getLast7DaysData() {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final logsBuffer = StringBuffer();
+    final Map<String, int> totalTimePerTask = {};
+
+    // 1. Gather Logs
+    final relevantLogs = _reflectionLogs.where((log) =>
+      log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1)))
+    ).toList();
+
+    for (var log in relevantLogs) {
+      logsBuffer.writeln("- [${DateFormat('yyyy-MM-dd').format(log.timestamp)}] ${log.trigger} -> ${log.emotion} (${log.reason})");
+    }
+
+    // 2. Gather Time Data
+    for (int i = 0; i < 7; i++) {
+      final d = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(d);
+      
+      // Past data
+      if (_completedByDay.containsKey(dateStr)) {
+        final dayData = _completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          (dayData['taskTimes'] as Map<String, dynamic>).forEach((taskId, seconds) {
+             final task = _mainTasks.firstWhereOrNull((t) => t.id == taskId);
+             if (task != null) {
+               totalTimePerTask[task.name] = (totalTimePerTask[task.name] ?? 0) + (seconds as int);
+             }
+          });
+        }
+      }
+      
+      // Today (Live) if loop hits today
+      if (dateStr == DateFormat('yyyy-MM-dd').format(now)) {
+         for (var task in _mainTasks) {
+           int todaySeconds = 0;
+           for (var sub in task.subTasks) {
+             for (var session in sub.sessions) {
+               if (session.startTime.year == now.year && session.startTime.month == now.month && session.startTime.day == now.day) {
+                 todaySeconds += session.durationSeconds;
+               }
+             }
+           }
+           if (todaySeconds > 0) {
+             // Avoid double counting if today is already in completedByDay (depends on save logic)
+             // For simplicity, we assume completedByDay is updated on save/end of day. 
+             // Ideally we check if we already added it. 
+             // Since loop iterates dates, and completedByDay stores finalized or saved data, 
+             // live data might be separate. Let's merge max for safety or just rely on live calculation logic.
+             // Actually, simplest is to re-calculate from sessions for the last 7 days directly from mainTasks
+             // because completedByDay is a summary.
+           }
+         }
+      }
+    }
+    
+    // Better Approach: Calculate strictly from MainTasks session history for last 7 days
+    // This is more accurate for "active" tasks.
+    totalTimePerTask.clear();
+    for (var task in _mainTasks) {
+      int taskTotal = 0;
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isAfter(sevenDaysAgo) && session.startTime.isBefore(now.add(const Duration(days: 1)))) {
+            taskTotal += session.durationSeconds;
+          }
+        }
+      }
+      if (taskTotal > 0) {
+        totalTimePerTask[task.name] = taskTotal;
+      }
+    }
+
+    final timeBuffer = StringBuffer();
+    totalTimePerTask.forEach((name, seconds) {
+      final hours = (seconds / 3600).toStringAsFixed(1);
+      timeBuffer.writeln("- $name: $hours hrs");
+    });
+
+    return {
+      'logs': logsBuffer.toString(),
+      'times': timeBuffer.toString(),
+    };
+  }
+
   Future<Map<String, int>> processReflection(
       {required String trigger,
       required String emotion,

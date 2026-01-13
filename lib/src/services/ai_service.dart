@@ -156,6 +156,100 @@ class AIService {
         [];
   }
 
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a tactical planner.
+    Parent Task: "$parentStepTitle"
+    Context: "$parentStepDescription"
+    Existing Sub-steps: ${existingSubsteps.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 concrete, actionable sub-steps to complete the parent task.
+    
+    Output strictly JSON matching this structure:
+    {
+      "steps": [
+        {
+          "title": "string",
+          "description": "string (optional short note)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['steps'] as List?)
+            ?.map((s) => s as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a senior analyst for a covert operative.
+    Analyze the activity logs and time data from the LAST 7 DAYS.
+    
+    LOGS:
+    $logsText
+    
+    TIME STATS:
+    $timeStatsText
+    
+    Generate a "Compact Weekly Report".
+    1. "summary": A concise, tactical summary of the week's performance (max 50 words).
+    2. "improved_abilities": Identify up to 3 user abilities/virtues (e.g., Focus, Discipline, Wisdom, Coding, Health) that improved or were tested this week. 
+       - "name": Name of ability.
+       - "reason": Why it improved.
+       - "score": A pseudo-score increase (1-10) based on effort.
+    3. "time_insight": One specific observation about time allocation (e.g., "Heavy focus on Coding, minimal on Health").
+    
+    Output strictly JSON:
+    {
+      "summary": "string",
+      "improved_abilities": [
+        { "name": "string", "reason": "string", "score": int }
+      ],
+      "time_insight": "string"
+    }
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
     required String subtaskName,
     required String parentTaskName,

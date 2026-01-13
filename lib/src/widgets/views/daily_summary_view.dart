@@ -12,6 +12,7 @@ import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -29,6 +30,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedTaskFilter;
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
+  bool _isGeneratingWeeklyReport = false;
 
   @override
   void didChangeDependencies() {
@@ -142,6 +144,37 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  Future<void> _generateWeeklyReport(AppProvider provider) async {
+    setState(() => _isGeneratingWeeklyReport = true);
+    try {
+      final data = provider.getLast7DaysData();
+      final aiService = AIService();
+      
+      final result = await aiService.generateWeeklyReport(
+        logsText: data['logs'] as String,
+        timeStatsText: data['times'] as String,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => WeeklyReportDialog(reportData: result),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -185,6 +218,21 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
+              TextButton.icon(
+                icon: _isGeneratingWeeklyReport 
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(MdiIcons.fileChartOutline, size: 16),
+                label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
           ChartCarousel(
             height: 250,
             pages: [

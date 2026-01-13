@@ -4786,6 +4786,7 @@ class AppProvider with ChangeNotifier {
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
 
   Future<void> _saveLocalSnapshot() async {
     try {
@@ -4930,6 +4931,44 @@ class AIGenerationActions {
       }
     } finally {
       _provider.setProviderAISubquestLoading(false);
+    }
+  }
+
+  Future<void> generateCheckpointsForSubtask(
+      String mainTaskId, String subTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Checkpoints...");
+
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+      final existingCheckpoints = subTask.subSubTasks.map((s) => s.name).toList();
+
+      final newCheckpoints = await _aiService.generateCheckpointsForSubtask(
+        subtaskName: subTask.name,
+        parentTaskName: mainTask.name,
+        existingCheckpoints: existingCheckpoints,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      for (var cpData in newCheckpoints) {
+        _provider.addSubSubtask(mainTaskId, subTaskId, {
+          'name': cpData['name'] ?? 'New Checkpoint',
+          'isCountable': false,
+          'targetCount': 0,
+        });
+      }
+
+    } catch (e) {
+      debugPrint("Error generating checkpoints: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
     }
   }
 }
@@ -5251,6 +5290,48 @@ class ProjectActions {
           mainTaskId, (projects) => [...projects, newProject]);
     } catch (e) {
       debugPrint("Error generating project: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> generateStepsForProject(
+      String mainTaskId, String projectId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    
+    if (project == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Steps...");
+    try {
+      final existingStepTitles = project.steps.map((s) => s.title).toList();
+      
+      final newStepsData = await _aiService.generateStepsForProject(
+        projectTitle: project.title,
+        projectDescription: project.description,
+        existingSteps: existingStepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.heavyModels, // Use heavy for better planning
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        for (var stepData in newStepsData) {
+          proj.steps.add(ProjectStep(
+            id: const Uuid().v4(),
+            title: stepData['title'] ?? 'New Step',
+            description: stepData['description'] ?? '',
+          ));
+        }
+      });
+
+    } catch (e) {
+      debugPrint("Error generating steps: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
@@ -7218,6 +7299,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -7372,13 +7454,26 @@ class ProjectDetailScreen extends StatelessWidget {
                       color: AppTheme.fhTextPrimary),
                 ),
                 // Tiny Add Button
-                InkWell(
-                  onTap: () => _showAddRootStepDialog(context, provider),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
-                    child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
-                  ),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => _showAiStepGenerationDialog(context, provider, currentProject),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _showAddRootStepDialog(context, provider),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
+                        child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
+                      ),
+                    ),
+                  ],
                 )
               ],
             ),
@@ -7434,11 +7529,27 @@ class ProjectDetailScreen extends StatelessWidget {
             const SizedBox(height: 40),
             
             // Generate Steps Button (If empty or want more)
-            ValorantButton(
-              label: "ADD OBJECTIVE",
-              onPressed: () => _showAddRootStepDialog(context, provider),
-              isPrimary: false,
-              icon: Icons.add,
+            Row(
+              children: [
+                Expanded(
+                  child: ValorantButton(
+                    label: "ADD OBJECTIVE",
+                    onPressed: () => _showAddRootStepDialog(context, provider),
+                    isPrimary: false,
+                    icon: Icons.add,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ValorantButton(
+                    label: "GENERATE STEPS",
+                    onPressed: () => _showAiStepGenerationDialog(context, provider, currentProject),
+                    isPrimary: true,
+                    color: AppTheme.fhAccentPurple,
+                    icon: MdiIcons.creation,
+                  ),
+                ),
+              ],
             ),
             
             const SizedBox(height: 40),
@@ -7458,6 +7569,24 @@ class ProjectDetailScreen extends StatelessWidget {
     if (result != null) {
       provider.projectActions.addRootStep(
           mainTaskId, project.id, result['title']!, result['desc']!);
+    }
+  }
+
+  void _showAiStepGenerationDialog(BuildContext context, AppProvider provider, Project currentProject) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE STEPS", 
+        hintText: "E.g., Suggest testing phases for this project...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateStepsForProject(mainTaskId, currentProject.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
     }
   }
 
@@ -7584,13 +7713,16 @@ class StepDetailScreen extends StatelessWidget {
               try {
                 final task =
                     provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+                
+                // Filter for incomplete subtasks
+                final incompleteSubtasks = task.subTasks.where((s) => !s.completed).toList();
 
                 // 2. Show Dialog
                 final result = await showDialog<Map<String, dynamic>>(
                   context: context,
                   builder: (ctx) => LinkSubmissionDialog(
                     initialName: currentStep.title,
-                    availableSubmissions: task.subTasks,
+                    availableSubmissions: incompleteSubtasks,
                   ),
                 );
 
@@ -8787,10 +8919,11 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Custom API Keys list if available, else use default list
-    final apiKeysToTry = (customApiKeys != null && customApiKeys.isNotEmpty)
-        ? customApiKeys
-        : geminiApiKeys;
+    // 1. Prioritize Inbuild Keys, then Custom Keys
+    final List<String> apiKeysToTry = [
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    ].toSet().toList(); // Remove duplicates
 
     if (apiKeysToTry.isEmpty) {
       throw Exception("No valid Gemini API keys found.");
@@ -8854,6 +8987,104 @@ class AIService {
         }
       },
     );
+  }
+
+  // --- New Generation Methods ---
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a project manager AI assistant.
+    Project: "$projectTitle"
+    Description: "$projectDescription"
+    Existing Steps: ${existingSteps.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 new, actionable steps for this project based on the user request.
+    Structure:
+    - Title
+    - Description
+    
+    Output strictly JSON matching this structure:
+    {
+      "steps": [
+        {
+          "title": "string",
+          "description": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['steps'] as List?)
+            ?.map((s) => s as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a tactical assistant.
+    Mission: "$parentTaskName"
+    Sub-Mission: "$subtaskName"
+    Existing Objectives: ${existingCheckpoints.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 concrete, checkable objectives (checkpoints) for this sub-mission.
+    
+    Output strictly JSON matching this structure:
+    {
+      "checkpoints": [
+        {
+          "name": "string (short actionable title)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['checkpoints'] as List?)
+            ?.map((c) => c as Map<String, dynamic>)
+            .toList() ??
+        [];
   }
 
   // --- Value Analysis ---
@@ -13666,6 +13897,79 @@ class ColorSelectorDialog extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/dialogs/color_selector_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/ai_generation_prompt_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+
+class AiGenerationPromptDialog extends StatefulWidget {
+  final String title;
+  final String hintText;
+  final String actionLabel;
+
+  const AiGenerationPromptDialog({
+    super.key,
+    required this.title,
+    required this.hintText,
+    required this.actionLabel,
+  });
+
+  @override
+  State<AiGenerationPromptDialog> createState() => _AiGenerationPromptDialogState();
+}
+
+class _AiGenerationPromptDialogState extends State<AiGenerationPromptDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 13),
+                filled: true,
+                fillColor: Colors.black.withOpacity(0.3),
+                border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("CANCEL"),
+        ),
+        ValorantButton(
+          label: widget.actionLabel,
+          onPressed: () {
+            if (_controller.text.isNotEmpty) {
+              Navigator.pop(context, _controller.text);
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/ai_generation_prompt_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13947,6 +14251,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
 import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
@@ -13999,6 +14304,28 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       'targetCount': 0,
     });
     _checkpointController.clear();
+  }
+
+  void _showAiCheckpointGenerationDialog(BuildContext context, AppProvider provider) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE CHECKPOINTS", 
+        hintText: "E.g., List key milestones for this task...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.aiGenerationActions.generateCheckpointsForSubtask(
+        widget.parentTask.id, 
+        widget.subTask.id, 
+        prompt
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
   }
 
   Future<void> _handleEditSubtask(
@@ -14355,13 +14682,26 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "TACTICAL OBJECTIVES",
-                          style: TextStyle(
-                              color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                              letterSpacing: 1.5),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "TACTICAL OBJECTIVES",
+                              style: TextStyle(
+                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                  letterSpacing: 1.5),
+                            ),
+                            InkWell(
+                              onTap: () => _showAiCheckpointGenerationDialog(context, provider),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.5))),
+                                child: Icon(MdiIcons.robotExcitedOutline, size: 14, color: AppTheme.fhAccentPurple),
+                              ),
+                            )
+                          ],
                         ),
                         const SizedBox(height: 8),
                         ...liveSubTask.subSubTasks

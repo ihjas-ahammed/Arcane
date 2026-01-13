@@ -5,6 +5,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
 import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -241,22 +242,36 @@ class StepDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: AppTheme.fhTextPrimary),
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => const AddEditStepDialog(),
-                    );
-                    if (!context.mounted) return;
-                    if (result != null) {
-                      provider.projectActions.addSubstep(mainTaskId, projectId,
-                          currentStep.id, result['title']!, result['desc']!);
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add"),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal),
+                Row(
+                  children: [
+                    // AI Generation for Substeps
+                    InkWell(
+                      onTap: () => _showAiSubstepGenerationDialog(context, provider, currentStep),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<Map<String, String>>(
+                          context: context,
+                          builder: (ctx) => const AddEditStepDialog(),
+                        );
+                        if (!context.mounted) return;
+                        if (result != null) {
+                          provider.projectActions.addSubstep(mainTaskId, projectId,
+                              currentStep.id, result['title']!, result['desc']!);
+                        }
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text("Add"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.fhAccentTeal),
+                    ),
+                  ],
                 )
               ],
             ),
@@ -346,5 +361,23 @@ class StepDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showAiSubstepGenerationDialog(BuildContext context, AppProvider provider, ProjectStep currentStep) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE SUB-STEPS", 
+        hintText: "E.g., Breakdown into smaller tasks...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateSubstepsForStep(mainTaskId, projectId, currentStep.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
   }
 }

@@ -360,6 +360,70 @@ class ProjectActions {
     }
   }
 
+  Future<void> generateSubstepsForStep(String mainTaskId, String projectId, String stepId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    
+    if (project == null) return;
+
+    // Helper to find step recursively
+    ProjectStep? findStep(List<ProjectStep> steps, String id) {
+      for (var s in steps) {
+        if (s.id == id) return s;
+        final found = findStep(s.substeps, id);
+        if (found != null) return found;
+      }
+      return null;
+    }
+
+    final parentStep = findStep(project.steps, stepId);
+    if (parentStep == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Sub-steps...");
+
+    try {
+      final existingSubstepTitles = parentStep.substeps.map((s) => s.title).toList();
+
+      final newStepsData = await _aiService.generateSubstepsForStep(
+        parentStepTitle: parentStep.title,
+        parentStepDescription: parentStep.description,
+        existingSubsteps: existingSubstepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels, // Use lite for speed
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[SubStepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        // We need to mutate the project structure inside this callback
+        // Finding the step again inside the mutable project copy is safest
+        // but _performStepAction passes a mutable reference.
+        // We can reuse the same find logic.
+        ProjectStep? targetStep = findStep(proj.steps, stepId);
+        
+        if (targetStep != null) {
+          for (var stepData in newStepsData) {
+            targetStep.substeps.add(ProjectStep(
+              id: const Uuid().v4(),
+              title: stepData['title'] ?? 'New Sub-step',
+              description: stepData['description'] ?? '',
+            ));
+          }
+          targetStep.isCompleted = false; // Reset if it was checked
+        }
+      });
+
+    } catch (e) {
+      debugPrint("Error generating substeps: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
   void _updateMainTaskProjects(
       String mainTaskId, List<Project> Function(List<Project>) updateFn) {
     final newMainTasks = _provider.mainTasks.map((task) {
