@@ -1,7 +1,6 @@
 Make the following changes:
 
-  * Update AI Generation: In projects, just like for objectives, make it possible to add steps using ai in any level of steps
-  * Introduce Compact report, make it possible to genarate compactt report for a last week in logbook (just like daily report) but this one should have a really good ui, in the ai prompt for it should have  reflections logs and time data (session data for all tasks) for this last even days, in output it should show what kind of user abilities ahve improved with a good ui
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

@@ -245,15 +245,7 @@ class ProjectDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: ValorantButton(
-                    label: "GENERATE STEPS",
-                    onPressed: () => _showAiStepGenerationDialog(context, provider, currentProject),
-                    isPrimary: true,
-                    color: AppTheme.fhAccentPurple,
-                    icon: MdiIcons.creation,
-                  ),
-                ),
+                
               ],
             ),
             
