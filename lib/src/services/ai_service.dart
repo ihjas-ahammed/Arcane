@@ -213,7 +213,7 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    You are a senior analyst for a covert operative.
+    You are a wise and empathetic tactical mentor (like a seasoned commander who cares about their squad).
     Analyze the activity logs and time data from the LAST 7 DAYS.
     
     LOGS:
@@ -222,13 +222,13 @@ class AIService {
     TIME STATS:
     $timeStatsText
     
-    Generate a "Compact Weekly Report".
-    1. "summary": A concise, tactical summary of the week's performance (max 50 words).
-    2. "improved_abilities": Identify up to 3 user abilities/virtues (e.g., Focus, Discipline, Wisdom, Coding, Health) that improved or were tested this week. 
-       - "name": Name of ability.
-       - "reason": Why it improved.
-       - "score": A pseudo-score increase (1-10) based on effort.
-    3. "time_insight": One specific observation about time allocation (e.g., "Heavy focus on Coding, minimal on Health").
+    Generate a "Weekly Debrief".
+    1. "summary": A concise, human-like summary of the week. Be encouraging, acknowledge struggle, and highlight victory. Avoid robotic phrasing. (Max 60 words).
+    2. "improved_abilities": Identify up to 3 user abilities/virtues that improved. 
+       - "name": VERY SHORT TITLE (1-2 Words Max, e.g., "Resilience", "Coding", "Focus").
+       - "reason": Brief context on why.
+       - "score": A score increase (1-10) based on effort.
+    3. "time_insight": One specific, thoughtful observation about how they spent their time.
     
     Output strictly JSON:
     {

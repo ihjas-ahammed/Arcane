@@ -2028,7 +2028,7 @@ migration:
     - platform: root
       create_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
       base_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
-    - platform: web
+    - platform: android
       create_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
       base_revision: f6ff1529fd6d8af5f706051d9251ac9231c83407
 
@@ -2132,43 +2132,43 @@ Analyzing Arcane...
 --- END OF FILE analysis_output.txt ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
-version.json,1764503551121,0c9ce9b07ec99af988f76b7ecef29cd969ecc5471a7738251aff036fcf2c142a
-manifest.json,1764503553975,c82f5dff5f21559c0abdf114190fb9b58fa0aaf6cb3d653b344245fd873afcdb
-index.html,1764503335495,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
-flutter_service_worker.js,1764503554753,42652639836c67839f7c9cb854f4f9d85137062d29b782d477873494664b3658
-flutter_bootstrap.js,1764503335484,387d0209603dcb49e0a99ee285f14590711f7cf1344111cd9951240981156e9c
-favicon.png,1764503553976,18f5974cf0a7a778cc393e3cb31725d0a85970c8df2b52688cacce7e4dc99342
-flutter.js,1764503335423,769a87b203d9953d3d492c319b5ba19ccf18d451892bf0b1a1ef42e88219bf33
-icons/Icon-maskable-192.png,1764503553980,3b3af8b09702ed3f063219466bd9e044dbd2703372b1402f6632920ba9c251de
-icons/Icon-192.png,1764503553977,2a485edb60e647cf0496f958c90c1ebdb3b9a82dc44260370b9094842fab3906
-icons/Icon-512.png,1764503553977,7fdb40ad7ef7200d89786b1266b41d441eea7872d4bdccaf8a954429aab62c5f
-assets/FontManifest.json,1764503551339,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
-assets/AssetManifest.bin.json,1764503551339,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
-assets/AssetManifest.bin,1764503551339,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
-assets/shaders/ink_sparkle.frag,1764503551508,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
-assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1764503553959,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
-assets/fonts/MaterialIcons-Regular.otf,1764503553967,34ed73046263e38460ad08718d4beb09c9a878eaa3b94fcbb782efc502699fab
-assets/assets/fonts/RobotoCondensed-Regular.ttf,1764503553927,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/RobotoCondensed-Bold.ttf,1764503553928,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-SemiBold.ttf,1764503553933,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-Regular.ttf,1764503553932,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-icons/Icon-maskable-512.png,1764503553979,8d3ccbc9307d2a1ede82dddcd23c11d39a00be576296b9358903ee746206cde2
-canvaskit/skwasm_heavy.js,1764503335416,ae8a57c004c3774bf5353494aa7573fc91d23749a660b684d4dcc7d3506dc8e3
-assets/AssetManifest.json,1764503551339,b3599d8b057b57fa84827f5dcea97c82905f09e56043294f8ded4f0c8121d429
-canvaskit/skwasm.js,1764503335234,55bd17ec57c72972895a6126dfb3c06fb60663a823c51dad3d5413159ff3db0a
-canvaskit/canvaskit.js,1764503335420,457f79801aabb2c1bfb15d22af79e671e202eb8fd3bddaaaadd0b676be38f359
-canvaskit/chromium/canvaskit.js,1764503335174,1bd439689f2b090f1dd645274bae3dd75514eb9ae4b6ef14b8d5c8e961f7589d
-assets/NOTICES,1764503551340,b8faf5f521714d45977802fcdb5912d2ae5b826e188c0f085d02b232669f1536
-canvaskit/chromium/canvaskit.js.symbols,1764503335107,5a742432b34ae3fee90469524d320719139b120711e940e86457c95a460d95a6
-canvaskit/canvaskit.js.symbols,1764503335285,b13e480505b4f1b21a72690ab4fa254228c41d65fc8b0dd8fd9f1e9dd6d2fa02
-canvaskit/skwasm.js.symbols,1764503335325,3af520c3a91ca8933f2a5e44ba983b853981715ffc40263c5063607ef6517f40
-canvaskit/skwasm_heavy.js.symbols,1764503335305,411fca00f9fc4cde83cb08d385316dc4cdaf4e907def1fdd1ecf097bbf01db1b
-assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1764503553970,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
-main.dart.js,1764503551105,afe96d47c8f6baa21098ac4797dd5f5f6efa4537f79f56843bd87454e5471f89
-canvaskit/skwasm.wasm,1764503335251,7d1e91d0c40948d7ea4e47d38c1ed5a20a4d6653d986c24d28681d4d04d0906a
-canvaskit/chromium/canvaskit.wasm,1764503335132,d27241d7509d064403dad87e4b00d868cb266a6e6e0921bd2850ed8c35d8c012
-canvaskit/skwasm_heavy.wasm,1764503335197,b6eb542d2fa4dc27987365b82caf127b3f6ec995b8cd8f8514ce6944fcfd3302
-canvaskit/canvaskit.wasm,1764503335364,ccccf6dd153229f1fed3a68c72058651634a5d60c361be6e068e990fd6a0aeb5
+version.json,1768446266948,dff0f2c5a0ccdeb4a0f35f1a8bc47694a6c9d5e999d53abd61cb1e3a06e5223d
+manifest.json,1768446269829,c82f5dff5f21559c0abdf114190fb9b58fa0aaf6cb3d653b344245fd873afcdb
+index.html,1768445878342,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
+flutter_service_worker.js,1768446270648,3e19c294be49ed09c32028a65947db726533b35a4a7eaf2e94d632ffbb7c8914
+favicon.png,1768446269828,18f5974cf0a7a778cc393e3cb31725d0a85970c8df2b52688cacce7e4dc99342
+flutter_bootstrap.js,1768445878264,9b10aeb79a9e41bbeb05b087bdea2a1ee1bcccb51318bc565c3848b678d74fa7
+flutter.js,1768445878136,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
+icons/Icon-maskable-192.png,1768446269834,3b3af8b09702ed3f063219466bd9e044dbd2703372b1402f6632920ba9c251de
+icons/Icon-512.png,1768446269832,7fdb40ad7ef7200d89786b1266b41d441eea7872d4bdccaf8a954429aab62c5f
+icons/Icon-192.png,1768446269836,2a485edb60e647cf0496f958c90c1ebdb3b9a82dc44260370b9094842fab3906
+assets/FontManifest.json,1768446267113,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
+assets/AssetManifest.bin.json,1768446267113,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
+assets/AssetManifest.bin,1768446267112,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
+assets/shaders/stretch_effect.frag,1768446267314,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
+assets/shaders/ink_sparkle.frag,1768446267317,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
+assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1768446269809,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
+assets/assets/fonts/RobotoCondensed-Regular.ttf,1768446269787,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/fonts/MaterialIcons-Regular.otf,1768446269817,6a5c69a68220f6a253104032bb0328bb53b94c753b8b3e116606cdd47d840469
+assets/assets/fonts/RobotoCondensed-Bold.ttf,1768446269787,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-SemiBold.ttf,1768446269787,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-Regular.ttf,1768446269787,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+icons/Icon-maskable-512.png,1768446269835,8d3ccbc9307d2a1ede82dddcd23c11d39a00be576296b9358903ee746206cde2
+canvaskit/skwasm_heavy.js,1768445877972,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
+canvaskit/skwasm.js,1768445878035,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
+canvaskit/canvaskit.js,1768445877970,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
+canvaskit/chromium/canvaskit.js,1768445877983,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
+assets/NOTICES,1768446267114,bdc2373ec11824e76b10955533bb472ada0f47763d634da436b1f3e7d1cb22d9
+canvaskit/chromium/canvaskit.js.symbols,1768445878018,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
+canvaskit/canvaskit.js.symbols,1768445878129,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
+canvaskit/skwasm.js.symbols,1768445878028,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
+assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1768446269817,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
+canvaskit/skwasm_heavy.js.symbols,1768445877976,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
+canvaskit/skwasm.wasm,1768445878045,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
+main.dart.js,1768446266934,8b8665bfba7b9e6c8c58c9093a1bf7055dfc188f2af015990a876ddfa66e2e61
+canvaskit/chromium/canvaskit.wasm,1768445877998,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
+canvaskit/skwasm_heavy.wasm,1768445878073,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
+canvaskit/canvaskit.wasm,1768445878103,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
 
 --- END OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 
@@ -2458,7 +2458,7 @@ class _MyAppState extends State<MyApp> {
 // lib/src/config/api_keys.dart
 // IMPORTANT: Add this file to your .gitignore
 // ignore_for_file: constant_identifier_names
-const List<String> geminiApiKeys = ['AIzaSyD8NW3sxZ7tUQflncPHX4nG1yvWDI680I0'];
+const List<String> geminiApiKeys = ['AIzaSyCaEp_4hETZf5tjuVIEukTkHHmhLBBfPs8'];
 
 const String geminiModelName = 'gemini-flash-latest'; // Updated to consistent model name
 
@@ -4528,6 +4528,93 @@ class AppProvider with ChangeNotifier {
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
 
+  // --- Helper for Weekly Report Data Gathering ---
+  Map<String, dynamic> getLast7DaysData() {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final logsBuffer = StringBuffer();
+    final Map<String, int> totalTimePerTask = {};
+
+    // 1. Gather Logs
+    final relevantLogs = _reflectionLogs.where((log) =>
+      log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1)))
+    ).toList();
+
+    for (var log in relevantLogs) {
+      logsBuffer.writeln("- [${DateFormat('yyyy-MM-dd').format(log.timestamp)}] ${log.trigger} -> ${log.emotion} (${log.reason})");
+    }
+
+    // 2. Gather Time Data
+    for (int i = 0; i < 7; i++) {
+      final d = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(d);
+      
+      // Past data
+      if (_completedByDay.containsKey(dateStr)) {
+        final dayData = _completedByDay[dateStr];
+        if (dayData != null && dayData['taskTimes'] != null) {
+          (dayData['taskTimes'] as Map<String, dynamic>).forEach((taskId, seconds) {
+             final task = _mainTasks.firstWhereOrNull((t) => t.id == taskId);
+             if (task != null) {
+               totalTimePerTask[task.name] = (totalTimePerTask[task.name] ?? 0) + (seconds as int);
+             }
+          });
+        }
+      }
+      
+      // Today (Live) if loop hits today
+      if (dateStr == DateFormat('yyyy-MM-dd').format(now)) {
+         for (var task in _mainTasks) {
+           int todaySeconds = 0;
+           for (var sub in task.subTasks) {
+             for (var session in sub.sessions) {
+               if (session.startTime.year == now.year && session.startTime.month == now.month && session.startTime.day == now.day) {
+                 todaySeconds += session.durationSeconds;
+               }
+             }
+           }
+           if (todaySeconds > 0) {
+             // Avoid double counting if today is already in completedByDay (depends on save logic)
+             // For simplicity, we assume completedByDay is updated on save/end of day. 
+             // Ideally we check if we already added it. 
+             // Since loop iterates dates, and completedByDay stores finalized or saved data, 
+             // live data might be separate. Let's merge max for safety or just rely on live calculation logic.
+             // Actually, simplest is to re-calculate from sessions for the last 7 days directly from mainTasks
+             // because completedByDay is a summary.
+           }
+         }
+      }
+    }
+    
+    // Better Approach: Calculate strictly from MainTasks session history for last 7 days
+    // This is more accurate for "active" tasks.
+    totalTimePerTask.clear();
+    for (var task in _mainTasks) {
+      int taskTotal = 0;
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isAfter(sevenDaysAgo) && session.startTime.isBefore(now.add(const Duration(days: 1)))) {
+            taskTotal += session.durationSeconds;
+          }
+        }
+      }
+      if (taskTotal > 0) {
+        totalTimePerTask[task.name] = taskTotal;
+      }
+    }
+
+    final timeBuffer = StringBuffer();
+    totalTimePerTask.forEach((name, seconds) {
+      final hours = (seconds / 3600).toStringAsFixed(1);
+      timeBuffer.writeln("- $name: $hours hrs");
+    });
+
+    return {
+      'logs': logsBuffer.toString(),
+      'times': timeBuffer.toString(),
+    };
+  }
+
   Future<Map<String, int>> processReflection(
       {required String trigger,
       required String emotion,
@@ -5332,6 +5419,70 @@ class ProjectActions {
 
     } catch (e) {
       debugPrint("Error generating steps: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> generateSubstepsForStep(String mainTaskId, String projectId, String stepId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    
+    if (project == null) return;
+
+    // Helper to find step recursively
+    ProjectStep? findStep(List<ProjectStep> steps, String id) {
+      for (var s in steps) {
+        if (s.id == id) return s;
+        final found = findStep(s.substeps, id);
+        if (found != null) return found;
+      }
+      return null;
+    }
+
+    final parentStep = findStep(project.steps, stepId);
+    if (parentStep == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Sub-steps...");
+
+    try {
+      final existingSubstepTitles = parentStep.substeps.map((s) => s.title).toList();
+
+      final newStepsData = await _aiService.generateSubstepsForStep(
+        parentStepTitle: parentStep.title,
+        parentStepDescription: parentStep.description,
+        existingSubsteps: existingSubstepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels, // Use lite for speed
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[SubStepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        // We need to mutate the project structure inside this callback
+        // Finding the step again inside the mutable project copy is safest
+        // but _performStepAction passes a mutable reference.
+        // We can reuse the same find logic.
+        ProjectStep? targetStep = findStep(proj.steps, stepId);
+        
+        if (targetStep != null) {
+          for (var stepData in newStepsData) {
+            targetStep.substeps.add(ProjectStep(
+              id: const Uuid().v4(),
+              title: stepData['title'] ?? 'New Sub-step',
+              description: stepData['description'] ?? '',
+            ));
+          }
+          targetStep.isCompleted = false; // Reset if it was checked
+        }
+      });
+
+    } catch (e) {
+      debugPrint("Error generating substeps: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
@@ -7540,15 +7691,7 @@ class ProjectDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: ValorantButton(
-                    label: "GENERATE STEPS",
-                    onPressed: () => _showAiStepGenerationDialog(context, provider, currentProject),
-                    isPrimary: true,
-                    color: AppTheme.fhAccentPurple,
-                    icon: MdiIcons.creation,
-                  ),
-                ),
+                
               ],
             ),
             
@@ -7647,6 +7790,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
 import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -7883,22 +8027,36 @@ class StepDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: AppTheme.fhTextPrimary),
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => const AddEditStepDialog(),
-                    );
-                    if (!context.mounted) return;
-                    if (result != null) {
-                      provider.projectActions.addSubstep(mainTaskId, projectId,
-                          currentStep.id, result['title']!, result['desc']!);
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add"),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal),
+                Row(
+                  children: [
+                    // AI Generation for Substeps
+                    InkWell(
+                      onTap: () => _showAiSubstepGenerationDialog(context, provider, currentStep),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<Map<String, String>>(
+                          context: context,
+                          builder: (ctx) => const AddEditStepDialog(),
+                        );
+                        if (!context.mounted) return;
+                        if (result != null) {
+                          provider.projectActions.addSubstep(mainTaskId, projectId,
+                              currentStep.id, result['title']!, result['desc']!);
+                        }
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text("Add"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.fhAccentTeal),
+                    ),
+                  ],
                 )
               ],
             ),
@@ -7988,6 +8146,24 @@ class StepDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showAiSubstepGenerationDialog(BuildContext context, AppProvider provider, ProjectStep currentStep) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE SUB-STEPS", 
+        hintText: "E.g., Breakdown into smaller tasks...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateSubstepsForStep(mainTaskId, projectId, currentStep.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
   }
 }
 
@@ -9039,6 +9215,100 @@ class AIService {
             ?.map((s) => s as Map<String, dynamic>)
             .toList() ??
         [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a tactical planner.
+    Parent Task: "$parentStepTitle"
+    Context: "$parentStepDescription"
+    Existing Sub-steps: ${existingSubsteps.join(', ')}
+    
+    User Request: "$userPrompt"
+    
+    Generate 3-5 concrete, actionable sub-steps to complete the parent task.
+    
+    Output strictly JSON matching this structure:
+    {
+      "steps": [
+        {
+          "title": "string",
+          "description": "string (optional short note)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['steps'] as List?)
+            ?.map((s) => s as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are a senior analyst for a covert operative.
+    Analyze the activity logs and time data from the LAST 7 DAYS.
+    
+    LOGS:
+    $logsText
+    
+    TIME STATS:
+    $timeStatsText
+    
+    Generate a "Compact Weekly Report".
+    1. "summary": A concise, tactical summary of the week's performance (max 50 words).
+    2. "improved_abilities": Identify up to 3 user abilities/virtues (e.g., Focus, Discipline, Wisdom, Coding, Health) that improved or were tested this week. 
+       - "name": Name of ability.
+       - "reason": Why it improved.
+       - "score": A pseudo-score increase (1-10) based on effort.
+    3. "time_insight": One specific observation about time allocation (e.g., "Heavy focus on Coding, minimal on Health").
+    
+    Output strictly JSON:
+    {
+      "summary": "string",
+      "improved_abilities": [
+        { "name": "string", "reason": "string", "score": int }
+      ],
+      "time_insight": "string"
+    }
+    """;
+
+    return await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
   }
 
   Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
@@ -13970,6 +14240,154 @@ class _AiGenerationPromptDialogState extends State<AiGenerationPromptDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/ai_generation_prompt_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/ability_improvement_card.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class WeeklyReportDialog extends StatelessWidget {
+  final Map<String, dynamic> reportData;
+
+  const WeeklyReportDialog({super.key, required this.reportData});
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = reportData['summary'] as String? ?? "No summary available.";
+    final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
+    final timeInsight = reportData['time_insight'] as String? ?? "";
+
+    return Dialog(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.5), width: 1.5)
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(MdiIcons.fileChartOutline, color: AppTheme.fhAccentGold, size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "WEEKLY REPORT",
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.fhTextPrimary,
+                        letterSpacing: 1.5
+                      ),
+                    ),
+                  )
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(height: 2, color: AppTheme.fhAccentGold.withOpacity(0.3)),
+              const SizedBox(height: 24),
+              
+              // Summary
+              Text(
+                "TACTICAL SUMMARY",
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                summary,
+                style: const TextStyle(
+                  color: AppTheme.fhTextPrimary,
+                  fontSize: 14,
+                  height: 1.5
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Abilities
+              if (abilities.isNotEmpty) ...[
+                Text(
+                  "ABILITY IMPROVEMENTS",
+                  style: TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...abilities.map((a) {
+                  final map = a as Map<String, dynamic>;
+                  return AbilityImprovementCard(
+                    name: map['name'] ?? 'Skill',
+                    reason: map['reason'] ?? '',
+                    score: map['score'] as int? ?? 1,
+                  );
+                }),
+                const SizedBox(height: 24),
+              ],
+
+              // Time Insight
+              if (timeInsight.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark,
+                    border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3))
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.clockFast, size: 14, color: AppTheme.fhAccentTeal),
+                          const SizedBox(width: 8),
+                          const Text("TEMPORAL ANALYSIS", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        timeInsight,
+                        style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13, fontStyle: FontStyle.italic),
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Close
+              SizedBox(
+                width: double.infinity,
+                child: ValorantButton(
+                  label: "DISMISS",
+                  isPrimary: true,
+                  color: AppTheme.fhAccentGold,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17758,6 +18176,90 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
 }
 --- END OF FILE lib/src/widgets/ui/active_session_timer_display.dart ---
 
+--- START OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class AbilityImprovementCard extends StatelessWidget {
+  final String name;
+  final String reason;
+  final int score;
+
+  const AbilityImprovementCard({
+    super.key,
+    required this.name,
+    required this.reason,
+    required this.score,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark.withOpacity(0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.fhAccentPurple.withOpacity(0.1),
+            ),
+            child: Icon(MdiIcons.starFourPoints, size: 16, color: AppTheme.fhAccentPurple),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      name.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.fhTextPrimary,
+                        fontSize: 14,
+                        letterSpacing: 0.5
+                      ),
+                    ),
+                    Text(
+                      "+$score",
+                      style: const TextStyle(
+                        color: AppTheme.fhAccentGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12
+                      ),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reason,
+                  style: const TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 12,
+                    height: 1.3
+                  ),
+                )
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
+
 --- START OF FILE lib/src/widgets/views/ai_prompts_view.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -18358,6 +18860,7 @@ import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -18375,6 +18878,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedTaskFilter;
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
+  bool _isGeneratingWeeklyReport = false;
 
   @override
   void didChangeDependencies() {
@@ -18488,6 +18992,37 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  Future<void> _generateWeeklyReport(AppProvider provider) async {
+    setState(() => _isGeneratingWeeklyReport = true);
+    try {
+      final data = provider.getLast7DaysData();
+      final aiService = AIService();
+      
+      final result = await aiService.generateWeeklyReport(
+        logsText: data['logs'] as String,
+        timeStatsText: data['times'] as String,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => WeeklyReportDialog(reportData: result),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -18531,6 +19066,21 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
+              TextButton.icon(
+                icon: _isGeneratingWeeklyReport 
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(MdiIcons.fileChartOutline, size: 16),
+                label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
           ChartCarousel(
             height: 250,
             pages: [

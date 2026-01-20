@@ -1,6 +1,10 @@
 Make the following changes:
 
-
+    - Fix compact report:
+        * Sometime the title overflow for improvments and its hard to see the +point part, so make the ability names shorter, a single word or two can be enough
+        * Give it a new and better ui, an animated one
+        * Update prompt: update the prompt in a way the output can be a bit empathetic than a direct robotic analysis, it should be like human
+     
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
