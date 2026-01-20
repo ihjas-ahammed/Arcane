@@ -108,12 +108,16 @@ class TaskActions {
     final newSubtask = SubTask(
       id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
       name: subtaskData['name'] as String,
+      description: subtaskData['description'] as String? ?? '',
       isCountable: subtaskData['isCountable'] as bool? ?? false,
       targetCount: subtaskData['isCountable'] as bool? ?? false
           ? (subtaskData['targetCount'] as int? ?? 1)
           : 0,
       completed: subtaskData['completed'] as bool? ?? false,
       completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
+      isRecurring: subtaskData['isRecurring'] as bool? ?? false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
       subSubTasks:
           (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
                   ?.map((sssData) => SubSubTask(
@@ -155,13 +159,25 @@ class TaskActions {
     if (updates.containsKey('name')) {
       subtaskToUpdate.name = updates['name'] as String;
     }
-    // ... [Other updates] ...
+    if (updates.containsKey('description')) {
+      subtaskToUpdate.description = updates['description'] as String;
+    }
+    if (updates.containsKey('isRecurring')) {
+      subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    }
+    
+    // Always update timestamp on modification
+    subtaskToUpdate.updatedAt = DateTime.now();
+
     if (updates.containsKey('currentTimeSpent')) {
       subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
     }
     if (updates.containsKey('completed')) {
       subtaskToUpdate.completed = updates['completed'] as bool;
-      if (!subtaskToUpdate.completed) subtaskToUpdate.completedDate = null;
+      if (!subtaskToUpdate.completed) {
+        subtaskToUpdate.completedDate = null;
+        subtaskToUpdate.lastCompletedDate = null;
+      }
     }
 
     int timeDifference = 0;
@@ -196,10 +212,11 @@ class TaskActions {
             subTasks: task.subTasks.map((st) {
               if (st.id == subTaskId) {
                 return SubTask(
-                  id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent + durationSeconds,
+                  id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent + durationSeconds,
                   completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
                   currentCount: st.currentCount, subSubTasks: st.subSubTasks,
                   sessions: [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime)),
+                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
                 );
               }
               return st;
@@ -230,10 +247,11 @@ class TaskActions {
             }).toList();
             for (var s in updatedSessions) totalTime += s.durationSeconds;
             return SubTask(
-              id: st.id, name: st.name, completed: st.completed, currentTimeSpent: totalTime,
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
               currentCount: st.currentCount, subSubTasks: st.subSubTasks,
               sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -263,11 +281,12 @@ class TaskActions {
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
             return SubTask(
-              id: st.id, name: st.name, completed: st.completed,
+              id: st.id, name: st.name, description: st.description, completed: st.completed,
               currentTimeSpent: (st.currentTimeSpent - deduction).clamp(0, 999999),
               completedDate: st.completedDate, isCountable: st.isCountable,
               targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
               sessions: st.sessions.where((s) => s.id != sessionId).toList(),
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -338,6 +357,7 @@ class TaskActions {
               return SubTask(
                   id: st.id,
                   name: st.name,
+                  description: st.description,
                   completed: true,
                   completedDate: getTodayDateString(),
                   currentTimeSpent: st.currentTimeSpent,
@@ -345,7 +365,12 @@ class TaskActions {
                   targetCount: st.targetCount,
                   currentCount: st.currentCount,
                   subSubTasks: st.subSubTasks,
-                  sessions: st.sessions);
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
             }
             return st;
           }).toList(),
@@ -381,6 +406,7 @@ class TaskActions {
               return SubTask(
                   id: st.id,
                   name: st.name,
+                  description: st.description,
                   completed: false,
                   completedDate: null,
                   currentTimeSpent: st.currentTimeSpent,
@@ -388,7 +414,12 @@ class TaskActions {
                   targetCount: st.targetCount,
                   currentCount: st.currentCount,
                   subSubTasks: st.subSubTasks,
-                  sessions: st.sessions);
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: null,
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
             }
             return st;
           }).toList(),
@@ -429,12 +460,15 @@ class TaskActions {
 
     final newSubtask = SubTask(
       id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
-      name: subTaskToDuplicate.name, completed: false, currentTimeSpent: 0, completedDate: null,
+      name: subTaskToDuplicate.name, description: subTaskToDuplicate.description, completed: false, currentTimeSpent: 0, completedDate: null,
       isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
       subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
         id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
         name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
       )).toList(), sessions: [],
+      isRecurring: subTaskToDuplicate.isRecurring,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -444,6 +478,7 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // ... [Other methods unchanged]
   void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
     // ... [Implementation unchanged] ...
     final newSubSubtask = SubSubTask(
@@ -458,9 +493,10 @@ class TaskActions {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             return SubTask(
-              id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
               currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -477,10 +513,11 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+            final updatedSub = SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, subSubTasks: st.subSubTasks.map((sss) {
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks.map((sss) {
                 if (sss.id == subSubtaskId) {
                   final updatedSss = SubSubTask(
                     id: sss.id,
@@ -496,7 +533,9 @@ class TaskActions {
                 }
                 return sss;
               }).toList(), sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
+            return updatedSub;
           }
           return st;
         }).toList());
@@ -516,7 +555,7 @@ class TaskActions {
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
-                id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
                 completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
                 currentCount: st.currentCount,
                 subSubTasks: st.subSubTasks.map((sss) {
@@ -540,6 +579,7 @@ class TaskActions {
                   }
                   return sss;
                 }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
               );
             }
             return st;
@@ -573,7 +613,7 @@ class TaskActions {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             return SubTask(
-              id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
               currentCount: st.currentCount,
               subSubTasks: st.subSubTasks.map((sss) {
@@ -585,6 +625,7 @@ class TaskActions {
                 }
                 return sss;
               }).toList(), sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -606,11 +647,12 @@ class TaskActions {
           subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return SubTask(
-                id: st.id, name: st.name, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
                 completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
                 currentCount: st.currentCount,
                 subSubTasks: st.subSubTasks.where((sss) => sss.id != subSubtaskId).toList(),
                 sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
               );
             }
             return st;

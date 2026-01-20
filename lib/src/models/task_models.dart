@@ -152,6 +152,7 @@ class MainTask {
 class SubTask {
   String id;
   String name;
+  String description;
   bool completed;
   int currentTimeSpent;
   String? completedDate;
@@ -159,11 +160,18 @@ class SubTask {
   int targetCount;
   int currentCount;
   List<SubSubTask> subSubTasks;
-  List<TaskSession> sessions; // New field for timeline
+  List<TaskSession> sessions;
+  
+  // Recurring features
+  bool isRecurring;
+  DateTime? lastCompletedDate; // Stores the date of last completion/reset
+  DateTime createdAt;
+  DateTime updatedAt;
 
   SubTask({
     required this.id,
     required this.name,
+    this.description = '',
     this.completed = false,
     this.currentTimeSpent = 0,
     this.completedDate,
@@ -172,19 +180,36 @@ class SubTask {
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
+    this.isRecurring = false,
+    this.lastCompletedDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   })  : subSubTasks = subSubTasks ?? [],
-        sessions = sessions ?? [];
+        sessions = sessions ?? [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(
       id: json['id'] as String,
       name: json['name'] as String,
+      description: json['description'] as String? ?? '',
       completed: json['completed'] as bool? ?? false,
       currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
       completedDate: json['completedDate'] as String?,
       isCountable: json['isCountable'] as bool? ?? false,
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
+      isRecurring: json['isRecurring'] as bool? ?? false,
+      lastCompletedDate: json['lastCompletedDate'] != null 
+          ? DateTime.parse(json['lastCompletedDate'] as String) 
+          : null,
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+          ? DateTime.parse(json['updatedAt'] as String) 
+          : DateTime.now(),
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -202,12 +227,17 @@ class SubTask {
     return {
       'id': id,
       'name': name,
+      'description': description,
       'completed': completed,
       'currentTimeSpent': currentTimeSpent,
       'completedDate': completedDate,
       'isCountable': isCountable,
       'targetCount': targetCount,
       'currentCount': currentCount,
+      'isRecurring': isRecurring,
+      'lastCompletedDate': lastCompletedDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };

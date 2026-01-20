@@ -89,23 +89,34 @@ class SubmissionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    currentSubTask.name.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                      height: 1.1,
-                      decoration: currentSubTask.completed
-                          ? TextDecoration.lineThrough
-                          : null,
-                      color: currentSubTask.completed
-                          ? AppTheme.fhTextDisabled
-                          : AppTheme.fhTextPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          currentSubTask.name.toUpperCase(),
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontDisplay,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            letterSpacing: 0.5,
+                            height: 1.1,
+                            decoration: currentSubTask.completed
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: currentSubTask.completed
+                                ? AppTheme.fhTextDisabled
+                                : AppTheme.fhTextPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (currentSubTask.isRecurring)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6.0),
+                          child: Icon(MdiIcons.syncIcon, size: 14, color: AppTheme.fhAccentTeal),
+                        ),
+                    ],
                   ),
                   if (linkedInfo != null)
                     Padding(

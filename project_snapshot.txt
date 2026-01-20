@@ -1,643 +1,357 @@
---- START OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
+--- START OF FILE project_snapshot_out.txt ---
+
+--- START OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
-import 'package:provider/provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart'; 
 
-class LinkSubmissionSheet extends StatefulWidget {
-  final String? initialMainTaskId;
-  final String? initialProjectId;
-  final String? initialStepId;
+class RecurringCompletedSection extends StatelessWidget {
+  final MainTask parentTask;
+  final List<SubTask> completedSubtasks;
 
-  const LinkSubmissionSheet({
+  const RecurringCompletedSection({
     super.key,
-    this.initialMainTaskId,
-    this.initialProjectId,
-    this.initialStepId,
+    required this.parentTask,
+    required this.completedSubtasks,
   });
 
   @override
-  State<LinkSubmissionSheet> createState() => _LinkSubmissionSheetState();
-}
+  Widget build(BuildContext context) {
+    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
 
-class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
-  String? _selectedMainTaskId;
-  String? _selectedProjectId;
-  String? _selectedStepId;
-  String? _selectedTargetMainTaskId;
-  String? _selectedTargetSubTaskId;
-  String? _selectedTargetCheckpointId;
-  
-  String _mode = 'promote'; 
-  String _targetType = 'subtask';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(MdiIcons.timerSand,
+                color: AppTheme.fhAccentTeal, size: 20),
+            title: Row(
+              children: [
+                Text(
+                  "COOLDOWN",
+                  style: TextStyle(
+                    color: AppTheme.fhAccentTeal,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontDisplay,
+                    letterSpacing: 1.2,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhAccentTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.3)),
+                  ),
+                  child: const Text(
+                    "RESETS 00:00",
+                    style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: completedSubtasks.map((st) {
+              return SubmissionCard(parentTask: parentTask, subTask: st);
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
+
+--- START OF FILE lib/src/widgets/views/task_details_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:arcane/src/widgets/cards/task_header_card.dart';
+import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
+import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class TaskDetailsView extends StatefulWidget {
+  const TaskDetailsView({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    if (widget.initialMainTaskId != null) {
-      _selectedMainTaskId = widget.initialMainTaskId;
-      _selectedProjectId = widget.initialProjectId;
-      _selectedStepId = widget.initialStepId;
-    } else {
-      _selectedMainTaskId = provider.selectedTaskId;
-    }
-    
-    _selectedTargetMainTaskId = provider.selectedTaskId;
-  }
+  State<TaskDetailsView> createState() => _TaskDetailsViewState();
+}
 
-  // Helper to flatten steps for display/selection
-  List<ProjectStep> _getAllSteps(Project project) {
-    List<ProjectStep> all = [];
-    void traverse(List<ProjectStep> steps) {
-      for (var s in steps) {
-        all.add(s);
-        traverse(s.substeps);
-      }
-    }
-    traverse(project.steps);
-    return all;
-  }
+class _TaskDetailsViewState extends State<TaskDetailsView> {
+  String _aiGenerationMode = 'text_list';
+  final _aiUserInputController = TextEditingController();
+  final _aiNumSubquestsController = TextEditingController(text: '3');
+  final _newSubTaskController = TextEditingController();
 
-  // Helper to find step recursively (for execution)
-  ProjectStep? _findStepRecursive(List<ProjectStep> steps, String id) {
-    for (var s in steps) {
-      if (s.id == id) return s;
-      final found = _findStepRecursive(s.substeps, id);
-      if (found != null) return found;
+  void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
+    if (_aiUserInputController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please provide input for the AI."), backgroundColor: AppTheme.fhAccentOrange),
+      );
+      return;
     }
-    return null;
+    appProvider.triggerAISubquestGeneration(
+        task,
+        _aiGenerationMode,
+        _aiUserInputController.text.trim(),
+        int.tryParse(_aiNumSubquestsController.text) ?? 3);
+    _aiUserInputController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    
-    final MainTask? sourceTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedMainTaskId);
-    final projects = sourceTask?.projects ?? [];
-    final selectedProject = projects.firstWhereOrNull((p) => p.id == _selectedProjectId);
-    
-    // Flatten steps if project selected
-    final List<ProjectStep> displaySteps = selectedProject != null ? _getAllSteps(selectedProject) : [];
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final task = appProvider.getSelectedTask();
+        final theme = Theme.of(context);
 
-    final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
-    final List<SubTask> availableSubTasks = targetTask?.subTasks ?? [];
-    
-    List<SubSubTask> availableCheckpoints = [];
-    if (_selectedTargetSubTaskId != null) {
-      final st = availableSubTasks.firstWhereOrNull((s) => s.id == _selectedTargetSubTaskId);
-      if (st != null) availableCheckpoints = st.subSubTasks;
-    }
+        if (task == null) {
+          return const Center(child: Text('NO PROTOCOL SELECTED'));
+        }
 
-    return Container(
-      color: AppTheme.fhBgDeepDark,
-      height: MediaQuery.of(context).size.height * 0.9,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
+        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
+
+        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
+        
+        // Split completed tasks into recurring (cooldown) and archived (one-time)
+        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
+        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("LINK PROTOCOL", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-              const SizedBox(height: 24),
-              
-              // 1. Source Selection (If not fixed)
-              if (widget.initialStepId == null) ...[
-                ValorantDropdown<String>(
-                  label: "SOURCE MISSION",
-                  value: _selectedMainTaskId,
-                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
-                  onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
-                ),
-                const SizedBox(height: 16),
-                if (_selectedMainTaskId != null)
-                  ValorantDropdown<String>(
-                    label: "SOURCE PROJECT",
-                    value: _selectedProjectId,
-                    items: projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title.toUpperCase()))).toList(),
-                    onChanged: (val) => setState(() { _selectedProjectId = val; _selectedStepId = null; }),
-                  ),
-                  
-                const SizedBox(height: 16),
-                if (selectedProject != null) ...[
-                   const Text("SELECT STEP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-                   const SizedBox(height: 8),
-                   Expanded(
-                     flex: 1,
-                     child: Container(
-                       decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                       child: ListView.builder(
-                         itemCount: displaySteps.length,
-                         itemBuilder: (context, index) {
-                           final step = displaySteps[index];
-                           final isSel = _selectedStepId == step.id;
-                           return ListTile(
-                             title: Text(step.title, style: TextStyle(color: isSel ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary)),
-                             selected: isSel,
-                             tileColor: isSel ? AppTheme.fhAccentPurple.withValues(alpha: 0.1) : null,
-                             trailing: isSel ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentPurple, size: 16) : null,
-                             onTap: () => setState(() => _selectedStepId = step.id),
-                           );
-                         },
-                       ),
-                     ),
-                   )
-                ],
-                const SizedBox(height: 24),
-                const Divider(color: Colors.white24),
-                const SizedBox(height: 16),
-              ] else ...[
-                // Fixed Source Display
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
-                  child: Row(
-                    children: [
-                      Icon(MdiIcons.sourceBranch, color: AppTheme.fhAccentPurple),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("LINKING SOURCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                          Text(
-                            _findStepRecursive(selectedProject?.steps ?? [], _selectedStepId ?? '')?.title ?? "Unknown Step", 
-                            style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)
-                          )
-                        ],
-                      ))
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // 2. Action Mode
-              Row(
-                children: [
-                  _buildModeBtn("CREATE NEW", 'promote'),
-                  const SizedBox(width: 16),
-                  _buildModeBtn("LINK EXISTING", 'link'),
-                ],
+              TaskHeaderCard(
+                task: task,
+                yesterdayTime: yesterdayTime,
+                weeklyCompletion: weeklyCompletion,
               ),
-              
-              const SizedBox(height: 16),
-              
-              if (_mode == 'link') ...[
-                 ValorantDropdown<String>(
-                  label: "TARGET MISSION",
-                  value: _selectedTargetMainTaskId,
-                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
-                  onChanged: (val) => setState(() { _selectedTargetMainTaskId = val; _selectedTargetSubTaskId = null; _selectedTargetCheckpointId = null; }),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                child: Row(
+                  children: [
+                    Container(width: 4, height: 16, color: task.taskColor),
+                    const SizedBox(width: 8),
+                    Text('ACTIVE SUB-MISSIONS',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                            fontFamily: AppTheme.fontDisplay,
+                            color: AppTheme.fhTextPrimary,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0
+                        )),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                if (_selectedTargetMainTaskId != null)
-                  ValorantDropdown<String>(
-                    label: "TARGET SUB-MISSION",
-                    value: _selectedTargetSubTaskId,
-                    items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
-                    onChanged: (val) => setState(() { _selectedTargetSubTaskId = val; _selectedTargetCheckpointId = null; }),
-                  ),
-                
-                if (_selectedTargetSubTaskId != null && availableCheckpoints.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Row(children: [
-                    Checkbox(
-                      value: _targetType == 'checkpoint',
-                      activeColor: AppTheme.fhAccentPurple,
-                      onChanged: (val) => setState(() { 
-                        _targetType = val == true ? 'checkpoint' : 'subtask';
-                        if (_targetType == 'subtask') _selectedTargetCheckpointId = null;
-                      }),
-                    ),
-                    const Text("Link to Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary)),
-                  ]),
-                  if (_targetType == 'checkpoint')
-                    ValorantDropdown<String>(
-                      label: "TARGET CHECKPOINT",
-                      value: _selectedTargetCheckpointId,
-                      items: availableCheckpoints.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                      onChanged: (val) => setState(() => _selectedTargetCheckpointId = val),
-                    ),
-                ]
-              ],
+              ),
 
-              const Spacer(),
-              
-              Row(
-                children: [
-                  Expanded(child: ValorantButton(label: "CANCEL", isPrimary: false, onPressed: () => Navigator.pop(context))),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ValorantButton(
-                      label: "EXECUTE",
-                      isPrimary: true,
-                      onPressed: () {
-                        if (_selectedProjectId != null && _selectedStepId != null && selectedProject != null) {
-                          // Recursive find to handle substeps
-                          final step = _findStepRecursive(selectedProject.steps, _selectedStepId!);
-                          
-                          if (step == null) {
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Step not found.")));
-                             return;
-                          }
-                          
-                          if (_mode == 'promote') {
-                            provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
-                          } else {
-                            if (_selectedTargetMainTaskId != null && _selectedTargetSubTaskId != null) {
-                              final targetId = _targetType == 'checkpoint' ? _selectedTargetCheckpointId : _selectedTargetSubTaskId;
-                              
-                              if (targetId == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a target.")));
-                                return;
-                              }
-
-                              provider.projectActions.linkStepToTask(
-                                _selectedMainTaskId!, 
-                                _selectedProjectId!, 
-                                _selectedStepId!, 
-                                targetId, 
-                                _targetType, 
-                                _selectedTargetMainTaskId!
-                              );
-                            } else {
-                              return;
-                            }
-                          }
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link Established.")));
-                        }
-                      },
-                    ),
+              if (activeSubtasks.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                    color: AppTheme.fhBgDark.withOpacity(0.3)
                   ),
-                ],
-              )
+                  child: const Text(
+                      'ALL SUB-MISSIONS COMPLETED.\nLOG NEW ACTIVITY BELOW.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                  ),
+                )
+              else
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: activeSubtasks.length,
+                  onReorder: (oldIndex, newIndex) {
+                    appProvider.reorderSubtasks(task.id, oldIndex, newIndex);
+                  },
+                  itemBuilder: (ctx, index) {
+                    final st = activeSubtasks[index];
+                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
+                  },
+                ),
+
+              // Recurring Completed Section
+              RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
+
+              // Archived (One-time) Section
+              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
+
+              _buildAddNewSubTaskButton(context, appProvider, task),
+              _buildAISubQuestCard(theme, appProvider, task),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildModeBtn(String label, String mode) {
-    final isSelected = _mode == mode;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _mode = mode),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.fhAccentPurple.withValues(alpha: 0.2) : Colors.transparent, 
-            border: Border.all(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhBorderColor),
-          ),
-          alignment: Alignment.center,
-          child: Text(label, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
-
---- START OF FILE lib/src/screens/step_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
-import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
-import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class StepDetailScreen extends StatelessWidget {
-  final ProjectStep step;
-  final String mainTaskId;
-  final String projectId;
-  final String stepNumber;
-
-  const StepDetailScreen({
-    super.key,
-    required this.step,
-    required this.mainTaskId,
-    required this.projectId,
-    required this.stepNumber,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<AppProvider>(context);
-
-    // Re-fetch the step from provider to ensure reactivity
-    ProjectStep currentStep = step;
-    try {
-      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-      final project = task.projects.firstWhere((p) => p.id == projectId);
-
-      // Recursive finder
-      ProjectStep? findStep(List<ProjectStep> list) {
-        for (var s in list) {
-          if (s.id == step.id) return s;
-          var found = findStep(s.substeps);
-          if (found != null) return found;
-        }
-        return null;
-      }
-
-      var found = findStep(project.steps);
-      if (found != null) currentStep = found;
-    } catch (e) {
-      // Fallback
-    }
-
-    final double progress = currentStep.calculateProgress();
-    final int percentage = (progress * 100).toInt();
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
-        actions: [
-          // Removed the broken Link Button
-          IconButton(
-            icon: Icon(MdiIcons.pencilOutline, size: 20),
-            onPressed: () async {
-              final result = await showDialog<Map<String, String>>(
-                context: context,
-                builder: (ctx) => AddEditStepDialog(
-                  initialTitle: currentStep.title,
-                  initialDescription: currentStep.description,
-                  isEditing: true,
-                ),
-              );
-              if (!context.mounted) return;
-              if (result != null) {
-                final updated = currentStep
-                  ..title = result['title']!
-                  ..description = result['desc']!;
-                provider.projectActions
-                    .updateStep(mainTaskId, projectId, updated);
+  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _newSubTaskController,
+            decoration: const InputDecoration(
+              hintText: "NEW SUB-MISSION TITLE...",
+              hintStyle: TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary),
+              filled: true,
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            style: const TextStyle(fontSize: 14, color: AppTheme.fhTextPrimary),
+            onSubmitted: (value) {
+              if (value.trim().isNotEmpty) {
+                provider.addSubtask(task.id, {'name': value.trim(), 'isCountable': false});
+                _newSubTaskController.clear();
               }
             },
           ),
-          IconButton(
-            icon: Icon(MdiIcons.deleteOutline,
-                size: 20, color: AppTheme.fhAccentRed),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: Icon(MdiIcons.plus, size: 18),
+            label: const Text("ADD OBJECTIVE"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.fhBgDark,
+                foregroundColor: AppTheme.fhAccentTeal,
+                minimumSize: const Size(double.infinity, 44),
+                shape: const BeveledRectangleBorder(),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
             onPressed: () {
-              // Confirm Delete
-              showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                        backgroundColor: AppTheme.fhBgMedium,
-                        title: const Text("Delete Step?",
-                            style: TextStyle(color: AppTheme.fhTextPrimary)),
-                        content: const Text(
-                            "This will delete this step and all its sub-steps."),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text("Cancel")),
-                          ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.fhAccentRed),
-                              onPressed: () {
-                                provider.projectActions.deleteStep(
-                                    mainTaskId, projectId, currentStep.id);
-                                Navigator.pop(ctx); // Close dialog
-                                Navigator.pop(context); // Close screen
-                              },
-                              child: const Text("Delete"))
-                        ],
-                      ));
+              if (_newSubTaskController.text.trim().isNotEmpty) {
+                provider.addSubtask(task.id, {
+                  'name': _newSubTaskController.text.trim(),
+                  'isCountable': false
+                });
+                _newSubTaskController.clear();
+              }
             },
-          )
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    );
+  }
+
+  Widget _buildAISubQuestCard(ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
+    return Card(
+      color: AppTheme.fhBgDark.withOpacity(0.5),
+      margin: const EdgeInsets.only(top: 24),
+      shape: const BeveledRectangleBorder(
+        side: BorderSide(color: AppTheme.fhAccentPurple, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Info
-            Text(
-              currentStep.title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextPrimary,
-              ),
-            ),
-            if (currentStep.description.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                currentStep.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.fhTextSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            // Progress Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Step Progress",
-                          style: TextStyle(color: AppTheme.fhTextSecondary)),
-                      Text("$percentage%",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.fhAccentTeal,
-                              fontSize: 18)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 10,
-                      backgroundColor: AppTheme.fhBgDeepDark,
-                      color: AppTheme.fhAccentTeal,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Substeps List
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Sub-steps",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.fhTextPrimary),
-                ),
-                Row(
-                  children: [
-                    // AI Generation for Substeps
-                    InkWell(
-                      onTap: () => _showAiSubstepGenerationDialog(context, provider, currentStep),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
-                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final result = await showDialog<Map<String, String>>(
-                          context: context,
-                          builder: (ctx) => const AddEditStepDialog(),
-                        );
-                        if (!context.mounted) return;
-                        if (result != null) {
-                          provider.projectActions.addSubstep(mainTaskId, projectId,
-                              currentStep.id, result['title']!, result['desc']!);
-                        }
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text("Add"),
-                      style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.fhAccentTeal),
-                    ),
-                  ],
-                )
+                Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 20),
+                const SizedBox(width: 10),
+                const Text('AI GENERATION PROTOCOL',
+                    style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        fontSize: 14
+                    )),
               ],
             ),
-            const SizedBox(height: 12),
-
-            if (currentStep.substeps.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                    color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(style: BorderStyle.none)),
-                child: Column(
-                  children: [
-                    Icon(MdiIcons.fileTreeOutline,
-                        size: 32,
-                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 8),
-                    const Text("No sub-steps yet.",
-                        style: TextStyle(color: AppTheme.fhTextSecondary)),
-                    const SizedBox(height: 4),
-                    const Text(
-                        "Break this step down further or mark it as complete.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: AppTheme.fhTextDisabled, fontSize: 12)),
-                  ],
-                ),
-              )
-            else
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: currentStep.substeps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
-                      currentStep.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final substep = currentStep.substeps[index];
-                  final displayPrefix = "$stepNumber.${index + 1}";
-
-                  return KeyedSubtree(
-                    key: ValueKey(substep.id),
-                    child: ProjectStepListTile(
-                      step: substep,
-                      mainTaskId: mainTaskId,
-                      projectId: projectId,
-                      indexPrefix: displayPrefix,
-                    ),
-                  );
-                },
+            const SizedBox(height: 16),
+            TextField(
+              controller: _aiUserInputController,
+              decoration: const InputDecoration(
+                labelText: 'INPUT PARAMETERS',
+                labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0),
+                hintText: "e.g. 'Read chapters 1-3 of Design Patterns'",
+                hintStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                filled: true,
+                border: OutlineInputBorder(),
               ),
-
-            // Manual Completion Toggle (Only if leaf node)
-            if (currentStep.substeps.isEmpty && currentStep.linkedTaskId == null) ...[
-              const SizedBox(height: 30),
-              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                title: const Text("Mark as Complete",
-                    style: TextStyle(color: AppTheme.fhTextPrimary)),
-                subtitle: const Text(
-                    "Toggle completion status.",
-                    style: TextStyle(fontSize: 12)),
-                value: currentStep.isCompleted,
-                activeThumbColor: AppTheme.fhAccentGreen,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (val) {
-                  final updated = currentStep..isCompleted = val;
-                  provider.projectActions
-                      .updateStep(mainTaskId, projectId, updated);
-                },
-              )
-            ]
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                        labelText: 'MODE',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    dropdownColor: AppTheme.fhBgMedium,
+                    value: _aiGenerationMode,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
+                    items: const [
+                      DropdownMenuItem(value: 'text_list', child: Text('List')),
+                      DropdownMenuItem(value: 'book_chapter', child: Text('Chapter')),
+                      DropdownMenuItem(value: 'general_plan', child: Text('General')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _aiGenerationMode = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: _aiNumSubquestsController,
+                    decoration: const InputDecoration(
+                        labelText: 'COUNT',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
+                    ),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: appProviderConsumer.isGeneratingSubquests
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(MdiIcons.check, size: 16),
+              label: Text(appProviderConsumer.isGeneratingSubquests ? 'PROCESSING...' : 'EXECUTE'),
+              onPressed: appProviderConsumer.isGeneratingSubquests
+                  ? null
+                  : () => _handleAiGenerateSubquests(appProviderConsumer, task),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.fhAccentPurple,
+                  foregroundColor: Colors.white,
+                  shape: const BeveledRectangleBorder(),
+                  minimumSize: const Size(double.infinity, 40)),
+            ),
           ],
         ),
       ),
     );
   }
-
-  void _showAiSubstepGenerationDialog(BuildContext context, AppProvider provider, ProjectStep currentStep) async {
-    final prompt = await showDialog<String>(
-      context: context,
-      builder: (context) => const AiGenerationPromptDialog(
-        title: "GENERATE SUB-STEPS", 
-        hintText: "E.g., Breakdown into smaller tasks...", 
-        actionLabel: "GENERATE"
-      ),
-    );
-
-    if (prompt != null && prompt.isNotEmpty) {
-      provider.projectActions.generateSubstepsForStep(mainTaskId, projectId, currentStep.id, prompt);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
-      }
-    }
-  }
 }
---- END OF FILE lib/src/screens/step_detail_screen.dart ---
+--- END OF FILE lib/src/widgets/views/task_details_view.dart ---
+
+--- END OF FILE project_snapshot_out.txt ---

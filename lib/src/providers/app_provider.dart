@@ -776,6 +776,8 @@ class AppProvider with ChangeNotifier {
     if (_currentUser == null) return;
     final today = helper.getTodayDateString();
     bool hasResetRun = false;
+    
+    // Check for daily login update
     if (_lastLoginDate != today) {
       hasResetRun = true;
       _lastLoginDate = today;
@@ -785,10 +787,57 @@ class AppProvider with ChangeNotifier {
       }
       _markDirty('tasks'); // tasks changed
     }
+
+    // --- Recurring Task Reset Logic ---
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    
+    bool tasksChanged = false;
+    for (var mainTask in _mainTasks) {
+      for (var subTask in mainTask.subTasks) {
+        if (subTask.isRecurring) {
+          // Check if last completion was before today
+          if (subTask.lastCompletedDate != null && 
+              subTask.lastCompletedDate!.isBefore(todayMidnight)) {
+            
+            if (subTask.completed) {
+              subTask.completed = false;
+              subTask.completedDate = null;
+              tasksChanged = true;
+            }
+            
+            if (subTask.isCountable && subTask.currentCount > 0) {
+              subTask.currentCount = 0;
+              tasksChanged = true;
+            }
+
+            // Also reset child checkpoints
+            for (var checkpoint in subTask.subSubTasks) {
+              if (checkpoint.completed) {
+                checkpoint.completed = false;
+                checkpoint.completionTimestamp = null;
+                tasksChanged = true;
+              }
+              if (checkpoint.isCountable && checkpoint.currentCount > 0) {
+                checkpoint.currentCount = 0;
+                tasksChanged = true;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (tasksChanged) {
+      _markDirty('tasks');
+    }
+
     if (hasResetRun) {
       _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
       _getCompletedGoalsForChatbotMemory();
       setProviderState(chatbotMemory: _chatbotMemory, doNotify: false);
+      notifyListeners();
+    } else if (tasksChanged) {
       notifyListeners();
     }
   }

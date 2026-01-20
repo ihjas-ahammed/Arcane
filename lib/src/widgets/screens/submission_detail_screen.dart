@@ -5,7 +5,8 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
+import 'package:arcane/src/widgets/cards/task_info_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
@@ -86,14 +87,18 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   }
 
   Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask textSubTask) async {
-    final String? newName = await showDialog<String>(
+      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
+      builder: (context) => SubtaskConfigDialog(
+        initialName: liveSubTask.name,
+        initialDescription: liveSubTask.description,
+        isRecurring: liveSubTask.isRecurring,
+      ),
     );
-    if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
+    if (result != null) {
       provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, {'name': newName});
+          widget.parentTask.id, widget.subTask.id, result);
     }
   }
 
@@ -265,7 +270,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         IconButton(
                           icon: Icon(MdiIcons.pencilOutline,
                               color: Colors.white70),
-                          tooltip: "Edit Title",
+                          tooltip: "Configure Task",
                           onPressed: () => _handleEditSubtask(
                               context, provider, liveSubTask),
                         ),
@@ -358,6 +363,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           },
                         ),
                       ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  
+                  // Info Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: TaskInfoCard(
+                      description: liveSubTask.description,
+                      isRecurring: liveSubTask.isRecurring,
+                      createdAt: liveSubTask.createdAt,
+                      updatedAt: liveSubTask.updatedAt,
                     ),
                   ),
 

@@ -1,11 +1,8 @@
 Make the following changes:
 
-    - Project update:
-        We need to make a good connection from peojet and their tasks, also needs to show more info about a project and stats
-        
-        * Connect the linking, like when I like the project step to a subtask or checkpoint, and checked it on the task or project, as they are connected the other one also should be checked, also give an indicator to linked tasks. checkpoints and steps, and also option to unlink them without deleting
-        * Show progress, show progress updates in a graph like timespend and progress on the top level of progress, the time spend is calcualted through linked tasks
-        * Show more info like creation dat and total time spend and also completion date for each step or project
+    - Tasks update:
+        * Support recurring tasks: Make it possible to convert any subtask to recurring, so that their chec option will only say, completed for today and resets after 12 am, also for their checkpoints checks will reset after 12 am
+        * Add more details like make it possible I can add decsription to any tas, also add creation date and last upadte date of each tasks and show them
      
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

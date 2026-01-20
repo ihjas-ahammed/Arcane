@@ -5,6 +5,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:arcane/src/widgets/cards/task_header_card.dart';
 import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
+import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -51,7 +52,10 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
 
         final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
-        final completedSubtasks = task.subTasks.where((st) => st.completed).toList();
+        
+        // Split completed tasks into recurring (cooldown) and archived (one-time)
+        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
+        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
 
         return SingleChildScrollView(
           padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
@@ -109,7 +113,11 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   },
                 ),
 
-              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedSubtasks),
+              // Recurring Completed Section
+              RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
+
+              // Archived (One-time) Section
+              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
 
               _buildAddNewSubTaskButton(context, appProvider, task),
               _buildAISubQuestCard(theme, appProvider, task),
@@ -120,7 +128,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 
-  // ... [Keep _buildAddNewSubTaskButton and _buildAISubQuestCard unchanged]
   Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
     return Padding(
       padding: const EdgeInsets.only(top: 24.0),
