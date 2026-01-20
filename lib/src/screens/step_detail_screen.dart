@@ -4,7 +4,6 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
-import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -64,55 +63,7 @@ class StepDetailScreen extends StatelessWidget {
         ),
         title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
         actions: [
-          IconButton(
-            tooltip: "Link to Submission",
-            icon: Icon(MdiIcons.linkVariant, size: 20),
-            onPressed: () async {
-              // 1. Find the MainTask
-              try {
-                final task =
-                    provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-                
-                // Filter for incomplete subtasks
-                final incompleteSubtasks = task.subTasks.where((s) => !s.completed).toList();
-
-                // 2. Show Dialog
-                final result = await showDialog<Map<String, dynamic>>(
-                  context: context,
-                  builder: (ctx) => LinkSubmissionDialog(
-                    initialName: currentStep.title,
-                    availableSubmissions: incompleteSubtasks,
-                  ),
-                );
-
-                if (!context.mounted) return;
-                if (result != null) {
-                  final String name = result['name'];
-                  final String type = result['type'];
-
-                  if (type == 'submission') {
-                    provider.addSubtask(mainTaskId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Sub-Mission: $name")));
-                  } else if (type == 'checkpoint') {
-                    final String parentId = result['parentId'];
-                    provider.addSubSubtask(mainTaskId, parentId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Checkpoint: $name")));
-                  }
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text("Error linking: $e")));
-              }
-            },
-          ),
+          // Removed the broken Link Button
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
             onPressed: () async {
@@ -321,7 +272,6 @@ class StepDetailScreen extends StatelessWidget {
                 },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
-                  // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
 
                   return KeyedSubtree(
@@ -337,7 +287,7 @@ class StepDetailScreen extends StatelessWidget {
               ),
 
             // Manual Completion Toggle (Only if leaf node)
-            if (currentStep.substeps.isEmpty) ...[
+            if (currentStep.substeps.isEmpty && currentStep.linkedTaskId == null) ...[
               const SizedBox(height: 30),
               Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
               const SizedBox(height: 10),
@@ -345,7 +295,7 @@ class StepDetailScreen extends StatelessWidget {
                 title: const Text("Mark as Complete",
                     style: TextStyle(color: AppTheme.fhTextPrimary)),
                 subtitle: const Text(
-                    "This step has no sub-steps, so you can toggle it directly.",
+                    "Toggle completion status.",
                     style: TextStyle(fontSize: 12)),
                 value: currentStep.isCompleted,
                 activeThumbColor: AppTheme.fhAccentGreen,

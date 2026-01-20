@@ -1,1000 +1,643 @@
---- START OF FILE lib/src/services/ai_service.dart ---
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
+--- START OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart'; 
 
-class AIService {
-  // Helper to clean markdown from JSON response
-  String _cleanJsonString(String raw) {
-    String jsonString = raw.trim();
-    int jsonStart = jsonString.indexOf('{');
-    int jsonEnd = jsonString.lastIndexOf('}');
+class LinkSubmissionSheet extends StatefulWidget {
+  final String? initialMainTaskId;
+  final String? initialProjectId;
+  final String? initialStepId;
 
-    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
-      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
-    }
+  const LinkSubmissionSheet({
+    super.key,
+    this.initialMainTaskId,
+    this.initialProjectId,
+    this.initialStepId,
+  });
 
-    // Remove markdown code blocks if present inside the substring or outside
-    if (jsonString.startsWith("```json")) {
-      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
-    } else if (jsonString.startsWith("```")) {
-      jsonString = jsonString.replaceAll("```", "");
-    }
-
-    return jsonString.trim();
-  }
-
-  Future<T> _executeWithModelAndKeyRotation<T>({
-    required List<String> modelCandidates,
-    required Future<T> Function(String apiKey, String modelName) requestFn,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    // 1. Prioritize Inbuild Keys, then Custom Keys
-    final List<String> apiKeysToTry = [
-      ...geminiApiKeys,
-      if (customApiKeys != null) ...customApiKeys
-    ].toSet().toList(); // Remove duplicates
-
-    if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
-    }
-
-    for (final model in modelCandidates) {
-      for (int i = 0; i < apiKeysToTry.length; i++) {
-        // Simple rotation strategy: start from current index
-        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-        String effectiveKey = apiKeysToTry[effectiveIndex];
-
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
-
-        try {
-          if (kDebugMode) {
-            onLog("Trying Model: $model with Key Index: $effectiveIndex");
-          }
-          final result = await requestFn(effectiveKey, model);
-          // Update the index so next call starts here (load balancing/avoid dead keys)
-          onNewApiKeyIndex(effectiveIndex);
-          return result;
-        } catch (e) {
-          onLog(
-              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-        }
-      }
-    }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
-  }
-
-  Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response =
-            await model.generateContent([genai.Content.text(prompt)]);
-
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
-        }
-        try {
-          String jsonString = _cleanJsonString(rawResponseText);
-          return jsonDecode(jsonString);
-        } catch (e) {
-          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
-          throw Exception("Failed to parse JSON from AI response.");
-        }
-      },
-    );
-  }
-
-  // --- New Generation Methods ---
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are a project manager AI assistant.
-    Project: "$projectTitle"
-    Description: "$projectDescription"
-    Existing Steps: ${existingSteps.join(', ')}
-    
-    User Request: "$userPrompt"
-    
-    Generate 3-5 new, actionable steps for this project based on the user request.
-    Structure:
-    - Title
-    - Description
-    
-    Output strictly JSON matching this structure:
-    {
-      "steps": [
-        {
-          "title": "string",
-          "description": "string"
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-
-    return (result['steps'] as List?)
-            ?.map((s) => s as Map<String, dynamic>)
-            .toList() ??
-        [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
-    required String parentStepTitle,
-    required String parentStepDescription,
-    required List<String> existingSubsteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are a tactical planner.
-    Parent Task: "$parentStepTitle"
-    Context: "$parentStepDescription"
-    Existing Sub-steps: ${existingSubsteps.join(', ')}
-    
-    User Request: "$userPrompt"
-    
-    Generate 3-5 concrete, actionable sub-steps to complete the parent task.
-    
-    Output strictly JSON matching this structure:
-    {
-      "steps": [
-        {
-          "title": "string",
-          "description": "string (optional short note)"
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-
-    return (result['steps'] as List?)
-            ?.map((s) => s as Map<String, dynamic>)
-            .toList() ??
-        [];
-  }
-
-  Future<Map<String, dynamic>> generateWeeklyReport({
-    required String logsText,
-    required String timeStatsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are a wise and empathetic tactical mentor (like a seasoned commander who cares about their squad).
-    Analyze the activity logs and time data from the LAST 7 DAYS.
-    
-    LOGS:
-    $logsText
-    
-    TIME STATS:
-    $timeStatsText
-    
-    Generate a "Weekly Debrief".
-    1. "summary": A concise, human-like summary of the week. Be encouraging, acknowledge struggle, and highlight victory. Avoid robotic phrasing. (Max 60 words).
-    2. "improved_abilities": Identify up to 3 user abilities/virtues that improved. 
-       - "name": VERY SHORT TITLE (1-2 Words Max, e.g., "Resilience", "Coding", "Focus").
-       - "reason": Brief context on why.
-       - "score": A score increase (1-10) based on effort.
-    3. "time_insight": One specific, thoughtful observation about how they spent their time.
-    
-    Output strictly JSON:
-    {
-      "summary": "string",
-      "improved_abilities": [
-        { "name": "string", "reason": "string", "score": int }
-      ],
-      "time_insight": "string"
-    }
-    """;
-
-    return await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-  }
-
-  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
-    required String subtaskName,
-    required String parentTaskName,
-    required List<String> existingCheckpoints,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are a tactical assistant.
-    Mission: "$parentTaskName"
-    Sub-Mission: "$subtaskName"
-    Existing Objectives: ${existingCheckpoints.join(', ')}
-    
-    User Request: "$userPrompt"
-    
-    Generate 3-5 concrete, checkable objectives (checkpoints) for this sub-mission.
-    
-    Output strictly JSON matching this structure:
-    {
-      "checkpoints": [
-        {
-          "name": "string (short actionable title)"
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-
-    return (result['checkpoints'] as List?)
-            ?.map((c) => c as Map<String, dynamic>)
-            .toList() ??
-        [];
-  }
-
-  // --- Value Analysis ---
-  Future<Map<String, dynamic>> analyzeValueAlignment({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final buffer = StringBuffer();
-    for (var qa in questionsAndAnswers) {
-      buffer.writeln("Q: ${qa['question']}");
-      buffer.writeln("A: ${qa['answer']}");
-      buffer.writeln("");
-    }
-
-    final prompt = """
-    You are a life coach analyzing a user's alignment with their personal value: "$valueName".
-    
-    Here are their answers to reflective questions:
-    ${buffer.toString()}
-    
-    Task 1: Rate the clarity and depth of their definition of this value on a scale of 0 to 100.
-    - 0 means they have no clear idea or haven't answered.
-    - 100 means they have a crystal clear, actionable, and profound understanding of what this value means to them.
-    
-    Task 2: Provide a brief, actionable insight or encouragement based on their answers (max 2 sentences).
-    
-    Output strictly JSON:
-    {
-      "score": int,
-      "insight": "string"
-    }
-    """;
-
-    return await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValues({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final buffer = StringBuffer();
-    for (var qa in questionsAndAnswers) {
-      buffer.writeln("Q: ${qa['question']}");
-      buffer.writeln("A: ${qa['answer']}");
-      buffer.writeln("");
-    }
-
-    final prompt = """
-    Based on the user's definition of the value "$valueName", suggest 3-5 actionable tasks or 'sub-missions' they can do to embody this value.
-    
-    User's Answers:
-    ${buffer.toString()}
-    
-    Output strictly JSON with this structure:
-    {
-      "tasks": [
-        {
-          "name": "string (short actionable title)",
-          "isCountable": boolean (true if it's something like 'Read 10 pages', false if it's 'Call Mom'),
-          "targetCount": number (0 if not countable, otherwise e.g. 10)
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-
-    return (result['tasks'] as List?)
-            ?.map((t) => t as Map<String, dynamic>)
-            .toList() ??
-        [];
-  }
-
-  // --- Existing Methods ---
-
-  Future<Map<String, dynamic>> evaluateReflection({
-    required String trigger,
-    required String emotion,
-    required String reason,
-    required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-  }) async {
-    final String baseSystemPrompt = systemInstruction ??
-        """
-    You are a wise mentor. A user has submitted a reflection log.
-    Analyze this and provide a short, insightful, empathetic, and actionable textual feedback (max 3 sentences).
-    Determine a total XP score between 20 and 100 based on the depth, honesty, and effort of the reflection. 
-    Distribute this total XP amount among these 6 virtues: Wisdom, Courage, Humanity, Justice, Temperance, Transcendence.
-    """;
-
-    String contextStr = "";
-    if (dailyReflections != null && dailyReflections.isNotEmpty) {
-      contextStr = "PREVIOUS REFLECTIONS TODAY:\n";
-      for (var r in dailyReflections) {
-        contextStr +=
-            "- Trigger: ${r['trigger']}, Emotion: ${r['emotion']}, Reason: ${r['reason']}\n";
-      }
-      contextStr +=
-          "\nConsidering the context of today's events above, analyze the NEW REFLECTION below:\n";
-    }
-
-    final prompt = """
-    $baseSystemPrompt
-
-    $contextStr
-    NEW REFLECTION DATA:
-    1. What happened: "$trigger"
-    2. Emotion felt: "$emotion"
-    3. Why: "$reason"
-
-    Output strictly JSON:
-    {
-      "feedback": "string",
-      "xp_allocation": {
-        "Wisdom": int,
-        "Courage": int,
-        "Humanity": int,
-        "Justice": int,
-        "Temperance": int,
-        "Transcendence": int
-      }
-    }
-    """;
-
-    return await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: 0,
-      onNewApiKeyIndex: (_) {},
-      onLog: (_) {},
-    );
-  }
-
-  Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates,
-    required String mainTaskName,
-    required String mainTaskDescription,
-    String? mainTaskTheme,
-    required String generationMode,
-    required String userInput,
-    required int numSubquests,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-You are an assistant for a gamified task management app.
-Main quest: "$mainTaskName" (Description: "$mainTaskDescription", Theme: "${mainTaskTheme ?? 'General'}").
-AI generation mode: "$generationMode".
-User Input: "$userInput"
-
-Break this down into approximately $numSubquests actionable sub-quests.
-Provide the output as a single, valid JSON object with one key: "newSubquests".
-"newSubquests" should be an array of sub-quest objects. Each sub-quest object MUST have:
-- name: string
-- isCountable: boolean
-- targetCount: number
-- subSubTasksData: array of objects { name, isCountable, targetCount }
-
-Return ONLY the JSON object.
-""";
-
-    final rawData = await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-
-    return (rawData['newSubquests'] as List?)
-            ?.map((sq) => sq as Map<String, dynamic>)
-            .toList() ??
-        [];
-  }
-
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are a project manager AI. Create a detailed project structure based on this prompt: "$userPrompt".
-    
-    Structure:
-    - Project Title
-    - Description
-    - Steps (Recursive: steps can have substeps).
-    
-    Output strictly JSON matching this structure:
-    {
-      "title": "string",
-      "description": "string",
-      "steps": [
-        {
-          "title": "string",
-          "description": "string",
-          "substeps": [ ...recursive... ] 
-        }
-      ]
-    }
-    """;
-
-    return await makeAICall(
-      prompt: prompt,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-  }
-
-  Future<String> generateDailySummary({
-    required List<Map<String, String>> reflections,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    if (reflections.isEmpty) return "No reflections recorded for this day.";
-
-    final StringBuffer reflectionsText = StringBuffer();
-    for (int i = 0; i < reflections.length; i++) {
-      reflectionsText.writeln("Entry ${i + 1}:");
-      reflectionsText.writeln("  - Trigger: ${reflections[i]['trigger']}");
-      reflectionsText.writeln("  - Emotion: ${reflections[i]['emotion']}");
-      reflectionsText.writeln("  - Reason: ${reflections[i]['reason']}");
-      reflectionsText.writeln("");
-    }
-
-    final prompt = """
-    You are a wise mentor.
-    
-    Here are the user's reflection logs for today:
-    $reflectionsText
-    
-    Based on these entries, provide a concise, insightful daily summary (max 100 words).
-    Highlight the key emotional themes, acknowledge any progress in stoic virtues, and offer one clear, actionable thought for tomorrow.
-    Note: Never use markdown and any type of formatting
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-        currentApiKeyIndex: currentApiKeyIndex,
-        customApiKeys: customApiKeys,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog,
-        modelCandidates: modelCandidates,
-        requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response =
-              await model.generateContent([genai.Content.text(prompt)]);
-          return response.text ?? "Unable to generate summary.";
-        });
-  }
-
-  Future<String> getChatbotResponse({
-    required List<String> modelCandidates,
-    required ChatbotMemory memory,
-    required String userMessage,
-    required String dataContext,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    String historyStr = "";
-    final recentHistory = memory.conversationHistory.length > 10
-        ? memory.conversationHistory
-            .sublist(memory.conversationHistory.length - 10)
-        : memory.conversationHistory;
-
-    for (var msg in recentHistory) {
-      historyStr += "${msg.sender.name.toUpperCase()}: ${msg.text}\n";
-    }
-
-    final String baseSystemPrompt = systemInstruction ??
-        """
-    You are Arcane Advisor, a helpful, slightly mystic yet efficient AI assistant for a productivity app called Arcane.
-    You have access to the user's data context below.
-    """;
-
-    final prompt = """
-    $baseSystemPrompt
-    
-    USER DATA CONTEXT:
-    $dataContext
-    
-    CONVERSATION HISTORY:
-    $historyStr
-    
-    CURRENT USER MESSAGE: "$userMessage"
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-        currentApiKeyIndex: currentApiKeyIndex,
-        customApiKeys: customApiKeys,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog,
-        modelCandidates: modelCandidates,
-        requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response =
-              await model.generateContent([genai.Content.text(prompt)]);
-          return response.text ?? "I am unable to respond at this moment.";
-        });
-  }
-
-  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
-    final apiKey = customApiKey?.isNotEmpty == true
-        ? customApiKey!
-        : (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-
-    if (apiKey == null) {
-      throw Exception("No API Key available to fetch models.");
-    }
-
-    final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
-
-    try {
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        if (data.containsKey('models')) {
-          final List<dynamic> models = data['models'];
-          return models
-              .map<String>(
-                  (m) => m['name'].toString().replaceFirst('models/', ''))
-              .toList();
-        }
-      }
-      throw Exception("Failed to fetch models: ${response.statusCode}");
-    } catch (e) {
-      throw Exception("Error fetching models: $e");
-    }
-  }
+  @override
+  State<LinkSubmissionSheet> createState() => _LinkSubmissionSheetState();
 }
 
---- END OF FILE lib/src/services/ai_service.dart ---
+class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
+  String? _selectedMainTaskId;
+  String? _selectedProjectId;
+  String? _selectedStepId;
+  String? _selectedTargetMainTaskId;
+  String? _selectedTargetSubTaskId;
+  String? _selectedTargetCheckpointId;
+  
+  String _mode = 'promote'; 
+  String _targetType = 'subtask';
 
---- START OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/ability_improvement_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    if (widget.initialMainTaskId != null) {
+      _selectedMainTaskId = widget.initialMainTaskId;
+      _selectedProjectId = widget.initialProjectId;
+      _selectedStepId = widget.initialStepId;
+    } else {
+      _selectedMainTaskId = provider.selectedTaskId;
+    }
+    
+    _selectedTargetMainTaskId = provider.selectedTaskId;
+  }
 
-class WeeklyReportDialog extends StatelessWidget {
-  final Map<String, dynamic> reportData;
+  // Helper to flatten steps for display/selection
+  List<ProjectStep> _getAllSteps(Project project) {
+    List<ProjectStep> all = [];
+    void traverse(List<ProjectStep> steps) {
+      for (var s in steps) {
+        all.add(s);
+        traverse(s.substeps);
+      }
+    }
+    traverse(project.steps);
+    return all;
+  }
 
-  const WeeklyReportDialog({super.key, required this.reportData});
+  // Helper to find step recursively (for execution)
+  ProjectStep? _findStepRecursive(List<ProjectStep> steps, String id) {
+    for (var s in steps) {
+      if (s.id == id) return s;
+      final found = _findStepRecursive(s.substeps, id);
+      if (found != null) return found;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final summary = reportData['summary'] as String? ?? "No summary available.";
-    final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
-    final timeInsight = reportData['time_insight'] as String? ?? "";
+    final provider = Provider.of<AppProvider>(context);
+    
+    final MainTask? sourceTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedMainTaskId);
+    final projects = sourceTask?.projects ?? [];
+    final selectedProject = projects.firstWhereOrNull((p) => p.id == _selectedProjectId);
+    
+    // Flatten steps if project selected
+    final List<ProjectStep> displaySteps = selectedProject != null ? _getAllSteps(selectedProject) : [];
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 420),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.3), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.fhAccentGold.withOpacity(0.1),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-            const BoxShadow(color: Colors.black54, blurRadius: 15, offset: Offset(0, 10)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.1))),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.fhAccentGold.withOpacity(0.05),
-                    Colors.transparent
-                  ],
+    final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
+    final List<SubTask> availableSubTasks = targetTask?.subTasks ?? [];
+    
+    List<SubSubTask> availableCheckpoints = [];
+    if (_selectedTargetSubTaskId != null) {
+      final st = availableSubTasks.firstWhereOrNull((s) => s.id == _selectedTargetSubTaskId);
+      if (st != null) availableCheckpoints = st.subSubTasks;
+    }
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      height: MediaQuery.of(context).size.height * 0.9,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("LINK PROTOCOL", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+              const SizedBox(height: 24),
+              
+              // 1. Source Selection (If not fixed)
+              if (widget.initialStepId == null) ...[
+                ValorantDropdown<String>(
+                  label: "SOURCE MISSION",
+                  value: _selectedMainTaskId,
+                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                  onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
                 ),
-              ),
-              child: Row(
+                const SizedBox(height: 16),
+                if (_selectedMainTaskId != null)
+                  ValorantDropdown<String>(
+                    label: "SOURCE PROJECT",
+                    value: _selectedProjectId,
+                    items: projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title.toUpperCase()))).toList(),
+                    onChanged: (val) => setState(() { _selectedProjectId = val; _selectedStepId = null; }),
+                  ),
+                  
+                const SizedBox(height: 16),
+                if (selectedProject != null) ...[
+                   const Text("SELECT STEP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                   const SizedBox(height: 8),
+                   Expanded(
+                     flex: 1,
+                     child: Container(
+                       decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                       child: ListView.builder(
+                         itemCount: displaySteps.length,
+                         itemBuilder: (context, index) {
+                           final step = displaySteps[index];
+                           final isSel = _selectedStepId == step.id;
+                           return ListTile(
+                             title: Text(step.title, style: TextStyle(color: isSel ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary)),
+                             selected: isSel,
+                             tileColor: isSel ? AppTheme.fhAccentPurple.withValues(alpha: 0.1) : null,
+                             trailing: isSel ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentPurple, size: 16) : null,
+                             onTap: () => setState(() => _selectedStepId = step.id),
+                           );
+                         },
+                       ),
+                     ),
+                   )
+                ],
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 16),
+              ] else ...[
+                // Fixed Source Display
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    children: [
+                      Icon(MdiIcons.sourceBranch, color: AppTheme.fhAccentPurple),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("LINKING SOURCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text(
+                            _findStepRecursive(selectedProject?.steps ?? [], _selectedStepId ?? '')?.title ?? "Unknown Step", 
+                            style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)
+                          )
+                        ],
+                      ))
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // 2. Action Mode
+              Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.fhAccentGold),
-                      color: AppTheme.fhAccentGold.withOpacity(0.1),
+                  _buildModeBtn("CREATE NEW", 'promote'),
+                  const SizedBox(width: 16),
+                  _buildModeBtn("LINK EXISTING", 'link'),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              if (_mode == 'link') ...[
+                 ValorantDropdown<String>(
+                  label: "TARGET MISSION",
+                  value: _selectedTargetMainTaskId,
+                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                  onChanged: (val) => setState(() { _selectedTargetMainTaskId = val; _selectedTargetSubTaskId = null; _selectedTargetCheckpointId = null; }),
+                ),
+                const SizedBox(height: 16),
+                if (_selectedTargetMainTaskId != null)
+                  ValorantDropdown<String>(
+                    label: "TARGET SUB-MISSION",
+                    value: _selectedTargetSubTaskId,
+                    items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
+                    onChanged: (val) => setState(() { _selectedTargetSubTaskId = val; _selectedTargetCheckpointId = null; }),
+                  ),
+                
+                if (_selectedTargetSubTaskId != null && availableCheckpoints.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Checkbox(
+                      value: _targetType == 'checkpoint',
+                      activeColor: AppTheme.fhAccentPurple,
+                      onChanged: (val) => setState(() { 
+                        _targetType = val == true ? 'checkpoint' : 'subtask';
+                        if (_targetType == 'subtask') _selectedTargetCheckpointId = null;
+                      }),
                     ),
-                    child: Icon(MdiIcons.medalOutline, color: AppTheme.fhAccentGold, size: 24),
-                  ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+                    const Text("Link to Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                  ]),
+                  if (_targetType == 'checkpoint')
+                    ValorantDropdown<String>(
+                      label: "TARGET CHECKPOINT",
+                      value: _selectedTargetCheckpointId,
+                      items: availableCheckpoints.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                      onChanged: (val) => setState(() => _selectedTargetCheckpointId = val),
+                    ),
+                ]
+              ],
+
+              const Spacer(),
+              
+              Row(
+                children: [
+                  Expanded(child: ValorantButton(label: "CANCEL", isPrimary: false, onPressed: () => Navigator.pop(context))),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "WEEKLY DEBRIEF",
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.fhTextPrimary,
-                            letterSpacing: 2.0,
-                            height: 1.0,
-                          ),
-                        ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "PERFORMANCE ANALYSIS",
-                          style: TextStyle(
-                            color: AppTheme.fhAccentGold,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-                      ],
+                    child: ValorantButton(
+                      label: "EXECUTE",
+                      isPrimary: true,
+                      onPressed: () {
+                        if (_selectedProjectId != null && _selectedStepId != null && selectedProject != null) {
+                          // Recursive find to handle substeps
+                          final step = _findStepRecursive(selectedProject.steps, _selectedStepId!);
+                          
+                          if (step == null) {
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Step not found.")));
+                             return;
+                          }
+                          
+                          if (_mode == 'promote') {
+                            provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
+                          } else {
+                            if (_selectedTargetMainTaskId != null && _selectedTargetSubTaskId != null) {
+                              final targetId = _targetType == 'checkpoint' ? _selectedTargetCheckpointId : _selectedTargetSubTaskId;
+                              
+                              if (targetId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a target.")));
+                                return;
+                              }
+
+                              provider.projectActions.linkStepToTask(
+                                _selectedMainTaskId!, 
+                                _selectedProjectId!, 
+                                _selectedStepId!, 
+                                targetId, 
+                                _targetType, 
+                                _selectedTargetMainTaskId!
+                              );
+                            } else {
+                              return;
+                            }
+                          }
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link Established.")));
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeBtn(String label, String mode) {
+    final isSelected = _mode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _mode = mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.fhAccentPurple.withValues(alpha: 0.2) : Colors.transparent, 
+            border: Border.all(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhBorderColor),
+          ),
+          alignment: Alignment.center,
+          child: Text(label, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
+
+--- START OF FILE lib/src/screens/step_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class StepDetailScreen extends StatelessWidget {
+  final ProjectStep step;
+  final String mainTaskId;
+  final String projectId;
+  final String stepNumber;
+
+  const StepDetailScreen({
+    super.key,
+    required this.step,
+    required this.mainTaskId,
+    required this.projectId,
+    required this.stepNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<AppProvider>(context);
+
+    // Re-fetch the step from provider to ensure reactivity
+    ProjectStep currentStep = step;
+    try {
+      final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final project = task.projects.firstWhere((p) => p.id == projectId);
+
+      // Recursive finder
+      ProjectStep? findStep(List<ProjectStep> list) {
+        for (var s in list) {
+          if (s.id == step.id) return s;
+          var found = findStep(s.substeps);
+          if (found != null) return found;
+        }
+        return null;
+      }
+
+      var found = findStep(project.steps);
+      if (found != null) currentStep = found;
+    } catch (e) {
+      // Fallback
+    }
+
+    final double progress = currentStep.calculateProgress();
+    final int percentage = (progress * 100).toInt();
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
+        actions: [
+          // Removed the broken Link Button
+          IconButton(
+            icon: Icon(MdiIcons.pencilOutline, size: 20),
+            onPressed: () async {
+              final result = await showDialog<Map<String, String>>(
+                context: context,
+                builder: (ctx) => AddEditStepDialog(
+                  initialTitle: currentStep.title,
+                  initialDescription: currentStep.description,
+                  isEditing: true,
+                ),
+              );
+              if (!context.mounted) return;
+              if (result != null) {
+                final updated = currentStep
+                  ..title = result['title']!
+                  ..description = result['desc']!;
+                provider.projectActions
+                    .updateStep(mainTaskId, projectId, updated);
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(MdiIcons.deleteOutline,
+                size: 20, color: AppTheme.fhAccentRed),
+            onPressed: () {
+              // Confirm Delete
+              showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                        backgroundColor: AppTheme.fhBgMedium,
+                        title: const Text("Delete Step?",
+                            style: TextStyle(color: AppTheme.fhTextPrimary)),
+                        content: const Text(
+                            "This will delete this step and all its sub-steps."),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text("Cancel")),
+                          ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentRed),
+                              onPressed: () {
+                                provider.projectActions.deleteStep(
+                                    mainTaskId, projectId, currentStep.id);
+                                Navigator.pop(ctx); // Close dialog
+                                Navigator.pop(context); // Close screen
+                              },
+                              child: const Text("Delete"))
+                        ],
+                      ));
+            },
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Info
+            Text(
+              currentStep.title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.fhTextPrimary,
+              ),
+            ),
+            if (currentStep.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                currentStep.description,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Progress Section
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Step Progress",
+                          style: TextStyle(color: AppTheme.fhTextSecondary)),
+                      Text("$percentage%",
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 10,
+                      backgroundColor: AppTheme.fhBgDeepDark,
+                      color: AppTheme.fhAccentTeal,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 32),
+
+            // Substeps List
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Sub-steps",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.fhTextPrimary),
+                ),
+                Row(
                   children: [
-                    // Summary Section
-                    _SectionHeader(title: "TACTICAL SUMMARY", icon: MdiIcons.textShort, delay: 200),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.fhBgDark.withOpacity(0.5),
-                        border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
+                    // AI Generation for Substeps
+                    InkWell(
+                      onTap: () => _showAiSubstepGenerationDialog(context, provider, currentStep),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
                       ),
-                      child: Text(
-                        summary,
-                        style: const TextStyle(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ).animate().fadeIn(delay: 300.ms, duration: 500.ms),
-
-                    const SizedBox(height: 32),
-
-                    // Abilities Section
-                    if (abilities.isNotEmpty) ...[
-                      _SectionHeader(title: "KEY IMPROVEMENTS", icon: MdiIcons.arrowUpBoldCircleOutline, delay: 400),
-                      const SizedBox(height: 12),
-                      ...abilities.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final map = entry.value as Map<String, dynamic>;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: AbilityImprovementCard(
-                            name: map['name'] ?? 'Skill',
-                            reason: map['reason'] ?? '',
-                            score: map['score'] as int? ?? 1,
-                          ).animate().fadeIn(delay: (500 + index * 100).ms).slideX(begin: 0.1, end: 0),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<Map<String, String>>(
+                          context: context,
+                          builder: (ctx) => const AddEditStepDialog(),
                         );
-                      }),
-                      const SizedBox(height: 32),
-                    ],
-
-                    // Time Insight Section
-                    if (timeInsight.isNotEmpty) ...[
-                      _SectionHeader(title: "TEMPORAL INSIGHT", icon: MdiIcons.clockTimeFourOutline, delay: 700),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.fhAccentPurple.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.2)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(MdiIcons.informationOutline, size: 18, color: AppTheme.fhAccentPurple),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                timeInsight,
-                                style: TextStyle(
-                                  color: AppTheme.fhTextSecondary,
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ).animate().fadeIn(delay: 800.ms, duration: 500.ms),
-                    ],
+                        if (!context.mounted) return;
+                        if (result != null) {
+                          provider.projectActions.addSubstep(mainTaskId, projectId,
+                              currentStep.id, result['title']!, result['desc']!);
+                        }
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text("Add"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.fhAccentTeal),
+                    ),
                   ],
-                ),
-              ),
+                )
+              ],
             ),
+            const SizedBox(height: 12),
 
-            // Footer
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
+            if (currentStep.substeps.isEmpty)
+              Container(
                 width: double.infinity,
-                child: ValorantButton(
-                  label: "ACKNOWLEDGE",
-                  isPrimary: true,
-                  color: AppTheme.fhAccentGold,
-                  onPressed: () => Navigator.pop(context),
-                ).animate().fadeIn(delay: 1000.ms).scale(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final int delay;
-
-  const _SectionHeader({required this.title, required this.icon, required this.delay});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppTheme.fhTextSecondary),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            color: AppTheme.fhTextSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: AppTheme.fhBorderColor.withOpacity(0.3))),
-      ],
-    ).animate().fadeIn(delay: delay.ms, duration: 400.ms);
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
-
---- START OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class AbilityImprovementCard extends StatelessWidget {
-  final String name;
-  final String reason;
-  final int score;
-
-  const AbilityImprovementCard({
-    super.key,
-    required this.name,
-    required this.reason,
-    required this.score,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Score Indicator
-            Container(
-              width: 48,
-              decoration: BoxDecoration(
-                color: AppTheme.fhAccentGreen.withOpacity(0.1),
-                border: Border(right: BorderSide(color: AppTheme.fhAccentGreen.withOpacity(0.3))),
-              ),
-              child: Center(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(style: BorderStyle.none)),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(MdiIcons.chevronUp, size: 16, color: AppTheme.fhAccentGreen),
-                    Text(
-                      "$score",
-                      style: const TextStyle(
-                        color: AppTheme.fhAccentGreen,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      name.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.fhTextPrimary,
-                        fontSize: 13,
-                        letterSpacing: 0.8,
-                        fontFamily: AppTheme.fontDisplay,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Icon(MdiIcons.fileTreeOutline,
+                        size: 32,
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 8),
+                    const Text("No sub-steps yet.",
+                        style: TextStyle(color: AppTheme.fhTextSecondary)),
                     const SizedBox(height: 4),
-                    Text(
-                      reason,
-                      style: const TextStyle(
-                        color: AppTheme.fhTextSecondary,
-                        fontSize: 12,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    const Text(
+                        "Break this step down further or mark it as complete.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppTheme.fhTextDisabled, fontSize: 12)),
                   ],
                 ),
+              )
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: currentStep.substeps.length,
+                onReorder: (oldIndex, newIndex) {
+                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
+                      currentStep.id, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final substep = currentStep.substeps[index];
+                  final displayPrefix = "$stepNumber.${index + 1}";
+
+                  return KeyedSubtree(
+                    key: ValueKey(substep.id),
+                    child: ProjectStepListTile(
+                      step: substep,
+                      mainTaskId: mainTaskId,
+                      projectId: projectId,
+                      indexPrefix: displayPrefix,
+                    ),
+                  );
+                },
               ),
-            ),
+
+            // Manual Completion Toggle (Only if leaf node)
+            if (currentStep.substeps.isEmpty && currentStep.linkedTaskId == null) ...[
+              const SizedBox(height: 30),
+              Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                title: const Text("Mark as Complete",
+                    style: TextStyle(color: AppTheme.fhTextPrimary)),
+                subtitle: const Text(
+                    "Toggle completion status.",
+                    style: TextStyle(fontSize: 12)),
+                value: currentStep.isCompleted,
+                activeThumbColor: AppTheme.fhAccentGreen,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  final updated = currentStep..isCompleted = val;
+                  provider.projectActions
+                      .updateStep(mainTaskId, projectId, updated);
+                },
+              )
+            ]
           ],
         ),
       ),
     );
   }
+
+  void _showAiSubstepGenerationDialog(BuildContext context, AppProvider provider, ProjectStep currentStep) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE SUB-STEPS", 
+        hintText: "E.g., Breakdown into smaller tasks...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateSubstepsForStep(mainTaskId, projectId, currentStep.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
+  }
 }
---- END OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
+--- END OF FILE lib/src/screens/step_detail_screen.dart ---

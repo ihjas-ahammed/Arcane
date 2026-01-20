@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
@@ -30,6 +31,7 @@ class ProjectActions {
       linkedMainTaskId: targetTaskId,
       isActive: true,
       sortOrder: DateTime.now().millisecondsSinceEpoch,
+      createdAt: DateTime.now(),
     );
 
     _updateMainTaskProjects(targetTaskId, (projects) {
@@ -65,8 +67,6 @@ class ProjectActions {
     });
   }
 
-  // --- New Feature: Status & Agent Changes ---
-
   void toggleProjectStatus(String mainTaskId, String projectId, bool isActive) {
     _updateMainTaskProjects(mainTaskId, (projects) {
       return projects.map((p) {
@@ -99,10 +99,7 @@ class ProjectActions {
       return task;
     }).toList();
 
-    if (projectToMove == null) {
-      debugPrint("Project not found in source task");
-      return;
-    }
+    if (projectToMove == null) return;
 
     final finalMainTasks = newMainTasks.map((task) {
       if (task.id == newMainTaskId) {
@@ -142,7 +139,71 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // --- Step Management ---
+  // --- Step Management & Linking ---
+
+  void linkStepToTask(String mainTaskId, String projectId, String stepId,
+      String targetTaskId, String type, String targetParentId) {
+    
+    // 1. Update Project Step
+    _performStepAction(mainTaskId, projectId, (project) {
+      _findAndUpdateStep(project.steps, stepId, (step) {
+        step.linkedTaskType = type;
+        step.linkedTaskId = targetTaskId;
+        step.linkedParentTaskId = targetParentId;
+      });
+    });
+
+    // 2. Sync Status: If target task is already done, mark step done
+    bool targetIsCompleted = false;
+    final targetMainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == targetParentId);
+    
+    if (targetMainTask != null) {
+      if (type == 'subtask') {
+        final st = targetMainTask.subTasks.firstWhereOrNull((s) => s.id == targetTaskId);
+        if (st != null) targetIsCompleted = st.completed;
+      } else if (type == 'checkpoint') {
+        for (var sub in targetMainTask.subTasks) {
+          final sst = sub.subSubTasks.firstWhereOrNull((s) => s.id == targetTaskId);
+          if (sst != null) {
+            targetIsCompleted = sst.completed;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetIsCompleted) {
+      // Sync step to completed
+      _performStepAction(mainTaskId, projectId, (project) {
+        _findAndUpdateStep(project.steps, stepId, (step) {
+          step.isCompleted = true;
+          step.completedAt = DateTime.now();
+        });
+      });
+    }
+  }
+
+  void unlinkStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _findAndUpdateStep(project.steps, stepId, (step) {
+        step.linkedTaskType = null;
+        step.linkedTaskId = null;
+        step.linkedParentTaskId = null;
+      });
+    });
+  }
+
+  bool _findAndUpdateStep(
+      List<ProjectStep> steps, String stepId, Function(ProjectStep) updateFn) {
+    for (var s in steps) {
+      if (s.id == stepId) {
+        updateFn(s);
+        return true;
+      }
+      if (_findAndUpdateStep(s.substeps, stepId, updateFn)) return true;
+    }
+    return false;
+  }
 
   void addRootStep(
       String mainTaskId, String projectId, String title, String description) {
@@ -150,23 +211,64 @@ class ProjectActions {
       id: const Uuid().v4(),
       title: title,
       description: description,
+      createdAt: DateTime.now(),
     );
     _performStepAction(mainTaskId, projectId, (project) {
       project.steps.add(newStep);
     });
   }
 
-  void updateStep(
-      String mainTaskId, String projectId, ProjectStep updatedStep) {
+  void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
+    // 1. Update the step itself
     _performStepAction(mainTaskId, projectId, (project) {
       _updateStepRecursive(project.steps, updatedStep);
     });
+
+    // 2. Sync linked task if exists
+    if (updatedStep.linkedTaskId != null && updatedStep.linkedParentTaskId != null) {
+      final targetMainTaskId = updatedStep.linkedParentTaskId!;
+      final targetId = updatedStep.linkedTaskId!;
+      final isDone = updatedStep.isCompleted;
+
+      // Avoid infinite loop by using fromSync flag in TaskActions
+      if (updatedStep.linkedTaskType == 'subtask') {
+        if (isDone) {
+          _provider.taskActions.completeSubtask(targetMainTaskId, targetId, fromSync: true);
+        } else {
+          _provider.taskActions.uncompleteSubtask(targetMainTaskId, targetId, fromSync: true);
+        }
+      } else if (updatedStep.linkedTaskType == 'checkpoint') {
+        // Need to find parent subtask ID for checkpoint
+        final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == targetMainTaskId);
+        if (mainTask != null) {
+          String? parentSubId;
+          for (var sub in mainTask.subTasks) {
+            if (sub.subSubTasks.any((sst) => sst.id == targetId)) {
+              parentSubId = sub.id;
+              break;
+            }
+          }
+          if (parentSubId != null) {
+            if (isDone) {
+              _provider.taskActions.completeSubSubtask(targetMainTaskId, parentSubId, targetId, fromSync: true);
+            } else {
+              _provider.taskActions.uncompleteSubSubtask(targetMainTaskId, parentSubId, targetId, fromSync: true);
+            }
+          }
+        }
+      }
+    }
   }
 
   bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
     for (int i = 0; i < steps.length; i++) {
       if (steps[i].id == updatedStep.id) {
         steps[i] = updatedStep;
+        if (updatedStep.isCompleted && updatedStep.completedAt == null) {
+          updatedStep.completedAt = DateTime.now();
+        } else if (!updatedStep.isCompleted) {
+          updatedStep.completedAt = null;
+        }
         return true;
       }
       if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
@@ -195,6 +297,7 @@ class ProjectActions {
       id: const Uuid().v4(),
       title: title,
       description: description,
+      createdAt: DateTime.now(),
     );
     _performStepAction(mainTaskId, projectId, (project) {
       _addSubstepRecursive(project.steps, parentStepId, newStep);
@@ -206,7 +309,8 @@ class ProjectActions {
     for (var s in steps) {
       if (s.id == parentId) {
         s.substeps.add(newStep);
-        s.isCompleted = false;
+        s.isCompleted = false; // Reset parent completion if new child added
+        s.completedAt = null;
         return true;
       }
       if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
@@ -278,18 +382,70 @@ class ProjectActions {
     }
   }
 
-  void promoteStepToSubmission(String mainTaskId, ProjectStep step) {
-    _provider.addSubtask(mainTaskId, {
+  // --- External Sync Methods (called by TaskActions) ---
+  
+  void syncProjectStepFromTaskCompletion(String taskId, bool isCompleted) {
+    // Iterate all projects to find linked steps
+    for (var mainTask in _provider.mainTasks) {
+      for (var project in mainTask.projects) {
+        bool changed = false;
+        _syncStepRecursive(project.steps, taskId, isCompleted, () => changed = true);
+        if (changed) {
+          updateProject(mainTask.id, project);
+        }
+      }
+    }
+  }
+
+  void _syncStepRecursive(List<ProjectStep> steps, String linkedId, bool isCompleted, VoidCallback onChanged) {
+    for (var step in steps) {
+      if (step.linkedTaskId == linkedId) {
+        if (step.isCompleted != isCompleted) {
+          step.isCompleted = isCompleted;
+          step.completedAt = isCompleted ? DateTime.now() : null;
+          onChanged();
+        }
+      }
+      _syncStepRecursive(step.substeps, linkedId, isCompleted, onChanged);
+    }
+  }
+
+  // --- AI ---
+
+  Future<void> promoteStepToSubmission(String mainTaskId, ProjectStep step) async {
+    // Create Subtask
+    final newSubTaskId = _provider.taskActions.addSubtask(mainTaskId, {
       'name': step.title,
       'isCountable': false,
       'subSubTasksData': <Map<String, dynamic>>[]
     });
+    
+    // Find project ID for step
+    String? projectId;
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      for (var p in mainTask.projects) {
+        if (_containsStep(p.steps, step.id)) {
+          projectId = p.id;
+          break;
+        }
+      }
+    }
+    
+    if (projectId != null) {
+      linkStepToTask(mainTaskId, projectId, step.id, newSubTaskId, 'subtask', mainTaskId);
+    }
+  }
+  
+  bool _containsStep(List<ProjectStep> steps, String id) {
+    for (var s in steps) {
+      if (s.id == id) return true;
+      if (_containsStep(s.substeps, id)) return true;
+    }
+    return false;
   }
 
-  // --- AI Generation ---
-
-  Future<void> generateProjectStructure(
-      String mainTaskId, String userPrompt) async {
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Project...");
     try {
@@ -307,6 +463,7 @@ class ProjectActions {
       newProject.linkedMainTaskId = mainTaskId;
       newProject.isActive = true;
       newProject.sortOrder = DateTime.now().millisecondsSinceEpoch;
+      newProject.createdAt = DateTime.now();
 
       _updateMainTaskProjects(
           mainTaskId, (projects) => [...projects, newProject]);
@@ -317,25 +474,22 @@ class ProjectActions {
       _provider.setLoadingTask(null);
     }
   }
-
-  Future<void> generateStepsForProject(
-      String mainTaskId, String projectId, String userPrompt) async {
+  
+  Future<void> generateStepsForProject(String mainTaskId, String projectId, String userPrompt) async {
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
-    
     if (project == null) return;
 
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Steps...");
     try {
       final existingStepTitles = project.steps.map((s) => s.title).toList();
-      
       final newStepsData = await _aiService.generateStepsForProject(
         projectTitle: project.title,
         projectDescription: project.description,
         existingSteps: existingStepTitles,
         userPrompt: userPrompt,
-        modelCandidates: _provider.settings.heavyModels, // Use heavy for better planning
+        modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -348,10 +502,10 @@ class ProjectActions {
             id: const Uuid().v4(),
             title: stepData['title'] ?? 'New Step',
             description: stepData['description'] ?? '',
+            createdAt: DateTime.now(),
           ));
         }
       });
-
     } catch (e) {
       debugPrint("Error generating steps: $e");
     } finally {
@@ -363,10 +517,8 @@ class ProjectActions {
   Future<void> generateSubstepsForStep(String mainTaskId, String projectId, String stepId, String userPrompt) async {
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
-    
     if (project == null) return;
 
-    // Helper to find step recursively
     ProjectStep? findStep(List<ProjectStep> steps, String id) {
       for (var s in steps) {
         if (s.id == id) return s;
@@ -384,13 +536,12 @@ class ProjectActions {
 
     try {
       final existingSubstepTitles = parentStep.substeps.map((s) => s.title).toList();
-
       final newStepsData = await _aiService.generateSubstepsForStep(
         parentStepTitle: parentStep.title,
         parentStepDescription: parentStep.description,
         existingSubsteps: existingSubstepTitles,
         userPrompt: userPrompt,
-        modelCandidates: _provider.settings.liteModels, // Use lite for speed
+        modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -398,24 +549,20 @@ class ProjectActions {
       );
 
       _performStepAction(mainTaskId, projectId, (proj) {
-        // We need to mutate the project structure inside this callback
-        // Finding the step again inside the mutable project copy is safest
-        // but _performStepAction passes a mutable reference.
-        // We can reuse the same find logic.
         ProjectStep? targetStep = findStep(proj.steps, stepId);
-        
         if (targetStep != null) {
           for (var stepData in newStepsData) {
             targetStep.substeps.add(ProjectStep(
               id: const Uuid().v4(),
               title: stepData['title'] ?? 'New Sub-step',
               description: stepData['description'] ?? '',
+              createdAt: DateTime.now(),
             ));
           }
-          targetStep.isCompleted = false; // Reset if it was checked
+          targetStep.isCompleted = false;
+          targetStep.completedAt = null;
         }
       });
-
     } catch (e) {
       debugPrint("Error generating substeps: $e");
     } finally {

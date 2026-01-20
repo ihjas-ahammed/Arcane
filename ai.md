@@ -1,9 +1,11 @@
 Make the following changes:
 
-    - Fix compact report:
-        * Sometime the title overflow for improvments and its hard to see the +point part, so make the ability names shorter, a single word or two can be enough
-        * Give it a new and better ui, an animated one
-        * Update prompt: update the prompt in a way the output can be a bit empathetic than a direct robotic analysis, it should be like human
+    - Project update:
+        We need to make a good connection from peojet and their tasks, also needs to show more info about a project and stats
+        
+        * Connect the linking, like when I like the project step to a subtask or checkpoint, and checked it on the task or project, as they are connected the other one also should be checked, also give an indicator to linked tasks. checkpoints and steps, and also option to unlink them without deleting
+        * Show progress, show progress updates in a graph like timespend and progress on the top level of progress, the time spend is calcualted through linked tasks
+        * Show more info like creation dat and total time spend and also completion date for each step or project
      
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

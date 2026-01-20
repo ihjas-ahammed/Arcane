@@ -7,6 +7,7 @@ import 'package:arcane/src/utils/task_calculations.dart'; // Import calculations
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart'; // Import indicator
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -47,13 +48,16 @@ class SubmissionCard extends StatelessWidget {
       // Fallback if not found (e.g. deleted/filtered out momentarily)
     }
 
+    // Check for linked project step info
+    final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
+
     // Calculate time spent TODAY instead of total
     final double displayTimeSeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
 
-    Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
+    Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = parentTask.taskColor;
     if (currentSubTask.completed) borderColor = parentTask.taskColor;
 
@@ -103,6 +107,21 @@ class SubmissionCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (linkedInfo != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: LinkedTaskIndicator(
+                        label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
+                        onUnlink: () {
+                          // Unlink action
+                          provider.projectActions.unlinkStep(
+                            linkedInfo['mainTaskId'], 
+                            linkedInfo['projectId'], 
+                            linkedInfo['stepId']
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -132,12 +151,12 @@ class SubmissionCard extends StatelessWidget {
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: isRunning
-                        ? AppTheme.fhAccentTeal.withOpacity(0.1)
+                        ? AppTheme.fhAccentTeal.withValues(alpha: 0.1)
                         : Colors.transparent,
                     border: Border.all(
                         color: isRunning
                             ? AppTheme.fhAccentTeal
-                            : AppTheme.fhTextSecondary.withOpacity(0.5)),
+                            : AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
                   ),
                   child: Icon(
                     isRunning ? MdiIcons.pause : MdiIcons.play,

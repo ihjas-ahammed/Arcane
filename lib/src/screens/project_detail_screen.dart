@@ -3,6 +3,8 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
+import 'package:arcane/src/widgets/cards/project_stats_card.dart';
+import 'package:arcane/src/widgets/cards/project_progress_chart.dart'; // Import Chart
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
@@ -23,7 +25,7 @@ class ProjectDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
 
-    // Ensure we are working with the latest data from provider
+    // Live Data Fetch
     Project currentProject = project;
     try {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
@@ -34,6 +36,7 @@ class ProjectDetailScreen extends StatelessWidget {
 
     final double progress = currentProject.calculateProgress();
     final int percentage = (progress * 100).toInt();
+    final history = provider.getProjectProgressHistory(currentProject); // Get History
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
@@ -79,7 +82,7 @@ class ProjectDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Section (Agent Detail Style)
+            // Title Section
             Text(
               "PROJECT // PROTOCOL",
               style: TextStyle(
@@ -119,9 +122,31 @@ class ProjectDetailScreen extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 24),
+            
+            // New Stats Card
+            ProjectStatsCard(
+              project: currentProject,
+              allTasks: provider.mainTasks,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Progress Graph (Root Level)
+            Container(
+              height: 200,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+              ),
+              child: ProjectProgressChart(project: currentProject, history: history),
+            ),
+
             const SizedBox(height: 32),
 
-            // Progress Stat Row
+            // Progress Bar (Simple)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -131,7 +156,6 @@ class ProjectDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            // Sharp Progress Bar
             Container(
               height: 8,
               width: double.infinity,
@@ -158,7 +182,6 @@ class ProjectDetailScreen extends StatelessWidget {
                       letterSpacing: 1.0,
                       color: AppTheme.fhTextPrimary),
                 ),
-                // Tiny Add Button
                 Row(
                   children: [
                     InkWell(
@@ -233,7 +256,6 @@ class ProjectDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
             
-            // Generate Steps Button (If empty or want more)
             Row(
               children: [
                 Expanded(

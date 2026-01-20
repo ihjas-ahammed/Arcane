@@ -1,4 +1,4 @@
-// ... [Existing imports]
+// ... [Imports]
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
@@ -18,6 +18,7 @@ import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/models/project_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -26,7 +27,7 @@ import 'actions/project_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier {
-  // ... [Existing fields]
+  // ... [Existing fields same as before]
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
@@ -117,6 +118,8 @@ class AppProvider with ChangeNotifier {
     _ensureBackupDir();
   }
 
+  // ... [Existing methods: _ensureBackupDir, _markDirty, etc.]
+
   Future<void> _ensureBackupDir() async {
     try {
       if (Platform.isAndroid || Platform.isWindows) {
@@ -136,7 +139,6 @@ class AppProvider with ChangeNotifier {
     _hasUnsavedChanges = true;
   }
 
-  // --- API Key Management ---
   void addCustomApiKey(String key) {
     if (key.trim().isNotEmpty && !settings.customApiKeys.contains(key)) {
       final updatedKeys = List<String>.from(settings.customApiKeys)..add(key.trim());
@@ -149,7 +151,99 @@ class AppProvider with ChangeNotifier {
     setSettings(settings..customApiKeys = updatedKeys);
   }
 
-  // Reorder values list
+  // --- REVERSE LOOKUP HELPER FOR LINKED TASKS ---
+  // Finds if a given task/checkpoint ID is linked to any project step
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in _mainTasks) {
+      for (var project in mainTask.projects) {
+        final result = _findStepLinkedToRecursive(project.steps, targetId);
+        if (result != null) {
+          return {
+            'mainTaskId': mainTask.id,
+            'projectId': project.id,
+            'projectTitle': project.title,
+            'stepId': result.id,
+            'stepTitle': result.title,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  ProjectStep? _findStepLinkedToRecursive(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepLinkedToRecursive(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  // --- CHART DATA HELPER ---
+  List<Map<String, dynamic>> getProjectProgressHistory(Project project) {
+    final List<Map<String, dynamic>> history = [];
+    final now = DateTime.now();
+    final creation = project.createdAt;
+    
+    // Add Start Point
+    history.add({
+      'date': creation,
+      'progress': 0.0,
+      'time': 0.0,
+    });
+
+    // Collect Events: Session Logs & Completion
+    // Iterate Linked Tasks to get their Sessions
+    for (var step in project.steps) {
+      _collectHistoryRecursive(step, history);
+    }
+
+    // Sort by date
+    history.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
+    // Calculate cumulative progress and time
+    // We want a daily snapshot or event-based snapshot. 
+    // Let's create a map of Date -> {timeAdded: double, stepsCompleted: int}
+    
+    // Simplified approach: Return raw data points, let chart widget aggregate
+    return history;
+  }
+
+  void _collectHistoryRecursive(ProjectStep step, List<Map<String, dynamic>> history) {
+    // 1. Completion Event
+    if (step.isCompleted && step.completedAt != null) {
+      history.add({
+        'date': step.completedAt!,
+        'type': 'completion',
+        'stepId': step.id,
+      });
+    }
+
+    // 2. Linked Task Sessions (Time)
+    if (step.linkedTaskId != null && step.linkedTaskType == 'subtask') {
+      final mainTask = _mainTasks.firstWhereOrNull((t) => t.id == step.linkedParentTaskId);
+      if (mainTask != null) {
+        final sub = mainTask.subTasks.firstWhereOrNull((s) => s.id == step.linkedTaskId);
+        if (sub != null) {
+          for (var session in sub.sessions) {
+            history.add({
+              'date': session.endTime,
+              'type': 'session',
+              'duration': session.durationSeconds.toDouble(),
+            });
+          }
+        }
+      }
+    }
+
+    for (var sub in step.substeps) {
+      _collectHistoryRecursive(sub, history);
+    }
+  }
+
+  // ... [Rest of the file: initialization, auth, save/load logic unchanged]
+  
   void reorderValues(int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;

@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'package:arcane/src/models/task_models.dart';
 
 class Project {
   String id;
@@ -7,8 +8,10 @@ class Project {
   List<ProjectStep> steps;
   double progress;
   String? linkedMainTaskId;
-  bool isActive; // New field for Active/Inactive state
-  int sortOrder; // New field for global sorting
+  bool isActive;
+  int sortOrder;
+  DateTime createdAt;
+  DateTime? completedAt;
 
   Project({
     required this.id,
@@ -19,7 +22,10 @@ class Project {
     this.linkedMainTaskId,
     this.isActive = true,
     this.sortOrder = 0,
-  }) : steps = steps ?? [];
+    DateTime? createdAt,
+    this.completedAt,
+  })  : steps = steps ?? [],
+        createdAt = createdAt ?? DateTime.now();
 
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
@@ -30,6 +36,12 @@ class Project {
       linkedMainTaskId: json['linkedMainTaskId'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       sortOrder: json['sortOrder'] as int? ?? 0,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'] as String)
+          : null,
       steps: (json['steps'] as List<dynamic>?)
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -46,24 +58,44 @@ class Project {
       'linkedMainTaskId': linkedMainTaskId,
       'isActive': isActive,
       'sortOrder': sortOrder,
+      'createdAt': createdAt.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
       'steps': steps.map((e) => e.toJson()).toList(),
     };
   }
 
   double calculateProgress() {
-    if (steps.isEmpty) return 0.0;
+    if (steps.isEmpty) {
+      return completedAt != null ? 1.0 : 0.0;
+    }
     double total = 0;
     for (var step in steps) {
       total += step.calculateProgress();
     }
     progress = total / steps.length;
+    
+    // Auto-update completedAt if progress reached 1.0
+    if (progress >= 1.0 && completedAt == null) {
+      completedAt = DateTime.now();
+    } else if (progress < 1.0 && completedAt != null) {
+      completedAt = null;
+    }
+    
     return progress;
   }
-  
+
   int get completedStepsCount {
     if (steps.isEmpty) return 0;
-    // Count steps that are fully complete
     return steps.where((s) => s.calculateProgress() >= 1.0).length;
+  }
+
+  // Calculate total time spent based on linked tasks
+  int calculateTotalTimeSeconds(List<MainTask> allTasks) {
+    int total = 0;
+    for (var step in steps) {
+      total += step.calculateTotalTimeSeconds(allTasks);
+    }
+    return total;
   }
 }
 
@@ -73,6 +105,14 @@ class ProjectStep {
   String description;
   bool isCompleted;
   List<ProjectStep> substeps;
+  
+  // Linking Info
+  String? linkedTaskType; // 'subtask' or 'checkpoint' (subsubtask)
+  String? linkedTaskId;   // ID of the subtask or subsubtask
+  String? linkedParentTaskId; // ID of the MainTask containing the linked task
+  
+  DateTime createdAt;
+  DateTime? completedAt;
 
   ProjectStep({
     required this.id,
@@ -80,7 +120,13 @@ class ProjectStep {
     required this.description,
     this.isCompleted = false,
     List<ProjectStep>? substeps,
-  }) : substeps = substeps ?? [];
+    this.linkedTaskType,
+    this.linkedTaskId,
+    this.linkedParentTaskId,
+    DateTime? createdAt,
+    this.completedAt,
+  }) : substeps = substeps ?? [],
+       createdAt = createdAt ?? DateTime.now();
 
   factory ProjectStep.fromJson(Map<String, dynamic> json) {
     return ProjectStep(
@@ -88,6 +134,15 @@ class ProjectStep {
       title: json['title'] as String? ?? 'Untitled Step',
       description: json['description'] as String? ?? '',
       isCompleted: json['isCompleted'] as bool? ?? false,
+      linkedTaskType: json['linkedTaskType'] as String?,
+      linkedTaskId: json['linkedTaskId'] as String?,
+      linkedParentTaskId: json['linkedParentTaskId'] as String?,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'] as String)
+          : null,
       substeps: (json['substeps'] as List<dynamic>?)
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -101,27 +156,56 @@ class ProjectStep {
       'title': title,
       'description': description,
       'isCompleted': isCompleted,
+      'linkedTaskType': linkedTaskType,
+      'linkedTaskId': linkedTaskId,
+      'linkedParentTaskId': linkedParentTaskId,
+      'createdAt': createdAt.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
       'substeps': substeps.map((e) => e.toJson()).toList(),
     };
   }
 
   double calculateProgress() {
-    // If it has children, progress is purely based on children
     if (substeps.isNotEmpty) {
       double total = 0;
       for (var step in substeps) {
         total += step.calculateProgress();
       }
       double childProgress = total / substeps.length;
-      isCompleted = childProgress >= 1.0;
+      bool calculatedComplete = childProgress >= 1.0;
+      
+      if (calculatedComplete != isCompleted) {
+        isCompleted = calculatedComplete;
+        if (isCompleted) completedAt = DateTime.now();
+        else completedAt = null;
+      }
+      
       return childProgress;
     }
-    // If leaf node, return 1.0 or 0.0 based on checkbox
     return isCompleted ? 1.0 : 0.0;
   }
-  
-  int get completedSubstepsCount {
-     if (substeps.isEmpty) return isCompleted ? 1 : 0;
-     return substeps.where((s) => s.calculateProgress() >= 1.0).length;
+
+  int calculateTotalTimeSeconds(List<MainTask> allTasks) {
+    int total = 0;
+    
+    // 1. Recursive calculation
+    for (var sub in substeps) {
+      total += sub.calculateTotalTimeSeconds(allTasks);
+    }
+
+    // 2. Direct time from linked task
+    if (linkedTaskId != null && linkedTaskType == 'subtask') {
+      // Find the task
+      for (var main in allTasks) {
+        if (linkedParentTaskId != null && main.id != linkedParentTaskId) continue;
+        
+        final sub = main.subTasks.where((s) => s.id == linkedTaskId).firstOrNull;
+        if (sub != null) {
+          total += sub.currentTimeSpent;
+          break; 
+        }
+      }
+    }
+    return total;
   }
 }

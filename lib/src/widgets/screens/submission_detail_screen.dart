@@ -12,8 +12,8 @@ import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
 import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
-import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; // Component 1
-import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; // Component 2
+import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
+import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -164,12 +164,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   }
 
   Future<void> _pickDateFiltered(BuildContext context, SubTask subTask) async {
-    // 1. Gather valid dates
     final Set<String> validDates = {};
     for (var s in subTask.sessions) {
       validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
     }
-    // Always enable today
     final today = DateTime.now();
     validDates.add(DateFormat('yyyy-MM-dd').format(today));
 
@@ -179,7 +177,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       selectableDayPredicate: (DateTime day) {
-        // Allow selection only if it has logs or is today
         return validDates.contains(DateFormat('yyyy-MM-dd').format(day));
       },
       builder: (context, child) => Theme(
@@ -230,7 +227,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           SessionLogDrawer(parentTask: widget.parentTask, subTask: liveSubTask),
       body: Stack(
         children: [
-          // Background Watermark
           Positioned(
             right: -50,
             top: 50,
@@ -462,9 +458,22 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         ...liveSubTask.subSubTasks
-                            .map((sss) => ValorantListItem(
+                            .map((sss) {
+                              // Check for linked info
+                              final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
+                              return ValorantListItem(
                                   title: sss.name,
                                   isCompleted: sss.completed,
+                                  linkedLabel: linkedInfo != null 
+                                      ? "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}" 
+                                      : null,
+                                  onUnlink: linkedInfo != null ? () {
+                                    provider.projectActions.unlinkStep(
+                                      linkedInfo['mainTaskId'], 
+                                      linkedInfo['projectId'], 
+                                      linkedInfo['stepId']
+                                    );
+                                  } : null,
                                   onToggle: () {
                                     if (sss.completed) {
                                       provider.taskActions.uncompleteSubSubtask(
@@ -482,7 +491,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                       widget.parentTask.id,
                                       liveSubTask.id,
                                       sss.id),
-                                )),
+                                );
+                            }),
 
                         // Quick Add
                         Container(
