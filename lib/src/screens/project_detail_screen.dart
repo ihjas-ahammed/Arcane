@@ -4,7 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/cards/project_stats_card.dart';
-import 'package:arcane/src/widgets/cards/project_progress_chart.dart'; // Import Chart
+import 'package:arcane/src/widgets/ui/project_graph_section.dart'; // New Import
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
@@ -36,7 +36,6 @@ class ProjectDetailScreen extends StatelessWidget {
 
     final double progress = currentProject.calculateProgress();
     final int percentage = (progress * 100).toInt();
-    final history = provider.getProjectProgressHistory(currentProject); // Get History
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
@@ -132,16 +131,10 @@ class ProjectDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Progress Graph (Root Level)
-            Container(
-              height: 200,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
-              ),
-              child: ProjectProgressChart(project: currentProject, history: history),
+            // Modular Graph Section (with AI Fix)
+            ProjectGraphSection(
+              project: currentProject,
+              mainTaskId: mainTaskId,
             ),
 
             const SizedBox(height: 32),

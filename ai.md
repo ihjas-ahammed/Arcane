@@ -1,9 +1,9 @@
 Make the following changes:
 
-    - Add feature:
-        - For every project graph, add a button which uses AI to fix the datapoints like remove the unwanted ones, this way it wont look bad because of some bad entry
+    - For project graph, add a button which uses AI to fix the datapoints like remove the unwanted ones, this way it wont look bad because of some bad entry
 
-     
+    - Update project linking:
+        - If I create a new submission by linking a step, auto create and lin all its checkpoints as the substeps of the step 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

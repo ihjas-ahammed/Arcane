@@ -30,6 +30,9 @@ class AppProvider with ChangeNotifier {
   // ... [Existing fields same as before]
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
+  
+  // Expose AIService for widgets that need direct access (like graph anomaly detection)
+  AIService get aiService => _aiService;
 
   Timer? _periodicUiTimer;
   Timer? _autoSaveTimer;
@@ -202,11 +205,6 @@ class AppProvider with ChangeNotifier {
     // Sort by date
     history.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
-    // Calculate cumulative progress and time
-    // We want a daily snapshot or event-based snapshot. 
-    // Let's create a map of Date -> {timeAdded: double, stepsCompleted: int}
-    
-    // Simplified approach: Return raw data points, let chart widget aggregate
     return history;
   }
 
@@ -231,6 +229,9 @@ class AppProvider with ChangeNotifier {
               'date': session.endTime,
               'type': 'session',
               'duration': session.durationSeconds.toDouble(),
+              'sessionId': session.id, // Included for anomaly detection
+              'subTaskId': sub.id,     // Included for anomaly detection
+              'mainTaskId': mainTask.id, // Included for anomaly detection
             });
           }
         }

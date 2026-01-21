@@ -106,6 +106,70 @@ class AIService {
 
   // --- New Generation Methods ---
 
+  Future<List<Map<String, dynamic>>> analyzeProjectAnomalies({
+    required List<Map<String, dynamic>> historyEvents,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    if (historyEvents.isEmpty) return [];
+
+    // Filter down to only sessions for anomaly detection
+    final sessions = historyEvents
+        .where((e) => e['type'] == 'session')
+        .toList();
+
+    if (sessions.isEmpty) return [];
+
+    // Construct a lightweight representation for AI
+    final sb = StringBuffer();
+    for (int i = 0; i < sessions.length; i++) {
+      final s = sessions[i];
+      sb.writeln("ID: ${s['sessionId']}, Date: ${s['date']}, DurationSeconds: ${s['duration']}");
+    }
+
+    final prompt = """
+    You are a data analyst for a productivity app. 
+    Analyze the following list of work sessions for anomalies that look like mistakes or bad data.
+    
+    Potential anomalies:
+    1. Duration is extremely short (e.g. < 60 seconds), implying an accidental start/stop.
+    2. Duration is extremely long (e.g. > 12 hours), implying the user forgot to stop the timer.
+    
+    Data:
+    ${sb.toString()}
+    
+    Return a JSON object containing a list of 'anomalies'. Each anomaly must have:
+    - 'sessionId': The ID from the input.
+    - 'reason': A short explanation (e.g., "Too short", "Unrealistically long").
+    - 'recommendedAction': "delete".
+    
+    Output strictly JSON:
+    {
+      "anomalies": [
+        { "sessionId": "string", "reason": "string", "recommendedAction": "delete" }
+      ]
+    }
+    If no anomalies, return { "anomalies": [] }.
+    """;
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+
+    return (result['anomalies'] as List?)
+            ?.map((a) => a as Map<String, dynamic>)
+            .toList() ??
+        [];
+  }
+
   Future<List<Map<String, dynamic>>> generateStepsForProject({
     required String projectTitle,
     required String projectDescription,

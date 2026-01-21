@@ -410,17 +410,17 @@ class ProjectActions {
     }
   }
 
-  // --- AI ---
+  // --- AI & Advanced Linking ---
 
   Future<void> promoteStepToSubmission(String mainTaskId, ProjectStep step) async {
-    // Create Subtask
+    // 1. Create Subtask
     final newSubTaskId = _provider.taskActions.addSubtask(mainTaskId, {
       'name': step.title,
       'isCountable': false,
       'subSubTasksData': <Map<String, dynamic>>[]
     });
     
-    // Find project ID for step
+    // 2. Find project ID for step
     String? projectId;
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (mainTask != null) {
@@ -433,7 +433,23 @@ class ProjectActions {
     }
     
     if (projectId != null) {
+      // 3. Link Parent Step
       linkStepToTask(mainTaskId, projectId, step.id, newSubTaskId, 'subtask', mainTaskId);
+
+      // 4. Auto-create & Link Child Checkpoints
+      for (var substep in step.substeps) {
+        // Create Checkpoint
+        final newCheckPointId = _provider.taskActions.addSubSubtask(mainTaskId, newSubTaskId, {
+          'name': substep.title,
+          'isCountable': false,
+          'targetCount': 0
+        });
+        
+        // Link
+        if (newCheckPointId.isNotEmpty) {
+          linkStepToTask(mainTaskId, projectId, substep.id, newCheckPointId, 'checkpoint', mainTaskId);
+        }
+      }
     }
   }
 
@@ -593,6 +609,35 @@ class ProjectActions {
     } finally {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
+    }
+  }
+
+  // --- Graph Data Fix ---
+  
+  Future<void> fixProjectAnomalies(Project project, List<String> sessionIdsToDelete) async {
+    for (var sessionId in sessionIdsToDelete) {
+      // We need to find where this session lives.
+      // This is inefficient but necessary since we don't have direct mapping without iterating.
+      // However, AppProvider's history collection included task IDs. 
+      // But here we might just receive IDs from UI.
+      
+      // Let's iterate all tasks linked to this project to find and delete.
+      for (var step in project.steps) {
+        _deleteSessionRecursive(step, sessionId);
+      }
+    }
+  }
+
+  void _deleteSessionRecursive(ProjectStep step, String sessionId) {
+    if (step.linkedTaskId != null && step.linkedTaskType == 'subtask') {
+       // Try to delete via provider if it matches
+       // We need parent task ID. step.linkedParentTaskId gives it.
+       if (step.linkedParentTaskId != null) {
+         _provider.deleteSessionFromSubtask(step.linkedParentTaskId!, step.linkedTaskId!, sessionId);
+       }
+    }
+    for (var sub in step.substeps) {
+      _deleteSessionRecursive(sub, sessionId);
     }
   }
 
