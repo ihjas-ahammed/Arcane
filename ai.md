@@ -1,8 +1,8 @@
 Make the following changes:
 
-    - Tasks update:
-        * Support recurring tasks: Make it possible to convert any subtask to recurring, so that their chec option will only say, completed for today and resets after 12 am, also for their checkpoints checks will reset after 12 am
-        * Add more details like make it possible I can add decsription to any tas, also add creation date and last upadte date of each tasks and show them
+    - Add feature:
+        - For every project graph, add a button which uses AI to fix the datapoints like remove the unwanted ones, this way it wont look bad because of some bad entry
+
      
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

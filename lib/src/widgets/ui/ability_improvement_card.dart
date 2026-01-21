@@ -79,8 +79,6 @@ class AbilityImprovementCard extends StatelessWidget {
                         fontSize: 12,
                         height: 1.3,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),

@@ -35,6 +35,8 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
   
   String _mode = 'promote'; 
   String _targetType = 'subtask';
+  String _promotionType = 'new_subtask'; // 'new_subtask' or 'new_checkpoint'
+  String? _promotionParentSubTaskId;
 
   @override
   void initState() {
@@ -87,12 +89,17 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
     final List<ProjectStep> displaySteps = selectedProject != null ? _getAllSteps(selectedProject) : [];
 
     final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
-    final List<SubTask> availableSubTasks = targetTask?.subTasks ?? [];
+    
+    // Filter available SubTasks (only incomplete)
+    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed).toList() ?? [];
     
     List<SubSubTask> availableCheckpoints = [];
     if (_selectedTargetSubTaskId != null) {
       final st = availableSubTasks.firstWhereOrNull((s) => s.id == _selectedTargetSubTaskId);
-      if (st != null) availableCheckpoints = st.subSubTasks;
+      if (st != null) {
+        // Filter Checkpoints (only incomplete)
+        availableCheckpoints = st.subSubTasks.where((c) => !c.completed).toList();
+      }
     }
 
     return Container(
@@ -107,127 +114,180 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
               Text("LINK PROTOCOL", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
               const SizedBox(height: 24),
               
-              // 1. Source Selection (If not fixed)
-              if (widget.initialStepId == null) ...[
-                ValorantDropdown<String>(
-                  label: "SOURCE MISSION",
-                  value: _selectedMainTaskId,
-                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
-                  onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
-                ),
-                const SizedBox(height: 16),
-                if (_selectedMainTaskId != null)
-                  ValorantDropdown<String>(
-                    label: "SOURCE PROJECT",
-                    value: _selectedProjectId,
-                    items: projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title.toUpperCase()))).toList(),
-                    onChanged: (val) => setState(() { _selectedProjectId = val; _selectedStepId = null; }),
-                  ),
-                  
-                const SizedBox(height: 16),
-                if (selectedProject != null) ...[
-                   const Text("SELECT STEP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-                   const SizedBox(height: 8),
-                   Expanded(
-                     flex: 1,
-                     child: Container(
-                       decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                       child: ListView.builder(
-                         itemCount: displaySteps.length,
-                         itemBuilder: (context, index) {
-                           final step = displaySteps[index];
-                           final isSel = _selectedStepId == step.id;
-                           return ListTile(
-                             title: Text(step.title, style: TextStyle(color: isSel ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary)),
-                             selected: isSel,
-                             tileColor: isSel ? AppTheme.fhAccentPurple.withValues(alpha: 0.1) : null,
-                             trailing: isSel ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentPurple, size: 16) : null,
-                             onTap: () => setState(() => _selectedStepId = step.id),
-                           );
-                         },
-                       ),
-                     ),
-                   )
-                ],
-                const SizedBox(height: 24),
-                const Divider(color: Colors.white24),
-                const SizedBox(height: 16),
-              ] else ...[
-                // Fixed Source Display
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
-                  child: Row(
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(MdiIcons.sourceBranch, color: AppTheme.fhAccentPurple),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("LINKING SOURCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                          Text(
-                            _findStepRecursive(selectedProject?.steps ?? [], _selectedStepId ?? '')?.title ?? "Unknown Step", 
-                            style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)
-                          )
+                      // 1. Source Selection (If not fixed)
+                      if (widget.initialStepId == null) ...[
+                        ValorantDropdown<String>(
+                          label: "SOURCE MISSION",
+                          value: _selectedMainTaskId,
+                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_selectedMainTaskId != null)
+                          ValorantDropdown<String>(
+                            label: "SOURCE PROJECT",
+                            value: _selectedProjectId,
+                            items: projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() { _selectedProjectId = val; _selectedStepId = null; }),
+                          ),
+                          
+                        const SizedBox(height: 16),
+                        if (selectedProject != null) ...[
+                           const Text("SELECT STEP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                           const SizedBox(height: 8),
+                           Container(
+                             height: 150,
+                             decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                             child: ListView.builder(
+                               itemCount: displaySteps.length,
+                               itemBuilder: (context, index) {
+                                 final step = displaySteps[index];
+                                 final isSel = _selectedStepId == step.id;
+                                 return ListTile(
+                                   title: Text(step.title, style: TextStyle(color: isSel ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary)),
+                                   selected: isSel,
+                                   tileColor: isSel ? AppTheme.fhAccentPurple.withValues(alpha: 0.1) : null,
+                                   trailing: isSel ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentPurple, size: 16) : null,
+                                   onTap: () => setState(() => _selectedStepId = step.id),
+                                 );
+                               },
+                             ),
+                           )
                         ],
-                      ))
+                        const SizedBox(height: 24),
+                        const Divider(color: Colors.white24),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        // Fixed Source Display
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
+                          child: Row(
+                            children: [
+                              Icon(MdiIcons.sourceBranch, color: AppTheme.fhAccentPurple),
+                              const SizedBox(width: 12),
+                              Expanded(child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("LINKING SOURCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    _findStepRecursive(selectedProject?.steps ?? [], _selectedStepId ?? '')?.title ?? "Unknown Step", 
+                                    style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)
+                                  )
+                                ],
+                              ))
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 2. Action Mode
+                      Row(
+                        children: [
+                          _buildModeBtn("CREATE NEW", 'promote'),
+                          const SizedBox(width: 16),
+                          _buildModeBtn("LINK EXISTING", 'link'),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Target Selection Area
+                      if (_mode == 'link') ...[
+                         ValorantDropdown<String>(
+                          label: "TARGET MISSION",
+                          value: _selectedTargetMainTaskId,
+                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          onChanged: (val) => setState(() { _selectedTargetMainTaskId = val; _selectedTargetSubTaskId = null; _selectedTargetCheckpointId = null; }),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_selectedTargetMainTaskId != null)
+                          ValorantDropdown<String>(
+                            label: "TARGET SUB-MISSION",
+                            value: _selectedTargetSubTaskId,
+                            items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() { _selectedTargetSubTaskId = val; _selectedTargetCheckpointId = null; }),
+                          ),
+                        
+                        if (_selectedTargetSubTaskId != null) ...[
+                          const SizedBox(height: 16),
+                          Row(children: [
+                            Checkbox(
+                              value: _targetType == 'checkpoint',
+                              activeColor: AppTheme.fhAccentPurple,
+                              onChanged: (val) => setState(() { 
+                                _targetType = val == true ? 'checkpoint' : 'subtask';
+                                if (_targetType == 'subtask') _selectedTargetCheckpointId = null;
+                              }),
+                            ),
+                            const Text("Link to Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                          ]),
+                          if (_targetType == 'checkpoint') ...[
+                            if (availableCheckpoints.isNotEmpty)
+                              ValorantDropdown<String>(
+                                label: "TARGET CHECKPOINT",
+                                value: _selectedTargetCheckpointId,
+                                items: availableCheckpoints.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                                onChanged: (val) => setState(() => _selectedTargetCheckpointId = val),
+                              )
+                            else
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8.0),
+                                child: Text("No incomplete checkpoints available.", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
+                              )
+                          ]
+                        ]
+                      ] else ...[ 
+                        // Mode 'promote'
+                        const Text("PROMOTION TYPE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: RadioListTile<String>(
+                                title: const Text("New Sub-Mission", style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13)),
+                                value: 'new_subtask',
+                                groupValue: _promotionType,
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: AppTheme.fhAccentPurple,
+                                onChanged: (val) => setState(() => _promotionType = val!),
+                              ),
+                            ),
+                            Expanded(
+                              child: RadioListTile<String>(
+                                title: const Text("New Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13)),
+                                value: 'new_checkpoint',
+                                groupValue: _promotionType,
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: AppTheme.fhAccentPurple,
+                                onChanged: (val) => setState(() => _promotionType = val!),
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        if (_promotionType == 'new_checkpoint') ...[
+                          const SizedBox(height: 16),
+                          ValorantDropdown<String>(
+                            label: "PARENT SUB-MISSION",
+                            value: _promotionParentSubTaskId,
+                            items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() => _promotionParentSubTaskId = val),
+                          ),
+                        ]
+                      ],
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-
-              // 2. Action Mode
-              Row(
-                children: [
-                  _buildModeBtn("CREATE NEW", 'promote'),
-                  const SizedBox(width: 16),
-                  _buildModeBtn("LINK EXISTING", 'link'),
-                ],
               ),
-              
-              const SizedBox(height: 16),
-              
-              if (_mode == 'link') ...[
-                 ValorantDropdown<String>(
-                  label: "TARGET MISSION",
-                  value: _selectedTargetMainTaskId,
-                  items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
-                  onChanged: (val) => setState(() { _selectedTargetMainTaskId = val; _selectedTargetSubTaskId = null; _selectedTargetCheckpointId = null; }),
-                ),
-                const SizedBox(height: 16),
-                if (_selectedTargetMainTaskId != null)
-                  ValorantDropdown<String>(
-                    label: "TARGET SUB-MISSION",
-                    value: _selectedTargetSubTaskId,
-                    items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
-                    onChanged: (val) => setState(() { _selectedTargetSubTaskId = val; _selectedTargetCheckpointId = null; }),
-                  ),
-                
-                if (_selectedTargetSubTaskId != null && availableCheckpoints.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Row(children: [
-                    Checkbox(
-                      value: _targetType == 'checkpoint',
-                      activeColor: AppTheme.fhAccentPurple,
-                      onChanged: (val) => setState(() { 
-                        _targetType = val == true ? 'checkpoint' : 'subtask';
-                        if (_targetType == 'subtask') _selectedTargetCheckpointId = null;
-                      }),
-                    ),
-                    const Text("Link to Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary)),
-                  ]),
-                  if (_targetType == 'checkpoint')
-                    ValorantDropdown<String>(
-                      label: "TARGET CHECKPOINT",
-                      value: _selectedTargetCheckpointId,
-                      items: availableCheckpoints.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                      onChanged: (val) => setState(() => _selectedTargetCheckpointId = val),
-                    ),
-                ]
-              ],
 
-              const Spacer(),
+              const SizedBox(height: 24),
               
               Row(
                 children: [
@@ -248,7 +308,15 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                           }
                           
                           if (_mode == 'promote') {
-                            provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
+                            if (_promotionType == 'new_subtask') {
+                              provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
+                            } else {
+                              if (_promotionParentSubTaskId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a parent sub-mission.")));
+                                return;
+                              }
+                              provider.projectActions.promoteStepToCheckpoint(_selectedMainTaskId!, _promotionParentSubTaskId!, step);
+                            }
                           } else {
                             if (_selectedTargetMainTaskId != null && _selectedTargetSubTaskId != null) {
                               final targetId = _targetType == 'checkpoint' ? _selectedTargetCheckpointId : _selectedTargetSubTaskId;
@@ -267,11 +335,14 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                                 _selectedTargetMainTaskId!
                               );
                             } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select target mission and sub-mission.")));
                               return;
                             }
                           }
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link Established.")));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Source step selection incomplete.")));
                         }
                       },
                     ),

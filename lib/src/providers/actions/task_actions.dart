@@ -479,8 +479,7 @@ class TaskActions {
   }
 
   // ... [Other methods unchanged]
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
-    // ... [Implementation unchanged] ...
+  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
     final newSubSubtask = SubSubTask(
       id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
       name: subSubtaskData['name'] as String,
@@ -505,6 +504,7 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+    return newSubSubtask.id;
   }
 
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {

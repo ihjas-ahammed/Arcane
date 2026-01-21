@@ -436,6 +436,31 @@ class ProjectActions {
       linkStepToTask(mainTaskId, projectId, step.id, newSubTaskId, 'subtask', mainTaskId);
     }
   }
+
+  Future<void> promoteStepToCheckpoint(String mainTaskId, String subTaskId, ProjectStep step) async {
+    // Create Checkpoint
+    final newSubSubTaskId = _provider.taskActions.addSubSubtask(mainTaskId, subTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'targetCount': 0,
+    });
+    
+    // Find project ID for step
+    String? projectId;
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      for (var p in mainTask.projects) {
+        if (_containsStep(p.steps, step.id)) {
+          projectId = p.id;
+          break;
+        }
+      }
+    }
+    
+    if (projectId != null && newSubSubTaskId.isNotEmpty) {
+      linkStepToTask(mainTaskId, projectId, step.id, newSubSubTaskId, 'checkpoint', mainTaskId);
+    }
+  }
   
   bool _containsStep(List<ProjectStep> steps, String id) {
     for (var s in steps) {

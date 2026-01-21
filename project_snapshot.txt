@@ -1,350 +1,1374 @@
---- START OF FILE project_snapshot_out.txt ---
-
---- START OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
-import 'package:flutter/material.dart';
+--- START OF FILE lib/src/providers/actions/task_actions.dart ---
+// lib/src/providers/actions/task_actions.dart
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/app_state_models.dart'; 
+import 'package:arcane/src/utils/helpers.dart';
+import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
+
+class TaskActions {
+  final AppProvider _provider;
+
+  TaskActions(this._provider);
+
+  // ... [Keep existing basic actions like addMainTask, editMainTask, logToDailySummary] ...
+  // ... [Including reorderSubtasks, addSubtask, updateSubtask, addSessionToSubtask, updateSessionInSubtask, deleteSessionFromSubtask] ...
+  
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final List<SubTask> updatedSubtasks = List.from(task.subTasks);
+        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
+          final SubTask item = updatedSubtasks.removeAt(oldIndex);
+          updatedSubtasks.insert(newIndex, item);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void addMainTask(
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
+    final newTask = MainTask(
+      id: 'mt_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      description: description,
+      theme: theme,
+      colorHex: colorHex,
+    );
+    _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
+  }
+
+  void editMainTask(String taskId,
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == taskId) {
+        return task.copyWith(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex,
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void logToDailySummary(String type, Map<String, dynamic> data) {
+    final today = getTodayDateString();
+    final newCompletedByDay =
+        Map<String, dynamic>.from(_provider.completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ??
+        {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+        });
+
+    if (type == 'taskTime') {
+      final taskTimes =
+          Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
+      taskTimes[data['taskId'] as String] =
+          (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
+      dayData['taskTimes'] = taskTimes;
+    } else if (type == 'subtaskCompleted') {
+      final subtasksCompleted = List<Map<String, dynamic>>.from(
+          dayData['subtasksCompleted'] as List? ?? []);
+      subtasksCompleted.add(data);
+      dayData['subtasksCompleted'] = subtasksCompleted;
+    } else if (type == 'subSubtaskCompleted') {
+      final checkpointsCompleted = List<Map<String, dynamic>>.from(
+          dayData['checkpointsCompleted'] as List? ?? []);
+      if (!data.containsKey('completionTimestamp')) {
+        data['completionTimestamp'] = DateTime.now().toIso8601String();
+      }
+      checkpointsCompleted.add(data);
+      dayData['checkpointsCompleted'] = checkpointsCompleted;
+    }
+
+    newCompletedByDay[today] = dayData;
+    _provider.setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
+    final newSubtask = SubTask(
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
+      name: subtaskData['name'] as String,
+      description: subtaskData['description'] as String? ?? '',
+      isCountable: subtaskData['isCountable'] as bool? ?? false,
+      targetCount: subtaskData['isCountable'] as bool? ?? false
+          ? (subtaskData['targetCount'] as int? ?? 1)
+          : 0,
+      completed: subtaskData['completed'] as bool? ?? false,
+      completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
+      isRecurring: subtaskData['isRecurring'] as bool? ?? false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      subSubTasks:
+          (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
+                  ?.map((sssData) => SubSubTask(
+                        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.fold<int>(0, (prevSt, st) => prevSt + st.subSubTasks.length)) + 1)}_${sssData['name']?.hashCode ?? 0}',
+                        name: sssData['name'] as String,
+                        isCountable: sssData['isCountable'] as bool? ?? false,
+                        targetCount: sssData['isCountable'] as bool? ?? false
+                            ? (sssData['targetCount'] as int? ?? 1)
+                            : 0,
+                      ))
+                  .toList() ??
+              [],
+    );
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: [...task.subTasks, newSubtask],
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    return newSubtask.id;
+  }
+
+  void updateSubtask(
+      String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
+    MainTask? taskToUpdate =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (taskToUpdate == null) return;
+
+    SubTask? subtaskToUpdate =
+        taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (subtaskToUpdate == null) return;
+
+    final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
+
+    if (updates.containsKey('name')) {
+      subtaskToUpdate.name = updates['name'] as String;
+    }
+    if (updates.containsKey('description')) {
+      subtaskToUpdate.description = updates['description'] as String;
+    }
+    if (updates.containsKey('isRecurring')) {
+      subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    }
+    
+    // Always update timestamp on modification
+    subtaskToUpdate.updatedAt = DateTime.now();
+
+    if (updates.containsKey('currentTimeSpent')) {
+      subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
+    }
+    if (updates.containsKey('completed')) {
+      subtaskToUpdate.completed = updates['completed'] as bool;
+      if (!subtaskToUpdate.completed) {
+        subtaskToUpdate.completedDate = null;
+        subtaskToUpdate.lastCompletedDate = null;
+      }
+    }
+
+    int timeDifference = 0;
+    if (updates.containsKey('currentTimeSpent')) {
+      timeDifference = subtaskToUpdate.currentTimeSpent - oldSubtaskTime;
+    }
+
+    if (timeDifference != 0) {
+      taskToUpdate.dailyTimeSpent =
+          (taskToUpdate.dailyTimeSpent) + timeDifference;
+      taskToUpdate.lastWorkedDate = getTodayDateString();
+      logToDailySummary(
+          'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
+    }
+
+    final newMainTasks = _provider.mainTasks
+        .map((t) => t.id == mainTaskId ? taskToUpdate : t)
+        .toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // ... [Session methods unchanged] ...
+  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+    final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
+    final durationSeconds = session.durationSeconds;
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
+            lastWorkedDate: getTodayDateString(),
+            subTasks: task.subTasks.map((st) {
+              if (st.id == subTaskId) {
+                return SubTask(
+                  id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent + durationSeconds,
+                  completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                  currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+                  sessions: [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime)),
+                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                );
+              }
+              return st;
+            }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _syncDateWithSessions(start);
+  }
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
+    DateTime? oldDate;
+    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) oldDate = oldSession.startTime;
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            int totalTime = 0;
+            final updatedSessions = st.sessions.map((s) {
+              if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
+              return s;
+            }).toList();
+            for (var s in updatedSessions) totalTime += s.durationSeconds;
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _syncDateWithSessions(newStart);
+    if (oldDate != null && (oldDate.year != newStart.year || oldDate.month != newStart.month || oldDate.day != newStart.day)) {
+      _syncDateWithSessions(oldDate);
+    }
+  }
+
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
+    DateTime? oldDate;
+    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) oldDate = oldSession.startTime;
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        int deduction = oldSession?.durationSeconds ?? 0;
+        return task.copyWith(
+            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed,
+              currentTimeSpent: (st.currentTimeSpent - deduction).clamp(0, 999999),
+              completedDate: st.completedDate, isCountable: st.isCountable,
+              targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+              sessions: st.sessions.where((s) => s.id != sessionId).toList(),
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _syncDateWithSessions(DateTime.now());
+    if (oldDate != null && (oldDate.year != DateTime.now().year || oldDate.month != DateTime.now().month || oldDate.day != DateTime.now().day)) {
+      _syncDateWithSessions(oldDate);
+    }
+  }
+
+  void _syncDateWithSessions(DateTime date) {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final Map<String, int> taskTimes = {};
+    for (var task in _provider.mainTasks) {
+      int taskTotal = 0;
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.year == date.year && session.startTime.month == date.month && session.startTime.day == date.day) {
+            taskTotal += session.durationSeconds;
+          }
+        }
+      }
+      if (taskTotal > 0) taskTimes[task.id] = taskTotal;
+    }
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+    dayData['taskTimes'] = taskTimes;
+    newCompletedByDay[dateStr] = dayData;
+    _provider.setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
+    MainTask? mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return false;
+    SubTask? subTask =
+        mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    if (subTask == null || subTask.completed) return false;
+
+    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) {
+      return false;
+    }
+
+    if (subTask.currentTimeSpent <= 0 && !subTask.isCountable) {
+      bool allSubSubTasksDone =
+          subTask.subSubTasks.every((sss) => sss.completed);
+      if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
+      if (subTask.subSubTasks.isEmpty && subTask.currentTimeSpent <= 0) {
+        // Allow completion if forced by sync (e.g. from Project Step)
+        if (!fromSync) return false;
+      }
+    }
+
+    ActiveTimerInfo? timerForSubtask = _provider.activeTimers[subtaskId];
+    if (timerForSubtask != null) {
+      _provider.logTimerAndReset(subtaskId);
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subtaskId) {
+              return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  description: st.description,
+                  completed: true,
+                  completedDate: getTodayDateString(),
+                  currentTimeSpent: st.currentTimeSpent,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+
+    // Sync back to Project Steps if NOT initiated from there
+    if (!fromSync) {
+      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
+    }
+
+    logToDailySummary('subtaskCompleted', {
+      'parentTaskId': mainTask.id,
+      'name': subTask.name,
+      'timeLogged': subTask.currentTimeSpent,
+      'isCountable': subTask.isCountable,
+      'currentCount': subTask.currentCount,
+      'targetCount': subTask.targetCount
+    });
+    return true;
+  }
+
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subtaskId) {
+              return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  description: st.description,
+                  completed: false,
+                  completedDate: null,
+                  currentTimeSpent: st.currentTimeSpent,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: null,
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+
+    if (!fromSync) {
+      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
+    }
+  }
+
+  void deleteSubtask(String mainTaskId, String subtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    final newActiveTimers =
+        Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+    newActiveTimers.remove(subtaskId);
+    _provider.setProviderState(
+        mainTasks: newMainTasks, activeTimers: newActiveTimers);
+  }
+
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
+    // ... [Implementation unchanged] ...
+    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
+    if (taskToUpdate == null) return;
+    SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
+
+    final newSubtask = SubTask(
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
+      name: subTaskToDuplicate.name, description: subTaskToDuplicate.description, completed: false, currentTimeSpent: 0, completedDate: null,
+      isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
+      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
+        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
+        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
+      )).toList(), sessions: [],
+      isRecurring: subTaskToDuplicate.isRecurring,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // ... [Other methods unchanged]
+  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
+    final newSubSubtask = SubSubTask(
+      id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
+      name: subSubtaskData['name'] as String,
+      isCountable: subSubtaskData['isCountable'] as bool? ?? false,
+      targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
+      completionTimestamp: null,
+    );
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    return newSubSubtask.id;
+  }
+
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
+    // ... [Implementation unchanged] ...
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            final updatedSub = SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks.map((sss) {
+                if (sss.id == subSubtaskId) {
+                  final updatedSss = SubSubTask(
+                    id: sss.id,
+                    name: updates['name'] as String? ?? sss.name,
+                    completed: updates['completed'] as bool? ?? sss.completed,
+                    isCountable: updates['isCountable'] as bool? ?? sss.isCountable,
+                    targetCount: updates['targetCount'] as int? ?? sss.targetCount,
+                    currentCount: updates['currentCount'] as int? ?? sss.currentCount,
+                    completionTimestamp: updates['completionTimestamp'] as String? ?? sss.completionTimestamp,
+                  );
+                  if (updatedSss.isCountable) updatedSss.currentCount = updatedSss.currentCount.clamp(0, updatedSss.targetCount);
+                  return updatedSss;
+                }
+                return sss;
+              }).toList(), sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+            return updatedSub;
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
+    bool subSubTaskCompletedSuccessfully = false;
+    SubSubTask? completedSubSubTaskInstanceForLog;
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && !sss.completed) {
+                    if (sss.isCountable && sss.currentCount < sss.targetCount && !fromSync) {
+                      subSubTaskCompletedSuccessfully = false;
+                      return sss;
+                    }
+                    SubSubTask updatedSss = SubSubTask(
+                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount,
+                      completionTimestamp: DateTime.now().toIso8601String(),
+                    );
+                    completedSubSubTaskInstanceForLog = SubSubTask(
+                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount,
+                      completionTimestamp: updatedSss.completionTimestamp,
+                    );
+                    subSubTaskCompletedSuccessfully = true;
+                    return updatedSss;
+                  }
+                  return sss;
+                }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
+      _provider.setProviderState(mainTasks: newMainTasks);
+      
+      if (!fromSync) {
+        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
+      }
+
+      logToDailySummary('subSubtaskCompleted', {
+        'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
+        'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
+        'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
+        'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
+        'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
+        'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+      });
+    }
+  }
+
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks.map((sss) {
+                if (sss.id == subSubtaskId && sss.completed) {
+                  return SubSubTask(
+                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
+                    targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
+                  );
+                }
+                return sss;
+              }).toList(), sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    if (!fromSync) {
+      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
+    }
+  }
+
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.where((sss) => sss.id != subSubtaskId).toList(),
+                sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+}
+--- END OF FILE lib/src/providers/actions/task_actions.dart ---
+
+--- START OF FILE lib/src/providers/actions/project_actions.dart ---
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:collection/collection.dart';
+
+class ProjectActions {
+  final AppProvider _provider;
+  final AIService _aiService = AIService();
+
+  ProjectActions(this._provider);
+
+  // --- Core Project Management ---
+
+  void addProject(String title, String description, {String? mainTaskId}) {
+    final targetTaskId = mainTaskId ??
+        _provider.selectedTaskId ??
+        _provider.mainTasks.firstOrNull?.id;
+
+    if (targetTaskId == null) {
+      debugPrint("Error: No MainTask available to assign project to.");
+      return;
+    }
+
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      linkedMainTaskId: targetTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
+      createdAt: DateTime.now(),
+    );
+
+    _updateMainTaskProjects(targetTaskId, (projects) {
+      return [...projects, newProject];
+    });
+  }
+
+  void updateProjectDetails(
+      String mainTaskId, String projectId, String title, String description) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.title = title;
+          p.description = description;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void updateProject(String mainTaskId, Project updatedProject) {
+    updatedProject.calculateProgress();
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects
+          .map((p) => p.id == updatedProject.id ? updatedProject : p)
+          .toList();
+    });
+  }
+
+  void deleteProject(String mainTaskId, String projectId) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.where((p) => p.id != projectId).toList();
+    });
+  }
+
+  void toggleProjectStatus(String mainTaskId, String projectId, bool isActive) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.isActive = isActive;
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void changeProjectAgent(
+      String currentMainTaskId, String newMainTaskId, String projectId) {
+    if (currentMainTaskId == newMainTaskId) return;
+
+    Project? projectToMove;
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == currentMainTaskId) {
+        final existingProject =
+            task.projects.firstWhereOrNull((p) => p.id == projectId);
+        if (existingProject != null) {
+          projectToMove = existingProject;
+          projectToMove!.linkedMainTaskId = newMainTaskId;
+          return task.copyWith(
+            projects: task.projects.where((p) => p.id != projectId).toList(),
+          );
+        }
+      }
+      return task;
+    }).toList();
+
+    if (projectToMove == null) return;
+
+    final finalMainTasks = newMainTasks.map((task) {
+      if (task.id == newMainTaskId) {
+        return task.copyWith(
+          projects: [...task.projects, projectToMove!],
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: finalMainTasks);
+  }
+
+  void reorderProjectsGlobal(List<Project> reorderedList) {
+    final Map<String, int> sortUpdates = {};
+    for (int i = 0; i < reorderedList.length; i++) {
+      sortUpdates[reorderedList[i].id] = i;
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      bool taskUpdated = false;
+      final updatedProjects = task.projects.map((p) {
+        if (sortUpdates.containsKey(p.id)) {
+          taskUpdated = true;
+          p.sortOrder = sortUpdates[p.id]!;
+          return p;
+        }
+        return p;
+      }).toList();
+
+      if (taskUpdated) {
+        return task.copyWith(projects: updatedProjects);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Step Management & Linking ---
+
+  void linkStepToTask(String mainTaskId, String projectId, String stepId,
+      String targetTaskId, String type, String targetParentId) {
+    
+    // 1. Update Project Step
+    _performStepAction(mainTaskId, projectId, (project) {
+      _findAndUpdateStep(project.steps, stepId, (step) {
+        step.linkedTaskType = type;
+        step.linkedTaskId = targetTaskId;
+        step.linkedParentTaskId = targetParentId;
+      });
+    });
+
+    // 2. Sync Status: If target task is already done, mark step done
+    bool targetIsCompleted = false;
+    final targetMainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == targetParentId);
+    
+    if (targetMainTask != null) {
+      if (type == 'subtask') {
+        final st = targetMainTask.subTasks.firstWhereOrNull((s) => s.id == targetTaskId);
+        if (st != null) targetIsCompleted = st.completed;
+      } else if (type == 'checkpoint') {
+        for (var sub in targetMainTask.subTasks) {
+          final sst = sub.subSubTasks.firstWhereOrNull((s) => s.id == targetTaskId);
+          if (sst != null) {
+            targetIsCompleted = sst.completed;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetIsCompleted) {
+      // Sync step to completed
+      _performStepAction(mainTaskId, projectId, (project) {
+        _findAndUpdateStep(project.steps, stepId, (step) {
+          step.isCompleted = true;
+          step.completedAt = DateTime.now();
+        });
+      });
+    }
+  }
+
+  void unlinkStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _findAndUpdateStep(project.steps, stepId, (step) {
+        step.linkedTaskType = null;
+        step.linkedTaskId = null;
+        step.linkedParentTaskId = null;
+      });
+    });
+  }
+
+  bool _findAndUpdateStep(
+      List<ProjectStep> steps, String stepId, Function(ProjectStep) updateFn) {
+    for (var s in steps) {
+      if (s.id == stepId) {
+        updateFn(s);
+        return true;
+      }
+      if (_findAndUpdateStep(s.substeps, stepId, updateFn)) return true;
+    }
+    return false;
+  }
+
+  void addRootStep(
+      String mainTaskId, String projectId, String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      createdAt: DateTime.now(),
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+      project.steps.add(newStep);
+    });
+  }
+
+  void updateStep(String mainTaskId, String projectId, ProjectStep updatedStep) {
+    // 1. Update the step itself
+    _performStepAction(mainTaskId, projectId, (project) {
+      _updateStepRecursive(project.steps, updatedStep);
+    });
+
+    // 2. Sync linked task if exists
+    if (updatedStep.linkedTaskId != null && updatedStep.linkedParentTaskId != null) {
+      final targetMainTaskId = updatedStep.linkedParentTaskId!;
+      final targetId = updatedStep.linkedTaskId!;
+      final isDone = updatedStep.isCompleted;
+
+      // Avoid infinite loop by using fromSync flag in TaskActions
+      if (updatedStep.linkedTaskType == 'subtask') {
+        if (isDone) {
+          _provider.taskActions.completeSubtask(targetMainTaskId, targetId, fromSync: true);
+        } else {
+          _provider.taskActions.uncompleteSubtask(targetMainTaskId, targetId, fromSync: true);
+        }
+      } else if (updatedStep.linkedTaskType == 'checkpoint') {
+        // Need to find parent subtask ID for checkpoint
+        final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == targetMainTaskId);
+        if (mainTask != null) {
+          String? parentSubId;
+          for (var sub in mainTask.subTasks) {
+            if (sub.subSubTasks.any((sst) => sst.id == targetId)) {
+              parentSubId = sub.id;
+              break;
+            }
+          }
+          if (parentSubId != null) {
+            if (isDone) {
+              _provider.taskActions.completeSubSubtask(targetMainTaskId, parentSubId, targetId, fromSync: true);
+            } else {
+              _provider.taskActions.uncompleteSubSubtask(targetMainTaskId, parentSubId, targetId, fromSync: true);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  bool _updateStepRecursive(List<ProjectStep> steps, ProjectStep updatedStep) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == updatedStep.id) {
+        steps[i] = updatedStep;
+        if (updatedStep.isCompleted && updatedStep.completedAt == null) {
+          updatedStep.completedAt = DateTime.now();
+        } else if (!updatedStep.isCompleted) {
+          updatedStep.completedAt = null;
+        }
+        return true;
+      }
+      if (_updateStepRecursive(steps[i].substeps, updatedStep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void deleteStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _deleteStepRecursive(project.steps, stepId);
+    });
+  }
+
+  void _deleteStepRecursive(List<ProjectStep> steps, String stepId) {
+    steps.removeWhere((s) => s.id == stepId);
+    for (var s in steps) {
+      _deleteStepRecursive(s.substeps, stepId);
+    }
+  }
+
+  void addSubstep(String mainTaskId, String projectId, String parentStepId,
+      String title, String description) {
+    final newStep = ProjectStep(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      createdAt: DateTime.now(),
+    );
+    _performStepAction(mainTaskId, projectId, (project) {
+      _addSubstepRecursive(project.steps, parentStepId, newStep);
+    });
+  }
+
+  bool _addSubstepRecursive(
+      List<ProjectStep> steps, String parentId, ProjectStep newStep) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        s.substeps.add(newStep);
+        s.isCompleted = false; // Reset parent completion if new child added
+        s.completedAt = null;
+        return true;
+      }
+      if (_addSubstepRecursive(s.substeps, parentId, newStep)) return true;
+    }
+    return false;
+  }
+
+  void reorderRootSteps(
+      String mainTaskId, String projectId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      if (oldIndex >= 0 &&
+          oldIndex < project.steps.length &&
+          newIndex >= 0 &&
+          newIndex < project.steps.length) {
+        final ProjectStep item = project.steps.removeAt(oldIndex);
+        project.steps.insert(newIndex, item);
+      }
+    });
+  }
+
+  void reorderSubSteps(String mainTaskId, String projectId, String parentStepId,
+      int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    _performStepAction(mainTaskId, projectId, (project) {
+      _reorderSubStepRecursive(project.steps, parentStepId, oldIndex, newIndex);
+    });
+  }
+
+  bool _reorderSubStepRecursive(
+      List<ProjectStep> steps, String parentId, int oldIndex, int newIndex) {
+    for (var s in steps) {
+      if (s.id == parentId) {
+        if (oldIndex >= 0 &&
+            oldIndex < s.substeps.length &&
+            newIndex >= 0 &&
+            newIndex < s.substeps.length) {
+          final ProjectStep item = s.substeps.removeAt(oldIndex);
+          s.substeps.insert(newIndex, item);
+          return true;
+        }
+      }
+      if (_reorderSubStepRecursive(s.substeps, parentId, oldIndex, newIndex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _performStepAction(
+      String mainTaskId, String projectId, Function(Project) action) {
+    Project? targetProject;
+    final mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      targetProject =
+          mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
+    }
+
+    if (targetProject != null) {
+      action(targetProject);
+      updateProject(mainTaskId, targetProject);
+    } else {
+      debugPrint("Project not found for action.");
+    }
+  }
+
+  // --- External Sync Methods (called by TaskActions) ---
+  
+  void syncProjectStepFromTaskCompletion(String taskId, bool isCompleted) {
+    // Iterate all projects to find linked steps
+    for (var mainTask in _provider.mainTasks) {
+      for (var project in mainTask.projects) {
+        bool changed = false;
+        _syncStepRecursive(project.steps, taskId, isCompleted, () => changed = true);
+        if (changed) {
+          updateProject(mainTask.id, project);
+        }
+      }
+    }
+  }
+
+  void _syncStepRecursive(List<ProjectStep> steps, String linkedId, bool isCompleted, VoidCallback onChanged) {
+    for (var step in steps) {
+      if (step.linkedTaskId == linkedId) {
+        if (step.isCompleted != isCompleted) {
+          step.isCompleted = isCompleted;
+          step.completedAt = isCompleted ? DateTime.now() : null;
+          onChanged();
+        }
+      }
+      _syncStepRecursive(step.substeps, linkedId, isCompleted, onChanged);
+    }
+  }
+
+  // --- AI ---
+
+  Future<void> promoteStepToSubmission(String mainTaskId, ProjectStep step) async {
+    // Create Subtask
+    final newSubTaskId = _provider.taskActions.addSubtask(mainTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'subSubTasksData': <Map<String, dynamic>>[]
+    });
+    
+    // Find project ID for step
+    String? projectId;
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      for (var p in mainTask.projects) {
+        if (_containsStep(p.steps, step.id)) {
+          projectId = p.id;
+          break;
+        }
+      }
+    }
+    
+    if (projectId != null) {
+      linkStepToTask(mainTaskId, projectId, step.id, newSubTaskId, 'subtask', mainTaskId);
+    }
+  }
+
+  Future<void> promoteStepToCheckpoint(String mainTaskId, String subTaskId, ProjectStep step) async {
+    // Create Checkpoint
+    final newSubSubTaskId = _provider.taskActions.addSubSubtask(mainTaskId, subTaskId, {
+      'name': step.title,
+      'isCountable': false,
+      'targetCount': 0,
+    });
+    
+    // Find project ID for step
+    String? projectId;
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask != null) {
+      for (var p in mainTask.projects) {
+        if (_containsStep(p.steps, step.id)) {
+          projectId = p.id;
+          break;
+        }
+      }
+    }
+    
+    if (projectId != null && newSubSubTaskId.isNotEmpty) {
+      linkStepToTask(mainTaskId, projectId, step.id, newSubSubTaskId, 'checkpoint', mainTaskId);
+    }
+  }
+  
+  bool _containsStep(List<ProjectStep> steps, String id) {
+    for (var s in steps) {
+      if (s.id == id) return true;
+      if (_containsStep(s.substeps, id)) return true;
+    }
+    return false;
+  }
+
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Project...");
+    try {
+      final projectData = await _aiService.generateProjectFromPrompt(
+        modelCandidates: _provider.settings.heavyModels,
+        userPrompt: userPrompt,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+      );
+
+      final newProject = Project.fromJson(projectData);
+      newProject.id = const Uuid().v4();
+      newProject.linkedMainTaskId = mainTaskId;
+      newProject.isActive = true;
+      newProject.sortOrder = DateTime.now().millisecondsSinceEpoch;
+      newProject.createdAt = DateTime.now();
+
+      _updateMainTaskProjects(
+          mainTaskId, (projects) => [...projects, newProject]);
+    } catch (e) {
+      debugPrint("Error generating project: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+  
+  Future<void> generateStepsForProject(String mainTaskId, String projectId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    if (project == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Steps...");
+    try {
+      final existingStepTitles = project.steps.map((s) => s.title).toList();
+      final newStepsData = await _aiService.generateStepsForProject(
+        projectTitle: project.title,
+        projectDescription: project.description,
+        existingSteps: existingStepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.heavyModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        for (var stepData in newStepsData) {
+          proj.steps.add(ProjectStep(
+            id: const Uuid().v4(),
+            title: stepData['title'] ?? 'New Step',
+            description: stepData['description'] ?? '',
+            createdAt: DateTime.now(),
+          ));
+        }
+      });
+    } catch (e) {
+      debugPrint("Error generating steps: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> generateSubstepsForStep(String mainTaskId, String projectId, String stepId, String userPrompt) async {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
+    if (project == null) return;
+
+    ProjectStep? findStep(List<ProjectStep> steps, String id) {
+      for (var s in steps) {
+        if (s.id == id) return s;
+        final found = findStep(s.substeps, id);
+        if (found != null) return found;
+      }
+      return null;
+    }
+
+    final parentStep = findStep(project.steps, stepId);
+    if (parentStep == null) return;
+
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Sub-steps...");
+
+    try {
+      final existingSubstepTitles = parentStep.substeps.map((s) => s.title).toList();
+      final newStepsData = await _aiService.generateSubstepsForStep(
+        parentStepTitle: parentStep.title,
+        parentStepDescription: parentStep.description,
+        existingSubsteps: existingSubstepTitles,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[SubStepAI] $msg"),
+      );
+
+      _performStepAction(mainTaskId, projectId, (proj) {
+        ProjectStep? targetStep = findStep(proj.steps, stepId);
+        if (targetStep != null) {
+          for (var stepData in newStepsData) {
+            targetStep.substeps.add(ProjectStep(
+              id: const Uuid().v4(),
+              title: stepData['title'] ?? 'New Sub-step',
+              description: stepData['description'] ?? '',
+              createdAt: DateTime.now(),
+            ));
+          }
+          targetStep.isCompleted = false;
+          targetStep.completedAt = null;
+        }
+      });
+    } catch (e) {
+      debugPrint("Error generating substeps: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  void _updateMainTaskProjects(
+      String mainTaskId, List<Project> Function(List<Project>) updateFn) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final updatedProjects = updateFn(task.projects);
+        return task.copyWith(
+          projects: updatedProjects,
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+}
+--- END OF FILE lib/src/providers/actions/project_actions.dart ---
+
+--- START OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
+import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class RecurringCompletedSection extends StatelessWidget {
-  final MainTask parentTask;
-  final List<SubTask> completedSubtasks;
+class AbilityImprovementCard extends StatelessWidget {
+  final String name;
+  final String reason;
+  final int score;
 
-  const RecurringCompletedSection({
+  const AbilityImprovementCard({
     super.key,
-    required this.parentTask,
-    required this.completedSubtasks,
+    required this.name,
+    required this.reason,
+    required this.score,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(MdiIcons.timerSand,
-                color: AppTheme.fhAccentTeal, size: 20),
-            title: Row(
-              children: [
-                Text(
-                  "COOLDOWN",
-                  style: TextStyle(
-                    color: AppTheme.fhAccentTeal,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    letterSpacing: 1.2,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhAccentTeal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.3)),
-                  ),
-                  child: const Text(
-                    "RESETS 00:00",
-                    style: TextStyle(
-                      color: AppTheme.fhAccentTeal,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            childrenPadding: EdgeInsets.zero,
-            children: completedSubtasks.map((st) {
-              return SubmissionCard(parentTask: parentTask, subTask: st);
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
-
---- START OF FILE lib/src/widgets/views/task_details_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart';
-import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
-import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class TaskDetailsView extends StatefulWidget {
-  const TaskDetailsView({super.key});
-
-  @override
-  State<TaskDetailsView> createState() => _TaskDetailsViewState();
-}
-
-class _TaskDetailsViewState extends State<TaskDetailsView> {
-  String _aiGenerationMode = 'text_list';
-  final _aiUserInputController = TextEditingController();
-  final _aiNumSubquestsController = TextEditingController(text: '3');
-  final _newSubTaskController = TextEditingController();
-
-  void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
-    if (_aiUserInputController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please provide input for the AI."), backgroundColor: AppTheme.fhAccentOrange),
-      );
-      return;
-    }
-    appProvider.triggerAISubquestGeneration(
-        task,
-        _aiGenerationMode,
-        _aiUserInputController.text.trim(),
-        int.tryParse(_aiNumSubquestsController.text) ?? 3);
-    _aiUserInputController.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        final task = appProvider.getSelectedTask();
-        final theme = Theme.of(context);
-
-        if (task == null) {
-          return const Center(child: Text('NO PROTOCOL SELECTED'));
-        }
-
-        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
-        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
-
-        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
-        
-        // Split completed tasks into recurring (cooldown) and archived (one-time)
-        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
-        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TaskHeaderCard(
-                task: task,
-                yesterdayTime: yesterdayTime,
-                weeklyCompletion: weeklyCompletion,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Score Indicator
+            Container(
+              width: 48,
+              decoration: BoxDecoration(
+                color: AppTheme.fhAccentGreen.withOpacity(0.1),
+                border: Border(right: BorderSide(color: AppTheme.fhAccentGreen.withOpacity(0.3))),
               ),
-
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
-                child: Row(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(width: 4, height: 16, color: task.taskColor),
-                    const SizedBox(width: 8),
-                    Text('ACTIVE SUB-MISSIONS',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontFamily: AppTheme.fontDisplay,
-                            color: AppTheme.fhTextPrimary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0
-                        )),
+                    Icon(MdiIcons.chevronUp, size: 16, color: AppTheme.fhAccentGreen),
+                    Text(
+                      "$score",
+                      style: const TextStyle(
+                        color: AppTheme.fhAccentGreen,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
                   ],
                 ),
               ),
-
-              if (activeSubtasks.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24.0),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    color: AppTheme.fhBgDark.withOpacity(0.3)
-                  ),
-                  child: const Text(
-                      'ALL SUB-MISSIONS COMPLETED.\nLOG NEW ACTIVITY BELOW.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
-                  ),
-                )
-              else
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: activeSubtasks.length,
-                  onReorder: (oldIndex, newIndex) {
-                    appProvider.reorderSubtasks(task.id, oldIndex, newIndex);
-                  },
-                  itemBuilder: (ctx, index) {
-                    final st = activeSubtasks[index];
-                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
-                  },
-                ),
-
-              // Recurring Completed Section
-              RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-
-              // Archived (One-time) Section
-              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-
-              _buildAddNewSubTaskButton(context, appProvider, task),
-              _buildAISubQuestCard(theme, appProvider, task),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _newSubTaskController,
-            decoration: const InputDecoration(
-              hintText: "NEW SUB-MISSION TITLE...",
-              hintStyle: TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary),
-              filled: true,
-              border: OutlineInputBorder(borderSide: BorderSide.none),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
-            style: const TextStyle(fontSize: 14, color: AppTheme.fhTextPrimary),
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) {
-                provider.addSubtask(task.id, {'name': value.trim(), 'isCountable': false});
-                _newSubTaskController.clear();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            icon: Icon(MdiIcons.plus, size: 18),
-            label: const Text("ADD OBJECTIVE"),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.fhBgDark,
-                foregroundColor: AppTheme.fhAccentTeal,
-                minimumSize: const Size(double.infinity, 44),
-                shape: const BeveledRectangleBorder(),
-                side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
-            onPressed: () {
-              if (_newSubTaskController.text.trim().isNotEmpty) {
-                provider.addSubtask(task.id, {
-                  'name': _newSubTaskController.text.trim(),
-                  'isCountable': false
-                });
-                _newSubTaskController.clear();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAISubQuestCard(ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
-    return Card(
-      color: AppTheme.fhBgDark.withOpacity(0.5),
-      margin: const EdgeInsets.only(top: 24),
-      shape: const BeveledRectangleBorder(
-        side: BorderSide(color: AppTheme.fhAccentPurple, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 20),
-                const SizedBox(width: 10),
-                const Text('AI GENERATION PROTOCOL',
-                    style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        color: AppTheme.fhTextPrimary,
+            
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      name.toUpperCase(),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                        fontSize: 14
-                    )),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _aiUserInputController,
-              decoration: const InputDecoration(
-                labelText: 'INPUT PARAMETERS',
-                labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0),
-                hintText: "e.g. 'Read chapters 1-3 of Design Patterns'",
-                hintStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                filled: true,
-                border: OutlineInputBorder(),
+                        color: AppTheme.fhTextPrimary,
+                        fontSize: 13,
+                        letterSpacing: 0.8,
+                        fontFamily: AppTheme.fontDisplay,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      reason,
+                      style: const TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              maxLines: 2,
-              style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                        labelText: 'MODE',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
-                    ),
-                    dropdownColor: AppTheme.fhBgMedium,
-                    value: _aiGenerationMode,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
-                    items: const [
-                      DropdownMenuItem(value: 'text_list', child: Text('List')),
-                      DropdownMenuItem(value: 'book_chapter', child: Text('Chapter')),
-                      DropdownMenuItem(value: 'general_plan', child: Text('General')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _aiGenerationMode = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _aiNumSubquestsController,
-                    decoration: const InputDecoration(
-                        labelText: 'COUNT',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
-                    ),
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: appProviderConsumer.isGeneratingSubquests
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Icon(MdiIcons.check, size: 16),
-              label: Text(appProviderConsumer.isGeneratingSubquests ? 'PROCESSING...' : 'EXECUTE'),
-              onPressed: appProviderConsumer.isGeneratingSubquests
-                  ? null
-                  : () => _handleAiGenerateSubquests(appProviderConsumer, task),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.fhAccentPurple,
-                  foregroundColor: Colors.white,
-                  shape: const BeveledRectangleBorder(),
-                  minimumSize: const Size(double.infinity, 40)),
             ),
           ],
         ),
@@ -352,6 +1376,383 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     );
   }
 }
---- END OF FILE lib/src/widgets/views/task_details_view.dart ---
+--- END OF FILE lib/src/widgets/ui/ability_improvement_card.dart ---
 
---- END OF FILE project_snapshot_out.txt ---
+--- START OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart'; 
+
+class LinkSubmissionSheet extends StatefulWidget {
+  final String? initialMainTaskId;
+  final String? initialProjectId;
+  final String? initialStepId;
+
+  const LinkSubmissionSheet({
+    super.key,
+    this.initialMainTaskId,
+    this.initialProjectId,
+    this.initialStepId,
+  });
+
+  @override
+  State<LinkSubmissionSheet> createState() => _LinkSubmissionSheetState();
+}
+
+class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
+  String? _selectedMainTaskId;
+  String? _selectedProjectId;
+  String? _selectedStepId;
+  String? _selectedTargetMainTaskId;
+  String? _selectedTargetSubTaskId;
+  String? _selectedTargetCheckpointId;
+  
+  String _mode = 'promote'; 
+  String _targetType = 'subtask';
+  String _promotionType = 'new_subtask'; // 'new_subtask' or 'new_checkpoint'
+  String? _promotionParentSubTaskId;
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    if (widget.initialMainTaskId != null) {
+      _selectedMainTaskId = widget.initialMainTaskId;
+      _selectedProjectId = widget.initialProjectId;
+      _selectedStepId = widget.initialStepId;
+    } else {
+      _selectedMainTaskId = provider.selectedTaskId;
+    }
+    
+    _selectedTargetMainTaskId = provider.selectedTaskId;
+  }
+
+  // Helper to flatten steps for display/selection
+  List<ProjectStep> _getAllSteps(Project project) {
+    List<ProjectStep> all = [];
+    void traverse(List<ProjectStep> steps) {
+      for (var s in steps) {
+        all.add(s);
+        traverse(s.substeps);
+      }
+    }
+    traverse(project.steps);
+    return all;
+  }
+
+  // Helper to find step recursively (for execution)
+  ProjectStep? _findStepRecursive(List<ProjectStep> steps, String id) {
+    for (var s in steps) {
+      if (s.id == id) return s;
+      final found = _findStepRecursive(s.substeps, id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    
+    final MainTask? sourceTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedMainTaskId);
+    final projects = sourceTask?.projects ?? [];
+    final selectedProject = projects.firstWhereOrNull((p) => p.id == _selectedProjectId);
+    
+    // Flatten steps if project selected
+    final List<ProjectStep> displaySteps = selectedProject != null ? _getAllSteps(selectedProject) : [];
+
+    final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
+    
+    // Filter available SubTasks (only incomplete)
+    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed).toList() ?? [];
+    
+    List<SubSubTask> availableCheckpoints = [];
+    if (_selectedTargetSubTaskId != null) {
+      final st = availableSubTasks.firstWhereOrNull((s) => s.id == _selectedTargetSubTaskId);
+      if (st != null) {
+        // Filter Checkpoints (only incomplete)
+        availableCheckpoints = st.subSubTasks.where((c) => !c.completed).toList();
+      }
+    }
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      height: MediaQuery.of(context).size.height * 0.9,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("LINK PROTOCOL", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+              const SizedBox(height: 24),
+              
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. Source Selection (If not fixed)
+                      if (widget.initialStepId == null) ...[
+                        ValorantDropdown<String>(
+                          label: "SOURCE MISSION",
+                          value: _selectedMainTaskId,
+                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_selectedMainTaskId != null)
+                          ValorantDropdown<String>(
+                            label: "SOURCE PROJECT",
+                            value: _selectedProjectId,
+                            items: projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.title.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() { _selectedProjectId = val; _selectedStepId = null; }),
+                          ),
+                          
+                        const SizedBox(height: 16),
+                        if (selectedProject != null) ...[
+                           const Text("SELECT STEP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                           const SizedBox(height: 8),
+                           Container(
+                             height: 150,
+                             decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                             child: ListView.builder(
+                               itemCount: displaySteps.length,
+                               itemBuilder: (context, index) {
+                                 final step = displaySteps[index];
+                                 final isSel = _selectedStepId == step.id;
+                                 return ListTile(
+                                   title: Text(step.title, style: TextStyle(color: isSel ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary)),
+                                   selected: isSel,
+                                   tileColor: isSel ? AppTheme.fhAccentPurple.withValues(alpha: 0.1) : null,
+                                   trailing: isSel ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentPurple, size: 16) : null,
+                                   onTap: () => setState(() => _selectedStepId = step.id),
+                                 );
+                               },
+                             ),
+                           )
+                        ],
+                        const SizedBox(height: 24),
+                        const Divider(color: Colors.white24),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        // Fixed Source Display
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
+                          child: Row(
+                            children: [
+                              Icon(MdiIcons.sourceBranch, color: AppTheme.fhAccentPurple),
+                              const SizedBox(width: 12),
+                              Expanded(child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("LINKING SOURCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    _findStepRecursive(selectedProject?.steps ?? [], _selectedStepId ?? '')?.title ?? "Unknown Step", 
+                                    style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)
+                                  )
+                                ],
+                              ))
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // 2. Action Mode
+                      Row(
+                        children: [
+                          _buildModeBtn("CREATE NEW", 'promote'),
+                          const SizedBox(width: 16),
+                          _buildModeBtn("LINK EXISTING", 'link'),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Target Selection Area
+                      if (_mode == 'link') ...[
+                         ValorantDropdown<String>(
+                          label: "TARGET MISSION",
+                          value: _selectedTargetMainTaskId,
+                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          onChanged: (val) => setState(() { _selectedTargetMainTaskId = val; _selectedTargetSubTaskId = null; _selectedTargetCheckpointId = null; }),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_selectedTargetMainTaskId != null)
+                          ValorantDropdown<String>(
+                            label: "TARGET SUB-MISSION",
+                            value: _selectedTargetSubTaskId,
+                            items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() { _selectedTargetSubTaskId = val; _selectedTargetCheckpointId = null; }),
+                          ),
+                        
+                        if (_selectedTargetSubTaskId != null) ...[
+                          const SizedBox(height: 16),
+                          Row(children: [
+                            Checkbox(
+                              value: _targetType == 'checkpoint',
+                              activeColor: AppTheme.fhAccentPurple,
+                              onChanged: (val) => setState(() { 
+                                _targetType = val == true ? 'checkpoint' : 'subtask';
+                                if (_targetType == 'subtask') _selectedTargetCheckpointId = null;
+                              }),
+                            ),
+                            const Text("Link to Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                          ]),
+                          if (_targetType == 'checkpoint') ...[
+                            if (availableCheckpoints.isNotEmpty)
+                              ValorantDropdown<String>(
+                                label: "TARGET CHECKPOINT",
+                                value: _selectedTargetCheckpointId,
+                                items: availableCheckpoints.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                                onChanged: (val) => setState(() => _selectedTargetCheckpointId = val),
+                              )
+                            else
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8.0),
+                                child: Text("No incomplete checkpoints available.", style: TextStyle(color: AppTheme.fhAccentRed, fontSize: 12)),
+                              )
+                          ]
+                        ]
+                      ] else ...[ 
+                        // Mode 'promote'
+                        const Text("PROMOTION TYPE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: RadioListTile<String>(
+                                title: const Text("New Sub-Mission", style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13)),
+                                value: 'new_subtask',
+                                groupValue: _promotionType,
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: AppTheme.fhAccentPurple,
+                                onChanged: (val) => setState(() => _promotionType = val!),
+                              ),
+                            ),
+                            Expanded(
+                              child: RadioListTile<String>(
+                                title: const Text("New Checkpoint", style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13)),
+                                value: 'new_checkpoint',
+                                groupValue: _promotionType,
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: AppTheme.fhAccentPurple,
+                                onChanged: (val) => setState(() => _promotionType = val!),
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        if (_promotionType == 'new_checkpoint') ...[
+                          const SizedBox(height: 16),
+                          ValorantDropdown<String>(
+                            label: "PARENT SUB-MISSION",
+                            value: _promotionParentSubTaskId,
+                            items: availableSubTasks.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.toUpperCase()))).toList(),
+                            onChanged: (val) => setState(() => _promotionParentSubTaskId = val),
+                          ),
+                        ]
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              
+              Row(
+                children: [
+                  Expanded(child: ValorantButton(label: "CANCEL", isPrimary: false, onPressed: () => Navigator.pop(context))),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ValorantButton(
+                      label: "EXECUTE",
+                      isPrimary: true,
+                      onPressed: () {
+                        if (_selectedProjectId != null && _selectedStepId != null && selectedProject != null) {
+                          // Recursive find to handle substeps
+                          final step = _findStepRecursive(selectedProject.steps, _selectedStepId!);
+                          
+                          if (step == null) {
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Step not found.")));
+                             return;
+                          }
+                          
+                          if (_mode == 'promote') {
+                            if (_promotionType == 'new_subtask') {
+                              provider.projectActions.promoteStepToSubmission(_selectedMainTaskId!, step);
+                            } else {
+                              if (_promotionParentSubTaskId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a parent sub-mission.")));
+                                return;
+                              }
+                              provider.projectActions.promoteStepToCheckpoint(_selectedMainTaskId!, _promotionParentSubTaskId!, step);
+                            }
+                          } else {
+                            if (_selectedTargetMainTaskId != null && _selectedTargetSubTaskId != null) {
+                              final targetId = _targetType == 'checkpoint' ? _selectedTargetCheckpointId : _selectedTargetSubTaskId;
+                              
+                              if (targetId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select a target.")));
+                                return;
+                              }
+
+                              provider.projectActions.linkStepToTask(
+                                _selectedMainTaskId!, 
+                                _selectedProjectId!, 
+                                _selectedStepId!, 
+                                targetId, 
+                                _targetType, 
+                                _selectedTargetMainTaskId!
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select target mission and sub-mission.")));
+                              return;
+                            }
+                          }
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link Established.")));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Source step selection incomplete.")));
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeBtn(String label, String mode) {
+    final isSelected = _mode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _mode = mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.fhAccentPurple.withValues(alpha: 0.2) : Colors.transparent, 
+            border: Border.all(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhBorderColor),
+          ),
+          alignment: Alignment.center,
+          child: Text(label, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/sheets/link_submission_sheet.dart ---
