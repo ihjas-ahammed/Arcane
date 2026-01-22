@@ -1,6 +1,42 @@
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/task_models.dart';
 
+class ProjectSnapshot {
+  String id;
+  DateTime timestamp;
+  int totalSecondsInvested;
+  double progress; // 0.0 to 1.0
+  String? note;
+
+  ProjectSnapshot({
+    required this.id,
+    required this.timestamp,
+    required this.totalSecondsInvested,
+    required this.progress,
+    this.note,
+  });
+
+  factory ProjectSnapshot.fromJson(Map<String, dynamic> json) {
+    return ProjectSnapshot(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      totalSecondsInvested: json['totalSecondsInvested'] as int? ?? 0,
+      progress: (json['progress'] as num? ?? 0.0).toDouble(),
+      note: json['note'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'timestamp': timestamp.toIso8601String(),
+      'totalSecondsInvested': totalSecondsInvested,
+      'progress': progress,
+      'note': note,
+    };
+  }
+}
+
 class Project {
   String id;
   String title;
@@ -12,6 +48,7 @@ class Project {
   int sortOrder;
   DateTime createdAt;
   DateTime? completedAt;
+  List<ProjectSnapshot> snapshots;
 
   Project({
     required this.id,
@@ -24,8 +61,10 @@ class Project {
     this.sortOrder = 0,
     DateTime? createdAt,
     this.completedAt,
+    List<ProjectSnapshot>? snapshots,
   })  : steps = steps ?? [],
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        snapshots = snapshots ?? [];
 
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
@@ -46,6 +85,10 @@ class Project {
               ?.map((e) => ProjectStep.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      snapshots: (json['snapshots'] as List<dynamic>?)
+              ?.map((e) => ProjectSnapshot.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -61,6 +104,7 @@ class Project {
       'createdAt': createdAt.toIso8601String(),
       'completedAt': completedAt?.toIso8601String(),
       'steps': steps.map((e) => e.toJson()).toList(),
+      'snapshots': snapshots.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -73,14 +117,14 @@ class Project {
       total += step.calculateProgress();
     }
     progress = total / steps.length;
-    
+
     // Auto-update completedAt if progress reached 1.0
     if (progress >= 1.0 && completedAt == null) {
       completedAt = DateTime.now();
     } else if (progress < 1.0 && completedAt != null) {
       completedAt = null;
     }
-    
+
     return progress;
   }
 
@@ -105,12 +149,12 @@ class ProjectStep {
   String description;
   bool isCompleted;
   List<ProjectStep> substeps;
-  
+
   // Linking Info
   String? linkedTaskType; // 'subtask' or 'checkpoint' (subsubtask)
   String? linkedTaskId;   // ID of the subtask or subsubtask
   String? linkedParentTaskId; // ID of the MainTask containing the linked task
-  
+
   DateTime createdAt;
   DateTime? completedAt;
 
@@ -173,13 +217,13 @@ class ProjectStep {
       }
       double childProgress = total / substeps.length;
       bool calculatedComplete = childProgress >= 1.0;
-      
+
       if (calculatedComplete != isCompleted) {
         isCompleted = calculatedComplete;
         if (isCompleted) completedAt = DateTime.now();
         else completedAt = null;
       }
-      
+
       return childProgress;
     }
     return isCompleted ? 1.0 : 0.0;
@@ -187,7 +231,7 @@ class ProjectStep {
 
   int calculateTotalTimeSeconds(List<MainTask> allTasks) {
     int total = 0;
-    
+
     // 1. Recursive calculation
     for (var sub in substeps) {
       total += sub.calculateTotalTimeSeconds(allTasks);
@@ -198,11 +242,11 @@ class ProjectStep {
       // Find the task
       for (var main in allTasks) {
         if (linkedParentTaskId != null && main.id != linkedParentTaskId) continue;
-        
+
         final sub = main.subTasks.where((s) => s.id == linkedTaskId).firstOrNull;
         if (sub != null) {
           total += sub.currentTimeSpent;
-          break; 
+          break;
         }
       }
     }

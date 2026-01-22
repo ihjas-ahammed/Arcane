@@ -30,7 +30,7 @@ class AppProvider with ChangeNotifier {
   // ... [Existing fields same as before]
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
-  
+
   // Expose AIService for widgets that need direct access (like graph anomaly detection)
   AIService get aiService => _aiService;
 
@@ -188,7 +188,7 @@ class AppProvider with ChangeNotifier {
     final List<Map<String, dynamic>> history = [];
     final now = DateTime.now();
     final creation = project.createdAt;
-    
+
     // Add Start Point
     history.add({
       'date': creation,
@@ -244,7 +244,7 @@ class AppProvider with ChangeNotifier {
   }
 
   // ... [Rest of the file: initialization, auth, save/load logic unchanged]
-  
+
   void reorderValues(int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -777,7 +777,7 @@ class AppProvider with ChangeNotifier {
     if (_currentUser == null) return;
     final today = helper.getTodayDateString();
     bool hasResetRun = false;
-    
+
     // Check for daily login update
     if (_lastLoginDate != today) {
       hasResetRun = true;
@@ -792,35 +792,52 @@ class AppProvider with ChangeNotifier {
     // --- Recurring Task Reset Logic ---
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
-    
+
     bool tasksChanged = false;
     for (var mainTask in _mainTasks) {
       for (var subTask in mainTask.subTasks) {
         if (subTask.isRecurring) {
-          // Check if last completion was before today
-          if (subTask.lastCompletedDate != null && 
-              subTask.lastCompletedDate!.isBefore(todayMidnight)) {
-            
-            if (subTask.completed) {
-              subTask.completed = false;
-              subTask.completedDate = null;
-              tasksChanged = true;
-            }
-            
-            if (subTask.isCountable && subTask.currentCount > 0) {
-              subTask.currentCount = 0;
-              tasksChanged = true;
-            }
 
-            // Also reset child checkpoints
-            for (var checkpoint in subTask.subSubTasks) {
-              if (checkpoint.completed) {
+          // 1. Reset Main Subtask if it was completed BEFORE today
+          if (subTask.completed &&
+              subTask.lastCompletedDate != null &&
+              subTask.lastCompletedDate!.isBefore(todayMidnight)) {
+
+            subTask.completed = false;
+            subTask.completedDate = null;
+            // IMPORTANT: Clear lastCompletedDate locally so we don't reset again today if app restarts
+            // But we need to keep it if we want "history".
+            // Better logic: we reset it, so now it is NOT completed.
+            // But lastCompletedDate helps us know when it was done.
+            // If we don't clear it, next app open will see completed=false, so this block won't run.
+            // So this block is safe.
+            tasksChanged = true;
+          }
+
+          // 2. Reset Counter if it was updated BEFORE today
+          // We use updatedAt. If user updated counter today, updatedAt >= todayMidnight.
+          // If updated yesterday, it < todayMidnight.
+          if (subTask.isCountable &&
+              subTask.currentCount > 0 &&
+              subTask.updatedAt.isBefore(todayMidnight)) {
+            subTask.currentCount = 0;
+            tasksChanged = true;
+          }
+
+          // 3. Reset Checkpoints individually based on THEIR completion time
+          for (var checkpoint in subTask.subSubTasks) {
+            if (checkpoint.completed) {
+              DateTime? cpDate;
+              if (checkpoint.completionTimestamp != null) {
+                try {
+                  cpDate = DateTime.parse(checkpoint.completionTimestamp!);
+                } catch (_) {}
+              }
+
+              // If no timestamp (legacy) or timestamp is before today -> Reset
+              if (cpDate == null || cpDate.isBefore(todayMidnight)) {
                 checkpoint.completed = false;
                 checkpoint.completionTimestamp = null;
-                tasksChanged = true;
-              }
-              if (checkpoint.isCountable && checkpoint.currentCount > 0) {
-                checkpoint.currentCount = 0;
                 tasksChanged = true;
               }
             }
@@ -828,7 +845,7 @@ class AppProvider with ChangeNotifier {
         }
       }
     }
-    
+
     if (tasksChanged) {
       _markDirty('tasks');
     }
@@ -998,7 +1015,7 @@ class AppProvider with ChangeNotifier {
     for (int i = 0; i < 7; i++) {
       final d = now.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(d);
-      
+
       // Past data
       if (_completedByDay.containsKey(dateStr)) {
         final dayData = _completedByDay[dateStr];
@@ -1011,7 +1028,7 @@ class AppProvider with ChangeNotifier {
           });
         }
       }
-      
+
       // Today (Live) if loop hits today
       if (dateStr == DateFormat('yyyy-MM-dd').format(now)) {
          for (var task in _mainTasks) {
@@ -1025,9 +1042,9 @@ class AppProvider with ChangeNotifier {
            }
            if (todaySeconds > 0) {
              // Avoid double counting if today is already in completedByDay (depends on save logic)
-             // For simplicity, we assume completedByDay is updated on save/end of day. 
-             // Ideally we check if we already added it. 
-             // Since loop iterates dates, and completedByDay stores finalized or saved data, 
+             // For simplicity, we assume completedByDay is updated on save/end of day.
+             // Ideally we check if we already added it.
+             // Since loop iterates dates, and completedByDay stores finalized or saved data,
              // live data might be separate. Let's merge max for safety or just rely on live calculation logic.
              // Actually, simplest is to re-calculate from sessions for the last 7 days directly from mainTasks
              // because completedByDay is a summary.
@@ -1035,7 +1052,7 @@ class AppProvider with ChangeNotifier {
          }
       }
     }
-    
+
     // Better Approach: Calculate strictly from MainTasks session history for last 7 days
     // This is more accurate for "active" tasks.
     totalTimePerTask.clear();

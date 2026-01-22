@@ -139,11 +139,68 @@ class ProjectActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // --- Snapshot Management ---
+
+  void captureProjectSnapshot(String mainTaskId, String projectId, String? note) {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return;
+
+    final project = mainTask.projects.firstWhereOrNull((p) => p.id == projectId);
+    if (project == null) return;
+
+    final int totalSeconds = project.calculateTotalTimeSeconds(_provider.mainTasks);
+    final double progress = project.calculateProgress();
+
+    final newSnapshot = ProjectSnapshot(
+      id: const Uuid().v4(),
+      timestamp: DateTime.now(),
+      totalSecondsInvested: totalSeconds,
+      progress: progress,
+      note: note,
+    );
+
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.snapshots.add(newSnapshot);
+          // Keep snapshots sorted by date
+          p.snapshots.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void deleteSnapshot(String mainTaskId, String projectId, String snapshotId) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          p.snapshots.removeWhere((s) => s.id == snapshotId);
+        }
+        return p;
+      }).toList();
+    });
+  }
+
+  void updateSnapshot(String mainTaskId, String projectId, String snapshotId, String? newNote) {
+    _updateMainTaskProjects(mainTaskId, (projects) {
+      return projects.map((p) {
+        if (p.id == projectId) {
+          final snap = p.snapshots.firstWhereOrNull((s) => s.id == snapshotId);
+          if (snap != null) {
+            snap.note = newNote;
+          }
+        }
+        return p;
+      }).toList();
+    });
+  }
+
   // --- Step Management & Linking ---
 
   void linkStepToTask(String mainTaskId, String projectId, String stepId,
       String targetTaskId, String type, String targetParentId) {
-    
+
     // 1. Update Project Step
     _performStepAction(mainTaskId, projectId, (project) {
       _findAndUpdateStep(project.steps, stepId, (step) {
@@ -156,7 +213,7 @@ class ProjectActions {
     // 2. Sync Status: If target task is already done, mark step done
     bool targetIsCompleted = false;
     final targetMainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == targetParentId);
-    
+
     if (targetMainTask != null) {
       if (type == 'subtask') {
         final st = targetMainTask.subTasks.firstWhereOrNull((s) => s.id == targetTaskId);
@@ -383,7 +440,7 @@ class ProjectActions {
   }
 
   // --- External Sync Methods (called by TaskActions) ---
-  
+
   void syncProjectStepFromTaskCompletion(String taskId, bool isCompleted) {
     // Iterate all projects to find linked steps
     for (var mainTask in _provider.mainTasks) {
@@ -419,7 +476,7 @@ class ProjectActions {
       'isCountable': false,
       'subSubTasksData': <Map<String, dynamic>>[]
     });
-    
+
     // 2. Find project ID for step
     String? projectId;
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -431,21 +488,21 @@ class ProjectActions {
         }
       }
     }
-    
+
     if (projectId != null) {
       // 3. Link Parent Step
       linkStepToTask(mainTaskId, projectId, step.id, newSubTaskId, 'subtask', mainTaskId);
 
       // 4. Auto-create & Link Child Checkpoints
       for (var substep in step.substeps) {
-        // Create Checkpoint
+        // Create Checkpoint in the NEW subtask
         final newCheckPointId = _provider.taskActions.addSubSubtask(mainTaskId, newSubTaskId, {
           'name': substep.title,
           'isCountable': false,
           'targetCount': 0
         });
-        
-        // Link
+
+        // Link the substep to this new checkpoint
         if (newCheckPointId.isNotEmpty) {
           linkStepToTask(mainTaskId, projectId, substep.id, newCheckPointId, 'checkpoint', mainTaskId);
         }
@@ -460,7 +517,7 @@ class ProjectActions {
       'isCountable': false,
       'targetCount': 0,
     });
-    
+
     // Find project ID for step
     String? projectId;
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -472,12 +529,12 @@ class ProjectActions {
         }
       }
     }
-    
+
     if (projectId != null && newSubSubTaskId.isNotEmpty) {
       linkStepToTask(mainTaskId, projectId, step.id, newSubSubTaskId, 'checkpoint', mainTaskId);
     }
   }
-  
+
   bool _containsStep(List<ProjectStep> steps, String id) {
     for (var s in steps) {
       if (s.id == id) return true;
@@ -515,7 +572,7 @@ class ProjectActions {
       _provider.setLoadingTask(null);
     }
   }
-  
+
   Future<void> generateStepsForProject(String mainTaskId, String projectId, String userPrompt) async {
     final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final project = mainTask?.projects.firstWhereOrNull((p) => p.id == projectId);
@@ -613,15 +670,10 @@ class ProjectActions {
   }
 
   // --- Graph Data Fix ---
-  
+
   Future<void> fixProjectAnomalies(Project project, List<String> sessionIdsToDelete) async {
     for (var sessionId in sessionIdsToDelete) {
-      // We need to find where this session lives.
-      // This is inefficient but necessary since we don't have direct mapping without iterating.
-      // However, AppProvider's history collection included task IDs. 
-      // But here we might just receive IDs from UI.
-      
-      // Let's iterate all tasks linked to this project to find and delete.
+      // Find where this session lives within linked tasks
       for (var step in project.steps) {
         _deleteSessionRecursive(step, sessionId);
       }
@@ -630,8 +682,7 @@ class ProjectActions {
 
   void _deleteSessionRecursive(ProjectStep step, String sessionId) {
     if (step.linkedTaskId != null && step.linkedTaskType == 'subtask') {
-       // Try to delete via provider if it matches
-       // We need parent task ID. step.linkedParentTaskId gives it.
+       // We need parent MainTask ID to delete.
        if (step.linkedParentTaskId != null) {
          _provider.deleteSessionFromSubtask(step.linkedParentTaskId!, step.linkedTaskId!, sessionId);
        }

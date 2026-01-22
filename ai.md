@@ -1,9 +1,8 @@
 Make the following changes:
 
-    - For project graph, add a button which uses AI to fix the datapoints like remove the unwanted ones, this way it wont look bad because of some bad entry
-
-    - Update project linking:
-        - If I create a new submission by linking a step, auto create and lin all its checkpoints as the substeps of the step 
+    * update submission, checkpoint - project  linking:
+        - in the selector for agent, set the default to be the agent of project, also the selector is not shown on the creator when i have to create a checkpoint, so show it
+    * fix that checkpoints are reset like unchecked everytime i open the app instead of once in a day for recurring tasks
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
