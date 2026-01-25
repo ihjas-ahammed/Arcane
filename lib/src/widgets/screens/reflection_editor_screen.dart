@@ -5,6 +5,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/common/growing_text_field.dart';
 
@@ -59,8 +60,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     }
 
     if (widget.initialLog != null) {
-      // Editing existing log - for simplicity in this flow, we update fields but don't re-trigger full AI unless logic changes
-      // Current AppProvider update logic is simple text replacement.
+      // Editing existing log
       appProvider.updateReflectionLog(
         widget.initialLog!.id,
         trigger: _triggerController.text.trim(),
@@ -73,7 +73,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
     // New Log
     if (!analyze) {
-      // Quick Save without AI
       appProvider.quickSaveReflection(
         trigger: _triggerController.text.trim(),
         emotion: _emotionController.text.trim(),
@@ -88,20 +87,53 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     setState(() => _isLoading = true);
     
     try {
-        final xpGained = await appProvider.processReflection(
+        final result = await appProvider.processReflection(
           trigger: _triggerController.text.trim(),
           emotion: _emotionController.text.trim(),
           reason: _reasonController.text.trim(),
           timestamp: timestamp,
         );
 
+        final xpGained = result['xpGained'] as Map<String, int>;
+        final valueUpdates = result['valueUpdates'] as List<dynamic>?;
+
         if (mounted) {
           Navigator.pop(context); 
-          showDialog(
+          
+          // Show XP Dialog first
+          await showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.8),
             builder: (ctx) => XpGainDialog(xpGained: xpGained),
           );
+
+          // Check for Value Updates
+          if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
+            for (var update in valueUpdates) {
+              if (update is Map) {
+                // Show confirm dialog
+                final shouldUpdate = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => ValueUpdateConfirmDialog(
+                    updateData: update as Map<String, dynamic>
+                  )
+                );
+
+                if (shouldUpdate == true) {
+                  appProvider.updateValueAnswer(
+                    update['valueId'], 
+                    update['questionId'], 
+                    update['suggestedAnswer']
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
+                    );
+                  }
+                }
+              }
+            }
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -128,8 +160,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
             onPressed: () {
               appProvider.deleteReflectionLog(widget.initialLog!.id);
-              Navigator.pop(ctx); // Close dialog
-              Navigator.pop(context); // Close screen
+              Navigator.pop(ctx); 
+              Navigator.pop(context); 
             },
             child: const Text("DELETE")
           )
@@ -240,7 +272,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                           child: ValorantButton(
                             label: "UPDATE",
                             isPrimary: true,
-                            onPressed: () => _saveReflection(analyze: false), // Updates don't re-trigger AI by default here
+                            onPressed: () => _saveReflection(analyze: false),
                           ),
                         ),
                       ],

@@ -22,11 +22,14 @@ class WeeklyReportDialog extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         decoration: BoxDecoration(
+          // ignore: deprecated_member_use
           color: AppTheme.fhBgDeepDark.withOpacity(0.95),
           borderRadius: BorderRadius.circular(16),
+          // ignore: deprecated_member_use
           border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
+              // ignore: deprecated_member_use
               color: AppTheme.fhAccentGold.withOpacity(0.1),
               blurRadius: 20,
               spreadRadius: 2,
@@ -41,11 +44,13 @@ class WeeklyReportDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
+                // ignore: deprecated_member_use
                 border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.1))),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
+                    // ignore: deprecated_member_use
                     AppTheme.fhAccentGold.withOpacity(0.05),
                     Colors.transparent
                   ],
@@ -58,6 +63,7 @@ class WeeklyReportDialog extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: AppTheme.fhAccentGold),
+                      // ignore: deprecated_member_use
                       color: AppTheme.fhAccentGold.withOpacity(0.1),
                     ),
                     child: Icon(MdiIcons.medalOutline, color: AppTheme.fhAccentGold, size: 24),
@@ -106,8 +112,10 @@ class WeeklyReportDialog extends StatelessWidget {
                     _SectionHeader(title: "TACTICAL SUMMARY", icon: MdiIcons.textShort, delay: 200),
                     const SizedBox(height: 12),
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
+                        // ignore: deprecated_member_use
                         color: AppTheme.fhBgDark.withOpacity(0.5),
                         border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
                       ),
@@ -149,8 +157,10 @@ class WeeklyReportDialog extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
+                          // ignore: deprecated_member_use
                           color: AppTheme.fhAccentPurple.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(8),
+                          // ignore: deprecated_member_use
                           border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.2)),
                         ),
                         child: Row(
@@ -221,6 +231,7 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
+        // ignore: deprecated_member_use
         Expanded(child: Container(height: 1, color: AppTheme.fhBorderColor.withOpacity(0.3))),
       ],
     ).animate().fadeIn(delay: delay.ms, duration: 400.ms);

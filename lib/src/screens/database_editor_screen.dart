@@ -37,7 +37,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
     }
     try {
       provider.loadAppStateFromMap(_localData);
-      await provider.manuallySaveToCloud();
+      provider.manuallySaveToCloud();
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Database synced.")));
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));

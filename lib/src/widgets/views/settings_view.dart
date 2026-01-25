@@ -167,11 +167,12 @@ class _SettingsViewState extends State<SettingsView> {
               : null);
       if (!mounted) return;
       setState(() {
-        _availableModels = models;
+        // Only update if we actually got models back
+        if (models.isNotEmpty) _availableModels = models;
       });
     } catch (e) {
-      if (!mounted) return;
-      // Silent error or retry later
+      // In case of error (likely network or key), keep default list
+      debugPrint("Error fetching models: $e");
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -224,7 +225,7 @@ class _SettingsViewState extends State<SettingsView> {
                       ? null
                       : () async {
                           try {
-                            await appProvider.manuallySaveToCloud();
+                             appProvider.manuallySaveToCloud();
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -288,7 +289,7 @@ class _SettingsViewState extends State<SettingsView> {
                           );
                           if (confirm == true) {
                             try {
-                              await appProvider.manuallyLoadFromCloud();
+                               appProvider.manuallyLoadFromCloud();
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -369,22 +370,25 @@ class _SettingsViewState extends State<SettingsView> {
                 }),
                 const SizedBox(height: 16),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      icon: _fetchingModels
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(MdiIcons.refresh, size: 18),
-                      label: const Text("Refetch Available Models"),
-                      onPressed: _fetchingModels
-                          ? null
-                          : () => _fetchModels(appProvider),
+                // Refetch Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: _fetchingModels
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(MdiIcons.refresh, size: 18),
+                    label: const Text("REFETCH AVAILABLE MODELS"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.fhAccentTeal,
+                      side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
                     ),
-                  ],
+                    onPressed: _fetchingModels
+                        ? null
+                        : () => _fetchModels(appProvider),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 

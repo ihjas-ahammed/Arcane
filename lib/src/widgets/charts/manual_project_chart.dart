@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/math_utils.dart';
+import 'dart:math';
+import 'package:collection/collection.dart';
 
 class ManualProjectChart extends StatelessWidget {
   final List<ProjectSnapshot> snapshots;
@@ -19,23 +20,40 @@ class ManualProjectChart extends StatelessWidget {
   Widget build(BuildContext context) {
     if (snapshots.isEmpty) {
       return Center(
-        child: Text("NO PROGRESS LOGGED",
+        child: Text("NO DATA POINTS LOGGED",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)
         ),
       );
     }
 
+    // Sort by Time Spent (X Axis is cumulative hours)
     final sortedSnapshots = List<ProjectSnapshot>.from(snapshots)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      ..sort((a, b) => a.totalSecondsInvested.compareTo(b.totalSecondsInvested));
 
-    final startDate = sortedSnapshots.first.timestamp;
     final spots = <FlSpot>[];
+    final regressionPoints = <Point<double>>[];
 
-    for (int i = 0; i < sortedSnapshots.length; i++) {
-      // X = Days since start (double)
-      final diff = sortedSnapshots[i].timestamp.difference(startDate).inHours / 24.0;
+    for (var snap in sortedSnapshots) {
+      // X = Total Hours
+      final x = snap.totalSecondsInvested / 3600.0;
       // Y = Progress % (0-100)
-      spots.add(FlSpot(diff, sortedSnapshots[i].progress * 100));
+      final y = snap.progress * 100;
+      spots.add(FlSpot(x, y));
+      regressionPoints.add(Point(x, y));
+    }
+
+    // Calculate Regression Forecast
+    final regResult = MathUtils.linearRegression(regressionPoints);
+    final slope = regResult['slope']!;
+    final intercept = regResult['intercept']!;
+    
+    // Forecast point (Target Y = 100)
+    final forecastX = MathUtils.predictX(100, slope, intercept);
+    
+    final forecastSpots = <FlSpot>[];
+    if (slope > 0 && forecastX > spots.last.x && forecastX < 1000) { // Limit absurd forecasts
+      forecastSpots.add(spots.last);
+      forecastSpots.add(FlSpot(forecastX, 100));
     }
 
     return LineChart(
@@ -60,46 +78,59 @@ class ManualProjectChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
-                // Show date roughly
-                if (value % 2 == 0) { // show every other day roughly to avoid crowd
-                   final date = startDate.add(Duration(hours: (value * 24).toInt()));
-                   return Padding(
-                     padding: const EdgeInsets.only(top: 4.0),
-                     child: Text(DateFormat('MM/dd').format(date), style: const TextStyle(color: Colors.white24, fontSize: 8)),
-                   );
-                }
-                return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text("${value.toInt()}h", style: const TextStyle(color: Colors.white24, fontSize: 8)),
+                );
               }
             )
           ),
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
+          // Actual Data
           LineChartBarData(
             spots: spots,
-            isCurved: true,
+            isCurved: false, // Linear progression makes more sense for time vs effort usually
             color: AppTheme.fhAccentTeal,
             barWidth: 3,
             isStrokeCapRound: true,
             dotData: FlDotData(show: true),
-            belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withOpacity(0.1)),
+            belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)),
           ),
+          // Forecast Line
+          if (forecastSpots.isNotEmpty)
+            LineChartBarData(
+              spots: forecastSpots,
+              isCurved: false,
+              color: AppTheme.fhAccentPurple.withValues(alpha: 0.5),
+              barWidth: 2,
+              dashArray: [5, 5],
+              dotData: FlDotData(show: false),
+            )
         ],
         lineTouchData: LineTouchData(
           touchCallback: (FlTouchEvent event, LineTouchResponse? response) {
             if (event is FlTapUpEvent && response != null && response.lineBarSpots != null) {
-              final spotIndex = response.lineBarSpots!.first.spotIndex;
-              onPointTap(sortedSnapshots[spotIndex]);
+              // Only handle taps on the main data line (index 0)
+              final spot = response.lineBarSpots!.firstWhereOrNull(
+                (s) => s.barIndex == 0
+              );
+              
+              if (spot != null && spot.spotIndex < sortedSnapshots.length) {
+                 onPointTap(sortedSnapshots[spot.spotIndex]);
+              }
             }
           },
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (group) => AppTheme.fhBgDark,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
+                if (spot.barIndex == 1) return LineTooltipItem("Forecast: ${(spot.x).toStringAsFixed(1)}h", TextStyle(color: AppTheme.fhAccentPurple));
+                
                 final snap = sortedSnapshots[spot.spotIndex];
-                final timeStr = helper.formatTime(snap.totalSecondsInvested.toDouble());
                 return LineTooltipItem(
-                  "${(snap.progress * 100).toInt()}%\n$timeStr invested",
+                  "${(snap.progress * 100).toInt()}%\n${snap.totalSecondsInvested ~/ 3600}h invested",
                   const TextStyle(color: Colors.white, fontSize: 10),
                 );
               }).toList();

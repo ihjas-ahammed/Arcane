@@ -6,7 +6,6 @@ import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/models/task_models.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -18,12 +17,10 @@ class TaskNavigationDrawer extends StatefulWidget {
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   final _newTaskNameController = TextEditingController();
   final _newTaskDescController = TextEditingController();
-  final _editTaskNameController = TextEditingController();
-  final _editTaskDescController = TextEditingController();
 
   String _dialogSelectedTheme = 'tech';
-  String _dialogSelectedColorHex =
-      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
+  // ignore: deprecated_member_use
+  String _dialogSelectedColorHex = AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
 
   final List<Map<String, dynamic>> _availableThemes = [
     {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
@@ -54,8 +51,6 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   void dispose() {
     _newTaskNameController.dispose();
     _newTaskDescController.dispose();
-    _editTaskNameController.dispose();
-    _editTaskDescController.dispose();
     super.dispose();
   }
 
@@ -63,6 +58,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     _newTaskNameController.clear();
     _newTaskDescController.clear();
     _dialogSelectedTheme = 'tech';
+    // ignore: deprecated_member_use
     _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
 
     showDialog(
@@ -86,6 +82,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'CLASS'),
                     dropdownColor: AppTheme.fhBgDark,
+                    // ignore: deprecated_member_use
                     value: _dialogSelectedTheme,
                     items: _availableThemes.map((themeMap) => DropdownMenuItem(
                       value: themeMap['name'] as String,
@@ -95,6 +92,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                       if (val != null) {
                         setStateDialog(() {
                           _dialogSelectedTheme = val;
+                          // ignore: deprecated_member_use
                           _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
                         });
                       }
@@ -111,6 +109,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                           selectedColor: currentColor,
                           onColorSelected: (color) {
                             setStateDialog(() {
+                              // ignore: deprecated_member_use
                               _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
                             });
                           },

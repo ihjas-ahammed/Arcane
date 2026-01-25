@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
+import 'package:arcane/src/screens/timetable_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -33,6 +34,17 @@ class MoreScreen extends StatelessWidget {
           }),
 
           _buildMenuTile(context,
+              icon: MdiIcons.timetable,
+              title: "Academic Timetable",
+              subtitle: "4th Semester Physics",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TimetableScreen()));
+          }),
+
+          _buildMenuTile(context,
               icon: MdiIcons.databaseEdit,
               title: "Database Editor",
               subtitle: "Manual edits & JSON Export/Import", onTap: () {
@@ -41,8 +53,6 @@ class MoreScreen extends StatelessWidget {
                 MaterialPageRoute(
                     builder: (context) => const DatabaseEditorScreen()));
           }),
-
-          // Future items can be added here
         ],
       ),
     );

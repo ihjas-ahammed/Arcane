@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
-import 'package:arcane/src/widgets/ui/activity_log_list.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
+import 'package:arcane/src/screens/neural_archive_screen.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -31,6 +31,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
   bool _isGeneratingWeeklyReport = false;
+  
+  Map<String, dynamic>? _tempGeneratedBriefing;
 
   @override
   void didChangeDependencies() {
@@ -67,7 +69,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
   Future<void> _pickDate(BuildContext context) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
     final Set<String> validDates = {};
     validDates.addAll(appProvider.completedByDay.keys);
     
@@ -109,35 +110,26 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     if (picked != null) {
       setState(() {
         _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+        _tempGeneratedBriefing = null; 
       });
     }
   }
 
-  Future<void> _generateDailySummary(AppProvider provider, List<ReflectionLog> logs) async {
+  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
     if (_selectedDate == null) return;
     
     setState(() => _isGeneratingSummary = true);
     
     try {
-      final aiService = AIService();
-      final summary = await aiService.generateDailySummary(
-        reflections: logs.map((l) => {
-          'trigger': l.trigger,
-          'emotion': l.emotion,
-          'reason': l.reason,
-        }).toList(),
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg),
-      );
+      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
       
-      provider.saveDailySummary(_selectedDate!, summary);
+      setState(() {
+        _tempGeneratedBriefing = briefingData;
+      });
       
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate summary: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
       }
     } finally {
       if (mounted) setState(() => _isGeneratingSummary = false);
@@ -148,7 +140,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
       final data = provider.getLast7DaysData();
-      final aiService = AIService();
+      final aiService = provider.aiService;
       
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
@@ -186,23 +178,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       _selectedVirtueFilter
     );
 
-    final summaryData = _selectedDate != null ? appProvider.completedByDay[_selectedDate!] : null;
-
-    Map<String, dynamic> taskTimes = {};
-    if (_selectedDate != null && _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
-      final today = DateTime.now();
-      for (var task in appProvider.mainTasks) {
-        final val = ChartDataHelper.calculateDailyTimeFromSessions(task, today);
-        if (val > 0) taskTimes[task.id] = val;
-      }
-    } else {
-      taskTimes = summaryData?['taskTimes'] as Map<String, dynamic>? ?? {};
-    }
-    
-    final subtasksCompleted = summaryData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final checkpointsCompleted = summaryData?['checkpointsCompleted'] as List<dynamic>? ?? [];
-    
-    final String? aiDailySummary = _selectedDate != null ? appProvider.getDailySummary(_selectedDate!) : null;
+    final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
+    final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
@@ -222,13 +199,22 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              TextButton.icon(
-                icon: _isGeneratingWeeklyReport 
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(MdiIcons.fileChartOutline, size: 16),
-                label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(MdiIcons.archiveSearchOutline, size: 20, color: AppTheme.fhAccentPurple),
+                    tooltip: "NEURAL ARCHIVE",
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NeuralArchiveScreen())),
+                  ),
+                  TextButton.icon(
+                    icon: _isGeneratingWeeklyReport 
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.fileChartOutline, size: 16),
+                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                  ),
+                ],
               )
             ],
           ),
@@ -255,7 +241,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
 
           const SizedBox(height: 24),
-
+          
           InkWell(
             onTap: () => _pickDate(context),
             child: Container(
@@ -343,84 +329,43 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
 
           const SizedBox(height: 24),
-          ValorantCard(
-            borderColor: AppTheme.fhAccentPurple.withOpacity(0.5),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(MdiIcons.robotExcitedOutline, color: AppTheme.fhAccentPurple, size: 20),
-                        const SizedBox(width: 8),
-                        const Text("TACTICAL BRIEFING", style: TextStyle(
-                          fontFamily: AppTheme.fontDisplay, 
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: AppTheme.fhTextPrimary
-                        )),
-                      ],
-                    ),
-                    if (aiDailySummary != null)
-                      IconButton(
-                        icon: Icon(MdiIcons.deleteOutline, size: 18, color: AppTheme.fhTextSecondary),
-                        onPressed: () => appProvider.deleteDailySummary(_selectedDate!),
-                        tooltip: "Delete Briefing",
-                      )
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (aiDailySummary != null)
-                  Text(
-                    aiDailySummary,
-                    style: const TextStyle(color: AppTheme.fhTextSecondary, height: 1.4, fontSize: 13),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "No briefing intel available for this date.",
-                        style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, fontStyle: FontStyle.italic),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "Generate an AI analysis of logs to reveal hidden patterns and actionable intel.",
-                        style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 16),
-                if (aiDailySummary == null)
+
+          // TACTICAL BRIEFING SECTION
+          if (displayBriefing != null)
+            TacticalBriefingCard(
+              briefingData: displayBriefing,
+              isSaved: savedBriefing != null,
+              onSave: savedBriefing == null 
+                ? () {
+                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                    setState(() {});
+                  } 
+                : null,
+            )
+          else
+            ValorantCard(
+              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
+              child: Column(
+                children: [
+                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: ValorantButton(
                       label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
                       isPrimary: false,
-                      color: AppTheme.fhAccentPurple.withOpacity(0.2),
-                      onPressed: _isGeneratingSummary ? null : () => _generateDailySummary(appProvider, reflectionsForDate),
+                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
+                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
                     ),
                   )
-              ],
+                ],
+              ),
             ),
-          ),
+
+          const SizedBox(height: 24),
+
+          // Removed "COMBAT LOG // DETAILS" section as requested.
           
-
-          const SizedBox(height: 24),
-
-          const Text("COMBAT LOG // DETAILS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ActivityLogList(
-            taskTimes: taskTimes,
-            subtasksCompleted: subtasksCompleted,
-            checkpointsCompleted: checkpointsCompleted,
-            availableTasks: appProvider.mainTasks,
-          ),
-
-          const SizedBox(height: 24),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
