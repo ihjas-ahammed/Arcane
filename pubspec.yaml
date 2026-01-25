@@ -2,7 +2,7 @@ name: arcane
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 2025.12.28+618 # Incremented version
+version: 2026.1.25+712 # Incremented version
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
