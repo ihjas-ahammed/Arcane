@@ -3,6 +3,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
+import 'package:arcane/src/screens/time_sync_screen.dart'; // Import
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -21,6 +22,17 @@ class MoreScreen extends StatelessWidget {
               style: theme.textTheme.labelMedium?.copyWith(
                   color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.clockFast, // New Icon
+              title: "Time Sync",
+              subtitle: "AI 24h Schedule Generator",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TimeSyncScreen()));
+          }),
 
           _buildMenuTile(context,
               icon: MdiIcons.busClock,

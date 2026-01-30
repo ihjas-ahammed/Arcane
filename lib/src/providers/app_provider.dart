@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
@@ -18,6 +19,7 @@ import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/time_sync_models.dart'; // Import
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -60,6 +62,10 @@ class AppProvider with ChangeNotifier {
 
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
+
+  // Time Sync State
+  List<TimeSyncBlock> _timeSyncSchedule = [];
+  List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -332,6 +338,7 @@ class AppProvider with ChangeNotifier {
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
+      'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(), // NEW
     };
   }
 
@@ -398,6 +405,16 @@ class AppProvider with ChangeNotifier {
       }
     }
 
+    // Time Sync Load
+    if (data['timeSyncSchedule'] != null && data['timeSyncSchedule'] is List) {
+      _timeSyncSchedule = (data['timeSyncSchedule'] as List)
+          .where((b) => b != null && b is Map<String, dynamic>)
+          .map((b) => TimeSyncBlock.fromJson(b as Map<String, dynamic>))
+          .toList();
+    } else {
+      _timeSyncSchedule = [];
+    }
+
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
       _settings.dataVersion = 1;
@@ -421,6 +438,7 @@ class AppProvider with ChangeNotifier {
     _initializeSkills();
     _initializeValues();
     _reflectionLogs = [];
+    _timeSyncSchedule = [];
     _hasUnsavedChanges = true;
   }
 
@@ -498,6 +516,7 @@ class AppProvider with ChangeNotifier {
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
                 'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
+                'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(), // Save here
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -1056,6 +1075,66 @@ class AppProvider with ChangeNotifier {
       onLog: (msg) => debugPrint(msg)
     );
     return result; 
+  }
+
+  // --- TIME SYNC GENERATION ---
+  Future<void> generateTimeSync(String userPrompt) async {
+    setLoadingTask("Synchronizing Chrono...");
+    try {
+      final contextData = getLast7DaysData();
+      final blocksData = await _aiService.generateTimeSyncSchedule(
+        userPrompt: userPrompt,
+        contextData: "Recent Logs:\n${contextData['logs']}\nTime Stats:\n${contextData['times']}\nCurrent Time: ${DateFormat('HH:mm').format(DateTime.now())}",
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[TimeSync] $msg"),
+      );
+
+      final now = DateTime.now();
+      _timeSyncSchedule = blocksData.map((b) {
+        final offset = b['offset_minutes'] as int? ?? 0;
+        final duration = b['duration_minutes'] as int? ?? 60;
+        final start = now.add(Duration(minutes: offset));
+        final end = start.add(Duration(minutes: duration));
+        
+        return TimeSyncBlock(
+          id: const Uuid().v4(),
+          startTime: start,
+          endTime: end,
+          title: b['title'] ?? 'Block',
+          description: b['description'] ?? '',
+          type: TimeSyncBlockType.values.firstWhere(
+            (e) => e.toString() == 'TimeSyncBlockType.${b['type']}',
+            orElse: () => TimeSyncBlockType.other
+          ),
+        );
+      }).toList();
+
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  void updateTimeSyncBlock(TimeSyncBlock updatedBlock) {
+    final index = _timeSyncSchedule.indexWhere((b) => b.id == updatedBlock.id);
+    if (index != -1) {
+      _timeSyncSchedule[index] = updatedBlock;
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteTimeSyncBlock(String id) {
+    _timeSyncSchedule.removeWhere((b) => b.id == id);
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
   }
 
   // --- STATS ---

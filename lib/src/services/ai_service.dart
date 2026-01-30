@@ -143,6 +143,42 @@ class AIService {
     );
   }
 
+  // --- Time Sync Generation ---
+  Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
+    required String userPrompt,
+    required String contextData, // Past logs, habits, current time
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a 24-hour schedule (starting NOW) for the user.
+    
+    CONTEXT:
+    $contextData
+    
+    USER REQUEST: "$userPrompt"
+    
+    INSTRUCTIONS:
+    1. Generate a sequence of blocks covering the next 24 hours.
+    2. Be realistic with durations. Include breaks if 'focus' sessions are long.
+    3. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
+    4. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
+  }
+
   // ... [Other methods unchanged]
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({
@@ -228,7 +264,7 @@ class AIService {
     required String emotion,
     required String reason,
     required List<String> modelCandidates,
-    required List<Map<String, dynamic>> userValues, // New context
+    required List<Map<String, dynamic>> userValues, 
     List<Map<String, String>>? dailyReflections,
     List<String>? customApiKeys,
     String? systemInstruction,
@@ -251,7 +287,6 @@ class AIService {
     }
     """;
     
-    // We use makeAICall which handles the request wrapper
     return await makeAICall(
         prompt: prompt,
         modelCandidates: modelCandidates,
@@ -263,7 +298,7 @@ class AIService {
 
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
-    required List<String> previousBriefings, // New context
+    required List<String> previousBriefings, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
