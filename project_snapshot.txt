@@ -1,454 +1,507 @@
---- START OF FILE lib/src/services/timetable_service.dart ---
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
 
-class TimetableSession {
-  final String subject;
-  final String type;
-  final Color color;
-  final TimeOfDay startTime;
-  final TimeOfDay endTime;
+class AIService {
+  // Helper to clean markdown from JSON response
+  String _cleanJsonString(String raw) {
+    String jsonString = raw.trim();
+    int jsonStart = jsonString.indexOf('{');
+    int jsonEnd = jsonString.lastIndexOf('}');
 
-  TimetableSession({
-    required this.subject,
-    required this.type,
-    required this.color,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  bool get isCurrent {
-    final now = TimeOfDay.now();
-    final nowMinutes = now.hour * 60 + now.minute;
-    final startMinutes = startTime.hour * 60 + startTime.minute;
-    final endMinutes = endTime.hour * 60 + endTime.minute;
-    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
-  }
-
-  bool get isUpcoming {
-    final now = TimeOfDay.now();
-    final nowMinutes = now.hour * 60 + now.minute;
-    final startMinutes = startTime.hour * 60 + startTime.minute;
-    return nowMinutes < startMinutes;
-  }
-}
-
-class TimetableService {
-  // Define standard periods
-  static const List<Map<String, int>> _periods = [
-    {'h': 9, 'm': 30, 'len': 60},  // 1: 09:30 - 10:30
-    {'h': 10, 'm': 30, 'len': 60}, // 2: 10:30 - 11:30
-    {'h': 11, 'm': 30, 'len': 60}, // 3: 11:30 - 12:30
-    {'h': 13, 'm': 30, 'len': 60}, // 4: 13:30 - 14:30
-    {'h': 14, 'm': 30, 'len': 60}, // 5: 14:30 - 15:30
-  ];
-
-  // Raw Data mapped to periods
-  static final Map<int, List<Map<String, dynamic>>> _scheduleRaw = {
-    1: [ // Monday
-      {'sub': 'English', 'type': 'SEC', 'color': Colors.white},
-      {'sub': 'Language', 'type': 'VAC', 'color': Colors.white},
-      {'sub': 'ED-I', 'type': 'Najiya', 'color': AppTheme.fhAccentPurple},
-      {'sub': 'ED-I', 'type': 'Najiya (lab)', 'color': AppTheme.fhAccentPurple},
-      {'sub': 'ED-I', 'type': 'Safeeque (lab)', 'color': AppTheme.fhAccentPurple},
-    ],
-    2: [ // Tuesday
-      {'sub': 'Mech-II', 'type': 'Safeeque', 'color': Colors.blueAccent},
-      {'sub': 'English', 'type': 'SEC', 'color': Colors.white},
-      {'sub': 'Mod Phy', 'type': 'Najiya', 'color': AppTheme.fhAccentGreen},
-      {'sub': 'Mech-II', 'type': 'Najiya (lab)', 'color': Colors.blueAccent},
-      {'sub': 'Mech-II', 'type': 'Safeeque (lab)', 'color': Colors.blueAccent},
-    ],
-    3: [ // Wednesday
-      {'sub': 'Mech-II', 'type': 'Najiya', 'color': Colors.blueAccent},
-      {'sub': 'Mech-II', 'type': 'Safeeque', 'color': Colors.blueAccent},
-      {'sub': 'Mod Phy', 'type': 'Safeeque', 'color': AppTheme.fhAccentGreen},
-      {'sub': 'English', 'type': 'VAC', 'color': Colors.white},
-      {'sub': 'Language', 'type': 'VAC', 'color': Colors.white},
-    ],
-    4: [ // Thursday
-      {'sub': 'ED-I', 'type': 'Najiya', 'color': AppTheme.fhAccentPurple},
-      {'sub': 'English', 'type': 'SEC', 'color': Colors.white},
-      {'sub': 'English', 'type': 'VAC', 'color': Colors.white},
-      {'sub': 'Mod Phy', 'type': 'Safeeque', 'color': AppTheme.fhAccentGreen},
-      {'sub': 'Language', 'type': 'VAC', 'color': Colors.white},
-    ],
-    5: [ // Friday
-      {'sub': 'Mod Phy', 'type': 'Najiya (lab)', 'color': AppTheme.fhAccentGreen},
-      {'sub': 'Mod Phy', 'type': 'Safeeque (lab)', 'color': AppTheme.fhAccentGreen},
-      {'sub': 'English', 'type': 'SEC', 'color': Colors.white},
-      {'sub': 'ED-I', 'type': 'Safeeque', 'color': AppTheme.fhAccentPurple},
-      {'sub': 'English', 'type': 'VAC', 'color': Colors.white},
-    ],
-  };
-
-  List<TimetableSession> getSessionsForDay(int weekday) {
-    // weekday: 1 = Monday, 7 = Sunday
-    final rawList = _scheduleRaw[weekday];
-    if (rawList == null) return [];
-
-    List<TimetableSession> sessions = [];
-    for (int i = 0; i < rawList.length && i < _periods.length; i++) {
-      final period = _periods[i];
-      final item = rawList[i];
-      
-      final startH = period['h']!;
-      final startM = period['m']!;
-      final len = period['len']!;
-      
-      final start = TimeOfDay(hour: startH, minute: startM);
-      // Calculate end time manually to handle minute overflow
-      int endTotalM = startH * 60 + startM + len;
-      final end = TimeOfDay(hour: (endTotalM / 60).floor(), minute: endTotalM % 60);
-
-      sessions.add(TimetableSession(
-        subject: item['sub'],
-        type: item['type'],
-        color: item['color'],
-        startTime: start,
-        endTime: end,
-      ));
+    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
     }
-    return sessions;
+
+    // Remove markdown code blocks if present inside the substring or outside
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
+    } else if (jsonString.startsWith("```")) {
+      jsonString = jsonString.replaceAll("```", "");
+    }
+
+    return jsonString.trim();
   }
 
-  Map<String, TimetableSession?> getCurrentAndNextSession() {
-    final now = DateTime.now();
-    final sessions = getSessionsForDay(now.weekday);
-    
-    TimetableSession? current;
-    TimetableSession? next;
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    // 1. Prioritize Inbuild Keys, then Custom Keys
+    final List<String> apiKeysToTry = [
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    ].toSet().toList(); // Remove duplicates
 
-    for (var s in sessions) {
-      if (s.isCurrent) {
-        current = s;
-      }
-      if (s.isUpcoming) {
-        next = s;
-        break; // First upcoming is the next one
+    if (apiKeysToTry.isEmpty) {
+      throw Exception("No valid Gemini API keys found.");
+    }
+
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        // Simple rotation strategy: start from current index
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
+
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
+
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          // Update the index so next call starts here (load balancing/avoid dead keys)
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+        }
       }
     }
-
-    return {'current': current, 'next': next};
+    throw Exception(
+        "All models and API keys failed. Please check your connection or settings.");
   }
-}
---- END OF FILE lib/src/services/timetable_service.dart ---
 
---- START OF FILE lib/src/widgets/ui/timetable_session_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/services/timetable_service.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+  Future<Map<String, dynamic>> makeAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response =
+            await model.generateContent([genai.Content.text(prompt)]);
 
-class TimetableSessionCard extends StatelessWidget {
-  final String label;
-  final TimetableSession? session;
-  final bool isHighlight;
+        String? rawResponseText = response.text;
+        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+          throw Exception("AI response was empty.");
+        }
+        try {
+          String jsonString = _cleanJsonString(rawResponseText);
+          return jsonDecode(jsonString);
+        } catch (e) {
+          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
+          throw Exception("Failed to parse JSON from AI response.");
+        }
+      },
+    );
+  }
 
-  const TimetableSessionCard({
-    super.key,
-    required this.label,
-    required this.session,
-    this.isHighlight = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (session == null) {
-      return ValorantCard(
-        borderColor: AppTheme.fhBorderColor.withOpacity(0.1),
-        backgroundColor: AppTheme.fhBgDark.withOpacity(0.3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-            const SizedBox(height: 12),
-            const Center(child: Text("NO DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16))),
-          ],
-        ),
-      );
-    }
-
-    final color = session!.color;
+  // --- Neural Archive Query ---
+  Future<String> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are the "Neural Archive", an empathetic and highly intelligent system interface for the user's life logs.
     
-    return ValorantCard(
-      borderColor: isHighlight ? color : AppTheme.fhBorderColor.withOpacity(0.2),
-      backgroundColor: isHighlight ? color.withOpacity(0.1) : AppTheme.fhBgDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: TextStyle(color: isHighlight ? color : AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  "${session!.startTime.format(context)} - ${session!.endTime.format(context)}",
-                  style: const TextStyle(color: Colors.white70, fontSize: 10, fontFamily: 'RobotoMono'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            session!.subject.toUpperCase(),
-            style: const TextStyle(
-              color: AppTheme.fhTextPrimary,
-              fontFamily: AppTheme.fontDisplay,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-              height: 0.9
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Container(width: 4, height: 4, color: color),
-              const SizedBox(width: 6),
-              Text(
-                session!.type.toUpperCase(),
-                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ],
-          )
-        ],
-      ),
-    ).animate(target: isHighlight ? 1 : 0).shimmer(duration: 2000.ms, color: color.withOpacity(0.3));
+    Here are the logs from the requested timeline:
+    $logsContext
+    
+    USER QUERY: "$query"
+    
+    INSTRUCTIONS:
+    1. Answer the user's query based strictly on the provided logs.
+    2. Be empathetic, human-like, and insightful. Avoid robotic or list-heavy responses unless asked.
+    3. Do NOT use any Markdown formatting (no bold, no italics, no code blocks). Pure text only.
+    4. If the answer isn't in the logs, gently state that the data is missing.
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        return response.text ?? "Archive data corrupted or empty.";
+      },
+    );
   }
-}
---- END OF FILE lib/src/widgets/ui/timetable_session_card.dart ---
 
---- START OF FILE lib/src/screens/timetable_screen.dart ---
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/services/timetable_service.dart';
-import 'package:arcane/src/widgets/ui/timetable_session_card.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+  // ... [Other methods unchanged]
 
-class TimetableScreen extends StatefulWidget {
-  const TimetableScreen({super.key});
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
 
-  @override
-  State<TimetableScreen> createState() => _TimetableScreenState();
-}
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
 
-class _TimetableScreenState extends State<TimetableScreen> {
-  final TimetableService _service = TimetableService();
-  late Timer _timer;
-  int _selectedDay = DateTime.now().weekday;
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required List<String> modelCandidates,
+    required List<Map<String, dynamic>> userValues, // New context
+    List<Map<String, String>>? dailyReflections,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final prompt = """
+    Analyze this reflection log.
+    Context Values: ${jsonEncode(userValues)}
+    Trigger: $trigger
+    Emotion: $emotion
+    Reason: $reason
+    
+    1. Provide constructive feedback.
+    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
+    
+    Output JSON: {
+      "feedback": "string", 
+      "xp_allocation": {"Wisdom": int, ...},
+      "value_updates": [ { "valueId": "string", "questionId": "string", "suggestedAnswer": "string", "reason": "string" } ] (Optional, empty if none)
+    }
+    """;
+    
+    // We use makeAICall which handles the request wrapper
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings, // New context
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a Tactical Briefing based on today's reflections.
+    Current Logs: ${jsonEncode(reflections)}
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    
+    Tone: Empathetic, psychologically wise, tactical advisor.
+    
+    Tasks:
+    1. Create a concise summary of the day's psychological state.
+    2. Identify specific ability improvements or growth by comparing with previous context.
+    
+    Output JSON: {
+      "summary": "string (max 60 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ]
+    }
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Analyze logs and time stats for a Weekly Report. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<String> getChatbotResponse({
+    required List<String> modelCandidates,
+    required ChatbotMemory memory,
+    required String userMessage,
+    required String dataContext,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Chatbot response. Context: $dataContext. History included.";
+    return await _executeWithModelAndKeyRotation(currentApiKeyIndex: currentApiKeyIndex, customApiKeys: customApiKeys, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog, modelCandidates: modelCandidates, requestFn: (k, m) async {
+        final model = genai.GenerativeModel(model: m, apiKey: k);
+        final resp = await model.generateContent([genai.Content.text(prompt)]);
+        return resp.text ?? "Error";
     });
   }
 
+  Future<Map<String, dynamic>> analyzeValueAlignment({required String valueName, required List<Map<String, String>> questionsAndAnswers, required List<String> modelCandidates, required int currentApiKeyIndex, List<String>? customApiKeys, required Function(int) onNewApiKeyIndex, required Function(String) onLog}) async {
+    return {'score': 50, 'insight': 'Analysis placeholder'};
+  }
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({required String valueName, required List<Map<String, String>> questionsAndAnswers, required List<String> modelCandidates, required int currentApiKeyIndex, List<String>? customApiKeys, required Function(int) onNewApiKeyIndex, required Function(String) onLog}) async {
+    return [];
+  }
+  
+  /// Fetches available models using the Gemini API REST endpoint.
+  /// Needs a valid API key.
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
+    }
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          // Filter for generateContent supported models
+          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          if (methods.contains('generateContent')) {
+            // "models/gemini-pro" -> "gemini-pro"
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return [];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
+  }
+}
+--- END OF FILE lib/src/services/ai_service.dart ---
+
+--- START OF FILE lib/src/widgets/settings/model_configuration_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ModelConfigurationWidget extends StatefulWidget {
+  final AppProvider appProvider;
+  final List<String> availableModels;
+  final bool isFetching;
+  final VoidCallback onFetch;
+
+  const ModelConfigurationWidget({
+    super.key,
+    required this.appProvider,
+    required this.availableModels,
+    required this.isFetching,
+    required this.onFetch,
+  });
+
   @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
+  State<ModelConfigurationWidget> createState() => _ModelConfigurationWidgetState();
+}
+
+class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
+  
+  Widget _buildModelPriorityList(String prefix, List<String> currentList, Function(List<String>) onUpdate) {
+    // Ensure we have 3 slots
+    List<String> list = List.from(currentList);
+    while (list.length < 3) {
+      list.add(widget.availableModels.isNotEmpty ? widget.availableModels.first : 'gemini-2.0-flash');
+    }
+
+    return Column(
+      children: List.generate(3, (index) {
+        final label = index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
+        final currentSelection = list[index];
+
+        // Ensure selection exists in available, otherwise add it temporarily
+        final effectiveItems = {
+          ...widget.availableModels,
+          if (!widget.availableModels.contains(currentSelection)) currentSelection
+        }.toList();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: effectiveItems.contains(currentSelection) ? currentSelection : null,
+            decoration: InputDecoration(
+              labelText: label,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: const OutlineInputBorder(),
+            ),
+            dropdownColor: AppTheme.fhBgMedium,
+            items: effectiveItems.map((m) => DropdownMenuItem(
+              value: m,
+              child: Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),
+            )).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                final newList = List<String>.from(list);
+                newList[index] = val;
+                onUpdate(newList);
+              }
+            },
+          ),
+        );
+      }),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final nowContext = _service.getCurrentAndNextSession();
-    final currentSession = nowContext['current'];
-    final nextSession = nowContext['next'];
-    
-    final days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    final sessionsForSelectedDay = _service.getSessionsForDay(_selectedDay);
+    final theme = Theme.of(context);
+    final provider = widget.appProvider;
 
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      "ACADEMIC SCHEDULE",
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: AppTheme.fhTextPrimary
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhAccentTeal),
-                    ),
-                    child: Text(
-                      DateFormat('HH:mm').format(DateTime.now()),
-                      style: const TextStyle(
-                        color: AppTheme.fhAccentTeal,
-                        fontFamily: 'RobotoMono',
-                        fontWeight: FontWeight.bold
-                      ),
-                    ),
-                  )
-                ],
-              ),
+            Row(
+              children: [
+                Icon(MdiIcons.robotHappyOutline,
+                    color: (provider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed),
+                    size: 22),
+                const SizedBox(width: 10),
+                Text('AI Configuration',
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+              ],
             ),
+            Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+            
+            // --- Lite Models Section ---
+            Text("Lite Models (Fast - for Sub-missions & Chat)",
+                style: theme.textTheme.titleSmall?.copyWith(color: AppTheme.fhAccentTeal)),
+            const SizedBox(height: 8),
+            _buildModelPriorityList(
+                "Lite", provider.settings.liteModels,
+                (newList) {
+                  provider.setSettings(provider.settings..liteModels = newList);
+                }),
+            const SizedBox(height: 16),
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Active Status
-                    if (currentSession != null || nextSession != null) ...[
-                      const Text("LIVE STATUS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TimetableSessionCard(
-                              label: "CURRENTLY ENGAGED",
-                              session: currentSession,
-                              isHighlight: currentSession != null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TimetableSessionCard(
-                              label: "UP NEXT",
-                              session: nextSession,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                    ],
+            // --- Heavy Models Section ---
+            Text("Pro Models (Advanced - for Projects)",
+                style: theme.textTheme.titleSmall?.copyWith(color: AppTheme.fhAccentPurple)),
+            const SizedBox(height: 8),
+            _buildModelPriorityList(
+                "Pro", provider.settings.heavyModels,
+                (newList) {
+                  provider.setSettings(provider.settings..heavyModels = newList);
+                }),
+            const SizedBox(height: 16),
 
-                    // Day Selector
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: 5, // Just Mon-Fri for now
-                        separatorBuilder: (c, i) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final dayIndex = index + 1;
-                          final isSelected = dayIndex == _selectedDay;
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedDay = dayIndex),
-                            child: Container(
-                              alignment: Alignment.center,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppTheme.fhAccentTeal : Colors.transparent,
-                                border: Border.all(color: isSelected ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor),
-                              ),
-                              child: Text(
-                                days[index],
-                                style: TextStyle(
-                                  color: isSelected ? AppTheme.fhBgDeepDark : AppTheme.fhTextSecondary,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: AppTheme.fontDisplay,
-                                  fontSize: 14
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // List
-                    if (sessionsForSelectedDay.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32.0),
-                          child: Text("NO CLASSES SCHEDULED", style: TextStyle(color: AppTheme.fhTextDisabled, letterSpacing: 1.5)),
-                        ),
-                      )
-                    else
-                      ...sessionsForSelectedDay.map((session) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.fhBgDark,
-                              border: Border(left: BorderSide(color: session.color, width: 4)),
-                            ),
-                            child: Row(
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      session.startTime.format(context),
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 14),
-                                    ),
-                                    Text(
-                                      session.endTime.format(context),
-                                      style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontFamily: 'RobotoMono', fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        session.subject.toUpperCase(),
-                                        style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(MdiIcons.accountTie, size: 14, color: AppTheme.fhTextSecondary),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            session.type,
-                                            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                  ],
+            // Refetch Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: widget.isFetching
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(MdiIcons.refresh, size: 18),
+                label: const Text("REFETCH AVAILABLE MODELS"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.fhAccentTeal,
+                  side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
                 ),
+                onPressed: widget.isFetching ? null : widget.onFetch,
               ),
             ),
           ],
@@ -457,289 +510,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 }
---- END OF FILE lib/src/screens/timetable_screen.dart ---
-
---- START OF FILE lib/src/widgets/cards/submission_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-
-class SubmissionCard extends StatelessWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionCard({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
-
-  void _openDetailScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SubmissionDetailScreen(
-          parentTask: parentTask,
-          subTask: subTask,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final timerState = provider.activeTimers[subTask.id];
-
-    SubTask currentSubTask = subTask;
-    try {
-      final liveParent =
-          provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
-      currentSubTask =
-          liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
-    } catch (_) {}
-
-    final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
-    final double displayTimeSeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-    final bool isCompleted = currentSubTask.completed;
-
-    // --- Progress Calculation ---
-    double progressValue = 0.0;
-    if (currentSubTask.subSubTasks.isNotEmpty) {
-      final int completed = currentSubTask.subSubTasks.where((s) => s.completed).length;
-      progressValue = completed / currentSubTask.subSubTasks.length;
-    } else if (currentSubTask.isCountable && currentSubTask.targetCount > 0) {
-      progressValue = currentSubTask.currentCount / currentSubTask.targetCount;
-    } else {
-      final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
-      final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
-      progressValue = (displayTimeSeconds / maxTime).clamp(0.0, 1.0);
-    }
-
-    Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
-    if (isRunning) borderColor = parentTask.taskColor;
-    if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
-
-    // Dismissible Action Configuration
-    // Left-to-Right (StartToEnd): Green/Teal (Complete/Archive/Restore)
-    // Right-to-Left (EndToStart): Red (Delete)
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Dismissible(
-        key: ValueKey("subtask_${currentSubTask.id}"),
-        
-        // Background: Swipe Right (Archive/Complete) - Green/Teal
-        background: _buildSwipeAction(
-          alignment: Alignment.centerLeft,
-          color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
-          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
-          label: isCompleted ? "RESTORE" : "COMPLETE",
-        ),
-        
-        // Secondary Background: Swipe Left (Delete) - Red
-        secondaryBackground: _buildSwipeAction(
-          alignment: Alignment.centerRight,
-          color: AppTheme.fhAccentRed,
-          icon: Icons.delete_forever,
-          label: "DELETE",
-        ),
-        
-        confirmDismiss: (direction) async {
-          if (direction == DismissDirection.endToStart) {
-            // Swipe Left: Delete
-            return await _showDeleteConfirm(context);
-          } else {
-            // Swipe Right: Complete or Restore
-            if (isCompleted) {
-              // Restore
-              provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
-              // Return false to keep item in list (it just updates state to active)
-              // If the list is filtered by 'active', it might disappear, but usually we just update state.
-              return false; 
-            } else {
-              // Complete
-              provider.completeSubtask(parentTask.id, currentSubTask.id);
-              return false; // Keep in list, let parent refresh handle moving it to 'completed' section
-            }
-          }
-        },
-        onDismissed: (direction) {
-          // Only called if confirmDismiss returns true (Delete case)
-          if (direction == DismissDirection.endToStart) {
-            provider.deleteSubtask(parentTask.id, currentSubTask.id);
-          }
-        },
-        child: ValorantCard(
-          borderColor: borderColor,
-          isSelected: isRunning,
-          onTap: () => _openDetailScreen(context),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Progress Ring or Checkmark
-              Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: isCompleted
-                    ? Icon(MdiIcons.checkboxMarkedCircle, size: 28, color: parentTask.taskColor.withValues(alpha: 0.5))
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
-                              value: progressValue,
-                              backgroundColor: AppTheme.fhBgDark,
-                              color: parentTask.taskColor,
-                              strokeWidth: 3,
-                            ),
-                          ),
-                          if (isRunning)
-                            Icon(MdiIcons.play, size: 14, color: parentTask.taskColor)
-                          else
-                            Text(
-                              "${(progressValue * 100).toInt()}",
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary),
-                            )
-                        ],
-                      ),
-              ),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            currentSubTask.name.toUpperCase(),
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontDisplay,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              letterSpacing: 0.5,
-                              height: 1.1,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              color: isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (currentSubTask.isRecurring)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6.0),
-                            child: Icon(MdiIcons.syncIcon, size: 14, color: AppTheme.fhAccentTeal),
-                          ),
-                      ],
-                    ),
-                    if (linkedInfo != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: LinkedTaskIndicator(
-                          label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
-                          onUnlink: () => provider.projectActions.unlinkStep(
-                              linkedInfo['mainTaskId'], 
-                              linkedInfo['projectId'], 
-                              linkedInfo['stepId']
-                            ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              
-              if (!isCompleted) ...[
-                Text(
-                  formattedTime,
-                  style: TextStyle(
-                      fontFamily: "RobotoMono",
-                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 12),
-                InkWell(
-                  onTap: () {
-                    if (isRunning) {
-                      provider.pauseTimer(subTask.id);
-                      provider.logTimerAndReset(subTask.id);
-                    } else {
-                      provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) : Colors.transparent,
-                      border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Icon(
-                      isRunning ? MdiIcons.pause : MdiIcons.play,
-                      size: 16,
-                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
-                    ),
-                  ),
-                ),
-              ] else ...[
-                // Minimal icon for completed state options hint
-                Icon(MdiIcons.chevronRight, size: 16, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3))
-              ]
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwipeAction({required Alignment alignment, required Color color, required IconData icon, required String label}) {
-    return Container(
-      color: color,
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: alignment == Alignment.centerLeft 
-          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.0))]
-          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.0)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
-      ),
-    );
-  }
-
-  Future<bool> _showDeleteConfirm(BuildContext context) async {
-    return await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgDark,
-        title: const Text("DELETE MISSION?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-        content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("DELETE")
-          ),
-        ],
-      )
-    ) ?? false;
-  }
-}
---- END OF FILE lib/src/widgets/cards/submission_card.dart ---
+--- END OF FILE lib/src/widgets/settings/model_configuration_widget.dart ---
 
 --- START OF FILE lib/src/widgets/views/settings_view.dart ---
 // lib/src/widgets/views/settings_view.dart
@@ -753,6 +524,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
+import 'package:arcane/src/widgets/settings/model_configuration_widget.dart'; // Import component
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -914,9 +686,14 @@ class _SettingsViewState extends State<SettingsView> {
         // Only update if we actually got models back
         if (models.isNotEmpty) _availableModels = models;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Fetched ${_availableModels.length} models."), backgroundColor: AppTheme.fhAccentGreen),
+      );
     } catch (e) {
-      // In case of error (likely network or key), keep default list
-      debugPrint("Error fetching models: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching models: $e"), backgroundColor: AppTheme.fhAccentRed),
+      );
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -1083,60 +860,18 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // AI CONFIGURATION
+          // AI CONFIGURATION (Modularized)
+          ModelConfigurationWidget(
+            appProvider: appProvider,
+            availableModels: _availableModels,
+            isFetching: _fetchingModels,
+            onFetch: () => _fetchModels(appProvider),
+          ),
+
           _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.robotHappyOutline,
-              title: 'AI Configuration',
+              icon: MdiIcons.keyVariant,
+              title: 'Advanced AI Settings',
               children: [
-                // --- Lite Models Section ---
-                Text("Lite Models (Fast - for Sub-missions & Chat)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentTeal)),
-                const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Lite", appProvider.settings.liteModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..liteModels = newList);
-                }),
-                const SizedBox(height: 16),
-
-                // --- Heavy Models Section ---
-                Text("Pro Models (Advanced - for Projects)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentPurple)),
-                const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Pro", appProvider.settings.heavyModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..heavyModels = newList);
-                }),
-                const SizedBox(height: 16),
-
-                // Refetch Button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: _fetchingModels
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(MdiIcons.refresh, size: 18),
-                    label: const Text("REFETCH AVAILABLE MODELS"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal,
-                      side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _fetchingModels
-                        ? null
-                        : () => _fetchModels(appProvider),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                
-                // API Key Manager Component
                 const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
                 const SizedBox(height: 8),
                 const ApiKeyManager(),
@@ -1177,7 +912,8 @@ class _SettingsViewState extends State<SettingsView> {
                 const Text("Leave blank to use built-in defaults.",
                     style: TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 11)),
-              ]),
+              ]
+          ),
 
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
@@ -1441,57 +1177,6 @@ class _SettingsViewState extends State<SettingsView> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildModelPriorityList(AppProvider appProvider, String prefix,
-      List<String> currentList, Function(List<String>) onUpdate) {
-    return Column(
-      children: List.generate(3, (index) {
-        final label =
-            index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
-        if (currentList.length <= index) {
-          currentList.add(_availableModels.isNotEmpty
-              ? _availableModels.first
-              : 'gemini-2.0-flash');
-        }
-
-        final currentSelection = currentList[index];
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            value: _availableModels.contains(currentSelection)
-                ? currentSelection
-                : null,
-            decoration: InputDecoration(
-              labelText: label,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              border: const OutlineInputBorder(),
-            ),
-            dropdownColor: AppTheme.fhBgMedium,
-            items: {
-              ..._availableModels,
-              if (!_availableModels.contains(currentSelection)) currentSelection
-            }
-                .map((m) => DropdownMenuItem(
-                      value: m,
-                      child:
-                          Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) {
-                final newList = List<String>.from(currentList);
-                newList[index] = val;
-                onUpdate(newList);
-              }
-            },
-          ),
-        );
-      }),
     );
   }
 }

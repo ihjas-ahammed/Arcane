@@ -1,10 +1,6 @@
 Make the following changes:
 
-    * Update submission card:
-        - add swipe right to archive or complete
-    * Upadte timetable:
-        - Make it look more btter, also show next hour and current hour session in good widget
-    * Fix that on some devices we cant refetch availble models
+    * Fix that we cant fetch latest available models in settings, show the error if we fail so I can find out further
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

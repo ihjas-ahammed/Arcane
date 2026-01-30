@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
+import 'package:arcane/src/widgets/settings/model_configuration_widget.dart'; // Import component
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -170,9 +171,14 @@ class _SettingsViewState extends State<SettingsView> {
         // Only update if we actually got models back
         if (models.isNotEmpty) _availableModels = models;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Fetched ${_availableModels.length} models."), backgroundColor: AppTheme.fhAccentGreen),
+      );
     } catch (e) {
-      // In case of error (likely network or key), keep default list
-      debugPrint("Error fetching models: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching models: $e"), backgroundColor: AppTheme.fhAccentRed),
+      );
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
     }
@@ -339,60 +345,18 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // AI CONFIGURATION
+          // AI CONFIGURATION (Modularized)
+          ModelConfigurationWidget(
+            appProvider: appProvider,
+            availableModels: _availableModels,
+            isFetching: _fetchingModels,
+            onFetch: () => _fetchModels(appProvider),
+          ),
+
           _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.robotHappyOutline,
-              title: 'AI Configuration',
+              icon: MdiIcons.keyVariant,
+              title: 'Advanced AI Settings',
               children: [
-                // --- Lite Models Section ---
-                Text("Lite Models (Fast - for Sub-missions & Chat)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentTeal)),
-                const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Lite", appProvider.settings.liteModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..liteModels = newList);
-                }),
-                const SizedBox(height: 16),
-
-                // --- Heavy Models Section ---
-                Text("Pro Models (Advanced - for Projects)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentPurple)),
-                const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Pro", appProvider.settings.heavyModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..heavyModels = newList);
-                }),
-                const SizedBox(height: 16),
-
-                // Refetch Button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: _fetchingModels
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(MdiIcons.refresh, size: 18),
-                    label: const Text("REFETCH AVAILABLE MODELS"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal,
-                      side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _fetchingModels
-                        ? null
-                        : () => _fetchModels(appProvider),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                
-                // API Key Manager Component
                 const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
                 const SizedBox(height: 8),
                 const ApiKeyManager(),
@@ -433,7 +397,8 @@ class _SettingsViewState extends State<SettingsView> {
                 const Text("Leave blank to use built-in defaults.",
                     style: TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 11)),
-              ]),
+              ]
+          ),
 
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
@@ -697,57 +662,6 @@ class _SettingsViewState extends State<SettingsView> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildModelPriorityList(AppProvider appProvider, String prefix,
-      List<String> currentList, Function(List<String>) onUpdate) {
-    return Column(
-      children: List.generate(3, (index) {
-        final label =
-            index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
-        if (currentList.length <= index) {
-          currentList.add(_availableModels.isNotEmpty
-              ? _availableModels.first
-              : 'gemini-2.0-flash');
-        }
-
-        final currentSelection = currentList[index];
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            value: _availableModels.contains(currentSelection)
-                ? currentSelection
-                : null,
-            decoration: InputDecoration(
-              labelText: label,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              border: const OutlineInputBorder(),
-            ),
-            dropdownColor: AppTheme.fhBgMedium,
-            items: {
-              ..._availableModels,
-              if (!_availableModels.contains(currentSelection)) currentSelection
-            }
-                .map((m) => DropdownMenuItem(
-                      value: m,
-                      child:
-                          Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) {
-                final newList = List<String>.from(currentList);
-                newList[index] = val;
-                onUpdate(newList);
-              }
-            },
-          ),
-        );
-      }),
     );
   }
 }
