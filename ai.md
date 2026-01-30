@@ -1,6 +1,15 @@
 Make the following changes:
 
-    * Fix that we cant fetch latest available models in settings, show the error if we fail so I can find out further
+    * Add 'Time Sync' a new tool:
+        - It creates a schedule for next 24 hours based on..
+            the last week's reflection and schedule (submission time logs)
+            also with a manual prompt from user
+        - Give it an advanced ui and save it once generated, user can only regenerate it or extrapolate it (continue to fill next hours without a plan)
+        - Add this in the system section
+        - Give it a really good ui based on our current theme 'VALORANT'
+        - Make it possible that user can manually edit this schedule
+
+        its just something to help with future prediction
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
