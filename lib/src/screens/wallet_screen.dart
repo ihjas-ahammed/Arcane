@@ -6,12 +6,20 @@ import 'package:arcane/src/models/wallet_models.dart';
 import 'package:arcane/src/widgets/wallet/wallet_balance_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/widgets/wallet/wallet_pie_chart.dart';
+import 'package:arcane/src/widgets/wallet/finance_prediction_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 
-class WalletScreen extends StatelessWidget {
+class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
+
+  @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+
+class _WalletScreenState extends State<WalletScreen> {
+  bool _showIncomePie = false;
 
   void _showAddTransactionDialog(BuildContext context, {WalletTransaction? transaction}) {
     showDialog(
@@ -117,15 +125,32 @@ class WalletScreen extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
-                    // Spending Trend Chart (Basic Line Chart of Balances over last 30 days)
+                    // Finance Prediction AI Card
+                    FinancePredictionCard(),
+
+                    const SizedBox(height: 32),
+
+                    // Pie Chart Section
                     if (recentHistory.isNotEmpty) ...[
-                      const Text("BALANCE TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_showIncomePie ? "INCOME BREAKDOWN" : "EXPENSE BREAKDOWN", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          Switch(
+                            value: _showIncomePie,
+                            onChanged: (val) => setState(() => _showIncomePie = val),
+                            activeColor: AppTheme.fhAccentGreen,
+                            inactiveThumbColor: AppTheme.fhAccentRed,
+                            inactiveTrackColor: AppTheme.fhBgDark,
+                          )
+                        ],
+                      ),
                       const SizedBox(height: 16),
-                      Container(
-                        height: 200,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: LineChart(
-                          _buildBalanceChartData(recentHistory, currentBalance),
+                      SizedBox(
+                        height: 250,
+                        child: WalletPieChart(
+                          transactions: recentHistory,
+                          showIncome: _showIncomePie,
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -138,7 +163,7 @@ class WalletScreen extends StatelessWidget {
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: recentHistory.take(5).length,
+                        itemCount: recentHistory.take(10).length,
                         itemBuilder: (context, index) {
                           final t = recentHistory[index];
                           return _buildTransactionTile(context, provider, t);
@@ -214,61 +239,6 @@ class WalletScreen extends StatelessWidget {
         ),
         onTap: () => _showAddTransactionDialog(context, transaction: t),
       ),
-    );
-  }
-
-  LineChartData _buildBalanceChartData(List<WalletTransaction> transactions, double currentBalance) {
-    // Reverse list to calculate history backwards
-    // Current Balance is at Now.
-    // Previous balance = Current - Income + Expense
-    
-    List<FlSpot> spots = [];
-    double runningBalance = currentBalance;
-    DateTime now = DateTime.now();
-    
-    // Add current point
-    spots.add(FlSpot(0, runningBalance));
-
-    // Sort descending (newest first) to backtrack
-    final sorted = List<WalletTransaction>.from(transactions)..sort((a,b) => b.date.compareTo(a.date));
-    
-    // Limit to 30 days
-    final limitDate = now.subtract(const Duration(days: 30));
-    
-    for (var t in sorted) {
-      if (t.date.isBefore(limitDate)) break;
-      
-      // Calculate balance BEFORE this transaction
-      if (t.type == TransactionType.income) {
-        runningBalance -= t.amount;
-      } else {
-        runningBalance += t.amount;
-      }
-      
-      final daysAgo = now.difference(t.date).inDays.toDouble();
-      spots.add(FlSpot(daysAgo, runningBalance));
-    }
-
-    // Since x axis is "days ago", 0 is right. We want graph left-to-right.
-    // So we flip X: x = 30 - daysAgo (approx) or just negate and format titles.
-    // Let's use negative X for "days ago".
-    final finalSpots = spots.map((s) => FlSpot(-s.x, s.y)).toList();
-
-    return LineChartData(
-      gridData: FlGridData(show: false),
-      titlesData: FlTitlesData(show: false),
-      borderData: FlBorderData(show: false),
-      lineBarsData: [
-        LineChartBarData(
-          spots: finalSpots,
-          isCurved: true,
-          color: AppTheme.fhAccentTeal,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: FlDotData(show: false),
-          belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withOpacity(0.1)),
-        ),
-      ],
     );
   }
 }

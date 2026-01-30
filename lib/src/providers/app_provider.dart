@@ -20,7 +20,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/models/wallet_models.dart'; // Import
+import 'package:arcane/src/models/wallet_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -32,7 +32,6 @@ class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
-  // Expose AIService for widgets that need direct access
   AIService get aiService => _aiService;
 
   Timer? _periodicUiTimer;
@@ -64,13 +63,14 @@ class AppProvider with ChangeNotifier {
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
 
-  // Time Sync State
   List<TimeSyncBlock> _timeSyncSchedule = [];
   List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
 
-  // Wallet State
+  // Wallet
   List<WalletTransaction> _walletTransactions = [];
   List<WalletTransaction> get walletTransactions => _walletTransactions;
+  Map<String, dynamic>? _financePrediction;
+  Map<String, dynamic>? get financePrediction => _financePrediction;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -98,9 +98,6 @@ class AppProvider with ChangeNotifier {
   String? get selectedTaskId => _selectedTaskId;
   int get apiKeyIndex => _apiKeyIndex;
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
-
-  TimeOfDay get wakeupTime => TimeOfDay(
-      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
 
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   ChatbotMemory get chatbotMemory => _chatbotMemory;
@@ -344,7 +341,8 @@ class AppProvider with ChangeNotifier {
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
       'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
-      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(), // Wallet
+      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
+      'financePrediction': _financePrediction,
     };
   }
 
@@ -411,7 +409,6 @@ class AppProvider with ChangeNotifier {
       }
     }
 
-    // Time Sync Load
     if (data['timeSyncSchedule'] != null && data['timeSyncSchedule'] is List) {
       _timeSyncSchedule = (data['timeSyncSchedule'] as List)
           .where((b) => b != null && b is Map<String, dynamic>)
@@ -421,7 +418,6 @@ class AppProvider with ChangeNotifier {
       _timeSyncSchedule = [];
     }
 
-    // Wallet Load
     if (data['walletTransactions'] != null && data['walletTransactions'] is List) {
       _walletTransactions = (data['walletTransactions'] as List)
           .where((w) => w != null && w is Map<String, dynamic>)
@@ -430,6 +426,8 @@ class AppProvider with ChangeNotifier {
     } else {
       _walletTransactions = [];
     }
+    
+    _financePrediction = data['financePrediction'] as Map<String, dynamic>?;
 
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
@@ -456,6 +454,7 @@ class AppProvider with ChangeNotifier {
     _reflectionLogs = [];
     _timeSyncSchedule = [];
     _walletTransactions = [];
+    _financePrediction = null;
     _hasUnsavedChanges = true;
   }
 
@@ -473,7 +472,6 @@ class AppProvider with ChangeNotifier {
         final fullData = getAppStateAsMap();
         await file.writeAsString(jsonEncode(fullData));
 
-        // Cleanup old backups
         final files = backupDir.listSync().whereType<File>().toList();
         files.sort((a, b) => a.path.compareTo(b.path));
         if (files.length > 5) {
@@ -524,10 +522,11 @@ class AppProvider with ChangeNotifier {
           }
           if (_dirtyCollections.contains('wallet')) {
             if (!await _storageService.saveWallet(_currentUser!.uid, {
-              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList()
+              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
+              'financePrediction': _financePrediction
             })) success = false;
           }
-          if (_dirtyCollections.contains('settings') || success) { // Settings or generic save
+          if (_dirtyCollections.contains('settings') || success) {
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
                 'settings': settings.toJson(),
@@ -718,6 +717,35 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void addWalletCategory(String category) {
+    if (!_settings.walletCategories.contains(category)) {
+      final newCategories = List<String>.from(_settings.walletCategories)..add(category);
+      setSettings(_settings..walletCategories = newCategories);
+    }
+  }
+
+  Future<void> generateFinancePrediction() async {
+    if (_walletTransactions.isEmpty) return;
+    setLoadingTask("Analyzing Finances...");
+    try {
+      final recent = _walletTransactions.take(50).map((t) => "${t.type == TransactionType.income ? '+' : '-'}${t.amount} (${t.category}) - ${t.note}").join("\n");
+      final prediction = await _aiService.generateFinancePrediction(
+        transactionsList: recent,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[FinanceAI] $msg")
+      );
+      _financePrediction = prediction;
+      _markDirty('wallet');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
   double get currentWalletBalance {
     double balance = 0;
     for (var t in _walletTransactions) {
@@ -733,8 +761,6 @@ class AppProvider with ChangeNotifier {
   }
 
   double calculateProjectedBalance(int daysAhead) {
-    // Simple projection: Current + Planned (within range)
-    // Could add statistical forecast in future
     double projected = currentWalletBalance;
     final now = DateTime.now();
     final futureLimit = now.add(Duration(days: daysAhead));
@@ -749,6 +775,41 @@ class AppProvider with ChangeNotifier {
       }
     }
     return projected;
+  }
+
+  // --- START DAY REPORT ---
+
+  Future<void> generateStartDayReport() async {
+    final today = helper.getTodayDateString();
+    setLoadingTask("Initializing System...");
+    try {
+      final history = getLast7DaysData();
+      final report = await _aiService.generateStartDayReport(
+        reflectionsList: history['logs'],
+        sessionsList: history['times'],
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StartDay] $msg")
+      );
+      
+      if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
+      if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
+      _completedByDay[today]['startDayReport'] = report;
+      _markDirty('history');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>?;
+    }
+    return null;
   }
 
   // --- LOGIC & HELPERS ---
@@ -856,7 +917,7 @@ class AppProvider with ChangeNotifier {
     }
 
     if (hasResetRun) {
-      _chatbotMemory.lastWeeklySummary = "Weekly summary pending..."; // Placeholder
+      _chatbotMemory.lastWeeklySummary = "Weekly summary pending...";
       initializeChatbotMemory();
       notifyListeners();
     } else if (tasksChanged) {
@@ -891,7 +952,7 @@ class AppProvider with ChangeNotifier {
         modelCandidates: settings.liteModels,
         memory: _chatbotMemory,
         userMessage: userMessageText,
-        dataContext: "User Context Placeholder", // Simplified context
+        dataContext: "User Context Placeholder",
         currentApiKeyIndex: _apiKeyIndex,
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customChatbotPrompt,

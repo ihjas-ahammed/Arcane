@@ -1,20 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-const String _userCollection = 'users'; // Users collection
-const String _userSubcollectionDocId =
-    'data'; // Subcollection name under user doc
-const String _gameStateDocId = 'gameState'; // The legacy monolithic document ID
+const String _userCollection = 'users'; 
+const String _userSubcollectionDocId = 'data';
+const String _gameStateDocId = 'gameState';
 
-// Sub-collection document IDs (actually documents inside the 'data' collection now, for better organization,
-// OR we can make 'data' the collection and these the documents.
-// The prompt asked for "data/gameState" -> "data/tasks", "data/history", etc.
-// Let's interpret the structure:
-// users/{uid}/data/gameState (OLD)
-// users/{uid}/data/tasks (NEW)
-// users/{uid}/data/history (NEW)
-// users/{uid}/data/reflections (NEW)
-// users/{uid}/data/settings (NEW - includes small stuff like user profile, misc)
-// users/{uid}/data/wallet (NEW)
 const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
@@ -24,13 +13,12 @@ const String _docWallet = 'wallet';
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // users/{userId}/data/{docId}
   DocumentReference<Map<String, dynamic>> _dataDocRef(
       String userId, String docId) {
     return _firestore
         .collection(_userCollection)
         .doc(userId)
-        .collection(_userSubcollectionDocId) // 'data' collection
+        .collection(_userSubcollectionDocId)
         .doc(docId);
   }
 
@@ -38,42 +26,36 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      // 1. Try to fetch the new split documents first.
       final tasksSnap = await _dataDocRef(userId, _docTasks).get();
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final walletSnap = await _dataDocRef(userId, _docWallet).get(); // Wallet
+      final walletSnap = await _dataDocRef(userId, _docWallet).get();
 
       bool hasNewData =
           tasksSnap.exists || historySnap.exists || settingsSnap.exists || walletSnap.exists;
 
       if (hasNewData) {
-        // Construct the monolithic-like map from the pieces so the app logic remains mostly same
-        // or we return them as is. Ideally, we reconstruct the map for AppProvider compatibility.
         Map<String, dynamic> fullData = {};
         if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (walletSnap.exists) fullData.addAll(walletSnap.data()!); // Wallet
+        if (walletSnap.exists) fullData.addAll(walletSnap.data()!);
         return fullData;
       }
 
-      // 2. Fallback to old monolithic 'gameState' document
       final oldDocSnap = await _dataDocRef(userId, _gameStateDocId).get();
       if (oldDocSnap.exists) {
         return oldDocSnap.data();
       }
 
-      return null; // No data found
+      return null;
     } catch (e) {
-      // print("Error getting user data: $e");
       return null;
     }
   }
 
-  // Methods to save individual chunks
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async {
     return _saveChunk(userId, _docTasks, data);
   }
@@ -98,10 +80,9 @@ class StorageService {
       String userId, String docId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      await _dataDocRef(userId, docId).set(data);
+      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true)); // Use merge for safety
       return true;
     } catch (e) {
-      // print("Error saving $docId: $e");
       return false;
     }
   }
@@ -133,14 +114,9 @@ class StorageService {
     }
   }
 
-  // Helper for AppProvider to update what it thinks needed
-  // This is generic, but practically we will use the specific save methods above.
   Future<bool> setUserData(String userId, Map<String, dynamic> fullData) async {
-    // This method is now "save everything".
-    // It should distribute the keys to the correct documents.
     if (userId.isEmpty) return false;
 
-    // Split data
     final tasksData = <String, dynamic>{};
     if (fullData.containsKey('mainTasks'))
       tasksData['mainTasks'] = fullData['mainTasks'];
@@ -156,14 +132,16 @@ class StorageService {
     final walletData = <String, dynamic>{};
     if (fullData.containsKey('walletTransactions'))
       walletData['walletTransactions'] = fullData['walletTransactions'];
+    if (fullData.containsKey('financePrediction'))
+      walletData['financePrediction'] = fullData['financePrediction'];
 
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
     settingsData.remove('walletTransactions');
+    settingsData.remove('financePrediction');
 
-    // Execute batch set
     try {
       final batch = _firestore.batch();
       batch.set(_dataDocRef(userId, _docTasks), tasksData);

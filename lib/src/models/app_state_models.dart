@@ -9,12 +9,13 @@ class AppSettings {
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  List<String> customApiKeys; // Changed to List
+  List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
+  List<String> walletCategories; // Added
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -38,10 +39,10 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
+    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'], // Default
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
-    // Migration for legacy single key
     List<String> keys = [];
     if (json['customApiKeys'] != null) {
       keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
@@ -61,31 +62,11 @@ class AppSettings {
       liteModels: (json['liteModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash-lite',
-                  'gemini-1.5-flash'
-                ]
-              : [
-                  'gemini-2.0-flash-lite',
-                  'gemini-2.0-flash',
-                  'gemini-1.5-flash'
-                ]),
+          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
       heavyModels: (json['heavyModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash',
-                  'gemini-1.5-pro'
-                ]
-              : [
-                  'gemini-2.0-flash',
-                  'gemini-2.0-pro-exp-02-05',
-                  'gemini-1.5-pro'
-                ]),
+          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
@@ -95,6 +76,10 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
+      walletCategories: (json['walletCategories'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
     );
   }
   Map<String, dynamic> toJson() {
@@ -112,6 +97,7 @@ class AppSettings {
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
+      'walletCategories': walletCategories,
     };
   }
 }

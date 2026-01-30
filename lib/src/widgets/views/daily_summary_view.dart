@@ -13,6 +13,7 @@ import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:arcane/src/screens/neural_archive_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -31,6 +32,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
   bool _isGeneratingWeeklyReport = false;
+  bool _isGeneratingStartDay = false;
   
   Map<String, dynamic>? _tempGeneratedBriefing;
 
@@ -167,6 +169,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  Future<void> _generateStartDayReport(AppProvider provider) async {
+    setState(() => _isGeneratingStartDay = true);
+    try {
+      await provider.generateStartDayReport();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isGeneratingStartDay = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -180,6 +193,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
     final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
     final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
+    
+    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
+    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
@@ -285,6 +301,23 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
+          // START DAY REPORT
+          if (startDayReport != null)
+            StartDayReportCard(report: startDayReport)
+          else if (isToday)
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
+                icon: MdiIcons.power,
+                isPrimary: true,
+                color: AppTheme.fhAccentTeal,
+                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
           Row(
             children: [
               Expanded(
@@ -363,8 +396,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
 
           const SizedBox(height: 24),
-
-          // Removed "COMBAT LOG // DETAILS" section as requested.
           
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

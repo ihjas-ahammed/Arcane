@@ -26,8 +26,11 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   String _feeling = 'Neutral';
   DateTime _date = DateTime.now();
   bool _isFuture = false;
+  
+  // Custom Category Handling
+  bool _isAddingCategory = false;
+  final _newCategoryController = TextEditingController();
 
-  final List<String> _categories = ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'];
   final List<String> _feelings = ['Good', 'Bad', 'Neutral', 'Necessary', 'Regret'];
 
   @override
@@ -52,6 +55,12 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
 
     final provider = Provider.of<AppProvider>(context, listen: false);
     
+    // Save new category if needed
+    if (_isAddingCategory && _newCategoryController.text.trim().isNotEmpty) {
+      _category = _newCategoryController.text.trim();
+      provider.addWalletCategory(_category);
+    }
+
     final t = WalletTransaction(
       id: widget.transaction?.id ?? const Uuid().v4(),
       amount: amount,
@@ -73,6 +82,10 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final categories = List<String>.from(provider.settings.walletCategories);
+    if (!categories.contains('General')) categories.add('General');
+
     return AlertDialog(
       title: Text(widget.transaction == null ? "NEW TRANSACTION" : "EDIT TRANSACTION"),
       content: SingleChildScrollView(
@@ -117,13 +130,42 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             ),
             const SizedBox(height: 16),
             
-            DropdownButtonFormField<String>(
-              value: _category,
-              decoration: const InputDecoration(labelText: "CATEGORY"),
-              dropdownColor: AppTheme.fhBgDark,
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (val) => setState(() => _category = val!),
-            ),
+            if (_isAddingCategory)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newCategoryController,
+                      autofocus: true,
+                      decoration: const InputDecoration(labelText: "NEW CATEGORY"),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => setState(() => _isAddingCategory = false),
+                  )
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: categories.contains(_category) ? _category : categories.first,
+                      decoration: const InputDecoration(labelText: "CATEGORY"),
+                      dropdownColor: AppTheme.fhBgDark,
+                      items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) => setState(() => _category = val!),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: "Add Category",
+                    onPressed: () => setState(() => _isAddingCategory = true),
+                  )
+                ],
+              ),
+            
             const SizedBox(height: 16),
 
             if (_type == TransactionType.expense) ...[

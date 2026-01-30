@@ -16,7 +16,6 @@ class AIService {
       jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
     }
 
-    // Remove markdown code blocks if present inside the substring or outside
     if (jsonString.startsWith("```json")) {
       jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
     } else if (jsonString.startsWith("```")) {
@@ -34,11 +33,10 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Inbuild Keys, then Custom Keys
     final List<String> apiKeysToTry = [
       ...geminiApiKeys,
       if (customApiKeys != null) ...customApiKeys
-    ].toSet().toList(); // Remove duplicates
+    ].toSet().toList();
 
     if (apiKeysToTry.isEmpty) {
       throw Exception("No valid Gemini API keys found.");
@@ -46,7 +44,6 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        // Simple rotation strategy: start from current index
         int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
         String effectiveKey = apiKeysToTry[effectiveIndex];
 
@@ -57,7 +54,6 @@ class AIService {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
           }
           final result = await requestFn(effectiveKey, model);
-          // Update the index so next call starts here (load balancing/avoid dead keys)
           onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
@@ -104,7 +100,6 @@ class AIService {
     );
   }
 
-  // --- Neural Archive Query ---
   Future<String> queryNeuralArchive({
     required String query,
     required String logsContext,
@@ -143,10 +138,9 @@ class AIService {
     );
   }
 
-  // --- Time Sync Generation ---
   Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
     required String userPrompt,
-    required String contextData, // Past logs, habits, current time
+    required String contextData, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -178,8 +172,6 @@ class AIService {
         
     return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
   }
-
-  // ... [Other methods unchanged]
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
@@ -370,8 +362,6 @@ class AIService {
     return [];
   }
   
-  /// Fetches available models using the Gemini API REST endpoint.
-  /// Needs a valid API key.
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
     
@@ -386,10 +376,8 @@ class AIService {
       final data = jsonDecode(response.body);
       if (data['models'] != null && data['models'] is List) {
         final models = (data['models'] as List).map((m) {
-          // Filter for generateContent supported models
           final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
           if (methods.contains('generateContent')) {
-            // "models/gemini-pro" -> "gemini-pro"
             return (m['name'] as String).replaceFirst('models/', '');
           }
           return null;
@@ -400,5 +388,75 @@ class AIService {
     } else {
       throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
     }
+  }
+
+  // --- Finance Prediction ---
+  Future<Map<String, dynamic>> generateFinancePrediction({
+    required String transactionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze these wallet transactions:
+    $transactionsList
+    
+    1. Analyze spending habits.
+    2. Predict upcoming expenses for next week by category.
+    3. Provide a short, empathetic financial advice message.
+    
+    Output JSON ONLY:
+    {
+      "message": "string",
+      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Start Day Report ---
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'Start Day Report' for the user.
+    Context: User is like a machine getting upgrades.
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    1. List 'System Upgrades' (recent achievements/improvements from reflections).
+    2. List 'Projected Operations' (what to focus on today based on patterns).
+    3. Briefing message (Encouraging, futuristic tone).
+    
+    Output JSON ONLY:
+    {
+      "briefing": "string",
+      "upgrades": ["string", "string"],
+      "projected_ops": ["string", "string"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
   }
 }
