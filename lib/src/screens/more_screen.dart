@@ -3,7 +3,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
-import 'package:arcane/src/screens/time_sync_screen.dart'; // Import
+import 'package:arcane/src/screens/time_sync_screen.dart';
+import 'package:arcane/src/screens/wallet_screen.dart'; // Import Wallet
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -24,7 +25,7 @@ class MoreScreen extends StatelessWidget {
           const SizedBox(height: 12),
 
           _buildMenuTile(context,
-              icon: MdiIcons.clockFast, // New Icon
+              icon: MdiIcons.clockFast,
               title: "Time Sync",
               subtitle: "AI 24h Schedule Generator",
               onTap: () {
@@ -32,6 +33,17 @@ class MoreScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const TimeSyncScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.walletOutline,
+              title: "Wallet",
+              subtitle: "Finance Manager & Forecasting",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const WalletScreen()));
           }),
 
           _buildMenuTile(context,

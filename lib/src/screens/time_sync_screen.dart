@@ -6,6 +6,7 @@ import 'package:arcane/src/models/time_sync_models.dart';
 import 'package:arcane/src/widgets/ui/time_sync_block_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/valorant/valorant_text_field.dart';
+import 'package:arcane/src/widgets/common/growing_text_field.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -32,54 +33,131 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
   void _editBlock(BuildContext context, AppProvider provider, TimeSyncBlock block) {
     final titleCtrl = TextEditingController(text: block.title);
     final descCtrl = TextEditingController(text: block.description);
+    TimeOfDay startTime = TimeOfDay.fromDateTime(block.startTime);
+    TimeOfDay endTime = TimeOfDay.fromDateTime(block.endTime);
     
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("EDIT BLOCK", style: TextStyle(fontFamily: AppTheme.fontDisplay, color: AppTheme.fhTextPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "TITLE"),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.fhBgMedium,
+            title: const Text("EDIT BLOCK", style: TextStyle(fontFamily: AppTheme.fontDisplay, color: AppTheme.fhTextPrimary)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(labelText: "TITLE"),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text("DESCRIPTION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  GrowingTextField(controller: descCtrl, hint: "Details...", minLines: 2),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: startTime,
+                              builder: (context, child) => Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
+                                ),
+                                child: child!,
+                              ),
+                            );
+                            if (picked != null) setState(() => startTime = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(labelText: 'START'),
+                            child: Text(startTime.format(context), style: const TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: endTime,
+                              builder: (context, child) => Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
+                                ),
+                                child: child!,
+                              ),
+                            );
+                            if (picked != null) setState(() => endTime = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(labelText: 'END'),
+                            child: Text(endTime.format(context), style: const TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "DESCRIPTION"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              provider.deleteTimeSyncBlock(block.id);
-              Navigator.pop(ctx);
-            },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentRed),
-            child: const Text("DELETE"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final updated = TimeSyncBlock(
-                id: block.id,
-                startTime: block.startTime,
-                endTime: block.endTime,
-                title: titleCtrl.text,
-                description: descCtrl.text,
-                type: block.type, // Could allow type edit too
-              );
-              provider.updateTimeSyncBlock(updated);
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
-            child: const Text("SAVE"),
-          )
-        ],
+            actions: [
+              TextButton(
+                onPressed: () {
+                  provider.deleteTimeSyncBlock(block.id);
+                  Navigator.pop(ctx);
+                },
+                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentRed),
+                child: const Text("DELETE"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Reconstruct DateTime from TimeOfDay, preserving original Date
+                  final s = block.startTime;
+                  final e = block.endTime;
+                  
+                  final newStart = DateTime(s.year, s.month, s.day, startTime.hour, startTime.minute);
+                  
+                  // Handle day crossover for end time if needed, though simple replacement usually suffices for same-day
+                  // If end time is before start time, assume next day if original was spanning, or just same day wrapping?
+                  // For simplicity, we use same day as original end unless it's strictly < start
+                  DateTime newEnd = DateTime(e.year, e.month, e.day, endTime.hour, endTime.minute);
+                  
+                  if (newEnd.isBefore(newStart)) {
+                     // If user set end time earlier than start, likely next day. 
+                     // Or they messed up. Let's assume next day if original start/end spanned days.
+                     if (e.day != s.day) {
+                        newEnd = DateTime(e.year, e.month, e.day, endTime.hour, endTime.minute);
+                     } else {
+                        // User might mean next day
+                        newEnd = newEnd.add(const Duration(days: 1));
+                     }
+                  }
+
+                  final updated = TimeSyncBlock(
+                    id: block.id,
+                    startTime: newStart,
+                    endTime: newEnd,
+                    title: titleCtrl.text,
+                    description: descCtrl.text,
+                    type: block.type,
+                  );
+                  provider.updateTimeSyncBlock(updated);
+                  Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
+                child: const Text("SAVE"),
+              )
+            ],
+          );
+        }
       )
     );
   }
@@ -138,8 +216,7 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
                     IconButton(
                       icon: Icon(MdiIcons.refresh, color: AppTheme.fhTextSecondary),
                       onPressed: () {
-                        // Clear schedule to show prompt again? Or just regenerate?
-                        // Let's scroll to top to show prompt.
+                        // Scroll to top to show prompt.
                         _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
                       },
                     )

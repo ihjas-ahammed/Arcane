@@ -14,10 +14,12 @@ const String _gameStateDocId = 'gameState'; // The legacy monolithic document ID
 // users/{uid}/data/history (NEW)
 // users/{uid}/data/reflections (NEW)
 // users/{uid}/data/settings (NEW - includes small stuff like user profile, misc)
+// users/{uid}/data/wallet (NEW)
 const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
+const String _docWallet = 'wallet';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -41,9 +43,10 @@ class StorageService {
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
+      final walletSnap = await _dataDocRef(userId, _docWallet).get(); // Wallet
 
       bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists;
+          tasksSnap.exists || historySnap.exists || settingsSnap.exists || walletSnap.exists;
 
       if (hasNewData) {
         // Construct the monolithic-like map from the pieces so the app logic remains mostly same
@@ -53,6 +56,7 @@ class StorageService {
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+        if (walletSnap.exists) fullData.addAll(walletSnap.data()!); // Wallet
         return fullData;
       }
 
@@ -86,6 +90,10 @@ class StorageService {
     return _saveChunk(userId, _docSettings, data);
   }
 
+  Future<bool> saveWallet(String userId, Map<String, dynamic> data) async {
+    return _saveChunk(userId, _docWallet, data);
+  }
+
   Future<bool> _saveChunk(
       String userId, String docId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
@@ -117,6 +125,7 @@ class StorageService {
       batch.delete(_dataDocRef(userId, _docHistory));
       batch.delete(_dataDocRef(userId, _docReflections));
       batch.delete(_dataDocRef(userId, _docSettings));
+      batch.delete(_dataDocRef(userId, _docWallet));
       await batch.commit();
       return true;
     } catch (e) {
@@ -144,10 +153,15 @@ class StorageService {
     if (fullData.containsKey('reflectionLogs'))
       reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
 
+    final walletData = <String, dynamic>{};
+    if (fullData.containsKey('walletTransactions'))
+      walletData['walletTransactions'] = fullData['walletTransactions'];
+
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
+    settingsData.remove('walletTransactions');
 
     // Execute batch set
     try {
@@ -155,6 +169,7 @@ class StorageService {
       batch.set(_dataDocRef(userId, _docTasks), tasksData);
       batch.set(_dataDocRef(userId, _docHistory), historyData);
       batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
+      batch.set(_dataDocRef(userId, _docWallet), walletData);
       batch.set(_dataDocRef(userId, _docSettings), settingsData);
       await batch.commit();
       return true;

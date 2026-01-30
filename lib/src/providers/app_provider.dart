@@ -19,7 +19,8 @@ import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/time_sync_models.dart'; // Import
+import 'package:arcane/src/models/time_sync_models.dart';
+import 'package:arcane/src/models/wallet_models.dart'; // Import
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -66,6 +67,10 @@ class AppProvider with ChangeNotifier {
   // Time Sync State
   List<TimeSyncBlock> _timeSyncSchedule = [];
   List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
+
+  // Wallet State
+  List<WalletTransaction> _walletTransactions = [];
+  List<WalletTransaction> get walletTransactions => _walletTransactions;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -338,7 +343,8 @@ class AppProvider with ChangeNotifier {
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-      'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(), // NEW
+      'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
+      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(), // Wallet
     };
   }
 
@@ -415,6 +421,16 @@ class AppProvider with ChangeNotifier {
       _timeSyncSchedule = [];
     }
 
+    // Wallet Load
+    if (data['walletTransactions'] != null && data['walletTransactions'] is List) {
+      _walletTransactions = (data['walletTransactions'] as List)
+          .where((w) => w != null && w is Map<String, dynamic>)
+          .map((w) => WalletTransaction.fromJson(w as Map<String, dynamic>))
+          .toList();
+    } else {
+      _walletTransactions = [];
+    }
+
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
       _settings.dataVersion = 1;
@@ -439,6 +455,7 @@ class AppProvider with ChangeNotifier {
     _initializeValues();
     _reflectionLogs = [];
     _timeSyncSchedule = [];
+    _walletTransactions = [];
     _hasUnsavedChanges = true;
   }
 
@@ -505,6 +522,11 @@ class AppProvider with ChangeNotifier {
               'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
             })) success = false;
           }
+          if (_dirtyCollections.contains('wallet')) {
+            if (!await _storageService.saveWallet(_currentUser!.uid, {
+              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList()
+            })) success = false;
+          }
           if (_dirtyCollections.contains('settings') || success) { // Settings or generic save
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
@@ -516,7 +538,7 @@ class AppProvider with ChangeNotifier {
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
                 'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-                'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(), // Save here
+                'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -666,6 +688,67 @@ class AppProvider with ChangeNotifier {
       _isGeneratingSubquestsForTask = isLoading;
       notifyListeners();
     }
+  }
+
+  // --- WALLET ACTIONS ---
+  
+  void addWalletTransaction(WalletTransaction transaction) {
+    _walletTransactions.add(transaction);
+    _walletTransactions.sort((a, b) => b.date.compareTo(a.date)); // Keep desc sorted
+    _markDirty('wallet');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void updateWalletTransaction(WalletTransaction transaction) {
+    final index = _walletTransactions.indexWhere((t) => t.id == transaction.id);
+    if (index != -1) {
+      _walletTransactions[index] = transaction;
+      _walletTransactions.sort((a, b) => b.date.compareTo(a.date));
+      _markDirty('wallet');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteWalletTransaction(String id) {
+    _walletTransactions.removeWhere((t) => t.id == id);
+    _markDirty('wallet');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  double get currentWalletBalance {
+    double balance = 0;
+    for (var t in _walletTransactions) {
+      if (!t.isFuture) {
+        if (t.type == TransactionType.income) {
+          balance += t.amount;
+        } else {
+          balance -= t.amount;
+        }
+      }
+    }
+    return balance;
+  }
+
+  double calculateProjectedBalance(int daysAhead) {
+    // Simple projection: Current + Planned (within range)
+    // Could add statistical forecast in future
+    double projected = currentWalletBalance;
+    final now = DateTime.now();
+    final futureLimit = now.add(Duration(days: daysAhead));
+
+    for (var t in _walletTransactions) {
+      if (t.isFuture && t.date.isBefore(futureLimit)) {
+        if (t.type == TransactionType.income) {
+          projected += t.amount;
+        } else {
+          projected -= t.amount;
+        }
+      }
+    }
+    return projected;
   }
 
   // --- LOGIC & HELPERS ---
