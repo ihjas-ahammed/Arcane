@@ -2859,12 +2859,13 @@ class AppSettings {
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  List<String> customApiKeys; // Changed to List
+  List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
+  List<String> walletCategories; // Added
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -2888,10 +2889,10 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
+    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'], // Default
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
-    // Migration for legacy single key
     List<String> keys = [];
     if (json['customApiKeys'] != null) {
       keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
@@ -2911,31 +2912,11 @@ class AppSettings {
       liteModels: (json['liteModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash-lite',
-                  'gemini-1.5-flash'
-                ]
-              : [
-                  'gemini-2.0-flash-lite',
-                  'gemini-2.0-flash',
-                  'gemini-1.5-flash'
-                ]),
+          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
       heavyModels: (json['heavyModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash',
-                  'gemini-1.5-pro'
-                ]
-              : [
-                  'gemini-2.0-flash',
-                  'gemini-2.0-pro-exp-02-05',
-                  'gemini-1.5-pro'
-                ]),
+          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
@@ -2945,6 +2926,10 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
+      walletCategories: (json['walletCategories'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
     );
   }
   Map<String, dynamic> toJson() {
@@ -2962,6 +2947,7 @@ class AppSettings {
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
+      'walletCategories': walletCategories,
     };
   }
 }
@@ -4406,7 +4392,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/models/wallet_models.dart'; // Import
+import 'package:arcane/src/models/wallet_models.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -4418,7 +4404,6 @@ class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   final AIService _aiService = AIService();
 
-  // Expose AIService for widgets that need direct access
   AIService get aiService => _aiService;
 
   Timer? _periodicUiTimer;
@@ -4450,13 +4435,14 @@ class AppProvider with ChangeNotifier {
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
 
-  // Time Sync State
   List<TimeSyncBlock> _timeSyncSchedule = [];
   List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
 
-  // Wallet State
+  // Wallet
   List<WalletTransaction> _walletTransactions = [];
   List<WalletTransaction> get walletTransactions => _walletTransactions;
+  Map<String, dynamic>? _financePrediction;
+  Map<String, dynamic>? get financePrediction => _financePrediction;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -4484,9 +4470,6 @@ class AppProvider with ChangeNotifier {
   String? get selectedTaskId => _selectedTaskId;
   int get apiKeyIndex => _apiKeyIndex;
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
-
-  TimeOfDay get wakeupTime => TimeOfDay(
-      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
 
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   ChatbotMemory get chatbotMemory => _chatbotMemory;
@@ -4730,7 +4713,8 @@ class AppProvider with ChangeNotifier {
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
       'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
-      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(), // Wallet
+      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
+      'financePrediction': _financePrediction,
     };
   }
 
@@ -4797,7 +4781,6 @@ class AppProvider with ChangeNotifier {
       }
     }
 
-    // Time Sync Load
     if (data['timeSyncSchedule'] != null && data['timeSyncSchedule'] is List) {
       _timeSyncSchedule = (data['timeSyncSchedule'] as List)
           .where((b) => b != null && b is Map<String, dynamic>)
@@ -4807,7 +4790,6 @@ class AppProvider with ChangeNotifier {
       _timeSyncSchedule = [];
     }
 
-    // Wallet Load
     if (data['walletTransactions'] != null && data['walletTransactions'] is List) {
       _walletTransactions = (data['walletTransactions'] as List)
           .where((w) => w != null && w is Map<String, dynamic>)
@@ -4816,6 +4798,8 @@ class AppProvider with ChangeNotifier {
     } else {
       _walletTransactions = [];
     }
+    
+    _financePrediction = data['financePrediction'] as Map<String, dynamic>?;
 
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
@@ -4842,6 +4826,7 @@ class AppProvider with ChangeNotifier {
     _reflectionLogs = [];
     _timeSyncSchedule = [];
     _walletTransactions = [];
+    _financePrediction = null;
     _hasUnsavedChanges = true;
   }
 
@@ -4859,7 +4844,6 @@ class AppProvider with ChangeNotifier {
         final fullData = getAppStateAsMap();
         await file.writeAsString(jsonEncode(fullData));
 
-        // Cleanup old backups
         final files = backupDir.listSync().whereType<File>().toList();
         files.sort((a, b) => a.path.compareTo(b.path));
         if (files.length > 5) {
@@ -4910,10 +4894,11 @@ class AppProvider with ChangeNotifier {
           }
           if (_dirtyCollections.contains('wallet')) {
             if (!await _storageService.saveWallet(_currentUser!.uid, {
-              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList()
+              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
+              'financePrediction': _financePrediction
             })) success = false;
           }
-          if (_dirtyCollections.contains('settings') || success) { // Settings or generic save
+          if (_dirtyCollections.contains('settings') || success) {
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
                 'settings': settings.toJson(),
@@ -5104,6 +5089,35 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void addWalletCategory(String category) {
+    if (!_settings.walletCategories.contains(category)) {
+      final newCategories = List<String>.from(_settings.walletCategories)..add(category);
+      setSettings(_settings..walletCategories = newCategories);
+    }
+  }
+
+  Future<void> generateFinancePrediction() async {
+    if (_walletTransactions.isEmpty) return;
+    setLoadingTask("Analyzing Finances...");
+    try {
+      final recent = _walletTransactions.take(50).map((t) => "${t.type == TransactionType.income ? '+' : '-'}${t.amount} (${t.category}) - ${t.note}").join("\n");
+      final prediction = await _aiService.generateFinancePrediction(
+        transactionsList: recent,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[FinanceAI] $msg")
+      );
+      _financePrediction = prediction;
+      _markDirty('wallet');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
   double get currentWalletBalance {
     double balance = 0;
     for (var t in _walletTransactions) {
@@ -5119,8 +5133,6 @@ class AppProvider with ChangeNotifier {
   }
 
   double calculateProjectedBalance(int daysAhead) {
-    // Simple projection: Current + Planned (within range)
-    // Could add statistical forecast in future
     double projected = currentWalletBalance;
     final now = DateTime.now();
     final futureLimit = now.add(Duration(days: daysAhead));
@@ -5135,6 +5147,41 @@ class AppProvider with ChangeNotifier {
       }
     }
     return projected;
+  }
+
+  // --- START DAY REPORT ---
+
+  Future<void> generateStartDayReport() async {
+    final today = helper.getTodayDateString();
+    setLoadingTask("Initializing System...");
+    try {
+      final history = getLast7DaysData();
+      final report = await _aiService.generateStartDayReport(
+        reflectionsList: history['logs'],
+        sessionsList: history['times'],
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StartDay] $msg")
+      );
+      
+      if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
+      if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
+      _completedByDay[today]['startDayReport'] = report;
+      _markDirty('history');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
+      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>?;
+    }
+    return null;
   }
 
   // --- LOGIC & HELPERS ---
@@ -5242,7 +5289,7 @@ class AppProvider with ChangeNotifier {
     }
 
     if (hasResetRun) {
-      _chatbotMemory.lastWeeklySummary = "Weekly summary pending..."; // Placeholder
+      _chatbotMemory.lastWeeklySummary = "Weekly summary pending...";
       initializeChatbotMemory();
       notifyListeners();
     } else if (tasksChanged) {
@@ -5277,7 +5324,7 @@ class AppProvider with ChangeNotifier {
         modelCandidates: settings.liteModels,
         memory: _chatbotMemory,
         userMessage: userMessageText,
-        dataContext: "User Context Placeholder", // Simplified context
+        dataContext: "User Context Placeholder",
         currentApiKeyIndex: _apiKeyIndex,
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customChatbotPrompt,
@@ -10834,12 +10881,20 @@ import 'package:arcane/src/models/wallet_models.dart';
 import 'package:arcane/src/widgets/wallet/wallet_balance_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/widgets/wallet/wallet_pie_chart.dart';
+import 'package:arcane/src/widgets/wallet/finance_prediction_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 
-class WalletScreen extends StatelessWidget {
+class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
+
+  @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+
+class _WalletScreenState extends State<WalletScreen> {
+  bool _showIncomePie = false;
 
   void _showAddTransactionDialog(BuildContext context, {WalletTransaction? transaction}) {
     showDialog(
@@ -10917,7 +10972,7 @@ class WalletScreen extends StatelessWidget {
                       children: [
                         Expanded(
                           child: ValorantButton(
-                            label: "LOG EXPENSE",
+                            label: "EXPENSE",
                             isPrimary: false,
                             icon: MdiIcons.cashMinus,
                             color: AppTheme.fhAccentRed.withOpacity(0.2),
@@ -10945,15 +11000,32 @@ class WalletScreen extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
-                    // Spending Trend Chart (Basic Line Chart of Balances over last 30 days)
+                    // Finance Prediction AI Card
+                    FinancePredictionCard(),
+
+                    const SizedBox(height: 32),
+
+                    // Pie Chart Section
                     if (recentHistory.isNotEmpty) ...[
-                      const Text("BALANCE TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_showIncomePie ? "INCOME BREAKDOWN" : "EXPENSE BREAKDOWN", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          Switch(
+                            value: _showIncomePie,
+                            onChanged: (val) => setState(() => _showIncomePie = val),
+                            activeColor: AppTheme.fhAccentGreen,
+                            inactiveThumbColor: AppTheme.fhAccentRed,
+                            inactiveTrackColor: AppTheme.fhBgDark,
+                          )
+                        ],
+                      ),
                       const SizedBox(height: 16),
-                      Container(
-                        height: 200,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: LineChart(
-                          _buildBalanceChartData(recentHistory, currentBalance),
+                      SizedBox(
+                        height: 250,
+                        child: WalletPieChart(
+                          transactions: recentHistory,
+                          showIncome: _showIncomePie,
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -10966,7 +11038,7 @@ class WalletScreen extends StatelessWidget {
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: recentHistory.take(5).length,
+                        itemCount: recentHistory.take(10).length,
                         itemBuilder: (context, index) {
                           final t = recentHistory[index];
                           return _buildTransactionTile(context, provider, t);
@@ -11042,61 +11114,6 @@ class WalletScreen extends StatelessWidget {
         ),
         onTap: () => _showAddTransactionDialog(context, transaction: t),
       ),
-    );
-  }
-
-  LineChartData _buildBalanceChartData(List<WalletTransaction> transactions, double currentBalance) {
-    // Reverse list to calculate history backwards
-    // Current Balance is at Now.
-    // Previous balance = Current - Income + Expense
-    
-    List<FlSpot> spots = [];
-    double runningBalance = currentBalance;
-    DateTime now = DateTime.now();
-    
-    // Add current point
-    spots.add(FlSpot(0, runningBalance));
-
-    // Sort descending (newest first) to backtrack
-    final sorted = List<WalletTransaction>.from(transactions)..sort((a,b) => b.date.compareTo(a.date));
-    
-    // Limit to 30 days
-    final limitDate = now.subtract(const Duration(days: 30));
-    
-    for (var t in sorted) {
-      if (t.date.isBefore(limitDate)) break;
-      
-      // Calculate balance BEFORE this transaction
-      if (t.type == TransactionType.income) {
-        runningBalance -= t.amount;
-      } else {
-        runningBalance += t.amount;
-      }
-      
-      final daysAgo = now.difference(t.date).inDays.toDouble();
-      spots.add(FlSpot(daysAgo, runningBalance));
-    }
-
-    // Since x axis is "days ago", 0 is right. We want graph left-to-right.
-    // So we flip X: x = 30 - daysAgo (approx) or just negate and format titles.
-    // Let's use negative X for "days ago".
-    final finalSpots = spots.map((s) => FlSpot(-s.x, s.y)).toList();
-
-    return LineChartData(
-      gridData: FlGridData(show: false),
-      titlesData: FlTitlesData(show: false),
-      borderData: FlBorderData(show: false),
-      lineBarsData: [
-        LineChartBarData(
-          spots: finalSpots,
-          isCurved: true,
-          color: AppTheme.fhAccentTeal,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: FlDotData(show: false),
-          belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withOpacity(0.1)),
-        ),
-      ],
     );
   }
 }
@@ -11382,7 +11399,6 @@ class AIService {
       jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
     }
 
-    // Remove markdown code blocks if present inside the substring or outside
     if (jsonString.startsWith("```json")) {
       jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
     } else if (jsonString.startsWith("```")) {
@@ -11400,11 +11416,10 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    // 1. Prioritize Inbuild Keys, then Custom Keys
     final List<String> apiKeysToTry = [
       ...geminiApiKeys,
       if (customApiKeys != null) ...customApiKeys
-    ].toSet().toList(); // Remove duplicates
+    ].toSet().toList();
 
     if (apiKeysToTry.isEmpty) {
       throw Exception("No valid Gemini API keys found.");
@@ -11412,7 +11427,6 @@ class AIService {
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
-        // Simple rotation strategy: start from current index
         int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
         String effectiveKey = apiKeysToTry[effectiveIndex];
 
@@ -11423,7 +11437,6 @@ class AIService {
             onLog("Trying Model: $model with Key Index: $effectiveIndex");
           }
           final result = await requestFn(effectiveKey, model);
-          // Update the index so next call starts here (load balancing/avoid dead keys)
           onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
@@ -11470,7 +11483,6 @@ class AIService {
     );
   }
 
-  // --- Neural Archive Query ---
   Future<String> queryNeuralArchive({
     required String query,
     required String logsContext,
@@ -11509,10 +11521,9 @@ class AIService {
     );
   }
 
-  // --- Time Sync Generation ---
   Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
     required String userPrompt,
-    required String contextData, // Past logs, habits, current time
+    required String contextData, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -11544,8 +11555,6 @@ class AIService {
         
     return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
   }
-
-  // ... [Other methods unchanged]
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
@@ -11736,8 +11745,6 @@ class AIService {
     return [];
   }
   
-  /// Fetches available models using the Gemini API REST endpoint.
-  /// Needs a valid API key.
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
     
@@ -11752,10 +11759,8 @@ class AIService {
       final data = jsonDecode(response.body);
       if (data['models'] != null && data['models'] is List) {
         final models = (data['models'] as List).map((m) {
-          // Filter for generateContent supported models
           final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
           if (methods.contains('generateContent')) {
-            // "models/gemini-pro" -> "gemini-pro"
             return (m['name'] as String).replaceFirst('models/', '');
           }
           return null;
@@ -11767,7 +11772,80 @@ class AIService {
       throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
     }
   }
+
+  // --- Finance Prediction ---
+  Future<Map<String, dynamic>> generateFinancePrediction({
+    required String transactionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze these wallet transactions:
+    $transactionsList
+    
+    1. Analyze spending habits.
+    2. Predict upcoming expenses for next week by category.
+    3. Provide a short, empathetic financial advice message.
+    
+    Output JSON ONLY:
+    {
+      "message": "string",
+      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Start Day Report ---
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
+    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "directives": ["string", "string", "string"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
 }
+
 --- END OF FILE lib/src/services/ai_service.dart ---
 
 --- START OF FILE lib/src/services/data_export_service.dart ---
@@ -11951,21 +12029,10 @@ Future<void> changePassword(String newPassword) async {
 --- START OF FILE lib/src/services/storage_service.dart ---
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-const String _userCollection = 'users'; // Users collection
-const String _userSubcollectionDocId =
-    'data'; // Subcollection name under user doc
-const String _gameStateDocId = 'gameState'; // The legacy monolithic document ID
+const String _userCollection = 'users'; 
+const String _userSubcollectionDocId = 'data';
+const String _gameStateDocId = 'gameState';
 
-// Sub-collection document IDs (actually documents inside the 'data' collection now, for better organization,
-// OR we can make 'data' the collection and these the documents.
-// The prompt asked for "data/gameState" -> "data/tasks", "data/history", etc.
-// Let's interpret the structure:
-// users/{uid}/data/gameState (OLD)
-// users/{uid}/data/tasks (NEW)
-// users/{uid}/data/history (NEW)
-// users/{uid}/data/reflections (NEW)
-// users/{uid}/data/settings (NEW - includes small stuff like user profile, misc)
-// users/{uid}/data/wallet (NEW)
 const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
@@ -11975,13 +12042,12 @@ const String _docWallet = 'wallet';
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // users/{userId}/data/{docId}
   DocumentReference<Map<String, dynamic>> _dataDocRef(
       String userId, String docId) {
     return _firestore
         .collection(_userCollection)
         .doc(userId)
-        .collection(_userSubcollectionDocId) // 'data' collection
+        .collection(_userSubcollectionDocId)
         .doc(docId);
   }
 
@@ -11989,42 +12055,36 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      // 1. Try to fetch the new split documents first.
       final tasksSnap = await _dataDocRef(userId, _docTasks).get();
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final walletSnap = await _dataDocRef(userId, _docWallet).get(); // Wallet
+      final walletSnap = await _dataDocRef(userId, _docWallet).get();
 
       bool hasNewData =
           tasksSnap.exists || historySnap.exists || settingsSnap.exists || walletSnap.exists;
 
       if (hasNewData) {
-        // Construct the monolithic-like map from the pieces so the app logic remains mostly same
-        // or we return them as is. Ideally, we reconstruct the map for AppProvider compatibility.
         Map<String, dynamic> fullData = {};
         if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (walletSnap.exists) fullData.addAll(walletSnap.data()!); // Wallet
+        if (walletSnap.exists) fullData.addAll(walletSnap.data()!);
         return fullData;
       }
 
-      // 2. Fallback to old monolithic 'gameState' document
       final oldDocSnap = await _dataDocRef(userId, _gameStateDocId).get();
       if (oldDocSnap.exists) {
         return oldDocSnap.data();
       }
 
-      return null; // No data found
+      return null;
     } catch (e) {
-      // print("Error getting user data: $e");
       return null;
     }
   }
 
-  // Methods to save individual chunks
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async {
     return _saveChunk(userId, _docTasks, data);
   }
@@ -12049,10 +12109,9 @@ class StorageService {
       String userId, String docId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      await _dataDocRef(userId, docId).set(data);
+      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true)); // Use merge for safety
       return true;
     } catch (e) {
-      // print("Error saving $docId: $e");
       return false;
     }
   }
@@ -12084,14 +12143,9 @@ class StorageService {
     }
   }
 
-  // Helper for AppProvider to update what it thinks needed
-  // This is generic, but practically we will use the specific save methods above.
   Future<bool> setUserData(String userId, Map<String, dynamic> fullData) async {
-    // This method is now "save everything".
-    // It should distribute the keys to the correct documents.
     if (userId.isEmpty) return false;
 
-    // Split data
     final tasksData = <String, dynamic>{};
     if (fullData.containsKey('mainTasks'))
       tasksData['mainTasks'] = fullData['mainTasks'];
@@ -12107,14 +12161,16 @@ class StorageService {
     final walletData = <String, dynamic>{};
     if (fullData.containsKey('walletTransactions'))
       walletData['walletTransactions'] = fullData['walletTransactions'];
+    if (fullData.containsKey('financePrediction'))
+      walletData['financePrediction'] = fullData['financePrediction'];
 
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
     settingsData.remove('walletTransactions');
+    settingsData.remove('financePrediction');
 
-    // Execute batch set
     try {
       final batch = _firestore.batch();
       batch.set(_dataDocRef(userId, _docTasks), tasksData);
@@ -14373,6 +14429,197 @@ class QuickActionCard extends StatelessWidget {
 
 --- END OF FILE lib/src/widgets/cards/quick_action_card.dart ---
 
+--- START OF FILE lib/src/widgets/cards/start_day_report_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/system_metric_widget.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class StartDayReportCard extends StatelessWidget {
+  final Map<String, dynamic> report;
+  final VoidCallback? onRegenerate;
+  final bool isRegenerating;
+
+  const StartDayReportCard({
+    super.key, 
+    required this.report, 
+    this.onRegenerate,
+    this.isRegenerating = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Legacy support or fallback if fields missing
+    final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal. Ready for input.";
+    
+    final metricsRaw = report['metrics'] as List<dynamic>?;
+    List<Map<String, dynamic>> metrics = [];
+    if (metricsRaw != null) {
+      metrics = metricsRaw.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    final directivesRaw = (report['directives'] as List<dynamic>?) ?? (report['projected_ops'] as List<dynamic>?);
+    final directives = directivesRaw?.map((e) => e.toString()).toList() ?? [];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(0),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.fhAccentTeal.withValues(alpha: 0.1),
+            blurRadius: 15,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // HEADER
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.fhAccentTeal.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.3))),
+            ),
+            child: Row(
+              children: [
+                Icon(MdiIcons.chartBellCurveCumulative, color: AppTheme.fhAccentTeal, size: 22),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "OPERATIONAL FORECAST",
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.fhTextPrimary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                if (onRegenerate != null)
+                  IconButton(
+                    icon: isRegenerating 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentTeal))
+                      : Icon(MdiIcons.refresh, size: 20, color: AppTheme.fhTextSecondary),
+                    onPressed: isRegenerating ? null : onRegenerate,
+                    tooltip: "Re-calculate",
+                  )
+              ],
+            ),
+          ),
+
+          // FORECAST BODY
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDeepDark,
+                    border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
+                  ),
+                  child: Text(
+                    forecast,
+                    style: const TextStyle(
+                      color: AppTheme.fhTextPrimary,
+                      height: 1.5,
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic
+                    ),
+                  ),
+                ).animate().fadeIn(duration: 600.ms),
+
+                const SizedBox(height: 24),
+
+                // METRICS
+                if (metrics.isNotEmpty) ...[
+                  const Text(
+                    "SYSTEM STATUS",
+                    style: TextStyle(
+                      color: AppTheme.fhTextSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...metrics.map((m) {
+                    // Try parse color
+                    Color? c;
+                    if (m['color_hex'] != null) {
+                      try {
+                        String hex = m['color_hex'].toString().replaceAll('#', '');
+                        c = Color(int.parse("0xFF$hex"));
+                      } catch (_) {}
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: SystemMetricWidget(
+                        label: m['label'] ?? 'Metric',
+                        value: (m['value'] as num? ?? 50).toInt(),
+                        color: c,
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 24),
+                ],
+
+                // DIRECTIVES
+                if (directives.isNotEmpty) ...[
+                  const Text(
+                    "TACTICAL DIRECTIVES",
+                    style: TextStyle(
+                      color: AppTheme.fhAccentPurple,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...directives.map((d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Icon(MdiIcons.chevronRight, size: 14, color: AppTheme.fhAccentPurple),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            d,
+                            style: const TextStyle(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 13,
+                              height: 1.3
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.1, end: 0);
+  }
+}
+--- END OF FILE lib/src/widgets/cards/start_day_report_card.dart ---
+
 --- START OF FILE lib/src/widgets/cards/submission_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
@@ -15760,8 +16007,11 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   String _feeling = 'Neutral';
   DateTime _date = DateTime.now();
   bool _isFuture = false;
+  
+  // Custom Category Handling
+  bool _isAddingCategory = false;
+  final _newCategoryController = TextEditingController();
 
-  final List<String> _categories = ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'];
   final List<String> _feelings = ['Good', 'Bad', 'Neutral', 'Necessary', 'Regret'];
 
   @override
@@ -15786,6 +16036,12 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
 
     final provider = Provider.of<AppProvider>(context, listen: false);
     
+    // Save new category if needed
+    if (_isAddingCategory && _newCategoryController.text.trim().isNotEmpty) {
+      _category = _newCategoryController.text.trim();
+      provider.addWalletCategory(_category);
+    }
+
     final t = WalletTransaction(
       id: widget.transaction?.id ?? const Uuid().v4(),
       amount: amount,
@@ -15807,6 +16063,10 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final categories = List<String>.from(provider.settings.walletCategories);
+    if (!categories.contains('General')) categories.add('General');
+
     return AlertDialog(
       title: Text(widget.transaction == null ? "NEW TRANSACTION" : "EDIT TRANSACTION"),
       content: SingleChildScrollView(
@@ -15851,13 +16111,42 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             ),
             const SizedBox(height: 16),
             
-            DropdownButtonFormField<String>(
-              value: _category,
-              decoration: const InputDecoration(labelText: "CATEGORY"),
-              dropdownColor: AppTheme.fhBgDark,
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (val) => setState(() => _category = val!),
-            ),
+            if (_isAddingCategory)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newCategoryController,
+                      autofocus: true,
+                      decoration: const InputDecoration(labelText: "NEW CATEGORY"),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => setState(() => _isAddingCategory = false),
+                  )
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: categories.contains(_category) ? _category : categories.first,
+                      decoration: const InputDecoration(labelText: "CATEGORY"),
+                      dropdownColor: AppTheme.fhBgDark,
+                      items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) => setState(() => _category = val!),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: "Add Category",
+                    onPressed: () => setState(() => _isAddingCategory = true),
+                  )
+                ],
+              ),
+            
             const SizedBox(height: 16),
 
             if (_type == TransactionType.expense) ...[
@@ -22219,6 +22508,94 @@ class _LayoutEntry {
 }
 --- END OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
 
+--- START OF FILE lib/src/widgets/ui/system_metric_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class SystemMetricWidget extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color? color;
+
+  const SystemMetricWidget({
+    super.key,
+    required this.label,
+    required this.value,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? _determineColor(value);
+    final clampedValue = value.clamp(0, 100);
+    final widthFactor = clampedValue / 100.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: AppTheme.fhTextPrimary.withValues(alpha: 0.8),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              "$value%",
+              style: TextStyle(
+                color: effectiveColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'RobotoMono',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 6,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDeepDark,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Stack(
+            children: [
+              FractionallySizedBox(
+                widthFactor: widthFactor,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: effectiveColor,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: effectiveColor.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                      )
+                    ]
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _determineColor(int val) {
+    if (val >= 80) return AppTheme.fhAccentTeal;
+    if (val >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
+}
+--- END OF FILE lib/src/widgets/ui/system_metric_widget.dart ---
+
 --- START OF FILE lib/src/widgets/ui/task_generation_row.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -24465,6 +24842,7 @@ import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:arcane/src/screens/neural_archive_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -24483,6 +24861,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
   bool _isGeneratingWeeklyReport = false;
+  bool _isGeneratingStartDay = false;
   
   Map<String, dynamic>? _tempGeneratedBriefing;
 
@@ -24619,6 +24998,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  Future<void> _generateStartDayReport(AppProvider provider) async {
+    setState(() => _isGeneratingStartDay = true);
+    try {
+      await provider.generateStartDayReport();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isGeneratingStartDay = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -24632,6 +25022,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
     final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
     final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
+    
+    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
+    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
@@ -24737,6 +25130,27 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
+          // START DAY REPORT
+          if (startDayReport != null)
+            StartDayReportCard(
+              report: startDayReport,
+              isRegenerating: _isGeneratingStartDay,
+              onRegenerate: () => _generateStartDayReport(appProvider),
+            )
+          else if (isToday)
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
+                icon: MdiIcons.power,
+                isPrimary: true,
+                color: AppTheme.fhAccentTeal,
+                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
           Row(
             children: [
               Expanded(
@@ -24815,8 +25229,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
 
           const SizedBox(height: 24),
-
-          // Removed "COMBAT LOG // DETAILS" section as requested.
           
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -26136,6 +26548,157 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
 }
 --- END OF FILE lib/src/widgets/views/task_details_view.dart ---
 
+--- START OF FILE lib/src/widgets/wallet/finance_prediction_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
+class FinancePredictionCard extends StatelessWidget {
+  const FinancePredictionCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final prediction = provider.financePrediction;
+    final isLoading = provider.loadingTaskName == "Analyzing Finances...";
+
+    if (prediction == null && !isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(MdiIcons.crystalBall, size: 48, color: AppTheme.fhAccentPurple.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            const Text(
+              "AI FINANCE FORECAST",
+              style: TextStyle(
+                color: AppTheme.fhTextSecondary,
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                letterSpacing: 1.5
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Generate insights on spending habits and predict future expenses.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: "INITIALIZE PREDICTION",
+                onPressed: () => provider.generateFinancePrediction(),
+                color: AppTheme.fhAccentPurple,
+                isPrimary: true,
+              ),
+            )
+          ],
+        ),
+      );
+    }
+
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.fhAccentPurple));
+    }
+
+    final message = prediction!['message'] as String? ?? "No data.";
+    final predictions = (prediction['predictions'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.fhAccentPurple.withOpacity(0.1),
+            blurRadius: 20,
+            spreadRadius: 2
+          )
+        ]
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
+              const SizedBox(width: 8),
+              const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: const TextStyle(color: AppTheme.fhTextPrimary, fontStyle: FontStyle.italic, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          if (predictions.isNotEmpty) ...[
+            const Text("PREDICTED EXPENSES (NEXT 7 DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 120,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: predictions.length,
+                separatorBuilder: (c, i) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final p = predictions[index];
+                  return Container(
+                    width: 140,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhBgDeepDark,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          (p['category'] ?? 'Misc').toString().toUpperCase(),
+                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "\$${p['amount']}",
+                          style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono'),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          p['reason'] ?? '',
+                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 10),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            )
+          ]
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.1, end: 0);
+  }
+}
+--- END OF FILE lib/src/widgets/wallet/finance_prediction_card.dart ---
+
 --- START OF FILE lib/src/widgets/wallet/wallet_balance_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -26212,6 +26775,133 @@ class WalletBalanceCard extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/wallet/wallet_balance_card.dart ---
+
+--- START OF FILE lib/src/widgets/wallet/wallet_pie_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/models/wallet_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class WalletPieChart extends StatefulWidget {
+  final List<WalletTransaction> transactions;
+  final bool showIncome;
+
+  const WalletPieChart({super.key, required this.transactions, this.showIncome = false});
+
+  @override
+  State<WalletPieChart> createState() => _WalletPieChartState();
+}
+
+class _WalletPieChartState extends State<WalletPieChart> {
+  int touchedIndex = -1;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = widget.showIncome ? TransactionType.income : TransactionType.expense;
+    final filtered = widget.transactions.where((t) => t.type == type && !t.isFuture).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text("NO DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
+      );
+    }
+
+    final Map<String, double> categoryTotals = {};
+    for (var t in filtered) {
+      categoryTotals[t.category] = (categoryTotals[t.category] ?? 0) + t.amount;
+    }
+
+    final double total = categoryTotals.values.fold(0, (a, b) => a + b);
+    final sortedEntries = categoryTotals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    // Colors palette
+    final List<Color> colors = [
+      AppTheme.fhAccentTeal,
+      AppTheme.fhAccentPurple,
+      AppTheme.fhAccentOrange,
+      AppTheme.fhAccentGold,
+      AppTheme.fhAccentRed,
+      Colors.blueAccent,
+      Colors.pinkAccent,
+    ];
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: PieChart(
+            PieChartData(
+              pieTouchData: PieTouchData(
+                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        pieTouchResponse == null ||
+                        pieTouchResponse.touchedSection == null) {
+                      touchedIndex = -1;
+                      return;
+                    }
+                    touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                  });
+                },
+              ),
+              borderData: FlBorderData(show: false),
+              sectionsSpace: 2,
+              centerSpaceRadius: 30,
+              sections: List.generate(sortedEntries.length, (i) {
+                final isTouched = i == touchedIndex;
+                final fontSize = isTouched ? 14.0 : 10.0;
+                final radius = isTouched ? 50.0 : 40.0;
+                final entry = sortedEntries[i];
+                final percent = (entry.value / total * 100).toStringAsFixed(0);
+
+                return PieChartSectionData(
+                  color: colors[i % colors.length],
+                  value: entry.value,
+                  title: '$percent%',
+                  radius: radius,
+                  titleStyle: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List.generate(sortedEntries.length, (i) {
+              if (i > 4) return const SizedBox.shrink(); // Limit legend
+              final entry = sortedEntries[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(width: 10, height: 10, color: colors[i % colors.length]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/wallet/wallet_pie_chart.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

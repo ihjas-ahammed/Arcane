@@ -434,20 +434,22 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Generate a 'Start Day Report' for the user.
-    Context: User is like a machine getting upgrades.
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
     
-    1. List 'System Upgrades' (recent achievements/improvements from reflections).
-    2. List 'Projected Operations' (what to focus on today based on patterns).
-    3. Briefing message (Encouraging, futuristic tone).
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
+    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     
     Output JSON ONLY:
     {
-      "briefing": "string",
-      "upgrades": ["string", "string"],
-      "projected_ops": ["string", "string"]
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "directives": ["string", "string", "string"]
     }
     """;
 

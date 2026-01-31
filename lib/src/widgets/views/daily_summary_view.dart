@@ -303,7 +303,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           // START DAY REPORT
           if (startDayReport != null)
-            StartDayReportCard(report: startDayReport)
+            StartDayReportCard(
+              report: startDayReport,
+              isRegenerating: _isGeneratingStartDay,
+              onRegenerate: () => _generateStartDayReport(appProvider),
+            )
           else if (isToday)
             SizedBox(
               width: double.infinity,

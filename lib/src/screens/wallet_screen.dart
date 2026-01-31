@@ -97,7 +97,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       children: [
                         Expanded(
                           child: ValorantButton(
-                            label: "LOG EXPENSE",
+                            label: "EXPENSE",
                             isPrimary: false,
                             icon: MdiIcons.cashMinus,
                             color: AppTheme.fhAccentRed.withOpacity(0.2),
@@ -110,7 +110,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: ValorantButton(
-                            label: "LOG INCOME",
+                            label: "INCOME",
                             isPrimary: false,
                             icon: MdiIcons.cashPlus,
                             color: AppTheme.fhAccentGreen.withOpacity(0.2),

@@ -1,15 +1,8 @@
 Make the following changes:
 
-    * Update wallet:
-        - Remove balance trajectory
-        - Make it possible to add custom categories
-        - Add pie chart on expanse and income
-        - Add AI based finance prediction, it will be a compact output with empathetic message and also cards of predicted regional expanse, totally based on past logs
-
-    * Add 'Start Day Report'
-        I got this idea based on an old animated series 'Robot Trains' in that the blue train will get report on its upgrades of new engine parts everyday.. just like that the user should get an update and also include the following:
-            - It will give briefing for the new day about things user can expect and this is possible because the AI prompt will have the entire reflection log and session logs of all submissions for last week (range is selective on generation)
-            - It can be generated and saved to the logbook for the day (anytime)
+    * Fix Values:
+        Fix that AI is not integrated to values?
+        Use AI for Analysis of values and also to get tasks
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
