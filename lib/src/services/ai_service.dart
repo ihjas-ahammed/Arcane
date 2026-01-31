@@ -355,11 +355,70 @@ class AIService {
     });
   }
 
-  Future<Map<String, dynamic>> analyzeValueAlignment({required String valueName, required List<Map<String, String>> questionsAndAnswers, required List<String> modelCandidates, required int currentApiKeyIndex, List<String>? customApiKeys, required Function(int) onNewApiKeyIndex, required Function(String) onLog}) async {
-    return {'score': 50, 'insight': 'Analysis placeholder'};
+  // --- Value Analysis & Generation ---
+
+  Future<Map<String, dynamic>> analyzeValueAlignment({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the user's alignment with the value '$valueName'.
+    Q&A Data: ${jsonEncode(questionsAndAnswers)}
+    
+    1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
+    2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
+    
+    Output JSON ONLY:
+    {
+      "score": int,
+      "insight": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
   }
-  Future<List<Map<String, dynamic>>> generateTasksFromValues({required String valueName, required List<Map<String, String>> questionsAndAnswers, required List<String> modelCandidates, required int currentApiKeyIndex, List<String>? customApiKeys, required Function(int) onNewApiKeyIndex, required Function(String) onLog}) async {
-    return [];
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
+    Context: ${jsonEncode(questionsAndAnswers)}
+    
+    Output JSON ONLY:
+    {
+      "tasks": [
+        { "name": "string", "isCountable": boolean, "targetCount": int (0 if not countable), "type": "Task" }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['tasks'] as List?)?.map((t) => t as Map<String, dynamic>).toList() ?? [];
   }
   
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {

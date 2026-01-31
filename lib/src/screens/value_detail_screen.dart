@@ -3,6 +3,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
+import 'package:arcane/src/widgets/ui/value_question_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -20,6 +21,12 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
   bool _isAnalyzing = false;
   bool _isGenerating = false;
 
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.fhAccentTeal;
+    if (score >= 50) return AppTheme.fhAccentGold;
+    return AppTheme.fhAccentRed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -28,12 +35,14 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
+      // Ensure resize for keyboard interaction with text fields
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
             // --- HEADER ---
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: const BoxDecoration(
                 border: Border(
                     bottom: BorderSide(
@@ -46,15 +55,17 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                     icon: const Icon(Icons.arrow_back,
                         color: AppTheme.fhTextPrimary),
                   ),
-                  const SizedBox(width: 16),
-                  Text("${value.title.toUpperCase()}",
-                      style: const TextStyle(
-                          fontFamily: AppTheme.fontDisplay,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          color: AppTheme.fhTextPrimary)),
-                  const Spacer(),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text("${value.title.toUpperCase()}",
+                        style: const TextStyle(
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: AppTheme.fhTextPrimary),
+                        overflow: TextOverflow.ellipsis),
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 4),
@@ -172,9 +183,11 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Questions List
-                    ...value.questions.map((q) =>
-                        _buildQuestionCard(context, provider, value.id, q)),
+                    // Questions List (Using Modular Widget)
+                    ...value.questions.map((q) => ValueQuestionCard(
+                          question: q,
+                          valueId: value.id,
+                        )),
 
                     const SizedBox(height: 40),
                   ],
@@ -205,11 +218,12 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                                 await provider.analyzeValueAlignment(value.id);
                                 if (!mounted) return;
                                 messenger.showSnackBar(const SnackBar(
-                                    content: Text("Alignment Score Updated!")));
+                                    content: Text("Alignment Score Updated!"),
+                                    backgroundColor: AppTheme.fhAccentGreen));
                               } catch (e) {
                                 if (!mounted) return;
                                 messenger.showSnackBar(
-                                    SnackBar(content: Text("Error: $e")));
+                                    SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed));
                               } finally {
                                 if (mounted)
                                   setState(() => _isAnalyzing = false);
@@ -232,16 +246,22 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
                               try {
                                 final tasks = await provider
                                     .generateTasksFromValue(value.id);
+                                
                                 if (!mounted) return;
-                                showDialog(
-                                  context: currentContext,
-                                  builder: (ctx) => ValueTaskGenerationDialog(
-                                      generatedTasks: tasks),
-                                );
+                                
+                                if (tasks.isEmpty) {
+                                   messenger.showSnackBar(const SnackBar(content: Text("No actionable tasks generated. Try adding more detail to answers.")));
+                                } else {
+                                  showDialog(
+                                    context: currentContext,
+                                    builder: (ctx) => ValueTaskGenerationDialog(
+                                        generatedTasks: tasks),
+                                  );
+                                }
                               } catch (e) {
                                 if (!mounted) return;
                                 messenger.showSnackBar(
-                                    SnackBar(content: Text("Error: $e")));
+                                    SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed));
                               } finally {
                                 if (mounted)
                                   setState(() => _isGenerating = false);
@@ -256,58 +276,5 @@ class _ValueDetailScreenState extends State<ValueDetailScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildQuestionCard(BuildContext context, AppProvider provider,
-      String valueId, ValueQuestion q) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withOpacity(0.5),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            q.question,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextSecondary,
-                fontSize: 12,
-                letterSpacing: 0.5),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            initialValue: q.answer,
-            maxLines: null,
-            style: const TextStyle(
-                color: AppTheme.fhTextPrimary,
-                fontFamily: 'RobotoMono',
-                fontSize: 14),
-            decoration: InputDecoration(
-              hintText: "INPUT DATA...",
-              hintStyle:
-                  TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5)),
-              border: InputBorder.none,
-              filled: true,
-              fillColor: Colors.black.withOpacity(0.2),
-              contentPadding: const EdgeInsets.all(12),
-              isDense: true,
-            ),
-            onChanged: (val) {
-              provider.updateValueAnswer(valueId, q.id, val);
-            },
-          )
-        ],
-      ),
-    );
-  }
-
-  Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentTeal;
-    if (score >= 50) return AppTheme.fhAccentGold;
-    return AppTheme.fhAccentRed;
   }
 }
