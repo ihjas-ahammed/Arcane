@@ -9,6 +9,7 @@ import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/valorant/valorant_expansion_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:arcane/src/screens/neural_archive_screen.dart';
@@ -301,7 +302,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // START DAY REPORT
+          // START DAY REPORT (Expandable)
           if (startDayReport != null)
             StartDayReportCard(
               report: startDayReport,
@@ -319,6 +320,88 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
               ),
             ),
+
+          const SizedBox(height: 24),
+
+          // TACTICAL BRIEFING SECTION (Expandable)
+          if (displayBriefing != null)
+            TacticalBriefingCard(
+              briefingData: displayBriefing,
+              isSaved: savedBriefing != null,
+              onSave: savedBriefing == null 
+                ? () {
+                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                    setState(() {});
+                  } 
+                : null,
+            )
+          else
+            ValorantCard(
+              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
+              child: Column(
+                children: [
+                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ValorantButton(
+                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
+                      isPrimary: false,
+                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
+                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                    ),
+                  )
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 24),
+          
+          // REFLECTIONS SECTION (Expandable)
+          ValorantExpansionCard(
+            title: "REFLECTIONS LOG",
+            icon: MdiIcons.notebookMultiple,
+            accentColor: AppTheme.fhAccentPurple,
+            trailing: IconButton(
+              icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal, size: 20),
+              onPressed: () => _navigateToReflectionEditor(context),
+              tooltip: "Add Reflection",
+            ),
+            initiallyExpanded: true,
+            child: reflectionsForDate.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Center(
+                    child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic))
+                  ),
+                )
+              : Column(
+                  children: reflectionsForDate.asMap().entries.map((entry) {
+                    final log = entry.value;
+                    return GestureDetector(
+                      onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
+                        'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
+                      }),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                          border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                            const SizedBox(height: 4),
+                            Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+          ),
 
           const SizedBox(height: 24),
 
@@ -364,83 +447,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
             ],
           ),
-
-          const SizedBox(height: 24),
-
-          // TACTICAL BRIEFING SECTION
-          if (displayBriefing != null)
-            TacticalBriefingCard(
-              briefingData: displayBriefing,
-              isSaved: savedBriefing != null,
-              onSave: savedBriefing == null 
-                ? () {
-                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                    setState(() {});
-                  } 
-                : null,
-            )
-          else
-            ValorantCard(
-              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
-              child: Column(
-                children: [
-                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ValorantButton(
-                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
-                      isPrimary: false,
-                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
-                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
-                    ),
-                  )
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 24),
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("REFLECTIONS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal),
-                onPressed: () => _navigateToReflectionEditor(context),
-              )
-            ],
-          ),
-          if (reflectionsForDate.isEmpty)
-             const Padding(
-               padding: EdgeInsets.all(8.0),
-               child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
-             )
-          else
-            ...reflectionsForDate.asMap().entries.map((entry) {
-              final log = entry.value;
-              return GestureDetector(
-                onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
-                  'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
-                }),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-                      const SizedBox(height: 4),
-                      Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-                    ],
-                  ),
-                ),
-              );
-            }),
             
           const SizedBox(height: 40),
         ],
