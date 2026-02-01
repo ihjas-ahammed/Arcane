@@ -60,8 +60,14 @@ class SubmissionCard extends StatelessWidget {
     } else if (currentSubTask.isCountable && currentSubTask.targetCount > 0) {
       progressValue = currentSubTask.currentCount / currentSubTask.targetCount;
     } else {
-      final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
-      final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
+      // Logic Update: Use Weekly Average for THIS subtask as max, fallback to Agent's yesterday time
+      final double weeklyAverage = provider.getWeeklyAverageSecondsForSubtask(currentSubTask);
+      final double maxTime = weeklyAverage > 0 
+          ? weeklyAverage 
+          : (provider.getYesterdaysTimeForTask(parentTask.id) > 0 
+              ? provider.getYesterdaysTimeForTask(parentTask.id).toDouble() 
+              : 3600.0);
+              
       progressValue = (displayTimeSeconds / maxTime).clamp(0.0, 1.0);
     }
 

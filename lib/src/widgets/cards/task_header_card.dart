@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/theme_image_helper.dart'; // Import Image Helper
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class TaskHeaderCard extends StatelessWidget {
@@ -33,10 +34,11 @@ class TaskHeaderCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppTheme.fhBgDeepDark,
-        image: const DecorationImage(
-          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
+        image: DecorationImage(
+          image: ThemeImageHelper.getProvider(task.theme), // Dynamic Image
           fit: BoxFit.cover,
-          opacity: 0.05,
+          opacity: 0.15, // Slightly more visible than before
+          colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.darken)
         ),
         border: Border(
           bottom: BorderSide(color: task.taskColor, width: 2),
@@ -65,18 +67,22 @@ class TaskHeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // Resized Main Title for better wrapping
-          Text(
-            task.name.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontSize: 32, // Reduced from 48
-              height: 1.0,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.fhTextPrimary,
-              letterSpacing: 1.2
+          // Resized Main Title for better wrapping and safety
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: Text(
+              task.name.toUpperCase(),
+              style: const TextStyle(
+                fontFamily: AppTheme.fontDisplay,
+                fontSize: 32, 
+                height: 1.0,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.fhTextPrimary,
+                letterSpacing: 1.2
+              ),
+              softWrap: true,
+              overflow: TextOverflow.visible,
             ),
-            softWrap: true,
           ),
           const SizedBox(height: 8),
           Text(

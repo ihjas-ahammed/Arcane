@@ -12,11 +12,13 @@ class AppSettings {
   List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
+  String? customTimeSyncPrompt; // New
+  String? customForecastPrompt; // New
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
   List<String> walletCategories;
-  String userTimezone; // Added for Time Sync
+  String userTimezone; 
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -37,6 +39,8 @@ class AppSettings {
     this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
+    this.customTimeSyncPrompt,
+    this.customForecastPrompt,
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
@@ -72,6 +76,8 @@ class AppSettings {
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      customTimeSyncPrompt: json['customTimeSyncPrompt'] as String?,
+      customForecastPrompt: json['customForecastPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -97,6 +103,8 @@ class AppSettings {
       'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
+      'customTimeSyncPrompt': customTimeSyncPrompt,
+      'customForecastPrompt': customForecastPrompt,
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,

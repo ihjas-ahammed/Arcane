@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/task_models.dart';
@@ -543,7 +544,7 @@ class ProjectActions {
     return false;
   }
 
-  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt, {List<Uint8List>? images}) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Project...");
     try {
@@ -554,6 +555,7 @@ class ProjectActions {
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ProjectAI] $msg"),
+        images: images,
       );
 
       final newProject = Project.fromJson(projectData);

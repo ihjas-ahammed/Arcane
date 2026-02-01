@@ -1,961 +1,659 @@
 
---- START OF FILE lib/src/widgets/valorant/valorant_expansion_card.dart ---
+--- START OF FILE lib/src/providers/app_provider.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/task_calculations.dart'; // Required for calculation helper
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
-class ValorantExpansionCard extends StatefulWidget {
-  final String title;
-  final IconData icon;
-  final Widget child;
-  final Widget? trailing;
-  final bool initiallyExpanded;
-  final Color? accentColor;
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/value_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/time_sync_models.dart';
+import 'package:arcane/src/models/wallet_models.dart';
 
-  const ValorantExpansionCard({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.child,
-    this.trailing,
-    this.initiallyExpanded = false,
-    this.accentColor,
-  });
+import 'actions/task_actions.dart';
+import 'actions/ai_generation_actions.dart';
+import 'actions/timer_actions.dart';
+import 'actions/project_actions.dart';
+import 'package:arcane/src/services/ai_service.dart';
 
-  @override
-  State<ValorantExpansionCard> createState() => _ValorantExpansionCardState();
-}
+class AppProvider with ChangeNotifier {
+  final StorageService _storageService = StorageService();
+  final AIService _aiService = AIService();
 
-class _ValorantExpansionCardState extends State<ValorantExpansionCard>
-    with SingleTickerProviderStateMixin {
-  late bool _isExpanded;
-  late AnimationController _controller;
-  late Animation<double> _iconTurns;
-  late Animation<double> _heightFactor;
+  AIService get aiService => _aiService;
 
-  @override
-  void initState() {
-    super.initState();
-    _isExpanded = widget.initiallyExpanded;
-    _controller = AnimationController(
-        duration: const Duration(milliseconds: 300), vsync: this);
-    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeIn));
-    _iconTurns =
-        _controller.drive(Tween<double>(begin: 0.0, end: 0.5).chain(CurveTween(curve: Curves.easeIn)));
+  Timer? _periodicUiTimer;
+  Timer? _autoSaveTimer;
+  Timer? _realtimeSyncDebouncer;
 
-    if (_isExpanded) {
-      _controller.value = 1.0;
-    }
-  }
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  User? _currentUser;
+  User? get currentUser => _currentUser;
+  bool _authLoading = true;
+  bool get authLoading => _authLoading;
+  bool _isDataLoadingAfterLogin = false;
+  bool get isDataLoadingAfterLogin => _isDataLoadingAfterLogin;
+  bool _isUsernameMissing = false;
+  bool get isUsernameMissing => _isUsernameMissing;
 
-  void _handleTap() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-      if (_isExpanded) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
+  String? _lastLoginDate;
+  List<MainTask> _mainTasks =
+      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+  Map<String, dynamic> _completedByDay = {};
+
+  List<Skill> _skills = [];
+  List<Skill> get skills => _skills;
+  List<ReflectionLog> _reflectionLogs = [];
+  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+
+  List<LifeValue> _lifeValues = [];
+  List<LifeValue> get lifeValues => _lifeValues;
+
+  List<TimeSyncBlock> _timeSyncSchedule = [];
+  List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
+
+  List<WalletTransaction> _walletTransactions = [];
+  List<WalletTransaction> get walletTransactions => _walletTransactions;
+  Map<String, dynamic>? _financePrediction;
+  Map<String, dynamic>? get financePrediction => _financePrediction;
+
+  AppSettings _settings = AppSettings();
+  String? _selectedTaskId;
+  int _apiKeyIndex = 0;
+  Map<String, ActiveTimerInfo> _activeTimers = {};
+
+  final Set<String> _dirtyCollections = {};
+
+  bool _hasUnsavedChanges = false;
+  bool _isManuallySaving = false;
+  bool get isManuallySaving => _isManuallySaving;
+  bool _isManuallyLoading = false;
+  bool get isManuallyLoading => _isManuallyLoading;
+  DateTime? _lastSuccessfulSaveTimestamp;
+  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
+
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+
+  String? get lastLoginDate => _lastLoginDate;
+  List<MainTask> get mainTasks => _mainTasks;
+  Map<String, dynamic> get completedByDay => _completedByDay;
+
+  AppSettings get settings => _settings;
+  String? get selectedTaskId => _selectedTaskId;
+  int get apiKeyIndex => _apiKeyIndex;
+  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
+
+  ChatbotMemory _chatbotMemory = ChatbotMemory();
+  ChatbotMemory get chatbotMemory => _chatbotMemory;
+  
+  // ignore: unused_field
+  bool _isChatbotMemoryInitialized = false;
+
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _initializeSkills();
+    _initializeValues();
+    _initialize();
+
+    _periodicUiTimer?.cancel();
+    _periodicUiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_activeTimers.values.any((info) => info.isRunning)) {
+        notifyListeners();
       }
     });
+
+    _ensureBackupDir();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.accentColor ?? AppTheme.fhAccentTeal;
+  // Expose proxies
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border.all(
-            color: _isExpanded
-                ? color.withValues(alpha: 0.5)
-                : AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(4), // Beveled/Sharp look
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: _handleTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: _isExpanded ? color.withValues(alpha: 0.1) : null,
-                border: _isExpanded
-                    ? Border(bottom: BorderSide(color: color.withValues(alpha: 0.2)))
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  Icon(widget.icon,
-                      size: 18,
-                      color: _isExpanded ? color : AppTheme.fhTextSecondary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.title.toUpperCase(),
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16, // Compact header
-                        letterSpacing: 1.2,
-                        color: _isExpanded
-                            ? AppTheme.fhTextPrimary
-                            : AppTheme.fhTextSecondary,
-                      ),
-                    ),
-                  ),
-                  if (widget.trailing != null) ...[
-                    widget.trailing!,
-                    const SizedBox(width: 8),
-                  ],
-                  RotationTransition(
-                    turns: _iconTurns,
-                    child: Icon(MdiIcons.chevronDown,
-                        color: AppTheme.fhTextSecondary, size: 20),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ClipRect(
-            child: AnimatedBuilder(
-              animation: _controller.view,
-              builder: (BuildContext context, Widget? child) {
-                return Align(
-                  heightFactor: _heightFactor.value,
-                  child: child,
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: widget.child,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/valorant/valorant_expansion_card.dart ---
+  ProjectActions get projectActions => _projectActions;
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
 
---- START OF FILE lib/src/widgets/cards/start_day_report_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/system_metric_widget.dart';
-import 'package:arcane/src/widgets/valorant/valorant_expansion_card.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class StartDayReportCard extends StatelessWidget {
-  final Map<String, dynamic> report;
-  final VoidCallback? onRegenerate;
-  final bool isRegenerating;
-
-  const StartDayReportCard({
-    super.key,
-    required this.report,
-    this.onRegenerate,
-    this.isRegenerating = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Parsing data
-    final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal.";
-    
-    final metricsRaw = report['metrics'] as List<dynamic>?;
-    List<Map<String, dynamic>> metrics = [];
-    if (metricsRaw != null) {
-      metrics = metricsRaw.map((e) => e as Map<String, dynamic>).toList();
-    }
-
-    final directivesRaw = (report['directives'] as List<dynamic>?) ?? (report['projected_ops'] as List<dynamic>?);
-    final directives = directivesRaw?.map((e) => e.toString()).toList() ?? [];
-
-    return ValorantExpansionCard(
-      title: "OPERATIONAL FORECAST",
-      icon: MdiIcons.chartBellCurveCumulative,
-      accentColor: AppTheme.fhAccentTeal,
-      trailing: onRegenerate != null
-          ? SizedBox(
-              height: 24,
-              width: 24,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: isRegenerating
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppTheme.fhAccentTeal))
-                    : Icon(MdiIcons.refresh,
-                        size: 16, color: AppTheme.fhTextSecondary),
-                onPressed: isRegenerating ? null : onRegenerate,
-                tooltip: "Re-calculate",
-              ),
-            )
-          : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Forecast Text (Compact)
-          Text(
-            forecast,
-            style: const TextStyle(
-                color: AppTheme.fhTextPrimary,
-                height: 1.4,
-                fontSize: 13,
-                fontStyle: FontStyle.italic),
-          ).animate().fadeIn(),
-
-          if (metrics.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: Colors.white10),
-            const SizedBox(height: 12),
-            // Compact Metrics Grid
-            LayoutBuilder(
-              builder: (context, constraints) {
-                // Use a Grid or Row depending on count to save vertical space
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: metrics.map((m) {
-                    Color? c;
-                    if (m['color_hex'] != null) {
-                      try {
-                        String hex =
-                            m['color_hex'].toString().replaceAll('#', '');
-                        c = Color(int.parse("0xFF$hex"));
-                      } catch (_) {}
-                    }
-                    // Mini metric widget
-                    return SizedBox(
-                      width: (constraints.maxWidth / 2) - 8, // 2 columns
-                      child: SystemMetricWidget(
-                        label: m['label'] ?? 'Metric',
-                        value: (m['value'] as num? ?? 50).toInt(),
-                        color: c,
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ],
-
-          if (directives.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: Colors.white10),
-            const SizedBox(height: 12),
-            const Text(
-              "DIRECTIVES",
-              style: TextStyle(
-                  color: AppTheme.fhAccentPurple,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2),
-            ),
-            const SizedBox(height: 8),
-            ...directives.map((d) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Icon(MdiIcons.chevronRight,
-                            size: 12, color: AppTheme.fhAccentPurple),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          d,
-                          style: const TextStyle(
-                              color: AppTheme.fhTextSecondary,
-                              fontSize: 12,
-                              height: 1.3),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/start_day_report_card.dart ---
-
---- START OF FILE lib/src/widgets/cards/tactical_briefing_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_expansion_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-
-class TacticalBriefingCard extends StatelessWidget {
-  final Map<String, dynamic> briefingData;
-  final VoidCallback? onSave;
-  final bool isSaved;
-
-  const TacticalBriefingCard({
-    super.key,
-    required this.briefingData,
-    this.onSave,
-    this.isSaved = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final summary = briefingData['summary'] as String? ?? "No intel available.";
-    final improvements = briefingData['improvements'] as List<dynamic>? ?? [];
-
-    return ValorantExpansionCard(
-      title: "TACTICAL BRIEFING",
-      icon: MdiIcons.clipboardTextOutline,
-      accentColor: AppTheme.fhAccentGold,
-      trailing: !isSaved && onSave != null
-          ? InkWell(
-              onTap: onSave,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhAccentTeal),
-                    color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)),
-                child: const Text("SAVE",
-                    style: TextStyle(
-                        color: AppTheme.fhAccentTeal,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold)),
-              ),
-            )
-          : (isSaved
-              ? Icon(MdiIcons.checkBold, color: AppTheme.fhAccentTeal, size: 16)
-              : null),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            summary,
-            style: const TextStyle(
-                color: AppTheme.fhTextSecondary,
-                height: 1.5,
-                fontSize: 13,
-                fontStyle: FontStyle.italic),
-          ).animate().fadeIn(duration: 500.ms),
-          if (improvements.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1, color: Colors.white10),
-            const SizedBox(height: 12),
-            const Text(
-              "IMPROVEMENTS",
-              style: TextStyle(
-                  color: AppTheme.fhAccentGold,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0),
-            ),
-            const SizedBox(height: 8),
-            ...improvements.map((imp) {
-              final map = imp as Map<String, dynamic>;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(MdiIcons.arrowUpBold,
-                        size: 12, color: AppTheme.fhAccentGreen),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(children: [
-                          TextSpan(
-                              text: "${map['ability']}: ",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.fhTextPrimary,
-                                  fontSize: 12)),
-                          TextSpan(
-                              text: map['insight'] ?? '',
-                              style: const TextStyle(
-                                  color: AppTheme.fhTextSecondary,
-                                  fontSize: 12))
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ]
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/tactical_briefing_card.dart ---
-
---- START OF FILE lib/src/widgets/views/daily_summary_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
-import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
-import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
-import 'package:arcane/src/widgets/ui/chart_carousel.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/utils/chart_data_helper.dart'; 
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_expansion_card.dart';
-import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
-import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
-import 'package:arcane/src/screens/neural_archive_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
-
-class DailySummaryView extends StatefulWidget {
-  const DailySummaryView({super.key});
-
-  @override
-  State<DailySummaryView> createState() => _DailySummaryViewState();
-}
-
-class _DailySummaryViewState extends State<DailySummaryView> {
-  String? _selectedDate;
-  String? _selectedTaskFilter;
-  String? _selectedVirtueFilter;
-  bool _isGeneratingSummary = false;
-  bool _isGeneratingWeeklyReport = false;
-  bool _isGeneratingStartDay = false;
+  Future<void> _ensureBackupDir() async { if (Platform.isAndroid || Platform.isWindows) { try { final docsDir = await getApplicationDocumentsDirectory(); final backupDir = Directory('${docsDir.path}/backups'); if (!await backupDir.exists()) await backupDir.create(recursive: true); } catch (_) {} } }
   
-  Map<String, dynamic>? _tempGeneratedBriefing;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_selectedDate == null) {
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      _selectedDate = today;
+  void _markDirty(String collection) { _dirtyCollections.add(collection); _hasUnsavedChanges = true; }
+  
+  void addCustomApiKey(String key) { 
+    if (key.trim().isNotEmpty && !settings.customApiKeys.contains(key)) { 
+      final updatedList = List<String>.from(settings.customApiKeys)..add(key.trim());
+      setSettings(settings..customApiKeys = updatedList); 
+    } 
+  }
+  
+  void removeCustomApiKey(String key) { 
+    final updatedList = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = updatedList); 
+  }
+  
+  void _initializeSkills() { if (_skills.isEmpty) { _skills = [ Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment.'), Skill(id: 'cou', name: 'Courage', description: 'Bravery.'), Skill(id: 'hum', name: 'Humanity', description: 'Kindness.'), Skill(id: 'jus', name: 'Justice', description: 'Fairness.'), Skill(id: 'tem', name: 'Temperance', description: 'Self-regulation.'), Skill(id: 'tra', name: 'Transcendence', description: 'Gratitude.') ]; } }
+  void _initializeValues() { if (_lifeValues.isEmpty) _lifeValues = LifeValue.getDefaults(); }
+  
+  Future<void> _initialize() async { 
+    fb_service.authStateChanges.listen(_onAuthStateChanged); 
+    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (_) { 
+      if (_hasUnsavedChanges && _currentUser != null && !_isManuallySaving && !_isManuallyLoading && _settings.autoSaveEnabled) _performActualSave(); 
+    }); 
+  }
+  
+  Future<void> _onAuthStateChanged(User? user) async {
+    _currentUser = user;
+    if (user != null) {
+      _authLoading = false;
+      _isDataLoadingAfterLogin = true;
+      notifyListeners();
+      
+      await manuallyLoadFromCloud();
+      
+      _isDataLoadingAfterLogin = false;
+      _isUsernameMissing = user.displayName == null || user.displayName!.isEmpty;
+      notifyListeners();
+    } else {
+      _authLoading = false;
+      // Reset state if needed
+      _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+      _reflectionLogs = [];
+      _walletTransactions = [];
+      _timeSyncSchedule = [];
+      notifyListeners();
     }
   }
 
-  void _navigateToReflectionEditor(BuildContext context, {ReflectionLog? initialLog}) {
-    final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReflectionEditorScreen(
-          initialLog: initialLog,
-          dateStr: dateStr,
-        ),
-      ),
-    );
+  Map<String, dynamic> getAppStateAsMap() {
+    return {
+      'mainTasks': _mainTasks.map((t) => t.toJson()).toList(),
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'completedByDay': _completedByDay,
+      'settings': _settings.toJson(),
+      'walletTransactions': _walletTransactions.map((t) => t.toJson()).toList(),
+      'financePrediction': _financePrediction,
+    };
+  } 
+  
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    if (data['mainTasks'] != null) {
+      _mainTasks = (data['mainTasks'] as List).map((e) => MainTask.fromJson(e)).toList();
+    }
+    if (data['reflectionLogs'] != null) {
+      _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
+    }
+    if (data['completedByDay'] != null) {
+      _completedByDay = Map<String, dynamic>.from(data['completedByDay']);
+    }
+    if (data['settings'] != null) {
+      _settings = AppSettings.fromJson(data['settings']);
+    }
+    if (data['walletTransactions'] != null) {
+      _walletTransactions = (data['walletTransactions'] as List).map((e) => WalletTransaction.fromJson(e)).toList();
+    }
+    if (data['financePrediction'] != null) {
+      _financePrediction = Map<String, dynamic>.from(data['financePrediction']);
+    }
+    notifyListeners();
   }
 
-  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
-    if (type == 'Reflection') {
-      final logId = currentValue['id'];
-      final log = provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
-      if (log != null) {
-        _navigateToReflectionEditor(context, initialLog: log);
-      }
-      return;
-    }
-  }
-
-  Future<void> _pickDate(BuildContext context) async {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final Set<String> validDates = {};
-    validDates.addAll(appProvider.completedByDay.keys);
-    
-    for (var log in appProvider.reflectionLogs) {
-      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
-    }
-    
-    final today = DateTime.now();
-    validDates.add(DateFormat('yyyy-MM-dd').format(today));
-    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
-
-    final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      selectableDayPredicate: (DateTime date) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(date);
-        return validDates.contains(dateStr);
-      },
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              onPrimary: AppTheme.fhTextPrimary,
-              surface: AppTheme.fhBgDark,
-              onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
-        _tempGeneratedBriefing = null; 
-      });
-    }
-  }
-
-  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
-    if (_selectedDate == null) return;
-    
-    setState(() => _isGeneratingSummary = true);
-    
+  Future<void> restoreFromLocalSnapshot(File f) async {
     try {
-      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
-      
-      setState(() {
-        _tempGeneratedBriefing = briefingData;
-      });
-      
+      final content = await f.readAsString();
+      final data = jsonDecode(content);
+      loadAppStateFromMap(data);
+      _hasUnsavedChanges = true;
+      _performActualSave();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
+      debugPrint("Failed to restore: $e");
+    }
+  }
+  
+  Future<void> _performActualSave() async {
+    if (_currentUser == null) return;
+    try {
+      await _storageService.setUserData(_currentUser!.uid, getAppStateAsMap());
+      _lastSuccessfulSaveTimestamp = DateTime.now();
+      _hasUnsavedChanges = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Auto-save failed: $e");
+    }
+  }
+  
+  void _scheduleRealtimeSync() {
+    _realtimeSyncDebouncer?.cancel();
+    _realtimeSyncDebouncer = Timer(const Duration(seconds: 2), () {
+      if (_settings.autoSaveEnabled) _performActualSave();
+    });
+  }
+  
+  Future<void> manuallySaveToCloud() async {
+    if (_currentUser == null) return;
+    _isManuallySaving = true;
+    notifyListeners();
+    await _performActualSave();
+    _isManuallySaving = false;
+    notifyListeners();
+  }
+  
+  Future<void> manuallyLoadFromCloud() async {
+    if (_currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final data = await _storageService.getUserData(_currentUser!.uid);
+      if (data != null) {
+        loadAppStateFromMap(data);
       }
+    } catch (e) {
+      debugPrint("Load failed: $e");
     } finally {
-      if (mounted) setState(() => _isGeneratingSummary = false);
+      _isManuallyLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  void setSelectedTaskId(String? id) { if (_selectedTaskId != id) { _selectedTaskId = id; _hasUnsavedChanges = true; _scheduleRealtimeSync(); notifyListeners(); } }
+  void setSettings(AppSettings s) { _settings = s; _hasUnsavedChanges = true; _scheduleRealtimeSync(); notifyListeners(); }
+  void setProviderApiKeyIndex(int i) { _apiKeyIndex = i; }
+  void setLoadingTask(String? s) { _loadingTaskName = s; notifyListeners(); }
+  
+  void setProviderState({
+    String? lastLoginDate, 
+    List<MainTask>? mainTasks, 
+    Map<String, dynamic>? completedByDay, 
+    Map<String, ActiveTimerInfo>? activeTimers, 
+    DateTime? lastSuccessfulSaveTimestamp, 
+    bool? isUsernameMissing, 
+    ChatbotMemory? chatbotMemory, 
+    bool doNotify = true, 
+    bool doPersist = true
+  }) {
+    if (mainTasks != null) _mainTasks = mainTasks;
+    if (completedByDay != null) _completedByDay = completedByDay;
+    if (activeTimers != null) _activeTimers = activeTimers;
+    if (chatbotMemory != null) _chatbotMemory = chatbotMemory;
+    
+    if (doPersist) {
+      _hasUnsavedChanges = true;
+      _scheduleRealtimeSync();
+    }
+    if (doNotify) notifyListeners();
+  }
+  
+  void setProviderAISubquestLoading(bool b) { _isGeneratingSubquestsForTask = b; notifyListeners(); }
+  
+  void addWalletTransaction(WalletTransaction t) { _walletTransactions.add(t); _walletTransactions.sort((a,b)=>b.date.compareTo(a.date)); _markDirty('wallet'); _scheduleRealtimeSync(); notifyListeners(); }
+  
+  void updateWalletTransaction(WalletTransaction t) {
+    final index = _walletTransactions.indexWhere((tr) => tr.id == t.id);
+    if (index != -1) {
+      _walletTransactions[index] = t;
+      _walletTransactions.sort((a,b)=>b.date.compareTo(a.date));
+      _markDirty('wallet');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+  
+  void deleteWalletTransaction(String id) {
+    _walletTransactions.removeWhere((t) => t.id == id);
+    _markDirty('wallet');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+  
+  void addWalletCategory(String c) { 
+    if(!_settings.walletCategories.contains(c)) {
+      final updated = List<String>.from(_settings.walletCategories)..add(c);
+      setSettings(_settings..walletCategories = updated);
+    }
+  }
+  
+  Future<void> generateFinancePrediction({bool force = false}) async {
+    if (_walletTransactions.isEmpty) return;
+    setLoadingTask("Analyzing Finances...");
+    try {
+      // Logic for prediction would go here
+      // Mock for now or implement if service allows
+      await Future.delayed(const Duration(seconds: 2));
+      _financePrediction = {
+        'message': 'Spending is stable. Projected surplus: \$200.',
+        'predictions': []
+      };
+      _markDirty('wallet');
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+  
+  double get currentWalletBalance {
+    return _walletTransactions.fold(0.0, (sum, t) {
+      if (t.isFuture) return sum;
+      return t.type == TransactionType.income ? sum + t.amount : sum - t.amount;
+    });
+  }
+  
+  double calculateProjectedBalance(int days) {
+    // Simple projection based on scheduled
+    double projected = currentWalletBalance;
+    final cutoff = DateTime.now().add(Duration(days: days));
+    for (var t in _walletTransactions) {
+      if (t.isFuture && t.date.isBefore(cutoff)) {
+        projected += (t.type == TransactionType.income ? t.amount : -t.amount);
+      }
+    }
+    return projected;
+  }
+  
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (_completedByDay.containsKey(date)) {
+      return _completedByDay[date]['startDayReport'];
+    }
+    return null;
+  }
+  
+  MainTask? getSelectedTask() {
+    return _mainTasks.firstWhere((t) => t.id == _selectedTaskId, orElse: () => _mainTasks.first);
+  }
+  
+  List<bool> getCompletionStatusForCurrentWeek(MainTask t) {
+    // Placeholder logic - assumes weekly status is stored or calculable
+    // For now returning empty list or calc from history
+    return List.filled(7, false); 
+  }
+  
+  void markDailyTaskGoalMet(String id) { /* ... */ }
+  int getYesterdaysTimeForTask(String id) { 
+    // Fallback: Return a default realistic value if history isn't perfect
+    // In a real app, query _completedByDay for Date.now - 1 day
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    if (_completedByDay.containsKey(dateStr)) {
+      final times = _completedByDay[dateStr]['taskTimes'] as Map<String, dynamic>?;
+      if (times != null) {
+        return (times[id] as num?)?.toInt() ?? 0;
+      }
+    }
+    return 0; 
+  }
+
+  // --- NEW: Calculate Weekly Average for Subtask ---
+  double getWeeklyAverageSecondsForSubtask(SubTask subTask) {
+    return TaskCalculations.getWeeklyAverageSeconds(subTask);
+  }
+  
+  void initializeChatbotMemory() { _isChatbotMemoryInitialized = true; }
+  Future<void> sendMessageToChatbot(String m) async { /* ... */ }
+  Future<void> triggerAISubquestGeneration(MainTask t, String m, String i, int n) => _aiGenerationActions.triggerAISubquestGeneration(t, m, i, n);
+  Future<void> analyzeValueAlignment(String id) async { /* ... */ }
+  Future<List<Map<String, dynamic>>> generateTasksFromValue(String id) async { /* ... */ return []; }
+  
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async {
+    // Placeholder logic
+    final xp = {'Wisdom': 10, 'Courage': 5};
+    final log = ReflectionLog(
+      id: const Uuid().v4(), 
+      timestamp: timestamp ?? DateTime.now(), 
+      trigger: trigger, 
+      emotion: emotion, 
+      reason: reason, 
+      aiFeedback: "Good reflection.", 
+      xpGained: xp
+    );
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _scheduleRealtimeSync();
+    notifyListeners();
+    return {'xpGained': xp, 'valueUpdates': []};
+  }
+  
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) {
+    final log = ReflectionLog(
+      id: const Uuid().v4(), 
+      timestamp: timestamp ?? DateTime.now(), 
+      trigger: trigger, 
+      emotion: emotion, 
+      reason: reason, 
+      aiFeedback: "", 
+      xpGained: {}
+    );
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+  
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
+    final index = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = _reflectionLogs[index];
+      _reflectionLogs[index] = ReflectionLog(
+        id: old.id, 
+        timestamp: old.timestamp, 
+        trigger: trigger ?? old.trigger, 
+        emotion: emotion ?? old.emotion, 
+        reason: reason ?? old.reason, 
+        aiFeedback: old.aiFeedback, 
+        xpGained: old.xpGained
+      );
+      _markDirty('reflections');
+      notifyListeners();
+    }
+  }
+  
+  void deleteReflectionLog(String id) {
+    _reflectionLogs.removeWhere((l) => l.id == id);
+    _markDirty('reflections');
+    notifyListeners();
+  }
+  
+  void saveTacticalBriefing(String d, Map<String, dynamic> b) { /* ... */ }
+  Map<String, dynamic>? getTacticalBriefing(String d) { /* ... */ return null; }
+  void deleteDailySummary(String d) { /* ... */ }
+  String? getDailySummary(String d) { /* ... */ return null; }
+  Future<Map<String, dynamic>> generateTacticalBriefing(String d, List<ReflectionLog> l) async { /* ... */ return {}; }
+  
+  void updateTimeSyncBlock(TimeSyncBlock b) {
+    final index = _timeSyncSchedule.indexWhere((block) => block.id == b.id);
+    if (index != -1) {
+      _timeSyncSchedule[index] = b;
+      _markDirty('settings'); // Store with settings for now or own collection
+      notifyListeners();
+    }
+  }
+  
+  void deleteTimeSyncBlock(String id) {
+    _timeSyncSchedule.removeWhere((b) => b.id == id);
+    _markDirty('settings');
+    notifyListeners();
+  }
+  
+  int getXpGainedForSkillToday(String s) { /* ... */ return 0; }
+  int get7DaySkillMomentum(String s) { /* ... */ return 0; }
+  Map<String, dynamic> getLast7DaysData() { /* ... */ return {'logs': '', 'times': ''}; }
+  
+  Future<void> loginUser(String e, String p) async => fb_service.signInWithEmail(e, p);
+  Future<void> signupUser(String e, String p, String u) async { /* ... */ }
+  Future<void> logoutUser() async { await fb_service.signOut(); }
+  Future<void> changePasswordHandler(String p) async { /* ... */ }
+  Future<void> updateUserDisplayName(String n) async { /* ... */ }
+  Future<void> clearAllData() async { /* ... */ }
+  void reorderValues(int o, int n) { /* ... */ }
+  void updateValueAnswer(String v, String q, String a) { /* ... */ }
+  Map<String, dynamic>? findLinkedProjectStepInfo(String t) { /* ... */ return null; }
+
+  // --- NEW: Helper to extract detailed JSON context for AI ---
+  String _getDetailedContextJson() {
+    final now = DateTime.now();
+    final twoWeeksAgo = now.subtract(const Duration(days: 14));
+
+    // 1. Logs
+    final relevantLogs = _reflectionLogs.where((l) => l.timestamp.isAfter(twoWeeksAgo)).map((l) => {
+      'date': l.timestamp.toIso8601String(),
+      'trigger': l.trigger,
+      'emotion': l.emotion,
+      'reason': l.reason,
+    }).toList();
+
+    // 2. Task History (Filtered)
+    final tasksJson = _mainTasks.map((task) {
+      final relevantSubtasks = task.subTasks.map((sub) {
+        final recentSessions = sub.sessions.where((s) => s.startTime.isAfter(twoWeeksAgo)).map((s) => {
+          'start': s.startTime.toIso8601String(),
+          'end': s.endTime.toIso8601String(),
+          'duration': s.durationMinutes,
+        }).toList();
+
+        return {
+          'name': sub.name,
+          'completed': sub.completed,
+          'sessions': recentSessions,
+          'description': sub.description
+        };
+      }).toList();
+
+      return {
+        'name': task.name,
+        'theme': task.theme,
+        'subtasks': relevantSubtasks
+      };
+    }).toList();
+
+    final data = {
+      'recent_logs': relevantLogs,
+      'tasks_snapshot': tasksJson,
+    };
+
+    return jsonEncode(data);
+  }
+
+  // --- UPDATED: Generate Start Day Report ---
+  Future<void> generateStartDayReport() async {
+    final today = helper.getTodayDateString();
+    setLoadingTask("Initializing System...");
+    try {
+      final history = getLast7DaysData();
+      final report = await _aiService.generateStartDayReport(
+        reflectionsList: history['logs'],
+        sessionsList: history['times'],
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        customSystemPrompt: settings.customForecastPrompt, 
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StartDay] $msg")
+      );
+      
+      if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
+      if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
+      _completedByDay[today]['startDayReport'] = report;
+      _markDirty('history');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    } finally {
+      setLoadingTask(null);
     }
   }
 
-  Future<void> _generateWeeklyReport(AppProvider provider) async {
-    setState(() => _isGeneratingWeeklyReport = true);
+  // --- UPDATED: Generate Time Sync ---
+  Future<void> generateTimeSync(String userPrompt, {bool smartAppend = false}) async {
+    setLoadingTask("Synchronizing Chrono...");
     try {
-      final data = provider.getLast7DaysData();
-      final aiService = provider.aiService;
+      final contextJson = _getDetailedContextJson();
+      final now = DateTime.now();
       
-      final result = await aiService.generateWeeklyReport(
-        logsText: data['logs'] as String,
-        timeStatsText: data['times'] as String,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg),
+      final blocksData = await _aiService.generateTimeSyncSchedule(
+        userPrompt: userPrompt,
+        fullJsonContext: contextJson,
+        currentTime: DateFormat('HH:mm').format(now),
+        date: DateFormat('yyyy-MM-dd').format(now),
+        location: "India", 
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        userTimezone: settings.userTimezone,
+        customSystemPrompt: settings.customTimeSyncPrompt, 
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[TimeSync] $msg"),
       );
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => WeeklyReportDialog(reportData: result),
+      final newBlocks = blocksData.map((b) {
+        final offset = b['offset_minutes'] as int? ?? 0;
+        final duration = b['duration_minutes'] as int? ?? 60;
+        final start = now.add(Duration(minutes: offset));
+        final end = start.add(Duration(minutes: duration));
+        
+        return TimeSyncBlock(
+          id: const Uuid().v4(),
+          startTime: start,
+          endTime: end,
+          title: b['title'] ?? 'Block',
+          description: b['description'] ?? '',
+          type: TimeSyncBlockType.values.firstWhere(
+            (e) => e.toString() == 'TimeSyncBlockType.${b['type']}',
+            orElse: () => TimeSyncBlockType.other
+          ),
         );
+      }).toList();
+
+      if (smartAppend && _timeSyncSchedule.isNotEmpty) {
+        final pastBlocks = _timeSyncSchedule.where((b) => b.endTime.isBefore(now)).toList();
+        _timeSyncSchedule = [...pastBlocks, ...newBlocks];
+      } else {
+        _timeSyncSchedule = newBlocks;
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
-      }
+
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
     } finally {
-      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
+      setLoadingTask(null);
     }
-  }
-
-  Future<void> _generateStartDayReport(AppProvider provider) async {
-    setState(() => _isGeneratingStartDay = true);
-    try {
-      await provider.generateStartDayReport();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isGeneratingStartDay = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppProvider>(context);
-    
-    final chartData = ChartDataHelper.prepareWeeklyData(
-      appProvider, 
-      _selectedDate, 
-      _selectedTaskFilter, 
-      _selectedVirtueFilter
-    );
-
-    final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
-    final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
-    
-    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
-    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
-        ? appProvider.reflectionLogs.where((l) {
-            final d = DateTime.parse(_selectedDate!);
-            return l.timestamp.year == d.year &&
-                l.timestamp.month == d.month &&
-                l.timestamp.day == d.day;
-          }).toList()
-        : [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(MdiIcons.archiveSearchOutline, size: 20, color: AppTheme.fhAccentPurple),
-                    tooltip: "NEURAL ARCHIVE",
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NeuralArchiveScreen())),
-                  ),
-                  TextButton.icon(
-                    icon: _isGeneratingWeeklyReport 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(MdiIcons.fileChartOutline, size: 16),
-                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
-                  ),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 12),
-          ChartCarousel(
-            height: 250,
-            pages: [
-              ChartCarouselData(
-                title: "7-DAY PERFORMANCE",
-                chart: WeeklyActivityBarChart(
-                  weeklyData: chartData['activityData'],
-                  dominantColors: chartData['activityColors'],
-                  isVirtue: false,
-                ),
-              ),
-              ChartCarouselData(
-                title: "VIRTUE GROWTH",
-                chart: WeeklyVirtueBarChart(
-                  weeklyXp: chartData['virtueData'],
-                  dominantVirtueColors: chartData['virtueColors'],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          
-          InkWell(
-            onTap: () => _pickDate(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                border: Border.all(color: AppTheme.fhBorderColor),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "INSPECT DATE", 
-                        style: TextStyle(
-                          color: AppTheme.fhTextSecondary, 
-                          fontSize: 10, 
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2
-                        )
-                      ),
-                      Text(
-                        _selectedDate ?? 'TODAY', 
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontDisplay, 
-                          letterSpacing: 1.0, 
-                          fontSize: 18,
-                          color: AppTheme.fhTextPrimary,
-                          fontWeight: FontWeight.bold
-                        )
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // START DAY REPORT (Expandable)
-          if (startDayReport != null)
-            StartDayReportCard(
-              report: startDayReport,
-              isRegenerating: _isGeneratingStartDay,
-              onRegenerate: () => _generateStartDayReport(appProvider),
-            )
-          else if (isToday)
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
-                icon: MdiIcons.power,
-                isPrimary: true,
-                color: AppTheme.fhAccentTeal,
-                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
-              ),
-            ),
-
-          const SizedBox(height: 24),
-
-          // TACTICAL BRIEFING SECTION (Expandable)
-          if (displayBriefing != null)
-            TacticalBriefingCard(
-              briefingData: displayBriefing,
-              isSaved: savedBriefing != null,
-              onSave: savedBriefing == null 
-                ? () {
-                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                    setState(() {});
-                  } 
-                : null,
-            )
-          else
-            ValorantCard(
-              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
-              child: Column(
-                children: [
-                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ValorantButton(
-                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
-                      isPrimary: false,
-                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
-                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
-                    ),
-                  )
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 24),
-          
-          // REFLECTIONS SECTION (Expandable)
-          ValorantExpansionCard(
-            title: "REFLECTIONS LOG",
-            icon: MdiIcons.notebookMultiple,
-            accentColor: AppTheme.fhAccentPurple,
-            trailing: IconButton(
-              icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal, size: 20),
-              onPressed: () => _navigateToReflectionEditor(context),
-              tooltip: "Add Reflection",
-            ),
-            initiallyExpanded: true,
-            child: reflectionsForDate.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                  child: Center(
-                    child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic))
-                  ),
-                )
-              : Column(
-                  children: reflectionsForDate.asMap().entries.map((entry) {
-                    final log = entry.value;
-                    return GestureDetector(
-                      onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
-                        'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
-                      }),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                          border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-                            const SizedBox(height: 4),
-                            Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-          ),
-
-          const SizedBox(height: 24),
-
-          Row(
-            children: [
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: TimePieChart(
-                          taskData: chartData['dailyTaskTimeData'],
-                          taskColors: chartData['taskColors'],
-                          selectedTask: _selectedTaskFilter,
-                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: VirtuePieChart(
-                          logs: reflectionsForDate,
-                          selectedVirtue: _selectedVirtueFilter,
-                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-            
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
   }
 }
---- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
-
---- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-
-class OverallProjectProgressCard extends StatelessWidget {
-  final List<Project> activeProjects;
-
-  const OverallProjectProgressCard({super.key, required this.activeProjects});
-
-  @override
-  Widget build(BuildContext context) {
-    if (activeProjects.isEmpty) return const SizedBox.shrink();
-
-    double totalProgress = 0;
-    for (var p in activeProjects) {
-      totalProgress += p.calculateProgress();
-    }
-    final double avgProgress = totalProgress / activeProjects.length;
-    final int percentage = (avgProgress * 100).toInt();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "GLOBAL PROGRESS",
-                  style: TextStyle(
-                    color: AppTheme.fhTextPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                Text(
-                  "${activeProjects.length} ACTIVE OPS",
-                  style: TextStyle(
-                    color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(width: 1, height: 24, color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "$percentage%",
-                  style: const TextStyle(
-                    color: AppTheme.fhAccentTeal,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: avgProgress,
-                    minHeight: 4,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: AppTheme.fhAccentTeal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
+--- END OF FILE lib/src/providers/app_provider.dart ---

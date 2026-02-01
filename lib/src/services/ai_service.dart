@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
@@ -73,6 +74,7 @@ class AIService {
     required int currentApiKeyIndex,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    List<Uint8List>? images,
   }) async {
     return await _executeWithModelAndKeyRotation(
       currentApiKeyIndex: currentApiKeyIndex,
@@ -82,8 +84,17 @@ class AIService {
       modelCandidates: modelCandidates,
       requestFn: (apiKey, modelName) async {
         final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response =
-            await model.generateContent([genai.Content.text(prompt)]);
+        
+        genai.GenerateContentResponse response;
+        if (images != null && images.isNotEmpty) {
+          final parts = <genai.Part>[
+            genai.TextPart(prompt),
+            ...images.map((bytes) => genai.DataPart('image/jpeg', bytes))
+          ];
+          response = await model.generateContent([genai.Content.multi(parts)]);
+        } else {
+          response = await model.generateContent([genai.Content.text(prompt)]);
+        }
 
         String? rawResponseText = response.text;
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
@@ -100,70 +111,57 @@ class AIService {
     );
   }
 
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    You are the "Neural Archive", an empathetic and highly intelligent system interface for the user's life logs.
-    
-    Here are the logs from the requested timeline:
-    $logsContext
-    
-    USER QUERY: "$query"
-    
-    INSTRUCTIONS:
-    1. Answer the user's query based strictly on the provided logs.
-    2. Be empathetic, human-like, and insightful. Avoid robotic or list-heavy responses unless asked.
-    3. Do NOT use any Markdown formatting (no bold, no italics, no code blocks). Pure text only.
-    4. If the answer isn't in the logs, gently state that the data is missing.
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
-  }
-
+  // --- UPDATED TIME SYNC LOGIC ---
   Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
     required String userPrompt,
-    required String contextData, 
+    required String fullJsonContext, 
+    required String currentTime,
+    required String date,
+    required String location,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
-    required String userTimezone,
+    String? customSystemPrompt,
+    String? userTimezone, 
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Create a 24-hour schedule (starting NOW) for the user.
+    You are the 'Arcane Timekeeper', an advanced AI scheduling system.
     
-    CONTEXT:
-    User Timezone: $userTimezone
-    $contextData
+    SYSTEM PARAMETERS:
+    - Current Time: $currentTime
+    - Date: $date
+    - Location: $location
+    - User Timezone: ${userTimezone ?? 'Unspecified'}
+    ${customSystemPrompt != null ? "- User Override: $customSystemPrompt" : ""}
+    
+    DATA DUMP (JSON):
+    $fullJsonContext
+    
+    TASK:
+    Generate a 24-hour schedule starting strictly from $currentTime forward.
+    
+    CRITICAL INTELLIGENCE LOGIC:
+    1. **Circadian Rhythm**: Assume standard human sleep cycle (e.g., 23:00 - 07:00) unless data proves otherwise. Do NOT schedule high-focus tasks during typical sleep hours unless explicitly requested. If it's late night (e.g., 12 AM), schedule SLEEP immediately.
+    2. **Realism**: Do not stack tasks unreasonably. Include gaps.
+    3. **Sleep Analysis**: Scan the 'sessions' in the JSON data. Identify long periods of inactivity.
+    4. **Formatting**: Titles must be SHORT (< 5 words).
     
     USER REQUEST: "$userPrompt"
     
-    INSTRUCTIONS:
-    1. Generate a sequence of blocks covering the next 24 hours.
-    2. Be empathetic and realistic. 
-    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
-    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
-    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
-    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
+    OUTPUT FORMAT (JSON ONLY):
+    {
+      "blocks": [
+        {
+          "offset_minutes": int (minutes from NOW),
+          "duration_minutes": int,
+          "title": "string (short)",
+          "description": "string (empathetic)",
+          "type": "focus" | "routine" | "rest" | "leisure"
+        }
+      ]
+    }
     """;
 
     final result = await makeAICall(
@@ -184,9 +182,93 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    List<Uint8List>? images,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. Analyze any attached images for context (charts, plans, diagrams).";
+    
+    return await makeAICall(
+      prompt: prompt, 
+      modelCandidates: modelCandidates, 
+      customApiKeys: customApiKeys, 
+      currentApiKeyIndex: currentApiKeyIndex, 
+      onNewApiKeyIndex: onNewApiKeyIndex, 
+      onLog: onLog,
+      images: images
+    );
+  }
+
+  // --- UPDATED START DAY REPORT ---
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    String? customSystemPrompt,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' (Operative Forecast).
+    ${customSystemPrompt != null ? "USER OVERRIDE: $customSystemPrompt" : ""}
+    
+    CONTEXT:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    Directives:
+    1. Analyze momentum.
+    2. Forecast: Provide a futuristic yet empathetic prediction (max 2 sentences).
+    3. Metrics: 3 key abstract stats (0-100) like 'Willpower', 'Clarity'.
+    4. Directives: 3 short, punchy tactical tasks for today.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string"} ],
+      "directives": ["string", "string", "string"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Legacy Methods (Kept for compatibility) ---
+  Future<String> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Neural Archive Query.
+    Logs: $logsContext
+    User: "$query"
+    
+    Answer based strictly on logs. No markdown.
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        return response.text ?? "No data.";
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> generateStepsForProject({
@@ -200,7 +282,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
+    final prompt = "Generate steps JSON for Project '$projectTitle'. Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -272,14 +354,14 @@ class AIService {
     Emotion: $emotion
     Reason: $reason
     
-    1. Provide constructive feedback.
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
+    1. Feedback.
+    2. XP (0-50).
+    3. Value updates.
     
     Output JSON: {
       "feedback": "string", 
       "xp_allocation": {"Wisdom": int, ...},
-      "value_updates": [ { "valueId": "string", "questionId": "string", "suggestedAnswer": "string", "reason": "string" } ] (Optional, empty if none)
+      "value_updates": [] 
     }
     """;
     
@@ -301,30 +383,8 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-    Generate a Tactical Briefing based on today's reflections.
-    Current Logs: ${jsonEncode(reflections)}
-    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    
-    Tone: Empathetic, psychologically wise, tactical advisor.
-    
-    Tasks:
-    1. Create a concise summary of the day's psychological state.
-    2. Identify specific ability improvements or growth by comparing with previous context.
-    
-    Output JSON: {
-      "summary": "string (max 60 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
-    }
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+    final prompt = "Generate Tactical Briefing. Output JSON: { \"summary\": \"string\", \"improvements\": [{\"ability\": \"string\", \"insight\": \"string\"}] }";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
   Future<Map<String, dynamic>> generateWeeklyReport({
@@ -336,7 +396,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    final prompt = "Weekly Report. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [], \"time_insight\": \"string\" }.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -351,15 +411,13 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Chatbot response. Context: $dataContext. History included.";
+    final prompt = "Chatbot response. Context: $dataContext.";
     return await _executeWithModelAndKeyRotation(currentApiKeyIndex: currentApiKeyIndex, customApiKeys: customApiKeys, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog, modelCandidates: modelCandidates, requestFn: (k, m) async {
         final model = genai.GenerativeModel(model: m, apiKey: k);
         final resp = await model.generateContent([genai.Content.text(prompt)]);
         return resp.text ?? "Error";
     });
   }
-
-  // --- Value Analysis & Generation ---
 
   Future<Map<String, dynamic>> analyzeValueAlignment({
     required String valueName,
@@ -370,27 +428,8 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-    Analyze the user's alignment with the value '$valueName'.
-    Q&A Data: ${jsonEncode(questionsAndAnswers)}
-    
-    1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
-    2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
-    
-    Output JSON ONLY:
-    {
-      "score": int,
-      "insight": "string"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+    final prompt = "Analyze value alignment. Output JSON: { \"score\": int, \"insight\": \"string\" }";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
   Future<List<Map<String, dynamic>>> generateTasksFromValues({
@@ -402,58 +441,28 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-    Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
-    Context: ${jsonEncode(questionsAndAnswers)}
-    
-    Output JSON ONLY:
-    {
-      "tasks": [
-        { "name": "string", "isCountable": boolean, "targetCount": int (0 if not countable), "type": "Task" }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-        
+    final prompt = "Generate tasks for value. Output JSON: { \"tasks\": [{ \"name\": \"string\", \"isCountable\": bool, \"targetCount\": int, \"type\": \"Task\" }] }";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['tasks'] as List?)?.map((t) => t as Map<String, dynamic>).toList() ?? [];
   }
   
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-    
-    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
-      throw Exception("No valid API Key found to fetch models.");
-    }
-
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) throw Exception("No valid API Key.");
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
     final response = await http.get(url);
-
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      if (data['models'] != null && data['models'] is List) {
-        final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
-          if (methods.contains('generateContent')) {
-            return (m['name'] as String).replaceFirst('models/', '');
-          }
-          return null;
-        }).whereType<String>().toList();
-        return models;
-      }
-      return [];
+      return (data['models'] as List).map((m) {
+        final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+        if (methods.contains('generateContent')) return (m['name'] as String).replaceFirst('models/', '');
+        return null;
+      }).whereType<String>().toList();
     } else {
-      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+      throw Exception("Failed to fetch models.");
     }
   }
 
-  // --- Finance Prediction ---
   Future<Map<String, dynamic>> generateFinancePrediction({
     required String transactionsList,
     required List<String> modelCandidates,
@@ -462,66 +471,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-    Analyze these wallet transactions:
-    $transactionsList
-    
-    1. Analyze spending habits.
-    2. Predict upcoming expenses for next week by category.
-    3. Provide a short, empathetic financial advice message.
-    
-    Output JSON ONLY:
-    {
-      "message": "string",
-      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  // --- Start Day Report ---
-  Future<Map<String, dynamic>> generateStartDayReport({
-    required String reflectionsList,
-    required String sessionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a 'System Start-Up Sequence' for the user based on their recent history.
-    Context:
-    Reflections (Last 7 days): $reflectionsList
-    Sessions (Last 7 days): $sessionsList
-    
-    Task:
-    1. Analyze the user's momentum.
-    2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    
-    Output JSON ONLY:
-    {
-      "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+    final prompt = "Finance prediction. Output JSON: { \"message\": \"string\", \"predictions\": [] }";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 }

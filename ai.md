@@ -1,13 +1,18 @@
 Make the following changes:
 
-    * Update logbook:
-        - Make the following expandable since they can contain sensitive info: 
-            - Operational  Forcast
-            - Reflections
-            - Daily Briefing
-        - Update operational forcast UI to be more compact for the theme VALORANT PROTOCOL theme
+    - Fix Time Sync:
+        - Fix that the timing is not right, just as you can see in screen shot, it even tells the user to do stay up at 12 AM?!
     
-    * Update project overall progress to be more compact for the theme VALORANT PROTOCOL theme
+
+    - Update AI PROMPT Project generation:
+        - Add ability upload multiple images for clarity like with this I can easly screenshot the plan or index of the chapter to create project
+
+    - Retrive button to logout in settings
+
+    - Update the task card circulat progress:
+        - MAke the maximum value without checkpoiints be, last weeksaverage for the corresponding subtask rather than agent time (only give agent time if there is no last week data)
+
+
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

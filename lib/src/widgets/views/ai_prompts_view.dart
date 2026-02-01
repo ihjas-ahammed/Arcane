@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
@@ -16,6 +18,8 @@ class AiPromptsView extends StatefulWidget {
 class _AiPromptsViewState extends State<AiPromptsView> {
   final TextEditingController _promptController = TextEditingController();
   String? _selectedMainTaskId;
+  final ImagePicker _picker = ImagePicker();
+  final List<Uint8List> _selectedImages = [];
 
   final List<Map<String, String>> _templates = [
     {
@@ -61,6 +65,24 @@ class _AiPromptsViewState extends State<AiPromptsView> {
           content: Text("Prompt Saved!"),
           backgroundColor: AppTheme.fhAccentGreen));
     }
+  }
+
+  Future<void> _pickImages() async {
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      for (var img in images) {
+        final bytes = await img.readAsBytes();
+        setState(() {
+          _selectedImages.add(bytes);
+        });
+      }
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
   }
 
   @override
@@ -116,12 +138,55 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontSize: 13),
                   ),
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: InkWell(
-                      onTap: () => _saveCurrentPrompt(provider),
-                      child: Text("[ SAVE PROMPT ]", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
+                  
+                  // Image Preview Row
+                  if (_selectedImages.isNotEmpty)
+                    SizedBox(
+                      height: 60,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _selectedImages.length,
+                        separatorBuilder: (c, i) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          return Stack(
+                            children: [
+                              Image.memory(_selectedImages[index], height: 60, width: 60, fit: BoxFit.cover),
+                              Positioned(
+                                right: 0, top: 0,
+                                child: InkWell(
+                                  onTap: () => _removeImage(index),
+                                  child: Container(
+                                    color: Colors.black54,
+                                    child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                  ),
+                                ),
+                              )
+                            ],
+                          );
+                        },
+                      ),
                     ),
+                  
+                  if (_selectedImages.isNotEmpty) const SizedBox(height: 12),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      InkWell(
+                        onTap: _pickImages,
+                        child: Row(
+                          children: [
+                            Icon(MdiIcons.imagePlus, size: 16, color: AppTheme.fhAccentPurple),
+                            const SizedBox(width: 4),
+                            Text("ATTACH VISUAL INTEL", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _saveCurrentPrompt(provider),
+                        child: Text("[ SAVE PROMPT ]", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
+                      ),
+                    ],
                   )
                 ],
               ),
@@ -161,14 +226,20 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                         if (_promptController.text.isNotEmpty &&
                             _selectedMainTaskId != null) {
                           try {
-                            await provider.projectActions
-                                .generateProjectStructure(_selectedMainTaskId!,
-                                    _promptController.text);
+                            await provider.projectActions.generateProjectStructure(
+                              _selectedMainTaskId!,
+                              _promptController.text,
+                              images: _selectedImages.isNotEmpty ? _selectedImages : null
+                            );
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                       content: Text(
                                           "PROJECT STRUCTURE GENERATED. CHECK PROJECTS TAB.")));
+                              setState(() {
+                                _selectedImages.clear();
+                                _promptController.clear();
+                              });
                             }
                           } finally {
                             //

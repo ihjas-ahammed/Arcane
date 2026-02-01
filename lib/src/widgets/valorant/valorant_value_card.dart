@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/theme_image_helper.dart'; // Import Helper
 
 class ValorantValueCard extends StatelessWidget {
   final LifeValue value;
@@ -26,14 +27,16 @@ class ValorantValueCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Background Image / Pattern (Placeholder)
+              // Background Image / Pattern 
               Positioned.fill(
                 child: Opacity(
-                  opacity: 0.05,
-                  child: Image.network(
-                    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80",
+                  opacity: 0.15, // Slightly higher for visibility
+                  child: Image(
+                    image: ThemeImageHelper.getProvider(value.id), // Dynamic
                     fit: BoxFit.cover,
-                    errorBuilder: (c,e,s) => Container(),
+                    color: Colors.black.withOpacity(0.3),
+                    colorBlendMode: BlendMode.darken,
+                    errorBuilder: (c,e,s) => Container(color: Colors.black),
                   ),
                 ),
               ),
