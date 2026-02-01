@@ -2,15 +2,15 @@ Make the following changes:
 
     * Update overall progress widget in projects:
         - Make it circular like pie:
-            - The percentage for each project with their mission color 
+            - The percentage for each project with their agent color 
             - Leave the left as blank
         - The widget should look like a really good one for the VALORANT PROTOCOL THEME
 
-    * Update last seven days performance and virtue graphs:
-        - Make the bars multiple like one above the other for each agent color so that we can seperately see distribution right from it
-
     * Update images:
         - Give a background image for entire app
+        - Map it based on aganet type
+        - Update agent header screen
+        - Update value card
     * Give glassy forground:
         - For now, update the following:
             - Missions Screen
