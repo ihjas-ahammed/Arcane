@@ -95,13 +95,17 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          _displayTime,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 32,
-            fontFamily: AppTheme.fontDisplay,
-            fontWeight: FontWeight.bold,
+        // Use FittedBox to prevent overflow on smaller screens
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _displayTime,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontFamily: AppTheme.fontDisplay,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],

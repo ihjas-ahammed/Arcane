@@ -1,6 +1,7 @@
 // lib/src/providers/actions/timer_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/app_state_models.dart';
+import 'package:collection/collection.dart';
 
 class TimerActions {
   final AppProvider _provider;
@@ -8,35 +9,34 @@ class TimerActions {
   TimerActions(this._provider);
 
   void startTimer(String id, String type, String mainTaskId) {
-    // PREVENT MULTIPLE TIMERS
-    // If any timer is currently running, do not start a new one.
-    // This forces the user to stop the previous timer first.
-    final anyRunning = _provider.activeTimers.values.any((t) => t.isRunning);
-    if (anyRunning) {
-      // Ideally, throw exception or handle in UI.
-      // Since this is a void action, we assume UI checks before calling,
-      // but for safety, we simply return here to enforce the rule.
-      return;
-    }
+    // 1. Validation: Prevent starting timer on completed tasks or invalid IDs
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return; 
 
-    Map<String, ActiveTimerInfo> updatedActiveTimers =
-        Map.from(_provider.activeTimers);
-
-    // Double-check pause logic for safety, though 'anyRunning' check above makes this mostly redundant for 'start'
-    for (var entry in updatedActiveTimers.entries) {
-      final timerId = entry.key;
-      final timerInfo = entry.value;
-      if (timerInfo.isRunning && timerId != id) {
-        _commitSessionAndPause(timerId, timerInfo);
-        updatedActiveTimers[timerId] = ActiveTimerInfo(
-          startTime: DateTime.now(), 
-          accumulatedDisplayTime: timerInfo.accumulatedDisplayTime + (DateTime.now().difference(timerInfo.startTime).inMilliseconds / 1000.0),
-          isRunning: false,
-          type: timerInfo.type,
-          mainTaskId: timerInfo.mainTaskId,
-        );
+    if (type == 'subtask') {
+      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
+      if (subTask == null) return;
+      if (subTask.completed) {
+         // Cannot start timer on completed task
+         return; 
       }
     }
+
+    // 2. Enforce Single Timer Rule: Stop OTHER running timers
+    // We iterate through a copy of active timers to safely modify state
+    final runningTimerIds = _provider.activeTimers.entries
+        .where((e) => e.value.isRunning && e.key != id)
+        .map((e) => e.key)
+        .toList();
+
+    for (var timerId in runningTimerIds) {
+      // Pause acts as "stop and save" for running session
+      pauseTimer(timerId); 
+    }
+
+    // 3. Start New Timer
+    Map<String, ActiveTimerInfo> updatedActiveTimers =
+        Map.from(_provider.activeTimers);
 
     final existingTimer = updatedActiveTimers[id];
     updatedActiveTimers[id] = ActiveTimerInfo(
@@ -46,6 +46,8 @@ class TimerActions {
       type: type,
       mainTaskId: mainTaskId,
     );
+    
+    // This triggers notifyListeners and saves via AppProvider
     _provider.setProviderState(activeTimers: updatedActiveTimers);
   }
 

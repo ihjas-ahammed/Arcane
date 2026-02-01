@@ -1,20 +1,13 @@
 Make the following changes:
 
-    * Update overall progress widget in projects:
-        - Make it circular like pie:
-            - The percentage for each project with their agent color 
-            - Leave the left as blank
-        - The widget should look like a really good one for the VALORANT PROTOCOL THEME
-
-    * Update images:
-        - Give a background image for entire app
-        - Map it based on aganet type
-        - Update agent header screen
-        - Update value card
-    * Give glassy forground:
-        - For now, update the following:
-            - Missions Screen
-            - System Screen
+    * Update logbook:
+        - Make the following expandable since they can contain sensitive info: 
+            - Operational  Forcast
+            - Reflections
+            - Daily Briefing
+        - Update operational forcast UI to be more compact for the theme VALORANT PROTOCOL theme
+    
+    * Update project overall progress to be more compact for the theme VALORANT PROTOCOL theme
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

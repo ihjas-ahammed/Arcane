@@ -303,6 +303,7 @@ class AppProvider with ChangeNotifier {
         _loadStateFromMap(data);
         _hasUnsavedChanges = false;
         _cleanOverlappingSessions();
+        _fixTimerAnomalies();
         _handleDailyReset();
       } else {
         await _resetToInitialState();
@@ -324,6 +325,30 @@ class AppProvider with ChangeNotifier {
     }
     _authLoading = false;
     notifyListeners();
+  }
+
+  // Detects multiple running timers and stops all but the last started one.
+  void _fixTimerAnomalies() {
+    final runningTimers = _activeTimers.entries.where((e) => e.value.isRunning).toList();
+    if (runningTimers.length > 1) {
+      debugPrint("Timer anomaly detected: ${runningTimers.length} running. Fixing...");
+      
+      // Sort by start time descending (newest first)
+      runningTimers.sort((a, b) => b.value.startTime.compareTo(a.value.startTime));
+      
+      // Keep the first one (newest), stop others
+      final timersToStop = runningTimers.sublist(1);
+      
+      for (var entry in timersToStop) {
+        debugPrint("Auto-stopping timer anomaly: ${entry.key}");
+        // We use pauseTimer from actions to ensure logic (logging session) is consistent
+        _timerActions.pauseTimer(entry.key);
+      }
+      
+      // Force sync after fix
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+    }
   }
 
   void _cleanOverlappingSessions() {
@@ -660,6 +685,7 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _cleanOverlappingSessions();
+        _fixTimerAnomalies();
         _handleDailyReset();
         _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;
