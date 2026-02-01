@@ -21,7 +21,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/time_sync_models.dart';
 import 'package:arcane/src/models/wallet_models.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart'; // Imported for cleanup
+import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -162,7 +162,7 @@ class AppProvider with ChangeNotifier {
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
 
-  void addSessionToSubtask(
+  bool addSessionToSubtask(
           String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
       _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
 
@@ -302,7 +302,7 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _hasUnsavedChanges = false;
-        _cleanOverlappingSessions(); // Cleanup overlapping logs on load
+        _cleanOverlappingSessions();
         _handleDailyReset();
       } else {
         await _resetToInitialState();
@@ -326,11 +326,9 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// System Cleanup: Scans all task sessions for overlaps and deletes the newest one in the conflict.
   void _cleanOverlappingSessions() {
     bool hasChanges = false;
     
-    // Gather all sessions with metadata to locate them
     List<Map<String, dynamic>> allSessions = [];
     
     for (var main in _mainTasks) {
@@ -347,7 +345,6 @@ class AppProvider with ChangeNotifier {
 
     if (allSessions.isEmpty) return;
 
-    // Sort by start time
     allSessions.sort((a, b) {
       final sA = (a['session'] as TaskSession);
       final sB = (b['session'] as TaskSession);
@@ -356,7 +353,6 @@ class AppProvider with ChangeNotifier {
 
     List<Map<String, dynamic>> sessionsToDelete = [];
 
-    // Check for overlaps
     for (int i = 0; i < allSessions.length - 1; i++) {
       final current = allSessions[i];
       final next = allSessions[i + 1];
@@ -364,12 +360,7 @@ class AppProvider with ChangeNotifier {
       final cSess = current['session'] as TaskSession;
       final nSess = next['session'] as TaskSession;
 
-      // Overlap condition: StartA < EndB && EndA > StartB
-      // Since sorted by Start, StartA <= StartB is guaranteed.
-      // So overlap implies StartB < EndA.
       if (nSess.startTime.isBefore(cSess.endTime)) {
-        // Conflict found. Determine which one to delete.
-        // Rule: "delete the newest overlapping session log"
         final cTimestamp = TimeValidationHelper.getCreationTimestamp(cSess.id);
         final nTimestamp = TimeValidationHelper.getCreationTimestamp(nSess.id);
 
@@ -378,14 +369,9 @@ class AppProvider with ChangeNotifier {
         } else {
           sessionsToDelete.add(current);
         }
-        
-        // Skip next check to avoid cascading deletion errors in this simple pass
-        // or let logic handle it naturally (if A overlaps B, and B overlaps C, and we delete B, A might overlap C)
-        // For robustness in one pass, we mark and continue.
       }
     }
 
-    // Execute Deletions
     if (sessionsToDelete.isNotEmpty) {
       final idsToDelete = sessionsToDelete.map((e) => (e['session'] as TaskSession).id).toSet();
       
@@ -394,7 +380,6 @@ class AppProvider with ChangeNotifier {
           final initialCount = sub.sessions.length;
           sub.sessions.removeWhere((s) => idsToDelete.contains(s.id));
           if (sub.sessions.length != initialCount) {
-            // Update duration stats
             int totalSeconds = 0;
             for (var s in sub.sessions) totalSeconds += s.durationSeconds;
             sub.currentTimeSpent = totalSeconds;
@@ -674,7 +659,7 @@ class AppProvider with ChangeNotifier {
       final data = await _storageService.getUserData(_currentUser!.uid);
       if (data != null) {
         _loadStateFromMap(data);
-        _cleanOverlappingSessions(); // Ensure loaded data is clean
+        _cleanOverlappingSessions();
         _handleDailyReset();
         _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;
@@ -812,7 +797,8 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> generateFinancePrediction() async {
+  Future<void> generateFinancePrediction({bool force = false}) async {
+    // Modified to allow forcing regeneration
     if (_walletTransactions.isEmpty) return;
     setLoadingTask("Analyzing Finances...");
     try {
@@ -1310,7 +1296,7 @@ class AppProvider with ChangeNotifier {
   }
 
   // --- TIME SYNC GENERATION ---
-  Future<void> generateTimeSync(String userPrompt) async {
+  Future<void> generateTimeSync(String userPrompt, {bool smartAppend = false}) async {
     setLoadingTask("Synchronizing Chrono...");
     try {
       final contextData = getLast7DaysData();
@@ -1320,12 +1306,14 @@ class AppProvider with ChangeNotifier {
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
+        userTimezone: settings.userTimezone,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[TimeSync] $msg"),
       );
 
       final now = DateTime.now();
-      _timeSyncSchedule = blocksData.map((b) {
+      
+      final newBlocks = blocksData.map((b) {
         final offset = b['offset_minutes'] as int? ?? 0;
         final duration = b['duration_minutes'] as int? ?? 60;
         final start = now.add(Duration(minutes: offset));
@@ -1343,6 +1331,19 @@ class AppProvider with ChangeNotifier {
           ),
         );
       }).toList();
+
+      if (smartAppend && _timeSyncSchedule.isNotEmpty) {
+        // Smart Append Logic: Keep future blocks that don't overlap, replace overlapping/past
+        // Actually, simple "append" usually means adding to end, but here we want to "Update Schedule".
+        // Let's replace blocks that start AFTER now with the new plan, keeping history?
+        // Or simply replace entirely as per standard sync. 
+        // User asked: "only replace if user asked, unless just extrapolate... shift/append"
+        // For simplicity in this iteration: Smart Append = Replace future blocks from Now onwards.
+        final pastBlocks = _timeSyncSchedule.where((b) => b.endTime.isBefore(now)).toList();
+        _timeSyncSchedule = [...pastBlocks, ...newBlocks];
+      } else {
+        _timeSyncSchedule = newBlocks;
+      }
 
       _markDirty('settings');
       _scheduleRealtimeSync();

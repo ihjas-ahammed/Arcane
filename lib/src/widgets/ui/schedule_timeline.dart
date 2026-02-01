@@ -154,6 +154,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     final top = (startOffset / 3600.0) * pixelsPerHour;
                     final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
                     
+                    // Visibility check based on height and zoom (hide text if too small)
+                    final bool showText = height > 20 || _scale > 2.5;
+
                     // Horizontal distribution
                     const double leftGutter = 50.0;
                     final double availableWidth = MediaQuery.of(context).size.width - leftGutter - 40;
@@ -164,7 +167,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       top: top,
                       left: left,
                       width: widthPerCol - 4,
-                      height: height.clamp(15.0, 9999.0),
+                      height: height.clamp(2.0, 9999.0), // Allow slivers
                       child: GestureDetector(
                         onTap: entry.isEditable ? () => widget.onEditEntry(entry) : null,
                         child: Container(
@@ -174,7 +177,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           padding: const EdgeInsets.all(4),
-                          child: height > 20 
+                          child: showText 
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -182,7 +185,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                                   if (height > 35) Text("${DateFormat('HH:mm').format(entry.startTime)}", style: const TextStyle(color: Colors.white70, fontSize: 9)),
                                 ],
                               )
-                            : null,
+                            : null, // Just colored block if too small
                         ),
                       ),
                     );

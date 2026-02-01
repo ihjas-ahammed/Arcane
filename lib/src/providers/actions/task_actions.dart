@@ -200,13 +200,10 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     // Validation: Check for overlap globally
     if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
-      // Overlap detected. Do not add.
-      // Since this is a void method, we rely on the provider having cleaned data or UI to show error.
-      // But we must abort state change.
-      return; 
+      return false; // Indicating failure due to overlap
     }
 
     final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
@@ -232,20 +229,25 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(start);
+    _syncDateWithSessions(start, end);
+    return true; // Success
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
     // Validation: Check for overlap globally, excluding self
     if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
-      return; // Abort update on overlap
+      return; // Abort update on overlap - Ideally this should propagate error but UI flow usually pre-validates or silent fail in current structure
     }
 
-    DateTime? oldDate;
+    DateTime? oldStart;
+    DateTime? oldEnd;
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) oldDate = oldSession.startTime;
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -272,18 +274,24 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(newStart);
-    if (oldDate != null && (oldDate.year != newStart.year || oldDate.month != newStart.month || oldDate.day != newStart.day)) {
-      _syncDateWithSessions(oldDate);
+    
+    // Sync logic to handle potential cross-day updates
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd); // Re-calculate old days
     }
+    _syncDateWithSessions(newStart, newEnd); // Calculate new days
   }
 
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
-    DateTime? oldDate;
+    DateTime? oldStart;
+    DateTime? oldEnd;
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) oldDate = oldSession.startTime;
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -307,30 +315,53 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(DateTime.now());
-    if (oldDate != null && (oldDate.year != DateTime.now().year || oldDate.month != DateTime.now().month || oldDate.day != DateTime.now().day)) {
-      _syncDateWithSessions(oldDate);
+    
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd);
     }
   }
 
-  void _syncDateWithSessions(DateTime date) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final Map<String, int> taskTimes = {};
-    for (var task in _provider.mainTasks) {
-      int taskTotal = 0;
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.year == date.year && session.startTime.month == date.month && session.startTime.day == date.day) {
-            taskTotal += session.durationSeconds;
+  // Handles splitting time across days if session spans midnight
+  void _syncDateWithSessions(DateTime start, DateTime end) {
+    // Get list of unique dates involved in this range (usually 1 or 2)
+    final Set<String> affectedDates = {};
+    DateTime current = DateTime(start.year, start.month, start.day);
+    final last = DateTime(end.year, end.month, end.day);
+    
+    while (!current.isAfter(last)) {
+      affectedDates.add(DateFormat('yyyy-MM-dd').format(current));
+      current = current.add(const Duration(days: 1));
+    }
+
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+
+    for (var dateStr in affectedDates) {
+      final date = DateTime.parse(dateStr);
+      final nextDay = date.add(const Duration(days: 1));
+      
+      final Map<String, int> taskTimes = {};
+      
+      for (var task in _provider.mainTasks) {
+        int taskTotal = 0;
+        for (var sub in task.subTasks) {
+          for (var session in sub.sessions) {
+            // Calculate overlap with this day (date 00:00 to nextDay 00:00)
+            final overlapStart = session.startTime.isAfter(date) ? session.startTime : date;
+            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
+            
+            if (overlapStart.isBefore(overlapEnd)) {
+                taskTotal += overlapEnd.difference(overlapStart).inSeconds;
+            }
           }
         }
+        if (taskTotal > 0) taskTimes[task.id] = taskTotal;
       }
-      if (taskTotal > 0) taskTimes[task.id] = taskTotal;
+      
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+      dayData['taskTimes'] = taskTimes;
+      newCompletedByDay[dateStr] = dayData;
     }
-    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
-    dayData['taskTimes'] = taskTimes;
-    newCompletedByDay[dateStr] = dayData;
+    
     _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
@@ -622,26 +653,28 @@ class TaskActions {
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks.map((sss) {
-                if (sss.id == subSubtaskId && sss.completed) {
-                  return SubSubTask(
-                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
-                    targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
-                  );
-                }
-                return sss;
-              }).toList(), sessions: st.sessions,
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && sss.completed) {
+                    return SubSubTask(
+                      id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
+                    );
+                  }
+                  return sss;
+                }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();

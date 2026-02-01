@@ -13,6 +13,15 @@ class AddSessionDialog extends StatefulWidget {
 class _AddSessionDialogState extends State<AddSessionDialog> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  bool _isNextDay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default start to next minute to avoid "now" overlap
+    final initial = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 1)));
+    _startTime = initial;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +33,19 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
           _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
           const SizedBox(height: 16),
           _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
+          if (_startTime != null && _endTime != null) ...[
+             const SizedBox(height: 12),
+             Row(
+               children: [
+                 Checkbox(
+                   value: _isNextDay, 
+                   activeColor: AppTheme.fhAccentTeal,
+                   onChanged: (val) => setState(() => _isNextDay = val ?? false)
+                 ),
+                 const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
+               ],
+             )
+          ]
         ],
       ),
       actions: [
@@ -38,7 +60,17 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                   final now = DateTime.now();
                   final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
                   var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
-                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+                  
+                  if (_isNextDay || end.isBefore(start)) {
+                     // If explicity marked next day OR naturally before start (crossing midnight), add day
+                     if (!_isNextDay && end.isBefore(start)) {
+                        // Auto detect crossing midnight if unchecked but time implies it
+                        end = end.add(const Duration(days: 1));
+                     } else if (_isNextDay) {
+                        end = end.add(const Duration(days: 1));
+                     }
+                  }
+                  
                   Navigator.pop(context, {'start': start, 'end': end});
                 }
               : null,

@@ -107,19 +107,31 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       context: context,
       builder: (ctx) => const AddSessionDialog(),
     );
+    
     if (result != null) {
-      final startBase = result['start']!;
-      final endBase = result['end']!;
-      // Use selected date as base
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart)) {
-        realEnd = realEnd.add(const Duration(days: 1));
+      final start = result['start']!;
+      final end = result['end']!;
+      
+      final success = provider.addSessionToSubtask(
+          widget.parentTask.id, widget.subTask.id, start, end);
+          
+      if (!success && mounted) {
+         // Show overlap error and offer edit
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: const Text("Overlap detected! Adjust time."),
+             backgroundColor: AppTheme.fhAccentRed,
+             action: SnackBarAction(
+               label: "EDIT",
+               textColor: Colors.white,
+               onPressed: () {
+                 // Re-open edit dialog with these values to let user fix
+                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
+               },
+             ),
+           )
+         );
       }
-      provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
@@ -132,11 +144,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(
+        // Only valid if existing session
+        if (!session.id.startsWith('temp')) {
+           provider.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
+        }
       } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+        if (session.id.startsWith('temp')) {
+           // New add retry
+           provider.addSessionToSubtask(
+            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
+        } else {
+           // Update existing
+           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
+        }
       }
     }
   }
@@ -144,17 +166,25 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   List<TimelineEntry> _buildTimelineEntries(
       AppProvider provider, String currentSubTaskId) {
     final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          if (session.startTime.year == _selectedDate.year &&
-              session.startTime.month == _selectedDate.month &&
-              session.startTime.day == _selectedDate.day) {
+          // Check for intersection with selected day
+          // Intersection: (SessionStart < DayEnd) AND (SessionEnd > DayStart)
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            
+            // Calculate effective start/end for display on this day's timeline
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
             final bool isCurrentSubTask = sub.id == currentSubTaskId;
             entries.add(TimelineEntry(
               id: session.id,
-              startTime: session.startTime,
-              endTime: session.endTime,
+              startTime: displayStart,
+              endTime: displayEnd,
               title: sub.name,
               subtitle: task.name,
               color: task.taskColor,
@@ -172,6 +202,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final Set<String> validDates = {};
     for (var s in subTask.sessions) {
       validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
+      // Also add end date if spanning
+      validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
     }
     final today = DateTime.now();
     validDates.add(DateFormat('yyyy-MM-dd').format(today));

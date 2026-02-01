@@ -144,6 +144,7 @@ class AIService {
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
+    required String userTimezone,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -151,15 +152,18 @@ class AIService {
     Create a 24-hour schedule (starting NOW) for the user.
     
     CONTEXT:
+    User Timezone: $userTimezone
     $contextData
     
     USER REQUEST: "$userPrompt"
     
     INSTRUCTIONS:
     1. Generate a sequence of blocks covering the next 24 hours.
-    2. Be realistic with durations. Include breaks if 'focus' sessions are long.
-    3. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
-    4. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
+    2. Be empathetic and realistic. 
+    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
+    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
+    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
+    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
     """;
 
     final result = await makeAICall(

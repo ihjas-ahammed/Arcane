@@ -15,7 +15,8 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  List<String> walletCategories; // Added
+  List<String> walletCategories;
+  String userTimezone; // Added for Time Sync
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -39,7 +40,8 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'], // Default
+    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
+    this.userTimezone = 'Asia/Kolkata', // Default to India as requested
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -80,6 +82,7 @@ class AppSettings {
               ?.map((e) => e as String)
               .toList() ??
           ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
+      userTimezone: json['userTimezone'] as String? ?? 'Asia/Kolkata',
     );
   }
   Map<String, dynamic> toJson() {
@@ -98,6 +101,7 @@ class AppSettings {
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
       'walletCategories': walletCategories,
+      'userTimezone': userTimezone,
     };
   }
 }

@@ -3719,7 +3719,8 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  List<String> walletCategories; // Added
+  List<String> walletCategories;
+  String userTimezone; // Added for Time Sync
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -3743,7 +3744,8 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'], // Default
+    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
+    this.userTimezone = 'Asia/Kolkata', // Default to India as requested
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -3784,6 +3786,7 @@ class AppSettings {
               ?.map((e) => e as String)
               .toList() ??
           ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
+      userTimezone: json['userTimezone'] as String? ?? 'Asia/Kolkata',
     );
   }
   Map<String, dynamic> toJson() {
@@ -3802,6 +3805,7 @@ class AppSettings {
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
       'walletCategories': walletCategories,
+      'userTimezone': userTimezone,
     };
   }
 }
@@ -4020,7 +4024,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/time_sync_models.dart';
 import 'package:arcane/src/models/wallet_models.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart'; // Imported for cleanup
+import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -4161,7 +4165,7 @@ class AppProvider with ChangeNotifier {
           String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
       _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
 
-  void addSessionToSubtask(
+  bool addSessionToSubtask(
           String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
       _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
 
@@ -4301,7 +4305,7 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _hasUnsavedChanges = false;
-        _cleanOverlappingSessions(); // Cleanup overlapping logs on load
+        _cleanOverlappingSessions();
         _handleDailyReset();
       } else {
         await _resetToInitialState();
@@ -4325,11 +4329,9 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// System Cleanup: Scans all task sessions for overlaps and deletes the newest one in the conflict.
   void _cleanOverlappingSessions() {
     bool hasChanges = false;
     
-    // Gather all sessions with metadata to locate them
     List<Map<String, dynamic>> allSessions = [];
     
     for (var main in _mainTasks) {
@@ -4346,7 +4348,6 @@ class AppProvider with ChangeNotifier {
 
     if (allSessions.isEmpty) return;
 
-    // Sort by start time
     allSessions.sort((a, b) {
       final sA = (a['session'] as TaskSession);
       final sB = (b['session'] as TaskSession);
@@ -4355,7 +4356,6 @@ class AppProvider with ChangeNotifier {
 
     List<Map<String, dynamic>> sessionsToDelete = [];
 
-    // Check for overlaps
     for (int i = 0; i < allSessions.length - 1; i++) {
       final current = allSessions[i];
       final next = allSessions[i + 1];
@@ -4363,12 +4363,7 @@ class AppProvider with ChangeNotifier {
       final cSess = current['session'] as TaskSession;
       final nSess = next['session'] as TaskSession;
 
-      // Overlap condition: StartA < EndB && EndA > StartB
-      // Since sorted by Start, StartA <= StartB is guaranteed.
-      // So overlap implies StartB < EndA.
       if (nSess.startTime.isBefore(cSess.endTime)) {
-        // Conflict found. Determine which one to delete.
-        // Rule: "delete the newest overlapping session log"
         final cTimestamp = TimeValidationHelper.getCreationTimestamp(cSess.id);
         final nTimestamp = TimeValidationHelper.getCreationTimestamp(nSess.id);
 
@@ -4377,14 +4372,9 @@ class AppProvider with ChangeNotifier {
         } else {
           sessionsToDelete.add(current);
         }
-        
-        // Skip next check to avoid cascading deletion errors in this simple pass
-        // or let logic handle it naturally (if A overlaps B, and B overlaps C, and we delete B, A might overlap C)
-        // For robustness in one pass, we mark and continue.
       }
     }
 
-    // Execute Deletions
     if (sessionsToDelete.isNotEmpty) {
       final idsToDelete = sessionsToDelete.map((e) => (e['session'] as TaskSession).id).toSet();
       
@@ -4393,7 +4383,6 @@ class AppProvider with ChangeNotifier {
           final initialCount = sub.sessions.length;
           sub.sessions.removeWhere((s) => idsToDelete.contains(s.id));
           if (sub.sessions.length != initialCount) {
-            // Update duration stats
             int totalSeconds = 0;
             for (var s in sub.sessions) totalSeconds += s.durationSeconds;
             sub.currentTimeSpent = totalSeconds;
@@ -4673,7 +4662,7 @@ class AppProvider with ChangeNotifier {
       final data = await _storageService.getUserData(_currentUser!.uid);
       if (data != null) {
         _loadStateFromMap(data);
-        _cleanOverlappingSessions(); // Ensure loaded data is clean
+        _cleanOverlappingSessions();
         _handleDailyReset();
         _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;
@@ -4811,7 +4800,8 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> generateFinancePrediction() async {
+  Future<void> generateFinancePrediction({bool force = false}) async {
+    // Modified to allow forcing regeneration
     if (_walletTransactions.isEmpty) return;
     setLoadingTask("Analyzing Finances...");
     try {
@@ -5309,7 +5299,7 @@ class AppProvider with ChangeNotifier {
   }
 
   // --- TIME SYNC GENERATION ---
-  Future<void> generateTimeSync(String userPrompt) async {
+  Future<void> generateTimeSync(String userPrompt, {bool smartAppend = false}) async {
     setLoadingTask("Synchronizing Chrono...");
     try {
       final contextData = getLast7DaysData();
@@ -5319,12 +5309,14 @@ class AppProvider with ChangeNotifier {
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
+        userTimezone: settings.userTimezone,
         onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[TimeSync] $msg"),
       );
 
       final now = DateTime.now();
-      _timeSyncSchedule = blocksData.map((b) {
+      
+      final newBlocks = blocksData.map((b) {
         final offset = b['offset_minutes'] as int? ?? 0;
         final duration = b['duration_minutes'] as int? ?? 60;
         final start = now.add(Duration(minutes: offset));
@@ -5342,6 +5334,19 @@ class AppProvider with ChangeNotifier {
           ),
         );
       }).toList();
+
+      if (smartAppend && _timeSyncSchedule.isNotEmpty) {
+        // Smart Append Logic: Keep future blocks that don't overlap, replace overlapping/past
+        // Actually, simple "append" usually means adding to end, but here we want to "Update Schedule".
+        // Let's replace blocks that start AFTER now with the new plan, keeping history?
+        // Or simply replace entirely as per standard sync. 
+        // User asked: "only replace if user asked, unless just extrapolate... shift/append"
+        // For simplicity in this iteration: Smart Append = Replace future blocks from Now onwards.
+        final pastBlocks = _timeSyncSchedule.where((b) => b.endTime.isBefore(now)).toList();
+        _timeSyncSchedule = [...pastBlocks, ...newBlocks];
+      } else {
+        _timeSyncSchedule = newBlocks;
+      }
 
       _markDirty('settings');
       _scheduleRealtimeSync();
@@ -5898,13 +5903,10 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     // Validation: Check for overlap globally
     if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
-      // Overlap detected. Do not add.
-      // Since this is a void method, we rely on the provider having cleaned data or UI to show error.
-      // But we must abort state change.
-      return; 
+      return false; // Indicating failure due to overlap
     }
 
     final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
@@ -5930,20 +5932,25 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(start);
+    _syncDateWithSessions(start, end);
+    return true; // Success
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
     // Validation: Check for overlap globally, excluding self
     if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
-      return; // Abort update on overlap
+      return; // Abort update on overlap - Ideally this should propagate error but UI flow usually pre-validates or silent fail in current structure
     }
 
-    DateTime? oldDate;
+    DateTime? oldStart;
+    DateTime? oldEnd;
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) oldDate = oldSession.startTime;
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -5970,18 +5977,24 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(newStart);
-    if (oldDate != null && (oldDate.year != newStart.year || oldDate.month != newStart.month || oldDate.day != newStart.day)) {
-      _syncDateWithSessions(oldDate);
+    
+    // Sync logic to handle potential cross-day updates
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd); // Re-calculate old days
     }
+    _syncDateWithSessions(newStart, newEnd); // Calculate new days
   }
 
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
-    DateTime? oldDate;
+    DateTime? oldStart;
+    DateTime? oldEnd;
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) oldDate = oldSession.startTime;
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -6005,30 +6018,53 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(DateTime.now());
-    if (oldDate != null && (oldDate.year != DateTime.now().year || oldDate.month != DateTime.now().month || oldDate.day != DateTime.now().day)) {
-      _syncDateWithSessions(oldDate);
+    
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd);
     }
   }
 
-  void _syncDateWithSessions(DateTime date) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final Map<String, int> taskTimes = {};
-    for (var task in _provider.mainTasks) {
-      int taskTotal = 0;
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.year == date.year && session.startTime.month == date.month && session.startTime.day == date.day) {
-            taskTotal += session.durationSeconds;
+  // Handles splitting time across days if session spans midnight
+  void _syncDateWithSessions(DateTime start, DateTime end) {
+    // Get list of unique dates involved in this range (usually 1 or 2)
+    final Set<String> affectedDates = {};
+    DateTime current = DateTime(start.year, start.month, start.day);
+    final last = DateTime(end.year, end.month, end.day);
+    
+    while (!current.isAfter(last)) {
+      affectedDates.add(DateFormat('yyyy-MM-dd').format(current));
+      current = current.add(const Duration(days: 1));
+    }
+
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+
+    for (var dateStr in affectedDates) {
+      final date = DateTime.parse(dateStr);
+      final nextDay = date.add(const Duration(days: 1));
+      
+      final Map<String, int> taskTimes = {};
+      
+      for (var task in _provider.mainTasks) {
+        int taskTotal = 0;
+        for (var sub in task.subTasks) {
+          for (var session in sub.sessions) {
+            // Calculate overlap with this day (date 00:00 to nextDay 00:00)
+            final overlapStart = session.startTime.isAfter(date) ? session.startTime : date;
+            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
+            
+            if (overlapStart.isBefore(overlapEnd)) {
+                taskTotal += overlapEnd.difference(overlapStart).inSeconds;
+            }
           }
         }
+        if (taskTotal > 0) taskTimes[task.id] = taskTotal;
       }
-      if (taskTotal > 0) taskTimes[task.id] = taskTotal;
+      
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+      dayData['taskTimes'] = taskTimes;
+      newCompletedByDay[dateStr] = dayData;
     }
-    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
-    dayData['taskTimes'] = taskTimes;
-    newCompletedByDay[dateStr] = dayData;
+    
     _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
@@ -6320,26 +6356,28 @@ class TaskActions {
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks.map((sss) {
-                if (sss.id == subSubtaskId && sss.completed) {
-                  return SubSubTask(
-                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
-                    targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
-                  );
-                }
-                return sss;
-              }).toList(), sessions: st.sessions,
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && sss.completed) {
+                    return SubSubTask(
+                      id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
+                    );
+                  }
+                  return sss;
+                }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();
@@ -9990,145 +10028,184 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  void _generateSchedule(AppProvider provider) {
-    if (_promptController.text.trim().isEmpty) return;
-    
-    // Dismiss keyboard
+  void _generateSchedule(AppProvider provider, {bool smartAppend = false}) {
+    // If no input, provide a generic prompt for update
+    String prompt = _promptController.text.trim();
+    if (prompt.isEmpty) {
+      if (smartAppend) {
+        prompt =
+            "Update remaining schedule based on time passed. Keep it productive.";
+      } else {
+        // Require input for fresh start usually, but let's allow a "default day" gen
+        prompt = "Plan a standard productive day.";
+      }
+    }
+
+    // Add submission info context manually if desired, or assume AI has access to it via memory if implemented.
+    // For now, let's append active sub-missions names to prompt for context.
+    final activeMissions = provider.mainTasks
+        .expand((t) => t.subTasks)
+        .where((s) => !s.completed)
+        .map((s) => s.name)
+        .take(3)
+        .join(", ");
+    if (activeMissions.isNotEmpty) {
+      prompt += "\nCurrent Priorities: $activeMissions";
+    }
+
     FocusScope.of(context).unfocus();
-    
-    provider.generateTimeSync(_promptController.text.trim());
+    provider.generateTimeSync(prompt, smartAppend: smartAppend);
   }
 
-  void _editBlock(BuildContext context, AppProvider provider, TimeSyncBlock block) {
+  void _editBlock(
+      BuildContext context, AppProvider provider, TimeSyncBlock block) {
+    // ... [Edit Block logic same as before] ...
     final titleCtrl = TextEditingController(text: block.title);
     final descCtrl = TextEditingController(text: block.description);
     TimeOfDay startTime = TimeOfDay.fromDateTime(block.startTime);
     TimeOfDay endTime = TimeOfDay.fromDateTime(block.endTime);
-    
+
     showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: AppTheme.fhBgMedium,
-            title: const Text("EDIT BLOCK", style: TextStyle(fontFamily: AppTheme.fontDisplay, color: AppTheme.fhTextPrimary)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: titleCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: "TITLE"),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text("DESCRIPTION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  GrowingTextField(controller: descCtrl, hint: "Details...", minLines: 2),
-                  const SizedBox(height: 16),
-                  Row(
+        context: context,
+        builder: (ctx) => StatefulBuilder(builder: (context, setState) {
+              return AlertDialog(
+                backgroundColor: AppTheme.fhBgMedium,
+                title: const Text("EDIT BLOCK",
+                    style: TextStyle(
+                        fontFamily: AppTheme.fontDisplay,
+                        color: AppTheme.fhTextPrimary)),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: startTime,
-                              builder: (context, child) => Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
-                                ),
-                                child: child!,
-                              ),
-                            );
-                            if (picked != null) setState(() => startTime = picked);
-                          },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'START'),
-                            child: Text(startTime.format(context), style: const TextStyle(color: Colors.white)),
-                          ),
-                        ),
+                      TextField(
+                        controller: titleCtrl,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(labelText: "TITLE"),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: endTime,
-                              builder: (context, child) => Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
-                                ),
-                                child: child!,
+                      const SizedBox(height: 12),
+                      const Text("DESCRIPTION",
+                          style: TextStyle(
+                              color: AppTheme.fhTextSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      GrowingTextField(
+                          controller: descCtrl,
+                          hint: "Details...",
+                          minLines: 2),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: startTime,
+                                  builder: (context, child) => Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.dark(
+                                          primary: AppTheme.fhAccentTeal,
+                                          onPrimary: Colors.black,
+                                          surface: AppTheme.fhBgDeepDark,
+                                          onSurface: Colors.white),
+                                    ),
+                                    child: child!,
+                                  ),
+                                );
+                                if (picked != null)
+                                  setState(() => startTime = picked);
+                              },
+                              child: InputDecorator(
+                                decoration:
+                                    const InputDecoration(labelText: 'START'),
+                                child: Text(startTime.format(context),
+                                    style:
+                                        const TextStyle(color: Colors.white)),
                               ),
-                            );
-                            if (picked != null) setState(() => endTime = picked);
-                          },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'END'),
-                            child: Text(endTime.format(context), style: const TextStyle(color: Colors.white)),
+                            ),
                           ),
-                        ),
-                      ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: endTime,
+                                  builder: (context, child) => Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.dark(
+                                          primary: AppTheme.fhAccentTeal,
+                                          onPrimary: Colors.black,
+                                          surface: AppTheme.fhBgDeepDark,
+                                          onSurface: Colors.white),
+                                    ),
+                                    child: child!,
+                                  ),
+                                );
+                                if (picked != null)
+                                  setState(() => endTime = picked);
+                              },
+                              child: InputDecorator(
+                                decoration:
+                                    const InputDecoration(labelText: 'END'),
+                                child: Text(endTime.format(context),
+                                    style:
+                                        const TextStyle(color: Colors.white)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
                     ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      provider.deleteTimeSyncBlock(block.id);
+                      Navigator.pop(ctx);
+                    },
+                    style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.fhAccentRed),
+                    child: const Text("DELETE"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      final s = block.startTime;
+                      final e = block.endTime;
+                      final newStart = DateTime(s.year, s.month, s.day,
+                          startTime.hour, startTime.minute);
+                      DateTime newEnd = DateTime(
+                          e.year, e.month, e.day, endTime.hour, endTime.minute);
+                      if (newEnd.isBefore(newStart)) {
+                        if (e.day != s.day) {
+                          newEnd = DateTime(e.year, e.month, e.day,
+                              endTime.hour, endTime.minute);
+                        } else {
+                          newEnd = newEnd.add(const Duration(days: 1));
+                        }
+                      }
+                      final updated = TimeSyncBlock(
+                        id: block.id,
+                        startTime: newStart,
+                        endTime: newEnd,
+                        title: titleCtrl.text,
+                        description: descCtrl.text,
+                        type: block.type,
+                      );
+                      provider.updateTimeSyncBlock(updated);
+                      Navigator.pop(ctx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhAccentTeal),
+                    child: const Text("SAVE"),
                   )
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  provider.deleteTimeSyncBlock(block.id);
-                  Navigator.pop(ctx);
-                },
-                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentRed),
-                child: const Text("DELETE"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  // Reconstruct DateTime from TimeOfDay, preserving original Date
-                  final s = block.startTime;
-                  final e = block.endTime;
-                  
-                  final newStart = DateTime(s.year, s.month, s.day, startTime.hour, startTime.minute);
-                  
-                  // Handle day crossover for end time if needed, though simple replacement usually suffices for same-day
-                  // If end time is before start time, assume next day if original was spanning, or just same day wrapping?
-                  // For simplicity, we use same day as original end unless it's strictly < start
-                  DateTime newEnd = DateTime(e.year, e.month, e.day, endTime.hour, endTime.minute);
-                  
-                  if (newEnd.isBefore(newStart)) {
-                     // If user set end time earlier than start, likely next day. 
-                     // Or they messed up. Let's assume next day if original start/end spanned days.
-                     if (e.day != s.day) {
-                        newEnd = DateTime(e.year, e.month, e.day, endTime.hour, endTime.minute);
-                     } else {
-                        // User might mean next day
-                        newEnd = newEnd.add(const Duration(days: 1));
-                     }
-                  }
-
-                  final updated = TimeSyncBlock(
-                    id: block.id,
-                    startTime: newStart,
-                    endTime: newEnd,
-                    title: titleCtrl.text,
-                    description: descCtrl.text,
-                    type: block.type,
-                  );
-                  provider.updateTimeSyncBlock(updated);
-                  Navigator.pop(ctx);
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal),
-                child: const Text("SAVE"),
-              )
-            ],
-          );
-        }
-      )
-    );
+              );
+            }));
   }
 
   @override
@@ -10146,12 +10223,15 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
+                border: Border(
+                    bottom: BorderSide(
+                        color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
+                    icon: const Icon(Icons.arrow_back,
+                        color: AppTheme.fhTextPrimary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 8),
@@ -10162,31 +10242,31 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
                         const Text(
                           "CHRONO SYNC",
                           style: TextStyle(
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: AppTheme.fhTextPrimary
-                          ),
+                              fontFamily: AppTheme.fontDisplay,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                              color: AppTheme.fhTextPrimary),
                         ),
                         Text(
                           "24H PREDICTIVE SCHEDULING",
                           style: TextStyle(
-                            color: AppTheme.fhAccentTeal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2.0
-                          ),
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0),
                         ),
                       ],
                     ),
                   ),
                   if (schedule.isNotEmpty)
                     IconButton(
-                      icon: Icon(MdiIcons.refresh, color: AppTheme.fhTextSecondary),
+                      icon: Icon(MdiIcons.refresh,
+                          color: AppTheme.fhTextSecondary),
                       onPressed: () {
-                        // Scroll to top to show prompt.
-                        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                        _scrollController.animateTo(0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut);
                       },
                     )
                 ],
@@ -10198,32 +10278,60 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(24),
                 children: [
-                  // Input Section (Always visible at top to regen/init)
+                  // Input Section
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("SYNC PARAMETERS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        const Text("SYNC PARAMETERS",
+                            style: TextStyle(
+                                color: AppTheme.fhTextSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         ValorantTextField(
                           controller: _promptController,
                           label: "INTENT / FOCUS",
-                          hint: "e.g. 'Heavy study session, include gym'",
+                          hint: "Optional. e.g. 'Heavy study session'",
                           maxLines: 2,
                         ),
                         const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ValorantButton(
-                            label: isLoading ? "CALCULATING..." : (schedule.isEmpty ? "INITIALIZE SYNC" : "RE-SYNC"),
-                            isPrimary: true,
-                            onPressed: isLoading ? null : () => _generateSchedule(provider),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ValorantButton(
+                                label: isLoading
+                                    ? "..."
+                                    : (schedule.isEmpty ? "INIT" : "RESET ALL"),
+                                isPrimary:
+                                    schedule.isEmpty, // Highlight if init
+                                onPressed: isLoading
+                                    ? null
+                                    : () => _generateSchedule(provider,
+                                        smartAppend: false),
+                              ),
+                            ),
+                            if (schedule.isNotEmpty) ...[
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ValorantButton(
+                                  label: "UPDATE",
+                                  isPrimary: true,
+                                  color: AppTheme.fhAccentPurple,
+                                  onPressed: isLoading
+                                      ? null
+                                      : () => _generateSchedule(provider,
+                                          smartAppend: true),
+                                ),
+                              ),
+                            ]
+                          ],
                         )
                       ],
                     ),
@@ -10232,35 +10340,50 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
                   const SizedBox(height: 32),
 
                   if (isLoading)
-                    const Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal))
+                    const Center(
+                        child: CircularProgressIndicator(
+                            color: AppTheme.fhAccentTeal))
                   else if (schedule.isEmpty)
                     Center(
                       child: Column(
                         children: [
-                          Icon(MdiIcons.timelineClockOutline, size: 64, color: AppTheme.fhTextDisabled.withValues(alpha: 0.2)),
+                          Icon(MdiIcons.timelineClockOutline,
+                              size: 64,
+                              color: AppTheme.fhTextDisabled
+                                  .withValues(alpha: 0.2)),
                           const SizedBox(height: 16),
-                          const Text("NO ACTIVE SCHEDULE", style: TextStyle(color: AppTheme.fhTextDisabled, letterSpacing: 1.5)),
+                          const Text("NO ACTIVE SCHEDULE",
+                              style: TextStyle(
+                                  color: AppTheme.fhTextDisabled,
+                                  letterSpacing: 1.5)),
                         ],
                       ),
                     )
                   else ...[
                     Row(
                       children: [
-                        Icon(MdiIcons.clockStart, color: AppTheme.fhAccentTeal, size: 16),
+                        Icon(MdiIcons.clockStart,
+                            color: AppTheme.fhAccentTeal, size: 16),
                         const SizedBox(width: 8),
-                        Text("TIMELINE: ${DateFormat('MMM dd').format(DateTime.now()).toUpperCase()}", style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                        Text(
+                            "TIMELINE: ${DateFormat('MMM dd').format(DateTime.now()).toUpperCase()}",
+                            style: const TextStyle(
+                                color: AppTheme.fhTextPrimary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0)),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Timeline Render
                     Stack(
                       children: [
-                        // Vertical Line
                         Positioned(
-                          left: 27, // Approx center of time column in cards
-                          top: 0, bottom: 0,
-                          child: Container(width: 2, color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+                          left: 27,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                              width: 2,
+                              color: AppTheme.fhBorderColor
+                                  .withValues(alpha: 0.3)),
                         ),
                         Column(
                           children: schedule.map((block) {
@@ -10272,9 +10395,13 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
                         ),
                       ],
                     ),
-                    
                     const SizedBox(height: 24),
-                    const Center(child: Text("END OF PREDICTION", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10, letterSpacing: 2.0))),
+                    const Center(
+                        child: Text("END OF PREDICTION",
+                            style: TextStyle(
+                                color: AppTheme.fhTextDisabled,
+                                fontSize: 10,
+                                letterSpacing: 2.0))),
                   ]
                 ],
               ),
@@ -10285,6 +10412,7 @@ class _TimeSyncScreenState extends State<TimeSyncScreen> {
     );
   }
 }
+
 --- END OF FILE lib/src/screens/time_sync_screen.dart ---
 
 --- START OF FILE lib/src/screens/value_detail_screen.dart ---
@@ -11541,6 +11669,7 @@ class AIService {
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
+    required String userTimezone,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
@@ -11548,15 +11677,18 @@ class AIService {
     Create a 24-hour schedule (starting NOW) for the user.
     
     CONTEXT:
+    User Timezone: $userTimezone
     $contextData
     
     USER REQUEST: "$userPrompt"
     
     INSTRUCTIONS:
     1. Generate a sequence of blocks covering the next 24 hours.
-    2. Be realistic with durations. Include breaks if 'focus' sessions are long.
-    3. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
-    4. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
+    2. Be empathetic and realistic. 
+    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
+    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
+    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
+    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
     """;
 
     final result = await makeAICall(
@@ -16716,6 +16848,15 @@ class AddSessionDialog extends StatefulWidget {
 class _AddSessionDialogState extends State<AddSessionDialog> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  bool _isNextDay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default start to next minute to avoid "now" overlap
+    final initial = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 1)));
+    _startTime = initial;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16727,6 +16868,19 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
           _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
           const SizedBox(height: 16),
           _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
+          if (_startTime != null && _endTime != null) ...[
+             const SizedBox(height: 12),
+             Row(
+               children: [
+                 Checkbox(
+                   value: _isNextDay, 
+                   activeColor: AppTheme.fhAccentTeal,
+                   onChanged: (val) => setState(() => _isNextDay = val ?? false)
+                 ),
+                 const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
+               ],
+             )
+          ]
         ],
       ),
       actions: [
@@ -16741,7 +16895,17 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                   final now = DateTime.now();
                   final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
                   var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
-                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+                  
+                  if (_isNextDay || end.isBefore(start)) {
+                     // If explicity marked next day OR naturally before start (crossing midnight), add day
+                     if (!_isNextDay && end.isBefore(start)) {
+                        // Auto detect crossing midnight if unchecked but time implies it
+                        end = end.add(const Duration(days: 1));
+                     } else if (_isNextDay) {
+                        end = end.add(const Duration(days: 1));
+                     }
+                  }
+                  
                   Navigator.pop(context, {'start': start, 'end': end});
                 }
               : null,
@@ -18406,19 +18570,31 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       context: context,
       builder: (ctx) => const AddSessionDialog(),
     );
+    
     if (result != null) {
-      final startBase = result['start']!;
-      final endBase = result['end']!;
-      // Use selected date as base
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month,
-          _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart)) {
-        realEnd = realEnd.add(const Duration(days: 1));
+      final start = result['start']!;
+      final end = result['end']!;
+      
+      final success = provider.addSessionToSubtask(
+          widget.parentTask.id, widget.subTask.id, start, end);
+          
+      if (!success && mounted) {
+         // Show overlap error and offer edit
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: const Text("Overlap detected! Adjust time."),
+             backgroundColor: AppTheme.fhAccentRed,
+             action: SnackBarAction(
+               label: "EDIT",
+               textColor: Colors.white,
+               onPressed: () {
+                 // Re-open edit dialog with these values to let user fix
+                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
+               },
+             ),
+           )
+         );
       }
-      provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, realStart, realEnd);
     }
   }
 
@@ -18431,11 +18607,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(
+        // Only valid if existing session
+        if (!session.id.startsWith('temp')) {
+           provider.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
+        }
       } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+        if (session.id.startsWith('temp')) {
+           // New add retry
+           provider.addSessionToSubtask(
+            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
+        } else {
+           // Update existing
+           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
+        }
       }
     }
   }
@@ -18443,17 +18629,25 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   List<TimelineEntry> _buildTimelineEntries(
       AppProvider provider, String currentSubTaskId) {
     final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          if (session.startTime.year == _selectedDate.year &&
-              session.startTime.month == _selectedDate.month &&
-              session.startTime.day == _selectedDate.day) {
+          // Check for intersection with selected day
+          // Intersection: (SessionStart < DayEnd) AND (SessionEnd > DayStart)
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            
+            // Calculate effective start/end for display on this day's timeline
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
             final bool isCurrentSubTask = sub.id == currentSubTaskId;
             entries.add(TimelineEntry(
               id: session.id,
-              startTime: session.startTime,
-              endTime: session.endTime,
+              startTime: displayStart,
+              endTime: displayEnd,
               title: sub.name,
               subtitle: task.name,
               color: task.taskColor,
@@ -18471,6 +18665,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final Set<String> validDates = {};
     for (var s in subTask.sessions) {
       validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
+      // Also add end date if spanning
+      validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
     }
     final today = DateTime.now();
     validDates.add(DateFormat('yyyy-MM-dd').format(today));
@@ -20940,6 +21136,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     final top = (startOffset / 3600.0) * pixelsPerHour;
                     final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
                     
+                    // Visibility check based on height and zoom (hide text if too small)
+                    final bool showText = height > 20 || _scale > 2.5;
+
                     // Horizontal distribution
                     const double leftGutter = 50.0;
                     final double availableWidth = MediaQuery.of(context).size.width - leftGutter - 40;
@@ -20950,7 +21149,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       top: top,
                       left: left,
                       width: widthPerCol - 4,
-                      height: height.clamp(15.0, 9999.0),
+                      height: height.clamp(2.0, 9999.0), // Allow slivers
                       child: GestureDetector(
                         onTap: entry.isEditable ? () => widget.onEditEntry(entry) : null,
                         child: Container(
@@ -20960,7 +21159,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           padding: const EdgeInsets.all(4),
-                          child: height > 20 
+                          child: showText 
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -20968,7 +21167,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                                   if (height > 35) Text("${DateFormat('HH:mm').format(entry.startTime)}", style: const TextStyle(color: Colors.white70, fontSize: 9)),
                                 ],
                               )
-                            : null,
+                            : null, // Just colored block if too small
                         ),
                       ),
                     );
@@ -24536,7 +24735,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
-import 'package:arcane/src/widgets/settings/model_configuration_widget.dart'; // Import component
+import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
+import 'package:arcane/src/widgets/settings/timezone_selector.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -24931,6 +25131,8 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
               children: [
+                const TimezoneSelector(),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   decoration: InputDecoration(
                     labelText: 'Start Day of the Week',
@@ -26430,6 +26632,55 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
 }
 --- END OF FILE lib/src/widgets/settings/model_configuration_widget.dart ---
 
+--- START OF FILE lib/src/widgets/settings/timezone_selector.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+
+class TimezoneSelector extends StatelessWidget {
+  const TimezoneSelector({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final currentTimezone = provider.settings.userTimezone;
+
+    // Common Timezones (Simplified list)
+    final timezones = [
+      'Asia/Kolkata',
+      'UTC',
+      'America/New_York',
+      'America/Los_Angeles',
+      'Europe/London',
+      'Europe/Paris',
+      'Asia/Tokyo',
+      'Asia/Dubai',
+      'Australia/Sydney'
+    ];
+
+    if (!timezones.contains(currentTimezone)) {
+      timezones.add(currentTimezone);
+    }
+
+    return DropdownButtonFormField<String>(
+      decoration: const InputDecoration(
+        labelText: 'Timezone',
+        prefixIcon: Icon(Icons.public, size: 20),
+      ),
+      dropdownColor: AppTheme.fhBgMedium,
+      value: currentTimezone,
+      items: timezones.map((tz) => DropdownMenuItem(value: tz, child: Text(tz))).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          provider.setSettings(provider.settings..userTimezone = value);
+        }
+      },
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/settings/timezone_selector.dart ---
+
 --- START OF FILE lib/src/widgets/wallet/finance_prediction_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -26516,10 +26767,20 @@ class FinancePredictionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
-              const SizedBox(width: 8),
-              const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              Row(
+                children: [
+                  Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
+                  const SizedBox(width: 8),
+                  const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                ],
+              ),
+              IconButton(
+                icon: Icon(MdiIcons.refresh, color: AppTheme.fhTextSecondary),
+                tooltip: "Regenerate Forecast",
+                onPressed: () => provider.generateFinancePrediction(force: true),
+              )
             ],
           ),
           const SizedBox(height: 12),

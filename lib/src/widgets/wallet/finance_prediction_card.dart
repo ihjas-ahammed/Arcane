@@ -83,10 +83,20 @@ class FinancePredictionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
-              const SizedBox(width: 8),
-              const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              Row(
+                children: [
+                  Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
+                  const SizedBox(width: 8),
+                  const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                ],
+              ),
+              IconButton(
+                icon: Icon(MdiIcons.refresh, color: AppTheme.fhTextSecondary),
+                tooltip: "Regenerate Forecast",
+                onPressed: () => provider.generateFinancePrediction(force: true),
+              )
             ],
           ),
           const SizedBox(height: 12),

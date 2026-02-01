@@ -1,20 +1,21 @@
 Make the following changes:
 
-    * Fix Session Log:
-        - While adding manual log, make the initial start time one minute after current time to avoid overlap
-        - Also show a snackbar if there was an overlap and a button to edit log before actually deleting it
-        - Hide the logs that is less than 15 minutes from the view unless it is zoomed in to a size where I can see their labels
-        - Fix the day issue:
-            - Make sure I can manually log across days, and also show it in the log, its because of this limitation I had to cut my work into two before 12 am, since if the log goes after 12 am then it was not seen in either days log and also there was big issues
+    * Update overall progress widget in projects:
+        - Make it circular like pie:
+            - The percentage for each project with their mission color 
+            - Leave the left as blank
+        - The widget should look like a really good one for the VALORANT PROTOCOL THEME
 
-    * Fix wallet advisor:
-        - Make it possible to regenarte the forcast anytime
-    
-    * Fix time sync:
-        - Make it take care of the location based time (india by default) user can cahnge it in settings. this goes for planning exact prayer times and all
-        - Give input to even the submission decsription to the prompt for better generation
-        - Also let it be considerate and empathetics (like the current version even schedules work during sleep time?!)
-        - Also make it possible to resync without intent/focus input, also on resync only replace the schdule if user asked, unless just extrapolate the missing time block, like if I resync after 4 hours then it should only add 4 hours to the schdule and delte starting 4 hours (it should be done automatically if time is passed, even without resync)
+    * Update last seven days performance and virtue graphs:
+        - Make the bars multiple like one above the other for each agent color so that we can seperately see distribution right from it
+
+    * Update images:
+        - Give a background image for entire app
+    * Give glassy forground:
+        - For now, update the following:
+            - Missions Screen
+            - System Screen
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
