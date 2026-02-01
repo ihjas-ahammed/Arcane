@@ -221,6 +221,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final String formattedTotalToday = helper.formatTime(todaySeconds);
 
     final bool isRunning = timerState?.isRunning ?? false;
+    // Check if ANY timer is running (globally) to disable start
+    final bool anyTimerRunning = provider.activeTimers.values.any((t) => t.isRunning);
+    
     final int completedCheckpoints =
         liveSubTask.subSubTasks.where((s) => s.completed).length;
     final int totalCheckpoints = liveSubTask.subSubTasks.length;
@@ -419,17 +422,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         FloatingActionButton.small(
                           backgroundColor: isRunning
                               ? AppTheme.fhAccentRed
-                              : AppTheme.fhAccentTealFixed,
+                              : (anyTimerRunning && !isRunning ? Colors.grey : AppTheme.fhAccentTealFixed),
                           foregroundColor: Colors.black,
-                          onPressed: () {
-                            if (isRunning) {
-                              provider.pauseTimer(liveSubTask.id);
-                              provider.logTimerAndReset(liveSubTask.id);
-                            } else {
-                              provider.startTimer(liveSubTask.id, 'subtask',
-                                  widget.parentTask.id);
-                            }
-                          },
+                          onPressed: (anyTimerRunning && !isRunning) 
+                            ? null // Disable if another timer running
+                            : () {
+                              if (isRunning) {
+                                provider.pauseTimer(liveSubTask.id);
+                                provider.logTimerAndReset(liveSubTask.id);
+                              } else {
+                                provider.startTimer(liveSubTask.id, 'subtask',
+                                    widget.parentTask.id);
+                              }
+                            },
                           child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
                         ),
                       ],

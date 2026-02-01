@@ -8,23 +8,28 @@ class TimerActions {
   TimerActions(this._provider);
 
   void startTimer(String id, String type, String mainTaskId) {
-    // If we're starting a new timer, make sure to stop/log any other running timers first?
-    // Current logic just pauses others.
+    // PREVENT MULTIPLE TIMERS
+    // If any timer is currently running, do not start a new one.
+    // This forces the user to stop the previous timer first.
+    final anyRunning = _provider.activeTimers.values.any((t) => t.isRunning);
+    if (anyRunning) {
+      // Ideally, throw exception or handle in UI.
+      // Since this is a void action, we assume UI checks before calling,
+      // but for safety, we simply return here to enforce the rule.
+      return;
+    }
 
     Map<String, ActiveTimerInfo> updatedActiveTimers =
         Map.from(_provider.activeTimers);
 
-    // Pause others
+    // Double-check pause logic for safety, though 'anyRunning' check above makes this mostly redundant for 'start'
     for (var entry in updatedActiveTimers.entries) {
       final timerId = entry.key;
       final timerInfo = entry.value;
       if (timerInfo.isRunning && timerId != id) {
-        // Pausing effectively commits the session for other running timers
-        // We replicate pauseTimer logic here for the 'other' timers
         _commitSessionAndPause(timerId, timerInfo);
-
         updatedActiveTimers[timerId] = ActiveTimerInfo(
-          startTime: DateTime.now(), // Reset start for next resume
+          startTime: DateTime.now(), 
           accumulatedDisplayTime: timerInfo.accumulatedDisplayTime + (DateTime.now().difference(timerInfo.startTime).inMilliseconds / 1000.0),
           isRunning: false,
           type: timerInfo.type,

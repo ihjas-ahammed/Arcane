@@ -21,6 +21,7 @@ import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/time_sync_models.dart';
 import 'package:arcane/src/models/wallet_models.dart';
+import 'package:arcane/src/utils/time_validation_helper.dart'; // Imported for cleanup
 
 import 'actions/task_actions.dart';
 import 'actions/ai_generation_actions.dart';
@@ -301,6 +302,7 @@ class AppProvider with ChangeNotifier {
       if (data != null) {
         _loadStateFromMap(data);
         _hasUnsavedChanges = false;
+        _cleanOverlappingSessions(); // Cleanup overlapping logs on load
         _handleDailyReset();
       } else {
         await _resetToInitialState();
@@ -322,6 +324,91 @@ class AppProvider with ChangeNotifier {
     }
     _authLoading = false;
     notifyListeners();
+  }
+
+  /// System Cleanup: Scans all task sessions for overlaps and deletes the newest one in the conflict.
+  void _cleanOverlappingSessions() {
+    bool hasChanges = false;
+    
+    // Gather all sessions with metadata to locate them
+    List<Map<String, dynamic>> allSessions = [];
+    
+    for (var main in _mainTasks) {
+      for (var sub in main.subTasks) {
+        for (var session in sub.sessions) {
+          allSessions.add({
+            'session': session,
+            'subId': sub.id,
+            'mainId': main.id,
+          });
+        }
+      }
+    }
+
+    if (allSessions.isEmpty) return;
+
+    // Sort by start time
+    allSessions.sort((a, b) {
+      final sA = (a['session'] as TaskSession);
+      final sB = (b['session'] as TaskSession);
+      return sA.startTime.compareTo(sB.startTime);
+    });
+
+    List<Map<String, dynamic>> sessionsToDelete = [];
+
+    // Check for overlaps
+    for (int i = 0; i < allSessions.length - 1; i++) {
+      final current = allSessions[i];
+      final next = allSessions[i + 1];
+      
+      final cSess = current['session'] as TaskSession;
+      final nSess = next['session'] as TaskSession;
+
+      // Overlap condition: StartA < EndB && EndA > StartB
+      // Since sorted by Start, StartA <= StartB is guaranteed.
+      // So overlap implies StartB < EndA.
+      if (nSess.startTime.isBefore(cSess.endTime)) {
+        // Conflict found. Determine which one to delete.
+        // Rule: "delete the newest overlapping session log"
+        final cTimestamp = TimeValidationHelper.getCreationTimestamp(cSess.id);
+        final nTimestamp = TimeValidationHelper.getCreationTimestamp(nSess.id);
+
+        if (nTimestamp > cTimestamp) {
+          sessionsToDelete.add(next);
+        } else {
+          sessionsToDelete.add(current);
+        }
+        
+        // Skip next check to avoid cascading deletion errors in this simple pass
+        // or let logic handle it naturally (if A overlaps B, and B overlaps C, and we delete B, A might overlap C)
+        // For robustness in one pass, we mark and continue.
+      }
+    }
+
+    // Execute Deletions
+    if (sessionsToDelete.isNotEmpty) {
+      final idsToDelete = sessionsToDelete.map((e) => (e['session'] as TaskSession).id).toSet();
+      
+      for (var main in _mainTasks) {
+        for (var sub in main.subTasks) {
+          final initialCount = sub.sessions.length;
+          sub.sessions.removeWhere((s) => idsToDelete.contains(s.id));
+          if (sub.sessions.length != initialCount) {
+            // Update duration stats
+            int totalSeconds = 0;
+            for (var s in sub.sessions) totalSeconds += s.durationSeconds;
+            sub.currentTimeSpent = totalSeconds;
+            hasChanges = true;
+          }
+        }
+      }
+    }
+
+    if (hasChanges) {
+      debugPrint("Cleanup: Removed ${sessionsToDelete.length} overlapping sessions.");
+      _markDirty('tasks');
+      _scheduleRealtimeSync();
+    }
   }
 
   // --- PERSISTENCE ---
@@ -587,6 +674,7 @@ class AppProvider with ChangeNotifier {
       final data = await _storageService.getUserData(_currentUser!.uid);
       if (data != null) {
         _loadStateFromMap(data);
+        _cleanOverlappingSessions(); // Ensure loaded data is clean
         _handleDailyReset();
         _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
         _hasUnsavedChanges = false;

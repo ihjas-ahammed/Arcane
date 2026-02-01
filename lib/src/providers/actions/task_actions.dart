@@ -1,8 +1,9 @@
 // lib/src/providers/actions/task_actions.dart
+import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart'; 
 import 'package:arcane/src/utils/helpers.dart';
+import 'package:arcane/src/utils/time_validation_helper.dart'; // Import Validation Helper
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
@@ -12,7 +13,6 @@ class TaskActions {
   TaskActions(this._provider);
 
   // ... [Keep existing basic actions like addMainTask, editMainTask, logToDailySummary] ...
-  // ... [Including reorderSubtasks, addSubtask, updateSubtask, addSessionToSubtask, updateSessionInSubtask, deleteSessionFromSubtask] ...
   
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
@@ -200,8 +200,15 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // ... [Session methods unchanged] ...
   void addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+    // Validation: Check for overlap globally
+    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
+      // Overlap detected. Do not add.
+      // Since this is a void method, we rely on the provider having cleaned data or UI to show error.
+      // But we must abort state change.
+      return; 
+    }
+
     final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
     final durationSeconds = session.durationSeconds;
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -229,6 +236,11 @@ class TaskActions {
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
+    // Validation: Check for overlap globally, excluding self
+    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
+      return; // Abort update on overlap
+    }
+
     DateTime? oldDate;
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);

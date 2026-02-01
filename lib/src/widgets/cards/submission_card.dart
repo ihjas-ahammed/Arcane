@@ -48,6 +48,8 @@ class SubmissionCard extends StatelessWidget {
     final double displayTimeSeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
     final String formattedTime = helper.formatTime(displayTimeSeconds);
     final bool isRunning = timerState?.isRunning ?? false;
+    // Check global running timer
+    final bool anyTimerRunning = provider.activeTimers.values.any((t) => t.isRunning);
     final bool isCompleted = currentSubTask.completed;
 
     // --- Progress Calculation ---
@@ -215,6 +217,9 @@ class SubmissionCard extends StatelessWidget {
                     if (isRunning) {
                       provider.pauseTimer(subTask.id);
                       provider.logTimerAndReset(subTask.id);
+                    } else if (anyTimerRunning) {
+                      // Prevent starting if another is running
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Another timer is already running."), duration: Duration(seconds: 1)));
                     } else {
                       provider.startTimer(subTask.id, 'subtask', parentTask.id);
                     }
@@ -229,7 +234,7 @@ class SubmissionCard extends StatelessWidget {
                     child: Icon(
                       isRunning ? MdiIcons.pause : MdiIcons.play,
                       size: 16,
-                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
+                      color: isRunning ? AppTheme.fhAccentTeal : (anyTimerRunning ? Colors.grey : AppTheme.fhTextPrimary),
                     ),
                   ),
                 ),
