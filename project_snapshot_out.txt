@@ -3317,79 +3317,6 @@ class MainTaskTemplate {
 
 --- END OF FILE lib/src/models/task_models.dart ---
 
---- START OF FILE lib/src/models/time_sync_models.dart ---
-import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-
-enum TimeSyncBlockType {
-  focus,    // Work, Study, Deep focus
-  routine,  // Meals, Commute, Chores
-  rest,     // Sleep, Naps, Breaks
-  leisure,  // Gaming, Reading, Social
-  other     // Unspecified
-}
-
-class TimeSyncBlock {
-  String id;
-  DateTime startTime;
-  DateTime endTime;
-  String title;
-  String description;
-  TimeSyncBlockType type;
-
-  TimeSyncBlock({
-    required this.id,
-    required this.startTime,
-    required this.endTime,
-    required this.title,
-    this.description = '',
-    this.type = TimeSyncBlockType.other,
-  });
-
-  factory TimeSyncBlock.fromJson(Map<String, dynamic> json) {
-    return TimeSyncBlock(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
-      title: json['title'] as String,
-      description: json['description'] as String? ?? '',
-      type: TimeSyncBlockType.values.firstWhere(
-        (e) => e.toString() == json['type'],
-        orElse: () => TimeSyncBlockType.other,
-      ),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime.toIso8601String(),
-      'title': title,
-      'description': description,
-      'type': type.toString(),
-    };
-  }
-
-  Color get color {
-    switch (type) {
-      case TimeSyncBlockType.focus:
-        return const Color(0xFFFF4655); // Valorant Red
-      case TimeSyncBlockType.routine:
-        return const Color(0xFF00F59B); // Valorant Teal
-      case TimeSyncBlockType.rest:
-        return const Color(0xFF536DFE); // Indigo/Blue
-      case TimeSyncBlockType.leisure:
-        return const Color(0xFFF1C40F); // Gold
-      default:
-        return const Color(0xFF768079); // Muted
-    }
-  }
-
-  int get durationMinutes => endTime.difference(startTime).inMinutes;
-}
---- END OF FILE lib/src/models/time_sync_models.dart ---
-
 --- START OF FILE lib/src/models/value_models.dart ---
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -3774,87 +3701,8 @@ class LifeValue {
 
 --- END OF FILE lib/src/models/value_models.dart ---
 
---- START OF FILE lib/src/models/wallet_models.dart ---
-import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-enum TransactionType { income, expense }
-
-class WalletTransaction {
-  final String id;
-  final double amount;
-  final TransactionType type;
-  final String category;
-  final String note;
-  final DateTime date;
-  final String feeling; // 'Good', 'Bad', 'Neutral', 'Necessary'
-  final bool isFuture; // Planned/Recurring future transaction
-
-  WalletTransaction({
-    required this.id,
-    required this.amount,
-    required this.type,
-    required this.category,
-    this.note = '',
-    required this.date,
-    this.feeling = 'Neutral',
-    this.isFuture = false,
-  });
-
-  factory WalletTransaction.fromJson(Map<String, dynamic> json) {
-    return WalletTransaction(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      amount: (json['amount'] as num? ?? 0.0).toDouble(),
-      type: json['type'] == 'income' ? TransactionType.income : TransactionType.expense,
-      category: json['category'] as String? ?? 'General',
-      note: json['note'] as String? ?? '',
-      date: DateTime.parse(json['date'] as String),
-      feeling: json['feeling'] as String? ?? 'Neutral',
-      isFuture: json['isFuture'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'amount': amount,
-      'type': type == TransactionType.income ? 'income' : 'expense',
-      'category': category,
-      'note': note,
-      'date': date.toIso8601String(),
-      'feeling': feeling,
-      'isFuture': isFuture,
-    };
-  }
-
-  Color get feelingColor {
-    switch (feeling.toLowerCase()) {
-      case 'good': return AppTheme.fhAccentGreen;
-      case 'bad': case 'regret': return AppTheme.fhAccentRed;
-      case 'necessary': return AppTheme.fhAccentGold;
-      default: return AppTheme.fhTextSecondary;
-    }
-  }
-
-  IconData get categoryIcon {
-    switch (category.toLowerCase()) {
-      case 'food': return MdiIcons.food;
-      case 'transport': return MdiIcons.trainCar;
-      case 'tech': return MdiIcons.laptop;
-      case 'entertainment': return MdiIcons.gamepadVariant;
-      case 'salary': return MdiIcons.cashMultiple;
-      case 'bills': return MdiIcons.fileDocumentOutline;
-      default: return MdiIcons.circleSmall;
-    }
-  }
-}
---- END OF FILE lib/src/models/wallet_models.dart ---
-
 --- START OF FILE lib/src/models/app_state_models.dart ---
 // lib/src/models/app_state_models.dart
-// For TimeOfDay
 
 class AppSettings {
   bool descriptionsVisible;
@@ -3870,8 +3718,6 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  List<String> walletCategories;
-  String userTimezone; // Added for Time Sync
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -3895,8 +3741,6 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
-    this.userTimezone = 'Asia/Kolkata', // Default to India as requested
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -3933,11 +3777,6 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
-      walletCategories: (json['walletCategories'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
-      userTimezone: json['userTimezone'] as String? ?? 'Asia/Kolkata',
     );
   }
   Map<String, dynamic> toJson() {
@@ -3955,8 +3794,6 @@ class AppSettings {
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
-      'walletCategories': walletCategories,
-      'userTimezone': userTimezone,
     };
   }
 }
@@ -4006,16 +3843,15 @@ import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/ai_context_helper.dart'; // Import Helper
+import 'package:arcane/src/utils/ai_context_helper.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
@@ -4023,8 +3859,6 @@ import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/models/wallet_models.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'actions/task_actions.dart';
@@ -4067,15 +3901,6 @@ class AppProvider with ChangeNotifier {
 
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
-
-  List<TimeSyncBlock> _timeSyncSchedule = [];
-  List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
-
-  // Wallet
-  List<WalletTransaction> _walletTransactions = [];
-  List<WalletTransaction> get walletTransactions => _walletTransactions;
-  Map<String, dynamic>? _financePrediction;
-  Map<String, dynamic>? get financePrediction => _financePrediction;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -4441,9 +4266,6 @@ class AppProvider with ChangeNotifier {
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-      'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
-      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
-      'financePrediction': _financePrediction,
     };
   }
 
@@ -4510,26 +4332,6 @@ class AppProvider with ChangeNotifier {
       }
     }
 
-    if (data['timeSyncSchedule'] != null && data['timeSyncSchedule'] is List) {
-      _timeSyncSchedule = (data['timeSyncSchedule'] as List)
-          .where((b) => b != null && b is Map<String, dynamic>)
-          .map((b) => TimeSyncBlock.fromJson(b as Map<String, dynamic>))
-          .toList();
-    } else {
-      _timeSyncSchedule = [];
-    }
-
-    if (data['walletTransactions'] != null && data['walletTransactions'] is List) {
-      _walletTransactions = (data['walletTransactions'] as List)
-          .where((w) => w != null && w is Map<String, dynamic>)
-          .map((w) => WalletTransaction.fromJson(w as Map<String, dynamic>))
-          .toList();
-    } else {
-      _walletTransactions = [];
-    }
-    
-    _financePrediction = data['financePrediction'] as Map<String, dynamic>?;
-
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
       _settings.dataVersion = 1;
@@ -4553,9 +4355,6 @@ class AppProvider with ChangeNotifier {
     _initializeSkills();
     _initializeValues();
     _reflectionLogs = [];
-    _timeSyncSchedule = [];
-    _walletTransactions = [];
-    _financePrediction = null;
     _hasUnsavedChanges = true;
   }
 
@@ -4621,12 +4420,7 @@ class AppProvider with ChangeNotifier {
               'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
             })) success = false;
           }
-          if (_dirtyCollections.contains('wallet')) {
-            if (!await _storageService.saveWallet(_currentUser!.uid, {
-              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
-              'financePrediction': _financePrediction
-            })) success = false;
-          }
+          
           if (_dirtyCollections.contains('settings') || success) {
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
@@ -4638,7 +4432,6 @@ class AppProvider with ChangeNotifier {
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
                 'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-                'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -4790,95 +4583,6 @@ class AppProvider with ChangeNotifier {
       _isGeneratingSubquestsForTask = isLoading;
       notifyListeners();
     }
-  }
-
-  // --- WALLET ACTIONS ---
-  
-  void addWalletTransaction(WalletTransaction transaction) {
-    _walletTransactions.add(transaction);
-    _walletTransactions.sort((a, b) => b.date.compareTo(a.date)); // Keep desc sorted
-    _markDirty('wallet');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void updateWalletTransaction(WalletTransaction transaction) {
-    final index = _walletTransactions.indexWhere((t) => t.id == transaction.id);
-    if (index != -1) {
-      _walletTransactions[index] = transaction;
-      _walletTransactions.sort((a, b) => b.date.compareTo(a.date));
-      _markDirty('wallet');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteWalletTransaction(String id) {
-    _walletTransactions.removeWhere((t) => t.id == id);
-    _markDirty('wallet');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void addWalletCategory(String category) {
-    if (!_settings.walletCategories.contains(category)) {
-      final newCategories = List<String>.from(_settings.walletCategories)..add(category);
-      setSettings(_settings..walletCategories = newCategories);
-    }
-  }
-
-  Future<void> generateFinancePrediction({bool force = false}) async {
-    // Modified to allow forcing regeneration
-    if (_walletTransactions.isEmpty) return;
-    setLoadingTask("Analyzing Finances...");
-    try {
-      final recent = _walletTransactions.take(50).map((t) => "${t.type == TransactionType.income ? '+' : '-'}${t.amount} (${t.category}) - ${t.note}").join("\n");
-      final prediction = await _aiService.generateFinancePrediction(
-        transactionsList: recent,
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[FinanceAI] $msg")
-      );
-      _financePrediction = prediction;
-      _markDirty('wallet');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  double get currentWalletBalance {
-    double balance = 0;
-    for (var t in _walletTransactions) {
-      if (!t.isFuture) {
-        if (t.type == TransactionType.income) {
-          balance += t.amount;
-        } else {
-          balance -= t.amount;
-        }
-      }
-    }
-    return balance;
-  }
-
-  double calculateProjectedBalance(int daysAhead) {
-    double projected = currentWalletBalance;
-    final now = DateTime.now();
-    final futureLimit = now.add(Duration(days: daysAhead));
-
-    for (var t in _walletTransactions) {
-      if (t.isFuture && t.date.isBefore(futureLimit)) {
-        if (t.type == TransactionType.income) {
-          projected += t.amount;
-        } else {
-          projected -= t.amount;
-        }
-      }
-    }
-    return projected;
   }
 
   // --- START DAY REPORT ---
@@ -5321,81 +5025,6 @@ class AppProvider with ChangeNotifier {
       onLog: (msg) => debugPrint(msg)
     );
     return result; 
-  }
-
-  // --- TIME SYNC GENERATION ---
-  Future<void> generateTimeSync(String userPrompt, {bool smartAppend = false}) async {
-    setLoadingTask("Synchronizing Chrono...");
-    try {
-      final contextData = getLast7DaysData();
-      final blocksData = await _aiService.generateTimeSyncSchedule(
-        userPrompt: userPrompt,
-        contextData: "Recent Logs:\n${contextData['logs']}\nTime Stats:\n${contextData['times']}\nCurrent Time: ${DateFormat('HH:mm').format(DateTime.now())}",
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        userTimezone: settings.userTimezone,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[TimeSync] $msg"),
-      );
-
-      final now = DateTime.now();
-      
-      final newBlocks = blocksData.map((b) {
-        final offset = b['offset_minutes'] as int? ?? 0;
-        final duration = b['duration_minutes'] as int? ?? 60;
-        final start = now.add(Duration(minutes: offset));
-        final end = start.add(Duration(minutes: duration));
-        
-        return TimeSyncBlock(
-          id: const Uuid().v4(),
-          startTime: start,
-          endTime: end,
-          title: b['title'] ?? 'Block',
-          description: b['description'] ?? '',
-          type: TimeSyncBlockType.values.firstWhere(
-            (e) => e.toString() == 'TimeSyncBlockType.${b['type']}',
-            orElse: () => TimeSyncBlockType.other
-          ),
-        );
-      }).toList();
-
-      if (smartAppend && _timeSyncSchedule.isNotEmpty) {
-        // Smart Append Logic: Keep future blocks that don't overlap, replace overlapping/past
-        // Actually, simple "append" usually means adding to end, but here we want to "Update Schedule".
-        // Let's replace blocks that start AFTER now with the new plan, keeping history?
-        // Or simply replace entirely as per standard sync. 
-        // User asked: "only replace if user asked, unless just extrapolate... shift/append"
-        // For simplicity in this iteration: Smart Append = Replace future blocks from Now onwards.
-        final pastBlocks = _timeSyncSchedule.where((b) => b.endTime.isBefore(now)).toList();
-        _timeSyncSchedule = [...pastBlocks, ...newBlocks];
-      } else {
-        _timeSyncSchedule = newBlocks;
-      }
-
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  void updateTimeSyncBlock(TimeSyncBlock updatedBlock) {
-    final index = _timeSyncSchedule.indexWhere((b) => b.id == updatedBlock.id);
-    if (index != -1) {
-      _timeSyncSchedule[index] = updatedBlock;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteTimeSyncBlock(String id) {
-    _timeSyncSchedule.removeWhere((b) => b.id == id);
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
   }
 
   // --- STATS ---
@@ -8641,8 +8270,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
-import 'package:arcane/src/screens/time_sync_screen.dart';
-import 'package:arcane/src/screens/wallet_screen.dart'; // Import Wallet
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -8661,28 +8288,6 @@ class MoreScreen extends StatelessWidget {
               style: theme.textTheme.labelMedium?.copyWith(
                   color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.clockFast,
-              title: "Time Sync",
-              subtitle: "AI 24h Schedule Generator",
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const TimeSyncScreen()));
-          }),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.walletOutline,
-              title: "Wallet",
-              subtitle: "Finance Manager & Forecasting",
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const WalletScreen()));
-          }),
 
           _buildMenuTile(context,
               icon: MdiIcons.busClock,
@@ -10330,664 +9935,6 @@ class ValuesScreen extends StatelessWidget {
 
 --- END OF FILE lib/src/screens/values_screen.dart ---
 
---- START OF FILE lib/src/screens/wallet_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/wallet_models.dart';
-import 'package:arcane/src/widgets/wallet/wallet_balance_card.dart';
-import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/wallet/wallet_pie_chart.dart';
-import 'package:arcane/src/widgets/wallet/finance_prediction_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:intl/intl.dart';
-
-class WalletScreen extends StatefulWidget {
-  const WalletScreen({super.key});
-
-  @override
-  State<WalletScreen> createState() => _WalletScreenState();
-}
-
-class _WalletScreenState extends State<WalletScreen> {
-  bool _showIncomePie = false;
-
-  void _showAddTransactionDialog(BuildContext context, {WalletTransaction? transaction}) {
-    showDialog(
-      context: context,
-      builder: (context) => AddTransactionDialog(transaction: transaction),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final transactions = provider.walletTransactions;
-    final currentBalance = provider.currentWalletBalance;
-    final projectedBalance = provider.calculateProjectedBalance(30);
-
-    // Recent History (Non-Future)
-    final recentHistory = transactions.where((t) => !t.isFuture).toList();
-
-    // Future/Planned
-    final planned = transactions.where((t) => t.isFuture).toList();
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      "WALLET",
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: AppTheme.fhTextPrimary
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
-                    onPressed: () => _showAddTransactionDialog(context),
-                  )
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Balance Card
-                    WalletBalanceCard(
-                      currentBalance: currentBalance,
-                      projectedBalance: projectedBalance,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Actions
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ValorantButton(
-                            label: "EXPENSE",
-                            isPrimary: false,
-                            icon: MdiIcons.cashMinus,
-                            color: AppTheme.fhAccentRed.withOpacity(0.2),
-                            onPressed: () => showDialog(
-                              context: context,
-                              builder: (_) => const AddTransactionDialog(initialType: TransactionType.expense),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ValorantButton(
-                            label: "INCOME",
-                            isPrimary: false,
-                            icon: MdiIcons.cashPlus,
-                            color: AppTheme.fhAccentGreen.withOpacity(0.2),
-                            onPressed: () => showDialog(
-                              context: context,
-                              builder: (_) => const AddTransactionDialog(initialType: TransactionType.income),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Finance Prediction AI Card
-                    FinancePredictionCard(),
-
-                    const SizedBox(height: 32),
-
-                    // Pie Chart Section
-                    if (recentHistory.isNotEmpty) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(_showIncomePie ? "INCOME BREAKDOWN" : "EXPENSE BREAKDOWN", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                          Switch(
-                            value: _showIncomePie,
-                            onChanged: (val) => setState(() => _showIncomePie = val),
-                            activeColor: AppTheme.fhAccentGreen,
-                            inactiveThumbColor: AppTheme.fhAccentRed,
-                            inactiveTrackColor: AppTheme.fhBgDark,
-                          )
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 250,
-                        child: WalletPieChart(
-                          transactions: recentHistory,
-                          showIncome: _showIncomePie,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-
-                    // Recent Transactions List
-                    if (recentHistory.isNotEmpty) ...[
-                      const Text("RECENT ACTIVITY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: recentHistory.take(10).length,
-                        itemBuilder: (context, index) {
-                          final t = recentHistory[index];
-                          return _buildTransactionTile(context, provider, t);
-                        },
-                      ),
-                    ],
-
-                    if (planned.isNotEmpty) ...[
-                      const SizedBox(height: 32),
-                      const Text("PLANNED / RECURRING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: planned.length,
-                        itemBuilder: (context, index) {
-                          final t = planned[index];
-                          return _buildTransactionTile(context, provider, t, isFuture: true);
-                        },
-                      ),
-                    ]
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTransactionTile(BuildContext context, AppProvider provider, WalletTransaction t, {bool isFuture = false}) {
-    final isExpense = t.type == TransactionType.expense;
-    final color = isExpense ? AppTheme.fhAccentRed : AppTheme.fhAccentGreen;
-    
-    return Dismissible(
-      key: ValueKey(t.id),
-      background: Container(color: AppTheme.fhAccentRed, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
-      confirmDismiss: (dir) async {
-        return await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppTheme.fhBgDark,
-            title: const Text("DELETE TRANSACTION?", style: TextStyle(color: Colors.white)),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed))),
-            ],
-          )
-        );
-      },
-      onDismissed: (dir) => provider.deleteWalletTransaction(t.id),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-          ),
-          child: Icon(t.categoryIcon, color: t.feelingColor, size: 20),
-        ),
-        title: Text(t.category.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(
-          "${DateFormat('MMM dd').format(t.date)} • ${t.note.isNotEmpty ? t.note : t.feeling}",
-          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-          maxLines: 1, overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Text(
-          "${isExpense ? '-' : '+'}${t.amount.toStringAsFixed(2)}",
-          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 14),
-        ),
-        onTap: () => _showAddTransactionDialog(context, transaction: t),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/wallet_screen.dart ---
-
---- START OF FILE lib/src/screens/time_sync_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/widgets/ui/time_sync_block_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/valorant/valorant_text_field.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:intl/intl.dart';
-
-class TimeSyncScreen extends StatefulWidget {
-  const TimeSyncScreen({super.key});
-
-  @override
-  State<TimeSyncScreen> createState() => _TimeSyncScreenState();
-}
-
-class _TimeSyncScreenState extends State<TimeSyncScreen> {
-  final TextEditingController _promptController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
-  void _generateSchedule(AppProvider provider, {bool smartAppend = false}) {
-    // If no input, provide a generic prompt for update
-    String prompt = _promptController.text.trim();
-    if (prompt.isEmpty) {
-      if (smartAppend) {
-        prompt =
-            "Update remaining schedule based on time passed. Keep it productive.";
-      } else {
-        // Require input for fresh start usually, but let's allow a "default day" gen
-        prompt = "Plan a standard productive day.";
-      }
-    }
-
-    // Add submission info context manually if desired, or assume AI has access to it via memory if implemented.
-    // For now, let's append active sub-missions names to prompt for context.
-    final activeMissions = provider.mainTasks
-        .expand((t) => t.subTasks)
-        .where((s) => !s.completed)
-        .map((s) => s.name)
-        .take(3)
-        .join(", ");
-    if (activeMissions.isNotEmpty) {
-      prompt += "\nCurrent Priorities: $activeMissions";
-    }
-
-    FocusScope.of(context).unfocus();
-    provider.generateTimeSync(prompt, smartAppend: smartAppend);
-  }
-
-  void _editBlock(
-      BuildContext context, AppProvider provider, TimeSyncBlock block) {
-    // ... [Edit Block logic same as before] ...
-    final titleCtrl = TextEditingController(text: block.title);
-    final descCtrl = TextEditingController(text: block.description);
-    TimeOfDay startTime = TimeOfDay.fromDateTime(block.startTime);
-    TimeOfDay endTime = TimeOfDay.fromDateTime(block.endTime);
-
-    showDialog(
-        context: context,
-        builder: (ctx) => StatefulBuilder(builder: (context, setState) {
-              return AlertDialog(
-                backgroundColor: AppTheme.fhBgMedium,
-                title: const Text("EDIT BLOCK",
-                    style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        color: AppTheme.fhTextPrimary)),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: titleCtrl,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(labelText: "TITLE"),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text("DESCRIPTION",
-                          style: TextStyle(
-                              color: AppTheme.fhTextSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      GrowingTextField(
-                          controller: descCtrl,
-                          hint: "Details...",
-                          minLines: 2),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: startTime,
-                                  builder: (context, child) => Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: const ColorScheme.dark(
-                                          primary: AppTheme.fhAccentTeal,
-                                          onPrimary: Colors.black,
-                                          surface: AppTheme.fhBgDeepDark,
-                                          onSurface: Colors.white),
-                                    ),
-                                    child: child!,
-                                  ),
-                                );
-                                if (picked != null)
-                                  setState(() => startTime = picked);
-                              },
-                              child: InputDecorator(
-                                decoration:
-                                    const InputDecoration(labelText: 'START'),
-                                child: Text(startTime.format(context),
-                                    style:
-                                        const TextStyle(color: Colors.white)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: endTime,
-                                  builder: (context, child) => Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: const ColorScheme.dark(
-                                          primary: AppTheme.fhAccentTeal,
-                                          onPrimary: Colors.black,
-                                          surface: AppTheme.fhBgDeepDark,
-                                          onSurface: Colors.white),
-                                    ),
-                                    child: child!,
-                                  ),
-                                );
-                                if (picked != null)
-                                  setState(() => endTime = picked);
-                              },
-                              child: InputDecorator(
-                                decoration:
-                                    const InputDecoration(labelText: 'END'),
-                                child: Text(endTime.format(context),
-                                    style:
-                                        const TextStyle(color: Colors.white)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      provider.deleteTimeSyncBlock(block.id);
-                      Navigator.pop(ctx);
-                    },
-                    style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.fhAccentRed),
-                    child: const Text("DELETE"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      final s = block.startTime;
-                      final e = block.endTime;
-                      final newStart = DateTime(s.year, s.month, s.day,
-                          startTime.hour, startTime.minute);
-                      DateTime newEnd = DateTime(
-                          e.year, e.month, e.day, endTime.hour, endTime.minute);
-                      if (newEnd.isBefore(newStart)) {
-                        if (e.day != s.day) {
-                          newEnd = DateTime(e.year, e.month, e.day,
-                              endTime.hour, endTime.minute);
-                        } else {
-                          newEnd = newEnd.add(const Duration(days: 1));
-                        }
-                      }
-                      final updated = TimeSyncBlock(
-                        id: block.id,
-                        startTime: newStart,
-                        endTime: newEnd,
-                        title: titleCtrl.text,
-                        description: descCtrl.text,
-                        type: block.type,
-                      );
-                      provider.updateTimeSyncBlock(updated);
-                      Navigator.pop(ctx);
-                    },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhAccentTeal),
-                    child: const Text("SAVE"),
-                  )
-                ],
-              );
-            }));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final schedule = provider.timeSyncSchedule;
-    final isLoading = provider.loadingTaskName == "Synchronizing Chrono...";
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(
-                        color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        color: AppTheme.fhTextPrimary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "CHRONO SYNC",
-                          style: TextStyle(
-                              fontFamily: AppTheme.fontDisplay,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.5,
-                              color: AppTheme.fhTextPrimary),
-                        ),
-                        Text(
-                          "24H PREDICTIVE SCHEDULING",
-                          style: TextStyle(
-                              color: AppTheme.fhAccentTeal,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2.0),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (schedule.isNotEmpty)
-                    IconButton(
-                      icon: Icon(MdiIcons.refresh,
-                          color: AppTheme.fhTextSecondary),
-                      onPressed: () {
-                        _scrollController.animateTo(0,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut);
-                      },
-                    )
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(24),
-                children: [
-                  // Input Section
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                      border: Border.all(
-                          color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("SYNC PARAMETERS",
-                            style: TextStyle(
-                                color: AppTheme.fhTextSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 12),
-                        ValorantTextField(
-                          controller: _promptController,
-                          label: "INTENT / FOCUS",
-                          hint: "Optional. e.g. 'Heavy study session'",
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ValorantButton(
-                                label: isLoading
-                                    ? "..."
-                                    : (schedule.isEmpty ? "INIT" : "RESET ALL"),
-                                isPrimary:
-                                    schedule.isEmpty, // Highlight if init
-                                onPressed: isLoading
-                                    ? null
-                                    : () => _generateSchedule(provider,
-                                        smartAppend: false),
-                              ),
-                            ),
-                            if (schedule.isNotEmpty) ...[
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ValorantButton(
-                                  label: "UPDATE",
-                                  isPrimary: true,
-                                  color: AppTheme.fhAccentPurple,
-                                  onPressed: isLoading
-                                      ? null
-                                      : () => _generateSchedule(provider,
-                                          smartAppend: true),
-                                ),
-                              ),
-                            ]
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  if (isLoading)
-                    const Center(
-                        child: CircularProgressIndicator(
-                            color: AppTheme.fhAccentTeal))
-                  else if (schedule.isEmpty)
-                    Center(
-                      child: Column(
-                        children: [
-                          Icon(MdiIcons.timelineClockOutline,
-                              size: 64,
-                              color: AppTheme.fhTextDisabled
-                                  .withValues(alpha: 0.2)),
-                          const SizedBox(height: 16),
-                          const Text("NO ACTIVE SCHEDULE",
-                              style: TextStyle(
-                                  color: AppTheme.fhTextDisabled,
-                                  letterSpacing: 1.5)),
-                        ],
-                      ),
-                    )
-                  else ...[
-                    Row(
-                      children: [
-                        Icon(MdiIcons.clockStart,
-                            color: AppTheme.fhAccentTeal, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                            "TIMELINE: ${DateFormat('MMM dd').format(DateTime.now()).toUpperCase()}",
-                            style: const TextStyle(
-                                color: AppTheme.fhTextPrimary,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Stack(
-                      children: [
-                        Positioned(
-                          left: 27,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(
-                              width: 2,
-                              color: AppTheme.fhBorderColor
-                                  .withValues(alpha: 0.3)),
-                        ),
-                        Column(
-                          children: schedule.map((block) {
-                            return TimeSyncBlockCard(
-                              block: block,
-                              onTap: () => _editBlock(context, provider, block),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Center(
-                        child: Text("END OF PREDICTION",
-                            style: TextStyle(
-                                color: AppTheme.fhTextDisabled,
-                                fontSize: 10,
-                                letterSpacing: 2.0))),
-                  ]
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
---- END OF FILE lib/src/screens/time_sync_screen.dart ---
-
 --- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -11438,7 +10385,6 @@ const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
-const String _docWallet = 'wallet';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11460,10 +10406,9 @@ class StorageService {
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final walletSnap = await _dataDocRef(userId, _docWallet).get();
 
       bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists || walletSnap.exists;
+          tasksSnap.exists || historySnap.exists || settingsSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -11471,7 +10416,6 @@ class StorageService {
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (walletSnap.exists) fullData.addAll(walletSnap.data()!);
         return fullData;
       }
 
@@ -11500,10 +10444,6 @@ class StorageService {
 
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async {
     return _saveChunk(userId, _docSettings, data);
-  }
-
-  Future<bool> saveWallet(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docWallet, data);
   }
 
   Future<bool> _saveChunk(
@@ -11536,7 +10476,6 @@ class StorageService {
       batch.delete(_dataDocRef(userId, _docHistory));
       batch.delete(_dataDocRef(userId, _docReflections));
       batch.delete(_dataDocRef(userId, _docSettings));
-      batch.delete(_dataDocRef(userId, _docWallet));
       await batch.commit();
       return true;
     } catch (e) {
@@ -11548,36 +10487,30 @@ class StorageService {
     if (userId.isEmpty) return false;
 
     final tasksData = <String, dynamic>{};
-    if (fullData.containsKey('mainTasks'))
+    if (fullData.containsKey('mainTasks')) {
       tasksData['mainTasks'] = fullData['mainTasks'];
+    }
 
     final historyData = <String, dynamic>{};
-    if (fullData.containsKey('completedByDay'))
+    if (fullData.containsKey('completedByDay')) {
       historyData['completedByDay'] = fullData['completedByDay'];
+    }
 
     final reflectionsData = <String, dynamic>{};
-    if (fullData.containsKey('reflectionLogs'))
+    if (fullData.containsKey('reflectionLogs')) {
       reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
-
-    final walletData = <String, dynamic>{};
-    if (fullData.containsKey('walletTransactions'))
-      walletData['walletTransactions'] = fullData['walletTransactions'];
-    if (fullData.containsKey('financePrediction'))
-      walletData['financePrediction'] = fullData['financePrediction'];
+    }
 
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
-    settingsData.remove('walletTransactions');
-    settingsData.remove('financePrediction');
 
     try {
       final batch = _firestore.batch();
       batch.set(_dataDocRef(userId, _docTasks), tasksData);
       batch.set(_dataDocRef(userId, _docHistory), historyData);
       batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_dataDocRef(userId, _docWallet), walletData);
       batch.set(_dataDocRef(userId, _docSettings), settingsData);
       await batch.commit();
       return true;
@@ -11866,45 +10799,6 @@ class AIService {
         return response.text ?? "Archive data corrupted or empty.";
       },
     );
-  }
-
-  Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
-    required String userPrompt,
-    required String contextData, 
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required String userTimezone,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Create a 24-hour schedule (starting NOW) for the user.
-    
-    CONTEXT:
-    User Timezone: $userTimezone
-    $contextData
-    
-    USER REQUEST: "$userPrompt"
-    
-    INSTRUCTIONS:
-    1. Generate a sequence of blocks covering the next 24 hours.
-    2. Be empathetic and realistic. 
-    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
-    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
-    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
-    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-        
-    return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({
@@ -12198,40 +11092,6 @@ class AIService {
     } else {
       throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
     }
-  }
-
-  // --- Finance Prediction ---
-  Future<Map<String, dynamic>> generateFinancePrediction({
-    required String transactionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze these wallet transactions:
-    $transactionsList
-    
-    1. Analyze spending habits.
-    2. Predict upcoming expenses for next week by category.
-    3. Provide a short, empathetic financial advice message.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
-    
-    Output JSON ONLY:
-    {
-      "message": "string",
-      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
   }
 
   // --- Start Day Report ---
@@ -17146,237 +16006,6 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/add_session_dialog.dart ---
 
---- START OF FILE lib/src/widgets/dialogs/add_transaction_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/wallet_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
-
-class AddTransactionDialog extends StatefulWidget {
-  final TransactionType? initialType;
-  final WalletTransaction? transaction;
-
-  const AddTransactionDialog({super.key, this.initialType, this.transaction});
-
-  @override
-  State<AddTransactionDialog> createState() => _AddTransactionDialogState();
-}
-
-class _AddTransactionDialogState extends State<AddTransactionDialog> {
-  final _amountController = TextEditingController();
-  final _noteController = TextEditingController();
-  TransactionType _type = TransactionType.expense;
-  String _category = 'General';
-  String _feeling = 'Neutral';
-  DateTime _date = DateTime.now();
-  bool _isFuture = false;
-  
-  // Custom Category Handling
-  bool _isAddingCategory = false;
-  final _newCategoryController = TextEditingController();
-
-  final List<String> _feelings = ['Good', 'Bad', 'Neutral', 'Necessary', 'Regret'];
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.transaction != null) {
-      _amountController.text = widget.transaction!.amount.toString();
-      _noteController.text = widget.transaction!.note;
-      _type = widget.transaction!.type;
-      _category = widget.transaction!.category;
-      _feeling = widget.transaction!.feeling;
-      _date = widget.transaction!.date;
-      _isFuture = widget.transaction!.isFuture;
-    } else if (widget.initialType != null) {
-      _type = widget.initialType!;
-    }
-  }
-
-  void _save() {
-    final amount = double.tryParse(_amountController.text);
-    if (amount == null) return;
-
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    // Save new category if needed
-    if (_isAddingCategory && _newCategoryController.text.trim().isNotEmpty) {
-      _category = _newCategoryController.text.trim();
-      provider.addWalletCategory(_category);
-    }
-
-    final t = WalletTransaction(
-      id: widget.transaction?.id ?? const Uuid().v4(),
-      amount: amount,
-      type: _type,
-      category: _category,
-      note: _noteController.text,
-      date: _date,
-      feeling: _feeling,
-      isFuture: _isFuture,
-    );
-
-    if (widget.transaction != null) {
-      provider.updateWalletTransaction(t);
-    } else {
-      provider.addWalletTransaction(t);
-    }
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final categories = List<String>.from(provider.settings.walletCategories);
-    if (!categories.contains('General')) categories.add('General');
-
-    return AlertDialog(
-      title: Text(widget.transaction == null ? "NEW TRANSACTION" : "EDIT TRANSACTION"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<TransactionType>(
-                    title: const Text("Expense"),
-                    value: TransactionType.expense,
-                    groupValue: _type,
-                    onChanged: (val) => setState(() => _type = val!),
-                    activeColor: AppTheme.fhAccentRed,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<TransactionType>(
-                    title: const Text("Income"),
-                    value: TransactionType.income,
-                    groupValue: _type,
-                    onChanged: (val) => setState(() => _type = val!),
-                    activeColor: AppTheme.fhAccentGreen,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                labelText: "AMOUNT",
-                prefixText: "\$ ",
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            if (_isAddingCategory)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _newCategoryController,
-                      autofocus: true,
-                      decoration: const InputDecoration(labelText: "NEW CATEGORY"),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => setState(() => _isAddingCategory = false),
-                  )
-                ],
-              )
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: categories.contains(_category) ? _category : categories.first,
-                      decoration: const InputDecoration(labelText: "CATEGORY"),
-                      dropdownColor: AppTheme.fhBgDark,
-                      items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                      onChanged: (val) => setState(() => _category = val!),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    tooltip: "Add Category",
-                    onPressed: () => setState(() => _isAddingCategory = true),
-                  )
-                ],
-              ),
-            
-            const SizedBox(height: 16),
-
-            if (_type == TransactionType.expense) ...[
-              DropdownButtonFormField<String>(
-                value: _feeling,
-                decoration: const InputDecoration(labelText: "FEELING"),
-                dropdownColor: AppTheme.fhBgDark,
-                items: _feelings.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                onChanged: (val) => setState(() => _feeling = val!),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            const Text("NOTES", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GrowingTextField(controller: _noteController, hint: "Details...", minLines: 2),
-            const SizedBox(height: 16),
-
-            SwitchListTile(
-              title: const Text("Planned / Future"),
-              value: _isFuture,
-              activeColor: AppTheme.fhAccentPurple,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (val) => setState(() => _isFuture = val),
-            ),
-
-            if (_isFuture) ...[
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _date,
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-                    builder: (context, child) => Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
-                      ),
-                      child: child!,
-                    ),
-                  );
-                  if (picked != null) setState(() => _date = picked);
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: "DATE"),
-                  child: Text(DateFormat('MMM dd, yyyy').format(_date), style: const TextStyle(color: Colors.white)),
-                ),
-              ),
-            ]
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-        ValorantButton(label: "SAVE", onPressed: _save),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/add_transaction_dialog.dart ---
-
 --- START OF FILE lib/src/widgets/dialogs/ai_generation_prompt_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -17933,7 +16562,7 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
         children: [
           Icon(MdiIcons.databaseSyncOutline, color: AppTheme.fhAccentTeal),
           const SizedBox(width: 8),
-          const Text("PROTOCOL UPDATE DETECTED", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
+          const Text("VALUES UPDATE", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
         ],
       ),
       content: SingleChildScrollView(
@@ -22590,108 +21219,6 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
 
 --- END OF FILE lib/src/widgets/ui/task_generation_row.dart ---
 
---- START OF FILE lib/src/widgets/ui/time_sync_block_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class TimeSyncBlockCard extends StatelessWidget {
-  final TimeSyncBlock block;
-  final VoidCallback onTap;
-
-  const TimeSyncBlockCard({
-    super.key,
-    required this.block,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final duration = block.durationMinutes;
-    final durationStr = duration < 60 
-        ? "${duration}m" 
-        : "${(duration/60).floor()}h ${duration%60}m";
-        
-    final startStr = DateFormat('HH:mm').format(block.startTime);
-    final endStr = DateFormat('HH:mm').format(block.endTime);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          borderRadius: BorderRadius.circular(4),
-          border: Border(left: BorderSide(color: block.color, width: 4)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Time Column
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(startStr, style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold, fontSize: 13)),
-                  Container(width: 1, height: 12, color: Colors.white24, margin: const EdgeInsets.only(left: 4, top: 2, bottom: 2)),
-                  Text(endStr, style: TextStyle(color: Colors.white54, fontFamily: 'RobotoMono', fontSize: 11)),
-                ],
-              ),
-              const SizedBox(width: 16),
-              
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      block.title.toUpperCase(),
-                      style: TextStyle(
-                        color: AppTheme.fhTextPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: AppTheme.fontDisplay,
-                        letterSpacing: 1.0,
-                        fontSize: 16
-                      ),
-                    ),
-                    if (block.description.isNotEmpty)
-                      Text(
-                        block.description,
-                        style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              
-              // Duration Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: block.color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: block.color.withOpacity(0.3))
-                ),
-                child: Row(
-                  children: [
-                    Icon(MdiIcons.clockTimeFourOutline, size: 10, color: block.color),
-                    const SizedBox(width: 4),
-                    Text(durationStr, style: TextStyle(color: block.color, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/time_sync_block_card.dart ---
-
 --- START OF FILE lib/src/widgets/ui/timetable_session_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/services/timetable_service.dart';
@@ -24937,7 +23464,6 @@ import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
-import 'package:arcane/src/widgets/settings/timezone_selector.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -25332,8 +23858,6 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
               children: [
-                const TimezoneSelector(),
-                const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   decoration: InputDecoration(
                     labelText: 'Start Day of the Week',
@@ -26832,420 +25356,6 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
   }
 }
 --- END OF FILE lib/src/widgets/settings/model_configuration_widget.dart ---
-
---- START OF FILE lib/src/widgets/settings/timezone_selector.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-
-class TimezoneSelector extends StatelessWidget {
-  const TimezoneSelector({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final currentTimezone = provider.settings.userTimezone;
-
-    // Common Timezones (Simplified list)
-    final timezones = [
-      'Asia/Kolkata',
-      'UTC',
-      'America/New_York',
-      'America/Los_Angeles',
-      'Europe/London',
-      'Europe/Paris',
-      'Asia/Tokyo',
-      'Asia/Dubai',
-      'Australia/Sydney'
-    ];
-
-    if (!timezones.contains(currentTimezone)) {
-      timezones.add(currentTimezone);
-    }
-
-    return DropdownButtonFormField<String>(
-      decoration: const InputDecoration(
-        labelText: 'Timezone',
-        prefixIcon: Icon(Icons.public, size: 20),
-      ),
-      dropdownColor: AppTheme.fhBgMedium,
-      value: currentTimezone,
-      items: timezones.map((tz) => DropdownMenuItem(value: tz, child: Text(tz))).toList(),
-      onChanged: (value) {
-        if (value != null) {
-          provider.setSettings(provider.settings..userTimezone = value);
-        }
-      },
-    );
-  }
-}
---- END OF FILE lib/src/widgets/settings/timezone_selector.dart ---
-
---- START OF FILE lib/src/widgets/wallet/finance_prediction_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-
-class FinancePredictionCard extends StatelessWidget {
-  const FinancePredictionCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final prediction = provider.financePrediction;
-    final isLoading = provider.loadingTaskName == "Analyzing Finances...";
-
-    if (prediction == null && !isLoading) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(MdiIcons.crystalBall, size: 48, color: AppTheme.fhAccentPurple.withOpacity(0.5)),
-            const SizedBox(height: 16),
-            const Text(
-              "AI FINANCE FORECAST",
-              style: TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontFamily: AppTheme.fontDisplay,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                letterSpacing: 1.5
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Generate insights on spending habits and predict future expenses.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: "INITIALIZE PREDICTION",
-                onPressed: () => provider.generateFinancePrediction(),
-                color: AppTheme.fhAccentPurple,
-                isPrimary: true,
-              ),
-            )
-          ],
-        ),
-      );
-    }
-
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.fhAccentPurple));
-    }
-
-    final message = prediction!['message'] as String? ?? "No data.";
-    final predictions = (prediction['predictions'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 4)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.fhAccentPurple.withOpacity(0.1),
-            blurRadius: 20,
-            spreadRadius: 2
-          )
-        ]
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(MdiIcons.robotHappyOutline, color: AppTheme.fhAccentPurple),
-                  const SizedBox(width: 8),
-                  const Text("FINANCIAL ADVISOR", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                ],
-              ),
-              IconButton(
-                icon: Icon(MdiIcons.refresh, color: AppTheme.fhTextSecondary),
-                tooltip: "Regenerate Forecast",
-                onPressed: () => provider.generateFinancePrediction(force: true),
-              )
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: const TextStyle(color: AppTheme.fhTextPrimary, fontStyle: FontStyle.italic, height: 1.4),
-          ),
-          const SizedBox(height: 20),
-          if (predictions.isNotEmpty) ...[
-            const Text("PREDICTED EXPENSES (NEXT 7 DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 120,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: predictions.length,
-                separatorBuilder: (c, i) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final p = predictions[index];
-                  return Container(
-                    width: 140,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.fhBgDeepDark,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          (p['category'] ?? 'Misc').toString().toUpperCase(),
-                          style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "\$${p['amount']}",
-                          style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono'),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          p['reason'] ?? '',
-                          style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 10),
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            )
-          ]
-        ],
-      ),
-    ).animate().fadeIn().slideY(begin: 0.1, end: 0);
-  }
-}
---- END OF FILE lib/src/widgets/wallet/finance_prediction_card.dart ---
-
---- START OF FILE lib/src/widgets/wallet/wallet_balance_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-
-class WalletBalanceCard extends StatelessWidget {
-  final double currentBalance;
-  final double projectedBalance;
-
-  const WalletBalanceCard({
-    super.key,
-    required this.currentBalance,
-    required this.projectedBalance,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)], // Dark Green for Money
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
-        ],
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("CURRENT BALANCE", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-          const SizedBox(height: 8),
-          Text(
-            "\$${currentBalance.toStringAsFixed(2)}",
-            style: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              height: 1.0,
-            ),
-          ).animate().fadeIn().scale(),
-          const SizedBox(height: 16),
-          Container(height: 1, color: Colors.white10),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("PROJECTED (30 Days)", style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                    "\$${projectedBalance.toStringAsFixed(2)}",
-                    style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'RobotoMono'),
-                  ),
-                ],
-              ),
-              // Icon(MdiIcons.chartLineVariant, color: Colors.white24, size: 32),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/wallet/wallet_balance_card.dart ---
-
---- START OF FILE lib/src/widgets/wallet/wallet_pie_chart.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/models/wallet_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class WalletPieChart extends StatefulWidget {
-  final List<WalletTransaction> transactions;
-  final bool showIncome;
-
-  const WalletPieChart({super.key, required this.transactions, this.showIncome = false});
-
-  @override
-  State<WalletPieChart> createState() => _WalletPieChartState();
-}
-
-class _WalletPieChartState extends State<WalletPieChart> {
-  int touchedIndex = -1;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = widget.showIncome ? TransactionType.income : TransactionType.expense;
-    final filtered = widget.transactions.where((t) => t.type == type && !t.isFuture).toList();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Text("NO DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
-      );
-    }
-
-    final Map<String, double> categoryTotals = {};
-    for (var t in filtered) {
-      categoryTotals[t.category] = (categoryTotals[t.category] ?? 0) + t.amount;
-    }
-
-    final double total = categoryTotals.values.fold(0, (a, b) => a + b);
-    final sortedEntries = categoryTotals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-
-    // Colors palette
-    final List<Color> colors = [
-      AppTheme.fhAccentTeal,
-      AppTheme.fhAccentPurple,
-      AppTheme.fhAccentOrange,
-      AppTheme.fhAccentGold,
-      AppTheme.fhAccentRed,
-      Colors.blueAccent,
-      Colors.pinkAccent,
-    ];
-
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: PieChart(
-            PieChartData(
-              pieTouchData: PieTouchData(
-                touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                  setState(() {
-                    if (!event.isInterestedForInteractions ||
-                        pieTouchResponse == null ||
-                        pieTouchResponse.touchedSection == null) {
-                      touchedIndex = -1;
-                      return;
-                    }
-                    touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                  });
-                },
-              ),
-              borderData: FlBorderData(show: false),
-              sectionsSpace: 2,
-              centerSpaceRadius: 30,
-              sections: List.generate(sortedEntries.length, (i) {
-                final isTouched = i == touchedIndex;
-                final fontSize = isTouched ? 14.0 : 10.0;
-                final radius = isTouched ? 50.0 : 40.0;
-                final entry = sortedEntries[i];
-                final percent = (entry.value / total * 100).toStringAsFixed(0);
-
-                return PieChartSectionData(
-                  color: colors[i % colors.length],
-                  value: entry.value,
-                  title: '$percent%',
-                  radius: radius,
-                  titleStyle: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                );
-              }),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: List.generate(sortedEntries.length, (i) {
-              if (i > 4) return const SizedBox.shrink(); // Limit legend
-              final entry = sortedEntries[i];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(width: 10, height: 10, color: colors[i % colors.length]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/wallet/wallet_pie_chart.dart ---
 
 --- START OF FILE lib/src/widgets/atoms/valorant_timer_text.dart ---
 import 'dart:async';

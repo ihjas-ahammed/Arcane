@@ -14,6 +14,9 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
+  
+  // New field for conflict resolution
+  int lastModified; 
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -37,7 +40,8 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-  });
+    int? lastModified, // Optional constructor param
+  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     List<String> keys = [];
@@ -73,8 +77,10 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
+      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
+  
   Map<String, dynamic> toJson() {
     return {
       'descriptionsVisible': descriptionsVisible,
@@ -90,6 +96,7 @@ class AppSettings {
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
+      'lastModified': lastModified,
     };
   }
 }

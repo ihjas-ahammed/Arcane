@@ -26,17 +26,44 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
-          if (appProvider.authLoading ||
-              (appProvider.currentUser != null &&
-                  appProvider.isDataLoadingAfterLogin)) {
+          // If purely auth loading (initial startup), show spinner
+          if (appProvider.authLoading) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              backgroundColor: AppTheme.fhBgDeepDark,
+              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
+          
           if (appProvider.currentUser == null) {
             return const LoginScreen();
           }
-          return const HomeScreen();
+          
+          // Once authenticated, even if syncing in background, show Home
+          return Stack(
+            children: [
+              const HomeScreen(),
+              // Optional: Small sync indicator
+              if ( appProvider.isManuallySaving || appProvider.isManuallyLoading)
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20)
+                      ),
+                      child: const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)
+                      ),
+                    ),
+                  ),
+                )
+            ],
+          );
         },
       ),
     );

@@ -7,7 +7,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart'; // Import New Atom
+import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -34,24 +34,26 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Optimization: Listen only to relevant parts if possible, but for now Provider<AppProvider> 
+    // triggers rebuild. We rely on ValorantTimerText for the second-by-second updates
+    // so this card doesn't rebuild every second.
+    
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
+    // Safe retrieval logic
     SubTask currentSubTask = subTask;
     try {
-      final liveParent =
-          provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
-      currentSubTask =
-          liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
+      final liveParent = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+      currentSubTask = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (_) {}
 
     final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
-    
-    // Calculate total today seconds for progress bar context (still useful)
-    final double totalTodaySeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-    
-    final bool isRunning = timerState?.isRunning ?? false;
+    final isRunning = timerState?.isRunning ?? false;
     final bool isCompleted = currentSubTask.completed;
+
+    // We calculate totalSeconds for the progress bar once per build (not every tick)
+    final double totalTodaySeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
     // --- Progress Calculation ---
     double progressValue = 0.0;
@@ -70,27 +72,23 @@ class SubmissionCard extends StatelessWidget {
     if (isRunning) borderColor = parentTask.taskColor;
     if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
 
+    // Flexible layout for small screens
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
         key: ValueKey("subtask_${currentSubTask.id}"),
-        
-        // Background: Swipe Right (Archive/Complete) - Green/Teal
         background: _buildSwipeAction(
           alignment: Alignment.centerLeft,
           color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
           icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
           label: isCompleted ? "RESTORE" : "COMPLETE",
         ),
-        
-        // Secondary Background: Swipe Left (Delete) - Red
         secondaryBackground: _buildSwipeAction(
           alignment: Alignment.centerRight,
           color: AppTheme.fhAccentRed,
           icon: Icons.delete_forever,
           label: "DELETE",
         ),
-        
         confirmDismiss: (direction) async {
           if (direction == DismissDirection.endToStart) {
             return await _showDeleteConfirm(context);
@@ -117,42 +115,42 @@ class SubmissionCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Progress Ring or Checkmark
+              // Circular Progress/Status
               Padding(
-                padding: const EdgeInsets.only(right: 16.0),
+                padding: const EdgeInsets.only(right: 12.0),
                 child: isCompleted
                     ? Icon(MdiIcons.checkboxMarkedCircle, size: 28, color: parentTask.taskColor.withValues(alpha: 0.5))
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
+                    : SizedBox(
+                        width: 32, height: 32,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
                               value: progressValue,
                               backgroundColor: AppTheme.fhBgDark,
                               color: parentTask.taskColor,
                               strokeWidth: 3,
                             ),
-                          ),
-                          if (isRunning)
-                            Icon(MdiIcons.play, size: 14, color: parentTask.taskColor)
-                          else
-                            Text(
-                              "${(progressValue * 100).toInt()}",
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary),
-                            )
-                        ],
+                            if (isRunning)
+                              Icon(MdiIcons.play, size: 14, color: parentTask.taskColor)
+                            else
+                              Text(
+                                "${(progressValue * 100).toInt()}",
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary),
+                              )
+                          ],
+                        ),
                       ),
               ),
 
+              // Title Area
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             currentSubTask.name.toUpperCase(),
                             style: TextStyle(
@@ -170,7 +168,7 @@ class SubmissionCard extends StatelessWidget {
                         ),
                         if (currentSubTask.isRecurring)
                           Padding(
-                            padding: const EdgeInsets.only(left: 6.0),
+                            padding: const EdgeInsets.only(left: 4.0),
                             child: Icon(MdiIcons.syncIcon, size: 14, color: AppTheme.fhAccentTeal),
                           ),
                       ],
@@ -181,41 +179,42 @@ class SubmissionCard extends StatelessWidget {
                         child: LinkedTaskIndicator(
                           label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
                           onUnlink: () => provider.projectActions.unlinkStep(
-                              linkedInfo['mainTaskId'], 
-                              linkedInfo['projectId'], 
-                              linkedInfo['stepId']
+                              linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
                             ),
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               
+              // Right Side: Timer & Action
               if (!isCompleted) ...[
-                // Timer Text using Modular Atom
+                // The ATOM handles the ticking, ensuring entire card doesn't rebuild per second
                 ValorantTimerText(
                   isRunning: isRunning,
                   startTime: timerState?.startTime,
-                  accumulatedTime: totalTodaySeconds, // Will handle display logic inside based on isRunning
+                  accumulatedTime: totalTodaySeconds,
                   style: TextStyle(
                       fontFamily: "RobotoMono",
                       color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 InkWell(
                   onTap: () {
+                    // Logic handled by actions; ensures immediate state write
                     if (isRunning) {
-                      provider.pauseTimer(subTask.id);
-                      provider.logTimerAndReset(subTask.id);
+                      provider.pauseTimer(subTask.id); // Triggers immediate local save
+                      // Also reset the session visually or logic if needed
+                      provider.logTimerAndReset(subTask.id); 
                     } else {
                       provider.startTimer(subTask.id, 'subtask', parentTask.id);
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) : Colors.transparent,
                       border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
@@ -246,8 +245,8 @@ class SubmissionCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: alignment == Alignment.centerLeft 
-          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.0))]
-          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.0)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
+          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
+          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
       ),
     );
   }
