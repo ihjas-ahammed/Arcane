@@ -43,7 +43,7 @@ class _MyAppState extends State<MyApp> {
             children: [
               const HomeScreen(),
               // Optional: Small sync indicator
-              if ( appProvider.isManuallySaving || appProvider.isManuallyLoading)
+              if (appProvider.isManuallySaving || appProvider.isManuallyLoading)
                 Positioned(
                   bottom: 20,
                   right: 20,
