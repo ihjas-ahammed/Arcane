@@ -1,14 +1,8 @@
 Make the following changes:
 
-    * Update logbook:
-        - Make the following expandable since they can contain sensitive info: 
-            - Operational  Forcast
-            - Reflections
-            - Daily Briefing
-        - Update operational forcast UI to be more compact for the theme VALORANT PROTOCOL theme
-    
-    * Update project overall progress to be more compact for the theme VALORANT PROTOCOL theme
-
+    * Add feature:
+        - Value finder:
+            - Each time I run system startup, auto generate answers for some value questions based on the input given to system startup (Like if my reflections already have better answers, prompt me to add that to my value answers) so user dont have to manually type in values everytime, for values with an answer, just append the new answer and also we dont need answer for all value questions, just the ones that our reflections have answers
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

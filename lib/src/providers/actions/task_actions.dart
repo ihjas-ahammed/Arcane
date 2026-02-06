@@ -208,6 +208,7 @@ class TaskActions {
 
     final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
     final durationSeconds = session.durationSeconds;
+    
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
@@ -215,11 +216,16 @@ class TaskActions {
             lastWorkedDate: getTodayDateString(),
             subTasks: task.subTasks.map((st) {
               if (st.id == subTaskId) {
+                final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
+                // Recalculate total time from scratch based on session logs
+                final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+
                 return SubTask(
-                  id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent + durationSeconds,
+                  id: st.id, name: st.name, description: st.description, completed: st.completed, 
+                  currentTimeSpent: totalTime,
                   completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
                   currentCount: st.currentCount, subSubTasks: st.subSubTasks,
-                  sessions: [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime)),
+                  sessions: newSessions,
                   isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
                 );
               }
@@ -236,7 +242,7 @@ class TaskActions {
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
     // Validation: Check for overlap globally, excluding self
     if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
-      return; // Abort update on overlap - Ideally this should propagate error but UI flow usually pre-validates or silent fail in current structure
+      return; // Abort update on overlap
     }
 
     DateTime? oldStart;
@@ -254,14 +260,18 @@ class TaskActions {
         return task.copyWith(
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
-            int totalTime = 0;
             final updatedSessions = st.sessions.map((s) {
               if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
               return s;
             }).toList();
+            
+            // Recalculate total time from scratch
+            int totalTime = 0;
             for (var s in updatedSessions) totalTime += s.durationSeconds;
+            
             return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
+              id: st.id, name: st.name, description: st.description, completed: st.completed, 
+              currentTimeSpent: totalTime,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
               currentCount: st.currentCount, subSubTasks: st.subSubTasks,
               sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
@@ -297,15 +307,20 @@ class TaskActions {
       if (task.id == mainTaskId) {
         int deduction = oldSession?.durationSeconds ?? 0;
         return task.copyWith(
+            // We adjust MainTask time by deduction since MainTask aggregates many subtasks
             dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
+            final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
+            // Recalculate total time from scratch for SubTask
+            final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed,
-              currentTimeSpent: (st.currentTimeSpent - deduction).clamp(0, 999999),
+              currentTimeSpent: totalTime,
               completedDate: st.completedDate, isCountable: st.isCountable,
               targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
-              sessions: st.sessions.where((s) => s.id != sessionId).toList(),
+              sessions: remainingSessions,
               isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
             );
           }

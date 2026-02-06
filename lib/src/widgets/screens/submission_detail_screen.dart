@@ -253,8 +253,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final String formattedTotalToday = helper.formatTime(todaySeconds);
 
     final bool isRunning = timerState?.isRunning ?? false;
-    // Check if ANY timer is running (globally) to disable start
-    final bool anyTimerRunning = provider.activeTimers.values.any((t) => t.isRunning);
     
     final int completedCheckpoints =
         liveSubTask.subSubTasks.where((s) => s.completed).length;
@@ -454,11 +452,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         FloatingActionButton.small(
                           backgroundColor: isRunning
                               ? AppTheme.fhAccentRed
-                              : (anyTimerRunning && !isRunning ? Colors.grey : AppTheme.fhAccentTealFixed),
+                              : AppTheme.fhAccentTealFixed,
                           foregroundColor: Colors.black,
-                          onPressed: (anyTimerRunning && !isRunning) 
-                            ? null // Disable if another timer running
-                            : () {
+                          onPressed: () {
                               if (isRunning) {
                                 provider.pauseTimer(liveSubTask.id);
                                 provider.logTimerAndReset(liveSubTask.id);

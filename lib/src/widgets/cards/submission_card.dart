@@ -7,6 +7,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart'; // Import New Atom
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -45,11 +46,11 @@ class SubmissionCard extends StatelessWidget {
     } catch (_) {}
 
     final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
-    final double displayTimeSeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
+    
+    // Calculate total today seconds for progress bar context (still useful)
+    final double totalTodaySeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    
     final bool isRunning = timerState?.isRunning ?? false;
-    // Check global running timer
-    final bool anyTimerRunning = provider.activeTimers.values.any((t) => t.isRunning);
     final bool isCompleted = currentSubTask.completed;
 
     // --- Progress Calculation ---
@@ -62,17 +63,13 @@ class SubmissionCard extends StatelessWidget {
     } else {
       final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
       final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
-      progressValue = (displayTimeSeconds / maxTime).clamp(0.0, 1.0);
+      progressValue = (totalTodaySeconds / maxTime).clamp(0.0, 1.0);
     }
 
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = parentTask.taskColor;
     if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
 
-    // Dismissible Action Configuration
-    // Left-to-Right (StartToEnd): Green/Teal (Complete/Archive/Restore)
-    // Right-to-Left (EndToStart): Red (Delete)
-    
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
@@ -96,25 +93,18 @@ class SubmissionCard extends StatelessWidget {
         
         confirmDismiss: (direction) async {
           if (direction == DismissDirection.endToStart) {
-            // Swipe Left: Delete
             return await _showDeleteConfirm(context);
           } else {
-            // Swipe Right: Complete or Restore
             if (isCompleted) {
-              // Restore
               provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
-              // Return false to keep item in list (it just updates state to active)
-              // If the list is filtered by 'active', it might disappear, but usually we just update state.
               return false; 
             } else {
-              // Complete
               provider.completeSubtask(parentTask.id, currentSubTask.id);
-              return false; // Keep in list, let parent refresh handle moving it to 'completed' section
+              return false; 
             }
           }
         },
         onDismissed: (direction) {
-          // Only called if confirmDismiss returns true (Delete case)
           if (direction == DismissDirection.endToStart) {
             provider.deleteSubtask(parentTask.id, currentSubTask.id);
           }
@@ -203,8 +193,11 @@ class SubmissionCard extends StatelessWidget {
               const SizedBox(width: 12),
               
               if (!isCompleted) ...[
-                Text(
-                  formattedTime,
+                // Timer Text using Modular Atom
+                ValorantTimerText(
+                  isRunning: isRunning,
+                  startTime: timerState?.startTime,
+                  accumulatedTime: totalTodaySeconds, // Will handle display logic inside based on isRunning
                   style: TextStyle(
                       fontFamily: "RobotoMono",
                       color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
@@ -217,9 +210,6 @@ class SubmissionCard extends StatelessWidget {
                     if (isRunning) {
                       provider.pauseTimer(subTask.id);
                       provider.logTimerAndReset(subTask.id);
-                    } else if (anyTimerRunning) {
-                      // Prevent starting if another is running
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Another timer is already running."), duration: Duration(seconds: 1)));
                     } else {
                       provider.startTimer(subTask.id, 'subtask', parentTask.id);
                     }
@@ -234,12 +224,11 @@ class SubmissionCard extends StatelessWidget {
                     child: Icon(
                       isRunning ? MdiIcons.pause : MdiIcons.play,
                       size: 16,
-                      color: isRunning ? AppTheme.fhAccentTeal : (anyTimerRunning ? Colors.grey : AppTheme.fhTextPrimary),
+                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
                     ),
                   ),
                 ),
               ] else ...[
-                // Minimal icon for completed state options hint
                 Icon(MdiIcons.chevronRight, size: 16, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3))
               ]
             ],

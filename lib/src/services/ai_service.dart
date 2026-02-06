@@ -122,6 +122,7 @@ class AIService {
     2. Be empathetic, human-like, and insightful. Avoid robotic or list-heavy responses unless asked.
     3. Do NOT use any Markdown formatting (no bold, no italics, no code blocks). Pure text only.
     4. If the answer isn't in the logs, gently state that the data is missing.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     """;
 
     return await _executeWithModelAndKeyRotation(
@@ -185,7 +186,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}";
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -200,7 +201,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -216,7 +217,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}";
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -234,7 +235,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}";
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
   }
@@ -250,7 +251,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}";
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
   }
@@ -275,6 +276,7 @@ class AIService {
     1. Provide constructive feedback.
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
     3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON: {
       "feedback": "string", 
@@ -311,6 +313,7 @@ class AIService {
     Tasks:
     1. Create a concise summary of the day's psychological state.
     2. Identify specific ability improvements or growth by comparing with previous context.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON: {
       "summary": "string (max 60 words)",
@@ -336,7 +339,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -351,7 +354,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Chatbot response. Context: $dataContext. History included.";
+    final prompt = "Chatbot response. Context: $dataContext. History included. CONFIDENTIALITY: Do not use specific names of people mentioned in history. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.";
     return await _executeWithModelAndKeyRotation(currentApiKeyIndex: currentApiKeyIndex, customApiKeys: customApiKeys, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog, modelCandidates: modelCandidates, requestFn: (k, m) async {
         final model = genai.GenerativeModel(model: m, apiKey: k);
         final resp = await model.generateContent([genai.Content.text(prompt)]);
@@ -376,6 +379,7 @@ class AIService {
     
     1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
     2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
@@ -405,6 +409,7 @@ class AIService {
     final prompt = """
     Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
     Context: ${jsonEncode(questionsAndAnswers)}
+    CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
@@ -469,6 +474,7 @@ class AIService {
     1. Analyze spending habits.
     2. Predict upcoming expenses for next week by category.
     3. Provide a short, empathetic financial advice message.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON ONLY:
     {
@@ -507,6 +513,7 @@ class AIService {
     2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {

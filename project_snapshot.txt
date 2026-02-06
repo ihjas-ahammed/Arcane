@@ -1,10 +1,583 @@
 
+--- START OF FILE lib/src/utils/ai_context_helper.dart ---
+import 'package:arcane/src/models/value_models.dart';
+
+class AiContextHelper {
+  /// Serializes LifeValues into a simplified map structure for AI context.
+  /// Includes current answers so the AI can decide whether to append or refine.
+  static List<Map<String, dynamic>> serializeValues(List<LifeValue> values) {
+    return values.map((v) => {
+      'id': v.id,
+      'title': v.title,
+      'description': v.description,
+      'questions': v.questions.map((q) => {
+        'id': q.id,
+        'question': q.question,
+        'current_answer': q.answer
+      }).toList()
+    }).toList();
+  }
+}
+--- END OF FILE lib/src/utils/ai_context_helper.dart ---
+
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+
+class AIService {
+  // Helper to clean markdown from JSON response
+  String _cleanJsonString(String raw) {
+    String jsonString = raw.trim();
+    int jsonStart = jsonString.indexOf('{');
+    int jsonEnd = jsonString.lastIndexOf('}');
+
+    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
+    }
+
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
+    } else if (jsonString.startsWith("```")) {
+      jsonString = jsonString.replaceAll("```", "");
+    }
+
+    return jsonString.trim();
+  }
+
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final List<String> apiKeysToTry = [
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    ].toSet().toList();
+
+    if (apiKeysToTry.isEmpty) {
+      throw Exception("No valid Gemini API keys found.");
+    }
+
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
+
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
+
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+        }
+      }
+    }
+    throw Exception(
+        "All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response =
+            await model.generateContent([genai.Content.text(prompt)]);
+
+        String? rawResponseText = response.text;
+        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+          throw Exception("AI response was empty.");
+        }
+        try {
+          String jsonString = _cleanJsonString(rawResponseText);
+          return jsonDecode(jsonString);
+        } catch (e) {
+          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
+          throw Exception("Failed to parse JSON from AI response.");
+        }
+      },
+    );
+  }
+
+  Future<String> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are the "Neural Archive", an empathetic and highly intelligent system interface for the user's life logs.
+    
+    Here are the logs from the requested timeline:
+    $logsContext
+    
+    USER QUERY: "$query"
+    
+    INSTRUCTIONS:
+    1. Answer the user's query based strictly on the provided logs.
+    2. Be empathetic, human-like, and insightful. Avoid robotic or list-heavy responses unless asked.
+    3. Do NOT use any Markdown formatting (no bold, no italics, no code blocks). Pure text only.
+    4. If the answer isn't in the logs, gently state that the data is missing.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        return response.text ?? "Archive data corrupted or empty.";
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
+    required String userPrompt,
+    required String contextData, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required String userTimezone,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a 24-hour schedule (starting NOW) for the user.
+    
+    CONTEXT:
+    User Timezone: $userTimezone
+    $contextData
+    
+    USER REQUEST: "$userPrompt"
+    
+    INSTRUCTIONS:
+    1. Generate a sequence of blocks covering the next 24 hours.
+    2. Be empathetic and realistic. 
+    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
+    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
+    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
+    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required List<String> modelCandidates,
+    required List<Map<String, dynamic>> userValues, 
+    List<Map<String, String>>? dailyReflections,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final prompt = """
+    Analyze this reflection log.
+    Context Values: ${jsonEncode(userValues)}
+    Trigger: $trigger
+    Emotion: $emotion
+    Reason: $reason
+    
+    1. Provide constructive feedback.
+    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON: {
+      "feedback": "string", 
+      "xp_allocation": {"Wisdom": int, ...},
+      "value_updates": [ { "valueId": "string", "questionId": "string", "suggestedAnswer": "string", "reason": "string" } ] (Optional, empty if none)
+    }
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings,
+    required List<Map<String, dynamic>> userValues, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a Tactical Briefing based on today's reflections.
+    Current Logs: ${jsonEncode(reflections)}
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    Values & Questions (Context): ${jsonEncode(userValues)}
+    
+    Tone: Empathetic, psychologically wise, tactical advisor.
+    
+    Tasks:
+    1. Create a concise summary of the day's psychological state.
+    2. Identify specific ability improvements or growth by comparing with previous context.
+    3. VALUE FINDER: Review the logs. Do they answer any of the user's Value Questions (provided in Context)? If yes, extract the answer. 
+       - If the question has no answer, propose the new text.
+       - If it has an answer, propose a text to APPEND or REFINE the existing one.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    
+    Output JSON: {
+      "summary": "string (max 60 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "value_updates": [ 
+         { 
+           "valueId": "string", 
+           "questionId": "string", 
+           "addition": "string (the new text to add)", 
+           "reason": "string (why this matches)" 
+         } 
+      ]
+    }
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<String> getChatbotResponse({
+    required List<String> modelCandidates,
+    required ChatbotMemory memory,
+    required String userMessage,
+    required String dataContext,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Chatbot response. Context: $dataContext. History included. CONFIDENTIALITY: Do not use specific names of people mentioned in history. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.";
+    return await _executeWithModelAndKeyRotation(currentApiKeyIndex: currentApiKeyIndex, customApiKeys: customApiKeys, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog, modelCandidates: modelCandidates, requestFn: (k, m) async {
+        final model = genai.GenerativeModel(model: m, apiKey: k);
+        final resp = await model.generateContent([genai.Content.text(prompt)]);
+        return resp.text ?? "Error";
+    });
+  }
+
+  // --- Value Analysis & Generation ---
+
+  Future<Map<String, dynamic>> analyzeValueAlignment({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the user's alignment with the value '$valueName'.
+    Q&A Data: ${jsonEncode(questionsAndAnswers)}
+    
+    1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
+    2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON ONLY:
+    {
+      "score": int,
+      "insight": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateTasksFromValues({
+    required String valueName,
+    required List<Map<String, String>> questionsAndAnswers,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
+    Context: ${jsonEncode(questionsAndAnswers)}
+    CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON ONLY:
+    {
+      "tasks": [
+        { "name": "string", "isCountable": boolean, "targetCount": int (0 if not countable), "type": "Task" }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['tasks'] as List?)?.map((t) => t as Map<String, dynamic>).toList() ?? [];
+  }
+  
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
+    }
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          if (methods.contains('generateContent')) {
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return [];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
+  }
+
+  // --- Finance Prediction ---
+  Future<Map<String, dynamic>> generateFinancePrediction({
+    required String transactionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze these wallet transactions:
+    $transactionsList
+    
+    1. Analyze spending habits.
+    2. Predict upcoming expenses for next week by category.
+    3. Provide a short, empathetic financial advice message.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    
+    Output JSON ONLY:
+    {
+      "message": "string",
+      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Start Day Report ---
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
+    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "directives": ["string", "string", "string"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+}
+
+--- END OF FILE lib/src/services/ai_service.dart ---
+
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/ai_context_helper.dart'; // Import Helper
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -881,14 +1454,63 @@ class AppProvider with ChangeNotifier {
 
   // --- START DAY REPORT ---
 
-  Future<void> generateStartDayReport() async {
+  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
     final today = helper.getTodayDateString();
     setLoadingTask("Initializing System...");
     try {
       final history = getLast7DaysData();
-      final report = await _aiService.generateStartDayReport(
+      final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
+      final report = await _aiService.generateDailySummary( // Reusing generateDailySummary logic for comprehensive report including values
+        reflections: [], // Or pass recent reflections if needed specifically, but generateDailySummary usually takes them.
+                         // Wait, generateStartDayReport in AIService is separate. Let's use that one or modify it.
+                         // The AIService.generateDailySummary was updated to include value finding.
+                         // But generateStartDayReport was separate. 
+                         // Let's check AIService.generateDailySummary vs generateStartDayReport.
+                         // AppProvider usually calls generateStartDayReport for startup. 
+                         // Let's stick to calling generateDailySummary here as it now has the logic we want (value finding), 
+                         // OR update generateStartDayReport in AIService to also find values.
+                         // The Prompt in AIService.generateDailySummary was updated.
+                         // Let's use generateDailySummary for this "Start Day" flow as it seems to be the one we updated.
+        // Actually, let's check what I updated. I updated `generateDailySummary` in `AIService` to include "VALUE FINDER".
+        // `generateStartDayReport` in `AIService` does NOT have "VALUE FINDER" logic in my update.
+        // I should probably use `generateDailySummary` logic or update `generateStartDayReport` too.
+        // The user asked "Each time I run system startup...". 
+        // "System Startup" usually refers to `generateStartDayReport`.
+        // I updated `generateDailySummary` in the previous step. 
+        // I should probably update `generateStartDayReport` in `AIService` as well to include Value Finding, or just use `generateDailySummary` context.
+        // Let's use `generateDailySummary` logic but called from here, or update `generateStartDayReport` in `AIService` to match.
+        // I will update `generateStartDayReport` in `AIService` (in the file content above I didn't update it yet, I updated `generateDailySummary`).
+        // Wait, I see I updated `generateDailySummary` in `AIService` in the previous step content.
+        // But `generateStartDayReport` in `AIService` is still the old one.
+        // I will update `generateStartDayReport` in `AIService` to also include Value Finding logic.
+        
+        // RE-READING my previous thought: "I updated `generateDailySummary`... I should probably update `generateStartDayReport`...".
+        // Okay, I will update `generateStartDayReport` in `AIService` in the file output to include value finder.
+        
+        // Actually, let's just use `generateDailySummary` here for the "Start Day" logic if it fits, 
+        // OR update `generateStartDayReport` in `AIService` to also find values. 
+        // `generateStartDayReport` output structure is different (forecast, metrics, directives).
+        // I will update `generateStartDayReport` in `AIService` to also return `value_updates`.
+        
+        reflections: [], // Not used in this call structure for StartDayReport usually?
+        previousBriefings: [], 
+        userValues: userValuesContext,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[StartDay] $msg")
+      );
+      
+      // Wait, I can't call `generateDailySummary` with empty reflections if I want Start Day logic.
+      // I need to call `generateStartDayReport` in AIService, which I will update to accept values.
+      
+      // Let's assume I updated `generateStartDayReport` in AIService to accept values.
+      final result = await _aiService.generateStartDayReport(
         reflectionsList: history['logs'],
         sessionsList: history['times'],
+        userValues: userValuesContext, // New Param
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
@@ -898,10 +1520,14 @@ class AppProvider with ChangeNotifier {
       
       if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
       if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
-      _completedByDay[today]['startDayReport'] = report;
+      _completedByDay[today]['startDayReport'] = result;
       _markDirty('history');
       _scheduleRealtimeSync();
       notifyListeners();
+
+      // Return value updates
+      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+
     } finally {
       setLoadingTask(null);
     }
@@ -1145,12 +1771,7 @@ class AppProvider with ChangeNotifier {
         .toList();
 
     // Prepare Value Context
-    final valuesContext = _lifeValues.map((v) => {
-      'id': v.id,
-      'title': v.title,
-      'description': v.description,
-      'questions': v.questions.map((q) => {'id': q.id, 'q': q.question, 'a': q.answer}).toList()
-    }).toList();
+    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
 
     setLoadingTask("Analyzing Reflection...");
     
@@ -1159,7 +1780,6 @@ class AppProvider with ChangeNotifier {
         emotion: emotion,
         reason: reason,
         modelCandidates: settings.liteModels,
-        dailyReflections: dailyReflections,
         userValues: valuesContext, 
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
@@ -1307,6 +1927,8 @@ class AppProvider with ChangeNotifier {
   Future<Map<String, dynamic>> generateTacticalBriefing(
       String date, List<ReflectionLog> dailyLogs) async {
     final context = _getRecentBriefingsForContext();
+    final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
     final result = await _aiService.generateDailySummary(
       reflections: dailyLogs.map((l) => {
         'trigger': l.trigger,
@@ -1314,6 +1936,7 @@ class AppProvider with ChangeNotifier {
         'reason': l.reason,
       }).toList(),
       previousBriefings: context,
+      userValues: userValuesContext,
       modelCandidates: settings.liteModels,
       currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
@@ -1585,226 +2208,619 @@ class AppProvider with ChangeNotifier {
 }
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
---- START OF FILE lib/src/providers/actions/timer_actions.dart ---
-// lib/src/providers/actions/timer_actions.dart
+--- START OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/ui/chart_carousel.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/utils/chart_data_helper.dart'; 
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
+import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart'; // Import Confirm Dialog
+import 'package:arcane/src/screens/neural_archive_screen.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:collection/collection.dart';
 
-class TimerActions {
-  final AppProvider _provider;
+class DailySummaryView extends StatefulWidget {
+  const DailySummaryView({super.key});
 
-  TimerActions(this._provider);
+  @override
+  State<DailySummaryView> createState() => _DailySummaryViewState();
+}
 
-  void startTimer(String id, String type, String mainTaskId) {
-    // 1. Validation: Prevent starting timer on completed tasks or invalid IDs
-    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (mainTask == null) return; 
+class _DailySummaryViewState extends State<DailySummaryView> {
+  String? _selectedDate;
+  String? _selectedTaskFilter;
+  String? _selectedVirtueFilter;
+  bool _isGeneratingSummary = false;
+  bool _isGeneratingWeeklyReport = false;
+  bool _isGeneratingStartDay = false;
+  
+  Map<String, dynamic>? _tempGeneratedBriefing;
 
-    if (type == 'subtask') {
-      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
-      if (subTask == null) return;
-      if (subTask.completed) {
-         // Cannot start timer on completed task
-         return; 
-      }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_selectedDate == null) {
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      _selectedDate = today;
     }
+  }
 
-    // 2. Enforce Single Timer Rule: Stop OTHER running timers
-    // We iterate through a copy of active timers to safely modify state
-    final runningTimerIds = _provider.activeTimers.entries
-        .where((e) => e.value.isRunning && e.key != id)
-        .map((e) => e.key)
-        .toList();
-
-    for (var timerId in runningTimerIds) {
-      // Pause acts as "stop and save" for running session
-      pauseTimer(timerId); 
-    }
-
-    // 3. Start New Timer
-    Map<String, ActiveTimerInfo> updatedActiveTimers =
-        Map.from(_provider.activeTimers);
-
-    final existingTimer = updatedActiveTimers[id];
-    updatedActiveTimers[id] = ActiveTimerInfo(
-      startTime: DateTime.now(),
-      accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
-      isRunning: true,
-      type: type,
-      mainTaskId: mainTaskId,
+  void _navigateToReflectionEditor(BuildContext context, {ReflectionLog? initialLog}) {
+    final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReflectionEditorScreen(
+          initialLog: initialLog,
+          dateStr: dateStr,
+        ),
+      ),
     );
+  }
+
+  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
+    if (type == 'Reflection') {
+      final logId = currentValue['id'];
+      final log = provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log != null) {
+        _navigateToReflectionEditor(context, initialLog: log);
+      }
+      return;
+    }
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final Set<String> validDates = {};
+    validDates.addAll(appProvider.completedByDay.keys);
     
-    // This triggers notifyListeners and saves via AppProvider
-    _provider.setProviderState(activeTimers: updatedActiveTimers);
+    for (var log in appProvider.reflectionLogs) {
+      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
+    }
+    
+    final today = DateTime.now();
+    validDates.add(DateFormat('yyyy-MM-dd').format(today));
+    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
+
+    final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      selectableDayPredicate: (DateTime date) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
+      },
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppTheme.fhAccentTeal,
+              onPrimary: AppTheme.fhTextPrimary,
+              surface: AppTheme.fhBgDark,
+              onSurface: AppTheme.fhTextPrimary,
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+        _tempGeneratedBriefing = null; 
+      });
+    }
   }
 
-  void pauseTimer(String id) {
-    final timer = _provider.activeTimers[id];
-    if (timer != null && timer.isRunning) {
-      // 1. Commit the current active session to log
-      _commitSessionAndPause(id, timer);
+  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
+    if (_selectedDate == null) return;
+    
+    setState(() => _isGeneratingSummary = true);
+    
+    try {
+      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
+      
+      setState(() {
+        _tempGeneratedBriefing = briefingData;
+      });
 
-      // 2. Update timer state to paused
-      final double elapsed =
-          (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
-      final newActiveTimers =
-          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-      newActiveTimers[id] = ActiveTimerInfo(
-        startTime: DateTime.now(), // Reset start for next resume
-        accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
-        isRunning: false,
-        type: timer.type,
-        mainTaskId: timer.mainTaskId,
+      // Handle Value Updates from Briefing
+      final valueUpdates = briefingData['value_updates'] as List<dynamic>?;
+      if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
+        _processValueUpdates(provider, valueUpdates);
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingSummary = false);
+    }
+  }
+
+  Future<void> _generateWeeklyReport(AppProvider provider) async {
+    setState(() => _isGeneratingWeeklyReport = true);
+    try {
+      final data = provider.getLast7DaysData();
+      final aiService = provider.aiService;
+      
+      final result = await aiService.generateWeeklyReport(
+        logsText: data['logs'] as String,
+        timeStatsText: data['times'] as String,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
       );
-      _provider.setProviderState(activeTimers: newActiveTimers);
-    }
-  }
 
-  void logTimerAndReset(String id) {
-    final timer = _provider.activeTimers[id];
-    if (timer != null) {
-      // If running, log the final chunk
-      if (timer.isRunning) {
-        _commitSessionAndPause(id, timer);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => WeeklyReportDialog(reportData: result),
+        );
       }
-
-      // Remove the active timer state entirely (Reset)
-      final newActiveTimers =
-          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-      newActiveTimers.remove(id);
-      _provider.setProviderState(activeTimers: newActiveTimers);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
     }
   }
 
-  // Helper to push the session to the task log
-  void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
-    final now = DateTime.now();
-    final start = timer.startTime;
+  Future<void> _generateStartDayReport(AppProvider provider) async {
+    setState(() => _isGeneratingStartDay = true);
+    try {
+      final valueUpdates = await provider.generateStartDayReport();
+      
+      if (valueUpdates.isNotEmpty && mounted) {
+        _processValueUpdates(provider, valueUpdates);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isGeneratingStartDay = false);
+    }
+  }
 
-    // Only log if there's actual time elapsed (> 0ms, effectively)
-    if (now.isAfter(start)) {
-      if (timer.type == 'subtask') {
-        _provider.addSessionToSubtask(timer.mainTaskId, id, start, now);
+  Future<void> _processValueUpdates(AppProvider provider, List<dynamic> valueUpdates) async {
+    for (var update in valueUpdates) {
+      if (update is Map) {
+        final updateMap = update as Map<String, dynamic>;
+        
+        // Normalize structure if keys differ (from 'addition' to 'suggestedAnswer' logic)
+        // Note: The dialog expects 'suggestedAnswer'. The AI returns 'addition' sometimes based on prompt.
+        // Let's normalize it here.
+        if (updateMap['suggestedAnswer'] == null && updateMap['addition'] != null) {
+           // We need to fetch current answer to append? 
+           // Or does the dialog handle it?
+           // The Dialog logic simply shows 'suggestedAnswer'.
+           // Let's construct the full answer here if it's an append.
+           
+           final valueId = updateMap['valueId'];
+           final questionId = updateMap['questionId'];
+           final addition = updateMap['addition'];
+           
+           String currentAnswer = '';
+           try {
+             final v = provider.lifeValues.firstWhere((v) => v.id == valueId);
+             final q = v.questions.firstWhere((q) => q.id == questionId);
+             currentAnswer = q.answer;
+           } catch (_) {}
+           
+           if (currentAnswer.isNotEmpty) {
+             updateMap['suggestedAnswer'] = "$currentAnswer\n\n[UPDATE]: $addition";
+           } else {
+             updateMap['suggestedAnswer'] = addition;
+           }
+        }
+
+        final shouldUpdate = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => ValueUpdateConfirmDialog(
+            updateData: updateMap
+          )
+        );
+
+        if (shouldUpdate == true) {
+          provider.updateValueAnswer(
+            updateMap['valueId'], 
+            updateMap['questionId'], 
+            updateMap['suggestedAnswer']
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
+            );
+          }
+        }
       }
     }
-  }
-}
---- END OF FILE lib/src/providers/actions/timer_actions.dart ---
-
---- START OF FILE lib/src/widgets/ui/active_session_timer_display.dart ---
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-
-class ActiveSessionTimerDisplay extends StatefulWidget {
-  final bool isRunning;
-  final DateTime? startTime;
-  final double totalTodaySeconds;
-
-  const ActiveSessionTimerDisplay({
-    super.key,
-    required this.isRunning,
-    required this.startTime,
-    required this.totalTodaySeconds,
-  });
-
-  @override
-  State<ActiveSessionTimerDisplay> createState() =>
-      _ActiveSessionTimerDisplayState();
-}
-
-class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
-  Timer? _timer;
-  String _displayTime = "00:00";
-
-  @override
-  void initState() {
-    super.initState();
-    _updateTime();
-    if (widget.isRunning) {
-      _startTicker();
-    }
-  }
-
-  @override
-  void didUpdateWidget(ActiveSessionTimerDisplay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isRunning != oldWidget.isRunning) {
-      if (widget.isRunning) {
-        _startTicker();
-      } else {
-        _stopTicker();
-      }
-    }
-    _updateTime();
-  }
-
-  @override
-  void dispose() {
-    _stopTicker();
-    super.dispose();
-  }
-
-  void _startTicker() {
-    _stopTicker();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) _updateTime();
-    });
-  }
-
-  void _stopTicker() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _updateTime() {
-    setState(() {
-      if (widget.isRunning && widget.startTime != null) {
-        // Show Current Session Elapsed Time
-        final elapsed =
-            DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
-        _displayTime = helper.formatTime(elapsed);
-      } else {
-        // Show Total Day Time
-        _displayTime = helper.formatTime(widget.totalTodaySeconds);
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.isRunning ? "CURRENT SESSION" : "TOTAL TODAY",
-          style: TextStyle(
-            color: widget.isRunning
-                ? AppTheme.fhAccentRed
-                : AppTheme.fhTextSecondary,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            fontSize: 10,
+    final appProvider = Provider.of<AppProvider>(context);
+    
+    final chartData = ChartDataHelper.prepareWeeklyData(
+      appProvider, 
+      _selectedDate, 
+      _selectedTaskFilter, 
+      _selectedVirtueFilter
+    );
+
+    final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
+    final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
+    
+    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
+    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+            final d = DateTime.parse(_selectedDate!);
+            return l.timestamp.year == d.year &&
+                l.timestamp.month == d.month &&
+                l.timestamp.day == d.day;
+          }).toList()
+        : [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(MdiIcons.archiveSearchOutline, size: 20, color: AppTheme.fhAccentPurple),
+                    tooltip: "NEURAL ARCHIVE",
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NeuralArchiveScreen())),
+                  ),
+                  TextButton.icon(
+                    icon: _isGeneratingWeeklyReport 
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.fileChartOutline, size: 16),
+                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                  ),
+                ],
+              )
+            ],
           ),
-        ),
-        const SizedBox(height: 4),
-        // Use FittedBox to prevent overflow on smaller screens
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            _displayTime,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontFamily: AppTheme.fontDisplay,
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 12),
+          ChartCarousel(
+            height: 250,
+            pages: [
+              ChartCarouselData(
+                title: "7-DAY PERFORMANCE",
+                chart: WeeklyActivityBarChart(
+                  weeklyData: chartData['activityData'],
+                  dominantColors: chartData['activityColors'],
+                  isVirtue: false,
+                ),
+              ),
+              ChartCarouselData(
+                title: "VIRTUE GROWTH",
+                chart: WeeklyVirtueBarChart(
+                  weeklyXp: chartData['virtueData'],
+                  dominantVirtueColors: chartData['virtueColors'],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          
+          InkWell(
+            onTap: () => _pickDate(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                border: Border.all(color: AppTheme.fhBorderColor),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "INSPECT DATE", 
+                        style: TextStyle(
+                          color: AppTheme.fhTextSecondary, 
+                          fontSize: 10, 
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2
+                        )
+                      ),
+                      Text(
+                        _selectedDate ?? 'TODAY', 
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontDisplay, 
+                          letterSpacing: 1.0, 
+                          fontSize: 18,
+                          color: AppTheme.fhTextPrimary,
+                          fontWeight: FontWeight.bold
+                        )
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
+                ],
+              ),
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // START DAY REPORT
+          if (startDayReport != null)
+            StartDayReportCard(
+              report: startDayReport,
+              isRegenerating: _isGeneratingStartDay,
+              onRegenerate: () => _generateStartDayReport(appProvider),
+            )
+          else if (isToday)
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
+                icon: MdiIcons.power,
+                isPrimary: true,
+                color: AppTheme.fhAccentTeal,
+                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          Row(
+            children: [
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: TimePieChart(
+                          taskData: chartData['dailyTaskTimeData'],
+                          taskColors: chartData['taskColors'],
+                          selectedTask: _selectedTaskFilter,
+                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ValorantCard(
+                  child: Column(
+                    children: [
+                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 150,
+                        child: VirtuePieChart(
+                          logs: reflectionsForDate,
+                          selectedVirtue: _selectedVirtueFilter,
+                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // TACTICAL BRIEFING SECTION
+          if (displayBriefing != null)
+            TacticalBriefingCard(
+              briefingData: displayBriefing,
+              isSaved: savedBriefing != null,
+              onSave: savedBriefing == null 
+                ? () {
+                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                    setState(() {});
+                  } 
+                : null,
+            )
+          else
+            ValorantCard(
+              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
+              child: Column(
+                children: [
+                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ValorantButton(
+                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
+                      isPrimary: false,
+                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
+                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                    ),
+                  )
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 24),
+          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("REFLECTIONS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal),
+                onPressed: () => _navigateToReflectionEditor(context),
+              )
+            ],
+          ),
+          if (reflectionsForDate.isEmpty)
+             const Padding(
+               padding: EdgeInsets.all(8.0),
+               child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
+             )
+          else
+            ...reflectionsForDate.asMap().entries.map((entry) {
+              final log = entry.value;
+              return GestureDetector(
+                onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
+                  'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
+                }),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                    border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                      const SizedBox(height: 4),
+                      Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/value_update_confirm_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ValueUpdateConfirmDialog extends StatelessWidget {
+  final Map<String, dynamic> updateData;
+
+  const ValueUpdateConfirmDialog({super.key, required this.updateData});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Find value and question for context display
+    String valueTitle = "Protocol";
+    String questionText = "Question";
+    try {
+      final value = provider.lifeValues.firstWhere((v) => v.id == updateData['valueId']);
+      valueTitle = value.title;
+      final q = value.questions.firstWhere((q) => q.id == updateData['questionId']);
+      questionText = q.question;
+    } catch (_) {}
+
+    final suggestedAnswer = updateData['suggestedAnswer'] ?? '...';
+    // Simple check if it's an append operation by looking for newline or specific marker we added
+    final bool isAppend = suggestedAnswer.contains('\n\n[UPDATE]:');
+
+    return AlertDialog(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      title: Row(
+        children: [
+          Icon(MdiIcons.databaseSyncOutline, color: AppTheme.fhAccentTeal),
+          const SizedBox(width: 8),
+          const Text("PROTOCOL UPDATE DETECTED", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Based on your logs, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+            const SizedBox(height: 16),
+            
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppTheme.fhBgDark, border: Border.all(color: AppTheme.fhBorderColor)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("PROTOCOL: $valueTitle", style: const TextStyle(color: AppTheme.fhAccentPurple, fontSize: 10, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text("Q: $questionText", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 12),
+                  Text(
+                    isAppend ? "APPENDING NEW DATA:" : "SUGGESTED ANSWER:", 
+                    style: TextStyle(
+                      color: isAppend ? AppTheme.fhAccentGreen : AppTheme.fhAccentTeal, 
+                      fontSize: 10, 
+                      fontWeight: FontWeight.bold
+                    )
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    suggestedAnswer, 
+                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, height: 1.4)
+                  ),
+                ],
+              ),
+            ),
+            
+            if (updateData['reason'] != null) ...[
+              const SizedBox(height: 12),
+              Text("REASON: ${updateData['reason']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
+            ]
+          ],
         ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("IGNORE"),
+        ),
+        ValorantButton(
+          label: isAppend ? "APPEND DATA" : "UPDATE PROTOCOL",
+          onPressed: () => Navigator.pop(context, true),
+          isPrimary: true,
+        )
       ],
     );
   }
 }
---- END OF FILE lib/src/widgets/ui/active_session_timer_display.dart ---
+--- END OF FILE lib/src/widgets/dialogs/value_update_confirm_dialog.dart ---

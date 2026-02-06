@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/system_metric_widget.dart';
+import 'package:arcane/src/widgets/ui/tactical_directives_list.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -32,16 +33,18 @@ class StartDayReportCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(0),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.fhBgDeepDark,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16)
+        ),
         border: Border.all(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.fhAccentTeal.withValues(alpha: 0.1),
-            blurRadius: 15,
-            spreadRadius: 2,
+            color: AppTheme.fhAccentTeal.withValues(alpha: 0.05),
+            blurRadius: 20,
+            spreadRadius: 0,
           )
         ],
       ),
@@ -50,15 +53,15 @@ class StartDayReportCard extends StatelessWidget {
         children: [
           // HEADER
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.fhAccentTeal.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: AppTheme.fhBgDark,
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.3))),
             ),
             child: Row(
               children: [
-                Icon(MdiIcons.chartBellCurveCumulative, color: AppTheme.fhAccentTeal, size: 22),
+                Icon(MdiIcons.chartBellCurveCumulative, color: AppTheme.fhAccentTeal, size: 20),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
@@ -66,7 +69,7 @@ class StartDayReportCard extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: AppTheme.fontDisplay,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 16,
                       color: AppTheme.fhTextPrimary,
                       letterSpacing: 1.5,
                     ),
@@ -75,10 +78,12 @@ class StartDayReportCard extends StatelessWidget {
                 if (onRegenerate != null)
                   IconButton(
                     icon: isRegenerating 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentTeal))
-                      : Icon(MdiIcons.refresh, size: 20, color: AppTheme.fhTextSecondary),
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentTeal))
+                      : Icon(MdiIcons.refresh, size: 18, color: AppTheme.fhTextSecondary),
                     onPressed: isRegenerating ? null : onRegenerate,
                     tooltip: "Re-calculate",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   )
               ],
             ),
@@ -86,30 +91,39 @@ class StartDayReportCard extends StatelessWidget {
 
           // FORECAST BODY
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Forecast Text
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.fhBgDeepDark,
-                    border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
+                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                    border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 2)),
                   ),
-                  child: Text(
-                    forecast,
-                    style: const TextStyle(
-                      color: AppTheme.fhTextPrimary,
-                      height: 1.5,
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("SYSTEM PREDICTION", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      const SizedBox(height: 8),
+                      Text(
+                        forecast,
+                        style: const TextStyle(
+                          color: AppTheme.fhTextPrimary,
+                          height: 1.4,
+                          fontSize: 13,
+                          fontFamily: "RobotoMono"
+                        ),
+                      ),
+                    ],
                   ),
                 ).animate().fadeIn(duration: 600.ms),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-                // METRICS
+                // METRICS & DIRECTIVES GRID (Responsive logic via Column for mobile)
                 if (metrics.isNotEmpty) ...[
                   const Text(
                     "SYSTEM STATUS",
@@ -122,7 +136,6 @@ class StartDayReportCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   ...metrics.map((m) {
-                    // Try parse color
                     Color? c;
                     if (m['color_hex'] != null) {
                       try {
@@ -139,48 +152,26 @@ class StartDayReportCard extends StatelessWidget {
                       ),
                     );
                   }),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                 ],
 
                 // DIRECTIVES
-                if (directives.isNotEmpty) ...[
-                  const Text(
-                    "TACTICAL DIRECTIVES",
-                    style: TextStyle(
-                      color: AppTheme.fhAccentPurple,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...directives.map((d) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Icon(MdiIcons.chevronRight, size: 14, color: AppTheme.fhAccentPurple),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            d,
-                            style: const TextStyle(
-                              color: AppTheme.fhTextPrimary,
-                              fontSize: 13,
-                              height: 1.3
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
-                ],
+                if (directives.isNotEmpty)
+                  TacticalDirectivesList(directives: directives),
               ],
             ),
           ),
+          
+          // Decorative footer line
+          Container(
+            height: 2,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.fhAccentTeal.withValues(alpha: 0.5), Colors.transparent]
+              )
+            ),
+          )
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.1, end: 0);
