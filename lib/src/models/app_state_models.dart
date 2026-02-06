@@ -1,5 +1,4 @@
 // lib/src/models/app_state_models.dart
-// For TimeOfDay
 
 class AppSettings {
   bool descriptionsVisible;
@@ -15,8 +14,6 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  List<String> walletCategories;
-  String userTimezone; // Added for Time Sync
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -40,8 +37,6 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-    this.walletCategories = const ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
-    this.userTimezone = 'Asia/Kolkata', // Default to India as requested
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -78,11 +73,6 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
-      walletCategories: (json['walletCategories'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['Food', 'Transport', 'Tech', 'Entertainment', 'Salary', 'Bills', 'General'],
-      userTimezone: json['userTimezone'] as String? ?? 'Asia/Kolkata',
     );
   }
   Map<String, dynamic> toJson() {
@@ -100,8 +90,6 @@ class AppSettings {
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
-      'walletCategories': walletCategories,
-      'userTimezone': userTimezone,
     };
   }
 }

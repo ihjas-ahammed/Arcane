@@ -4006,6 +4006,7 @@ import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/ai_context_helper.dart'; // Import Helper
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -4882,14 +4883,17 @@ class AppProvider with ChangeNotifier {
 
   // --- START DAY REPORT ---
 
-  Future<void> generateStartDayReport() async {
+  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
     final today = helper.getTodayDateString();
     setLoadingTask("Initializing System...");
     try {
       final history = getLast7DaysData();
-      final report = await _aiService.generateStartDayReport(
+      final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
+      final result = await _aiService.generateStartDayReport(
         reflectionsList: history['logs'],
         sessionsList: history['times'],
+        userValues: userValuesContext,
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
@@ -4899,10 +4903,14 @@ class AppProvider with ChangeNotifier {
       
       if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
       if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
-      _completedByDay[today]['startDayReport'] = report;
+      _completedByDay[today]['startDayReport'] = result;
       _markDirty('history');
       _scheduleRealtimeSync();
       notifyListeners();
+
+      // Return value updates to UI
+      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+
     } finally {
       setLoadingTask(null);
     }
@@ -5136,22 +5144,10 @@ class AppProvider with ChangeNotifier {
       required String reason,
       DateTime? timestamp}) async {
     final actualTimestamp = timestamp ?? DateTime.now();
-    final dailyReflections = _reflectionLogs
-        .where((log) =>
-            log.timestamp.year == actualTimestamp.year &&
-            log.timestamp.month == actualTimestamp.month &&
-            log.timestamp.day == actualTimestamp.day)
-        .map((r) =>
-            {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason})
-        .toList();
+    // Use reflectionLogs directly where needed, removed unused local variable
 
     // Prepare Value Context
-    final valuesContext = _lifeValues.map((v) => {
-      'id': v.id,
-      'title': v.title,
-      'description': v.description,
-      'questions': v.questions.map((q) => {'id': q.id, 'q': q.question, 'a': q.answer}).toList()
-    }).toList();
+    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
 
     setLoadingTask("Analyzing Reflection...");
     
@@ -5160,7 +5156,6 @@ class AppProvider with ChangeNotifier {
         emotion: emotion,
         reason: reason,
         modelCandidates: settings.liteModels,
-        dailyReflections: dailyReflections,
         userValues: valuesContext, 
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
@@ -5168,9 +5163,10 @@ class AppProvider with ChangeNotifier {
     setLoadingTask(null);
 
     Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map)
+    if (result['xp_allocation'] is Map) {
       (result['xp_allocation'] as Map).forEach((key, value) =>
           xpAllocation[key.toString()] = (value as num).toInt());
+    }
 
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
@@ -5308,6 +5304,8 @@ class AppProvider with ChangeNotifier {
   Future<Map<String, dynamic>> generateTacticalBriefing(
       String date, List<ReflectionLog> dailyLogs) async {
     final context = _getRecentBriefingsForContext();
+    final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
     final result = await _aiService.generateDailySummary(
       reflections: dailyLogs.map((l) => {
         'trigger': l.trigger,
@@ -5315,6 +5313,7 @@ class AppProvider with ChangeNotifier {
         'reason': l.reason,
       }).toList(),
       previousBriefings: context,
+      userValues: userValuesContext,
       modelCandidates: settings.liteModels,
       currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
@@ -12026,7 +12025,8 @@ class AIService {
 
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
-    required List<String> previousBriefings, 
+    required List<String> previousBriefings,
+    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -12037,17 +12037,29 @@ class AIService {
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    Values & Questions (Context): ${jsonEncode(userValues)}
     
     Tone: Empathetic, psychologically wise, tactical advisor.
     
     Tasks:
     1. Create a concise summary of the day's psychological state.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    3. VALUE FINDER: Review the logs. Do they answer any of the user's Value Questions (provided in Context)? If yes, extract the answer. 
+       - If the question has no answer, propose the new text.
+       - If it has an answer, propose a text to APPEND or REFINE the existing one.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 60 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "value_updates": [ 
+         { 
+           "valueId": "string", 
+           "questionId": "string", 
+           "suggestedAnswer": "string", 
+           "reason": "string" 
+         } 
+      ]
     }
     """;
     
@@ -12226,6 +12238,7 @@ class AIService {
   Future<Map<String, dynamic>> generateStartDayReport({
     required String reflectionsList,
     required String sessionsList,
+    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -12237,19 +12250,31 @@ class AIService {
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
+    Values & Questions: ${jsonEncode(userValues)}
     
     Task:
     1. Analyze the user's momentum.
     2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    5. VALUE FINDER: Review the logs/momentum. Do they answer any of the user's Value Questions? If yes, extract the answer.
+       - If the question has no answer, propose the new text.
+       - If it has an answer, propose a text to APPEND (start with "\\n\\n[UPDATE]: ") or REFINE the existing one.
+    6. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
       "forecast": "string",
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
+      "directives": ["string", "string", "string"],
+      "value_updates": [ 
+         { 
+           "valueId": "string", 
+           "questionId": "string", 
+           "suggestedAnswer": "string", 
+           "reason": "string" 
+         } 
+      ]
     }
     """;
 
@@ -12940,6 +12965,27 @@ class TaskCalculations {
 }
 --- END OF FILE lib/src/utils/task_calculations.dart ---
 
+--- START OF FILE lib/src/utils/ai_context_helper.dart ---
+import 'package:arcane/src/models/value_models.dart';
+
+class AiContextHelper {
+  /// Serializes LifeValues into a simplified map structure for AI context.
+  /// Includes current answers so the AI can decide whether to append or refine.
+  static List<Map<String, dynamic>> serializeValues(List<LifeValue> values) {
+    return values.map((v) => {
+      'id': v.id,
+      'title': v.title,
+      'description': v.description,
+      'questions': v.questions.map((q) => {
+        'id': q.id,
+        'question': q.question,
+        'current_answer': q.answer
+      }).toList()
+    }).toList();
+  }
+}
+--- END OF FILE lib/src/utils/ai_context_helper.dart ---
+
 --- START OF FILE lib/src/widgets/header_widget.dart ---
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:flutter/material.dart';
@@ -13014,10 +13060,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         if (appProvider.loadingTaskName != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark,
-              border: Border.all(color: AppTheme.fhAccentTeal),
-            ),
+            
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -13029,15 +13072,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                     valueColor:
                         AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "PROCESSING",
-                  style: TextStyle(
-                      color: AppTheme.fhAccentTeal,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0),
                 ),
               ],
             ),
@@ -17889,6 +17923,10 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
       questionText = q.question;
     } catch (_) {}
 
+    final suggestedAnswer = updateData['suggestedAnswer'] ?? '...';
+    // Simple check if it's an append operation by looking for newline or specific marker we added
+    final bool isAppend = suggestedAnswer.contains('\n\n[UPDATE]:');
+
     return AlertDialog(
       backgroundColor: AppTheme.fhBgDeepDark,
       title: Row(
@@ -17903,7 +17941,7 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Based on your reflection, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+            const Text("Based on your logs, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
             const SizedBox(height: 16),
             
             Container(
@@ -17916,9 +17954,19 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text("Q: $questionText", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
                   const SizedBox(height: 12),
-                  const Text("SUGGESTED ANSWER:", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(
+                    isAppend ? "APPENDING NEW DATA:" : "SUGGESTED ANSWER:", 
+                    style: TextStyle(
+                      color: isAppend ? AppTheme.fhAccentGreen : AppTheme.fhAccentTeal, 
+                      fontSize: 10, 
+                      fontWeight: FontWeight.bold
+                    )
+                  ),
                   const SizedBox(height: 4),
-                  Text(updateData['suggestedAnswer'] ?? '...', style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+                  Text(
+                    suggestedAnswer, 
+                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, height: 1.4)
+                  ),
                 ],
               ),
             ),
@@ -17936,7 +17984,7 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
           child: const Text("IGNORE"),
         ),
         ValorantButton(
-          label: "UPDATE PROTOCOL",
+          label: isAppend ? "APPEND DATA" : "UPDATE PROTOCOL",
           onPressed: () => Navigator.pop(context, true),
           isPrimary: true,
         )
@@ -24371,6 +24419,7 @@ import 'package:arcane/src/utils/chart_data_helper.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart'; // Import Confirm Dialog
 import 'package:arcane/src/screens/neural_archive_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
@@ -24488,6 +24537,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       setState(() {
         _tempGeneratedBriefing = briefingData;
       });
+
+      // Handle Value Updates from Briefing
+      final valueUpdates = briefingData['value_updates'] as List<dynamic>?;
+      if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
+        _processValueUpdates(provider, valueUpdates);
+      }
       
     } catch (e) {
       if (mounted) {
@@ -24532,11 +24587,70 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateStartDayReport(AppProvider provider) async {
     setState(() => _isGeneratingStartDay = true);
     try {
-      await provider.generateStartDayReport();
+      final valueUpdates = await provider.generateStartDayReport();
+      
+      if (valueUpdates.isNotEmpty && mounted) {
+        _processValueUpdates(provider, valueUpdates);
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
     } finally {
       if (mounted) setState(() => _isGeneratingStartDay = false);
+    }
+  }
+
+  Future<void> _processValueUpdates(AppProvider provider, List<dynamic> valueUpdates) async {
+    for (var update in valueUpdates) {
+      if (update is Map) {
+        final updateMap = update as Map<String, dynamic>;
+        
+        // Normalize structure if keys differ (from 'addition' to 'suggestedAnswer' logic)
+        // Note: The dialog expects 'suggestedAnswer'. The AI returns 'addition' sometimes based on prompt.
+        // Let's normalize it here.
+        if (updateMap['suggestedAnswer'] == null && updateMap['addition'] != null) {
+           // We need to fetch current answer to append? 
+           // Or does the dialog handle it?
+           // The Dialog logic simply shows 'suggestedAnswer'.
+           // Let's construct the full answer here if it's an append.
+           
+           final valueId = updateMap['valueId'];
+           final questionId = updateMap['questionId'];
+           final addition = updateMap['addition'];
+           
+           String currentAnswer = '';
+           try {
+             final v = provider.lifeValues.firstWhere((v) => v.id == valueId);
+             final q = v.questions.firstWhere((q) => q.id == questionId);
+             currentAnswer = q.answer;
+           } catch (_) {}
+           
+           if (currentAnswer.isNotEmpty) {
+             updateMap['suggestedAnswer'] = "$currentAnswer\n\n[UPDATE]: $addition";
+           } else {
+             updateMap['suggestedAnswer'] = addition;
+           }
+        }
+
+        final shouldUpdate = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => ValueUpdateConfirmDialog(
+            updateData: updateMap
+          )
+        );
+
+        if (shouldUpdate == true) {
+          provider.updateValueAnswer(
+            updateMap['valueId'], 
+            updateMap['questionId'], 
+            updateMap['suggestedAnswer']
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
+            );
+          }
+        }
+      }
     }
   }
 

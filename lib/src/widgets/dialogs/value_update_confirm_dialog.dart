@@ -24,13 +24,17 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
       questionText = q.question;
     } catch (_) {}
 
+    final suggestedAnswer = updateData['suggestedAnswer'] ?? '...';
+    // Simple check if it's an append operation by looking for newline or specific marker we added
+    final bool isAppend = suggestedAnswer.contains('\n\n[UPDATE]:');
+
     return AlertDialog(
       backgroundColor: AppTheme.fhBgDeepDark,
       title: Row(
         children: [
           Icon(MdiIcons.databaseSyncOutline, color: AppTheme.fhAccentTeal),
           const SizedBox(width: 8),
-          const Text("PROTOCOL UPDATE DETECTED", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
+          const Text("VALUES UPDATE", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
         ],
       ),
       content: SingleChildScrollView(
@@ -38,7 +42,7 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Based on your reflection, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+            const Text("Based on your logs, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
             const SizedBox(height: 16),
             
             Container(
@@ -51,9 +55,19 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text("Q: $questionText", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
                   const SizedBox(height: 12),
-                  const Text("SUGGESTED ANSWER:", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(
+                    isAppend ? "APPENDING NEW DATA:" : "SUGGESTED ANSWER:", 
+                    style: TextStyle(
+                      color: isAppend ? AppTheme.fhAccentGreen : AppTheme.fhAccentTeal, 
+                      fontSize: 10, 
+                      fontWeight: FontWeight.bold
+                    )
+                  ),
                   const SizedBox(height: 4),
-                  Text(updateData['suggestedAnswer'] ?? '...', style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+                  Text(
+                    suggestedAnswer, 
+                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, height: 1.4)
+                  ),
                 ],
               ),
             ),
@@ -71,7 +85,7 @@ class ValueUpdateConfirmDialog extends StatelessWidget {
           child: const Text("IGNORE"),
         ),
         ValorantButton(
-          label: "UPDATE PROTOCOL",
+          label: isAppend ? "APPEND DATA" : "UPDATE PROTOCOL",
           onPressed: () => Navigator.pop(context, true),
           isPrimary: true,
         )

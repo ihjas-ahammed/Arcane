@@ -8,7 +8,6 @@ const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
-const String _docWallet = 'wallet';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -30,10 +29,9 @@ class StorageService {
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final walletSnap = await _dataDocRef(userId, _docWallet).get();
 
       bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists || walletSnap.exists;
+          tasksSnap.exists || historySnap.exists || settingsSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -41,7 +39,6 @@ class StorageService {
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (walletSnap.exists) fullData.addAll(walletSnap.data()!);
         return fullData;
       }
 
@@ -70,10 +67,6 @@ class StorageService {
 
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async {
     return _saveChunk(userId, _docSettings, data);
-  }
-
-  Future<bool> saveWallet(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docWallet, data);
   }
 
   Future<bool> _saveChunk(
@@ -106,7 +99,6 @@ class StorageService {
       batch.delete(_dataDocRef(userId, _docHistory));
       batch.delete(_dataDocRef(userId, _docReflections));
       batch.delete(_dataDocRef(userId, _docSettings));
-      batch.delete(_dataDocRef(userId, _docWallet));
       await batch.commit();
       return true;
     } catch (e) {
@@ -118,36 +110,30 @@ class StorageService {
     if (userId.isEmpty) return false;
 
     final tasksData = <String, dynamic>{};
-    if (fullData.containsKey('mainTasks'))
+    if (fullData.containsKey('mainTasks')) {
       tasksData['mainTasks'] = fullData['mainTasks'];
+    }
 
     final historyData = <String, dynamic>{};
-    if (fullData.containsKey('completedByDay'))
+    if (fullData.containsKey('completedByDay')) {
       historyData['completedByDay'] = fullData['completedByDay'];
+    }
 
     final reflectionsData = <String, dynamic>{};
-    if (fullData.containsKey('reflectionLogs'))
+    if (fullData.containsKey('reflectionLogs')) {
       reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
-
-    final walletData = <String, dynamic>{};
-    if (fullData.containsKey('walletTransactions'))
-      walletData['walletTransactions'] = fullData['walletTransactions'];
-    if (fullData.containsKey('financePrediction'))
-      walletData['financePrediction'] = fullData['financePrediction'];
+    }
 
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
-    settingsData.remove('walletTransactions');
-    settingsData.remove('financePrediction');
 
     try {
       final batch = _firestore.batch();
       batch.set(_dataDocRef(userId, _docTasks), tasksData);
       batch.set(_dataDocRef(userId, _docHistory), historyData);
       batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_dataDocRef(userId, _docWallet), walletData);
       batch.set(_dataDocRef(userId, _docSettings), settingsData);
       await batch.commit();
       return true;

@@ -139,45 +139,6 @@ class AIService {
     );
   }
 
-  Future<List<Map<String, dynamic>>> generateTimeSyncSchedule({
-    required String userPrompt,
-    required String contextData, 
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required String userTimezone,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Create a 24-hour schedule (starting NOW) for the user.
-    
-    CONTEXT:
-    User Timezone: $userTimezone
-    $contextData
-    
-    USER REQUEST: "$userPrompt"
-    
-    INSTRUCTIONS:
-    1. Generate a sequence of blocks covering the next 24 hours.
-    2. Be empathetic and realistic. 
-    3. Respect natural sleep cycles (avoid scheduling work/study 23:00-07:00 unless explicitly asked).
-    4. Account for prayer times/local culture based on timezone $userTimezone if relevant or requested.
-    5. Types: 'focus' (work/study), 'routine' (food/commute), 'rest' (sleep/break), 'leisure' (fun).
-    6. Output JSON ONLY: { "blocks": [ { "offset_minutes": int (minutes from now), "duration_minutes": int, "title": "string", "description": "string", "type": "string" } ] }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-        
-    return (result['blocks'] as List?)?.map((b) => b as Map<String, dynamic>).toList() ?? [];
-  }
-
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
     required String userPrompt,
@@ -296,7 +257,8 @@ class AIService {
 
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
-    required List<String> previousBriefings, 
+    required List<String> previousBriefings,
+    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -307,17 +269,29 @@ class AIService {
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    Values & Questions (Context): ${jsonEncode(userValues)}
     
     Tone: Empathetic, psychologically wise, tactical advisor.
     
     Tasks:
     1. Create a concise summary of the day's psychological state.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    3. VALUE FINDER: Review the logs. Do they answer any of the user's Value Questions (provided in Context)? If yes, extract the answer. 
+       - If the question has no answer, propose the new text.
+       - If it has an answer, propose a text to APPEND or REFINE the existing one.
+    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 60 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "value_updates": [ 
+         { 
+           "valueId": "string", 
+           "questionId": "string", 
+           "suggestedAnswer": "string", 
+           "reason": "string" 
+         } 
+      ]
     }
     """;
     
@@ -458,44 +432,11 @@ class AIService {
     }
   }
 
-  // --- Finance Prediction ---
-  Future<Map<String, dynamic>> generateFinancePrediction({
-    required String transactionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze these wallet transactions:
-    $transactionsList
-    
-    1. Analyze spending habits.
-    2. Predict upcoming expenses for next week by category.
-    3. Provide a short, empathetic financial advice message.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
-    
-    Output JSON ONLY:
-    {
-      "message": "string",
-      "predictions": [ { "category": "string", "amount": number, "reason": "string" } ]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
   // --- Start Day Report ---
   Future<Map<String, dynamic>> generateStartDayReport({
     required String reflectionsList,
     required String sessionsList,
+    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -507,19 +448,31 @@ class AIService {
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
+    Values & Questions: ${jsonEncode(userValues)}
     
     Task:
     1. Analyze the user's momentum.
     2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    5. VALUE FINDER: Review the logs/momentum. Do they answer any of the user's Value Questions? If yes, extract the answer.
+       - If the question has no answer, propose the new text.
+       - If it has an answer, propose a text to APPEND (start with "\\n\\n[UPDATE]: ") or REFINE the existing one.
+    6. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
       "forecast": "string",
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
+      "directives": ["string", "string", "string"],
+      "value_updates": [ 
+         { 
+           "valueId": "string", 
+           "questionId": "string", 
+           "suggestedAnswer": "string", 
+           "reason": "string" 
+         } 
+      ]
     }
     """;
 

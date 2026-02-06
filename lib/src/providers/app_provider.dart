@@ -3,15 +3,15 @@ import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/ai_context_helper.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
@@ -19,8 +19,6 @@ import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/time_sync_models.dart';
-import 'package:arcane/src/models/wallet_models.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'actions/task_actions.dart';
@@ -63,15 +61,6 @@ class AppProvider with ChangeNotifier {
 
   List<LifeValue> _lifeValues = [];
   List<LifeValue> get lifeValues => _lifeValues;
-
-  List<TimeSyncBlock> _timeSyncSchedule = [];
-  List<TimeSyncBlock> get timeSyncSchedule => _timeSyncSchedule;
-
-  // Wallet
-  List<WalletTransaction> _walletTransactions = [];
-  List<WalletTransaction> get walletTransactions => _walletTransactions;
-  Map<String, dynamic>? _financePrediction;
-  Map<String, dynamic>? get financePrediction => _financePrediction;
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -437,9 +426,6 @@ class AppProvider with ChangeNotifier {
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
       'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-      'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
-      'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
-      'financePrediction': _financePrediction,
     };
   }
 
@@ -506,26 +492,6 @@ class AppProvider with ChangeNotifier {
       }
     }
 
-    if (data['timeSyncSchedule'] != null && data['timeSyncSchedule'] is List) {
-      _timeSyncSchedule = (data['timeSyncSchedule'] as List)
-          .where((b) => b != null && b is Map<String, dynamic>)
-          .map((b) => TimeSyncBlock.fromJson(b as Map<String, dynamic>))
-          .toList();
-    } else {
-      _timeSyncSchedule = [];
-    }
-
-    if (data['walletTransactions'] != null && data['walletTransactions'] is List) {
-      _walletTransactions = (data['walletTransactions'] as List)
-          .where((w) => w != null && w is Map<String, dynamic>)
-          .map((w) => WalletTransaction.fromJson(w as Map<String, dynamic>))
-          .toList();
-    } else {
-      _walletTransactions = [];
-    }
-    
-    _financePrediction = data['financePrediction'] as Map<String, dynamic>?;
-
     _isChatbotMemoryInitialized = true;
     if (_settings.dataVersion < 1) {
       _settings.dataVersion = 1;
@@ -549,9 +515,6 @@ class AppProvider with ChangeNotifier {
     _initializeSkills();
     _initializeValues();
     _reflectionLogs = [];
-    _timeSyncSchedule = [];
-    _walletTransactions = [];
-    _financePrediction = null;
     _hasUnsavedChanges = true;
   }
 
@@ -617,12 +580,7 @@ class AppProvider with ChangeNotifier {
               'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
             })) success = false;
           }
-          if (_dirtyCollections.contains('wallet')) {
-            if (!await _storageService.saveWallet(_currentUser!.uid, {
-              'walletTransactions': _walletTransactions.map((w) => w.toJson()).toList(),
-              'financePrediction': _financePrediction
-            })) success = false;
-          }
+          
           if (_dirtyCollections.contains('settings') || success) {
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
@@ -634,7 +592,6 @@ class AppProvider with ChangeNotifier {
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
                 'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-                'timeSyncSchedule': _timeSyncSchedule.map((b) => b.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -788,105 +745,19 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  // --- WALLET ACTIONS ---
-  
-  void addWalletTransaction(WalletTransaction transaction) {
-    _walletTransactions.add(transaction);
-    _walletTransactions.sort((a, b) => b.date.compareTo(a.date)); // Keep desc sorted
-    _markDirty('wallet');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void updateWalletTransaction(WalletTransaction transaction) {
-    final index = _walletTransactions.indexWhere((t) => t.id == transaction.id);
-    if (index != -1) {
-      _walletTransactions[index] = transaction;
-      _walletTransactions.sort((a, b) => b.date.compareTo(a.date));
-      _markDirty('wallet');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteWalletTransaction(String id) {
-    _walletTransactions.removeWhere((t) => t.id == id);
-    _markDirty('wallet');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void addWalletCategory(String category) {
-    if (!_settings.walletCategories.contains(category)) {
-      final newCategories = List<String>.from(_settings.walletCategories)..add(category);
-      setSettings(_settings..walletCategories = newCategories);
-    }
-  }
-
-  Future<void> generateFinancePrediction({bool force = false}) async {
-    // Modified to allow forcing regeneration
-    if (_walletTransactions.isEmpty) return;
-    setLoadingTask("Analyzing Finances...");
-    try {
-      final recent = _walletTransactions.take(50).map((t) => "${t.type == TransactionType.income ? '+' : '-'}${t.amount} (${t.category}) - ${t.note}").join("\n");
-      final prediction = await _aiService.generateFinancePrediction(
-        transactionsList: recent,
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[FinanceAI] $msg")
-      );
-      _financePrediction = prediction;
-      _markDirty('wallet');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  double get currentWalletBalance {
-    double balance = 0;
-    for (var t in _walletTransactions) {
-      if (!t.isFuture) {
-        if (t.type == TransactionType.income) {
-          balance += t.amount;
-        } else {
-          balance -= t.amount;
-        }
-      }
-    }
-    return balance;
-  }
-
-  double calculateProjectedBalance(int daysAhead) {
-    double projected = currentWalletBalance;
-    final now = DateTime.now();
-    final futureLimit = now.add(Duration(days: daysAhead));
-
-    for (var t in _walletTransactions) {
-      if (t.isFuture && t.date.isBefore(futureLimit)) {
-        if (t.type == TransactionType.income) {
-          projected += t.amount;
-        } else {
-          projected -= t.amount;
-        }
-      }
-    }
-    return projected;
-  }
-
   // --- START DAY REPORT ---
 
-  Future<void> generateStartDayReport() async {
+  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
     final today = helper.getTodayDateString();
     setLoadingTask("Initializing System...");
     try {
       final history = getLast7DaysData();
-      final report = await _aiService.generateStartDayReport(
+      final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
+      final result = await _aiService.generateStartDayReport(
         reflectionsList: history['logs'],
         sessionsList: history['times'],
+        userValues: userValuesContext,
         modelCandidates: settings.liteModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
@@ -896,10 +767,14 @@ class AppProvider with ChangeNotifier {
       
       if (!_completedByDay.containsKey(today)) _completedByDay[today] = {};
       if (_completedByDay[today] is! Map) _completedByDay[today] = <String, dynamic>{};
-      _completedByDay[today]['startDayReport'] = report;
+      _completedByDay[today]['startDayReport'] = result;
       _markDirty('history');
       _scheduleRealtimeSync();
       notifyListeners();
+
+      // Return value updates to UI
+      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+
     } finally {
       setLoadingTask(null);
     }
@@ -1133,22 +1008,10 @@ class AppProvider with ChangeNotifier {
       required String reason,
       DateTime? timestamp}) async {
     final actualTimestamp = timestamp ?? DateTime.now();
-    final dailyReflections = _reflectionLogs
-        .where((log) =>
-            log.timestamp.year == actualTimestamp.year &&
-            log.timestamp.month == actualTimestamp.month &&
-            log.timestamp.day == actualTimestamp.day)
-        .map((r) =>
-            {'trigger': r.trigger, 'emotion': r.emotion, 'reason': r.reason})
-        .toList();
+    // Use reflectionLogs directly where needed, removed unused local variable
 
     // Prepare Value Context
-    final valuesContext = _lifeValues.map((v) => {
-      'id': v.id,
-      'title': v.title,
-      'description': v.description,
-      'questions': v.questions.map((q) => {'id': q.id, 'q': q.question, 'a': q.answer}).toList()
-    }).toList();
+    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
 
     setLoadingTask("Analyzing Reflection...");
     
@@ -1157,7 +1020,6 @@ class AppProvider with ChangeNotifier {
         emotion: emotion,
         reason: reason,
         modelCandidates: settings.liteModels,
-        dailyReflections: dailyReflections,
         userValues: valuesContext, 
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
@@ -1165,9 +1027,10 @@ class AppProvider with ChangeNotifier {
     setLoadingTask(null);
 
     Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map)
+    if (result['xp_allocation'] is Map) {
       (result['xp_allocation'] as Map).forEach((key, value) =>
           xpAllocation[key.toString()] = (value as num).toInt());
+    }
 
     List<Skill> updatedSkills = List.from(_skills);
     xpAllocation.forEach((skillName, xp) {
@@ -1305,6 +1168,8 @@ class AppProvider with ChangeNotifier {
   Future<Map<String, dynamic>> generateTacticalBriefing(
       String date, List<ReflectionLog> dailyLogs) async {
     final context = _getRecentBriefingsForContext();
+    final userValuesContext = AiContextHelper.serializeValues(_lifeValues);
+
     final result = await _aiService.generateDailySummary(
       reflections: dailyLogs.map((l) => {
         'trigger': l.trigger,
@@ -1312,6 +1177,7 @@ class AppProvider with ChangeNotifier {
         'reason': l.reason,
       }).toList(),
       previousBriefings: context,
+      userValues: userValuesContext,
       modelCandidates: settings.liteModels,
       currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
@@ -1319,81 +1185,6 @@ class AppProvider with ChangeNotifier {
       onLog: (msg) => debugPrint(msg)
     );
     return result; 
-  }
-
-  // --- TIME SYNC GENERATION ---
-  Future<void> generateTimeSync(String userPrompt, {bool smartAppend = false}) async {
-    setLoadingTask("Synchronizing Chrono...");
-    try {
-      final contextData = getLast7DaysData();
-      final blocksData = await _aiService.generateTimeSyncSchedule(
-        userPrompt: userPrompt,
-        contextData: "Recent Logs:\n${contextData['logs']}\nTime Stats:\n${contextData['times']}\nCurrent Time: ${DateFormat('HH:mm').format(DateTime.now())}",
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        userTimezone: settings.userTimezone,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[TimeSync] $msg"),
-      );
-
-      final now = DateTime.now();
-      
-      final newBlocks = blocksData.map((b) {
-        final offset = b['offset_minutes'] as int? ?? 0;
-        final duration = b['duration_minutes'] as int? ?? 60;
-        final start = now.add(Duration(minutes: offset));
-        final end = start.add(Duration(minutes: duration));
-        
-        return TimeSyncBlock(
-          id: const Uuid().v4(),
-          startTime: start,
-          endTime: end,
-          title: b['title'] ?? 'Block',
-          description: b['description'] ?? '',
-          type: TimeSyncBlockType.values.firstWhere(
-            (e) => e.toString() == 'TimeSyncBlockType.${b['type']}',
-            orElse: () => TimeSyncBlockType.other
-          ),
-        );
-      }).toList();
-
-      if (smartAppend && _timeSyncSchedule.isNotEmpty) {
-        // Smart Append Logic: Keep future blocks that don't overlap, replace overlapping/past
-        // Actually, simple "append" usually means adding to end, but here we want to "Update Schedule".
-        // Let's replace blocks that start AFTER now with the new plan, keeping history?
-        // Or simply replace entirely as per standard sync. 
-        // User asked: "only replace if user asked, unless just extrapolate... shift/append"
-        // For simplicity in this iteration: Smart Append = Replace future blocks from Now onwards.
-        final pastBlocks = _timeSyncSchedule.where((b) => b.endTime.isBefore(now)).toList();
-        _timeSyncSchedule = [...pastBlocks, ...newBlocks];
-      } else {
-        _timeSyncSchedule = newBlocks;
-      }
-
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  void updateTimeSyncBlock(TimeSyncBlock updatedBlock) {
-    final index = _timeSyncSchedule.indexWhere((b) => b.id == updatedBlock.id);
-    if (index != -1) {
-      _timeSyncSchedule[index] = updatedBlock;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteTimeSyncBlock(String id) {
-    _timeSyncSchedule.removeWhere((b) => b.id == id);
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
   }
 
   // --- STATS ---

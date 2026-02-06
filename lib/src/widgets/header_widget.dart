@@ -71,10 +71,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         if (appProvider.loadingTaskName != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDark,
-              border: Border.all(color: AppTheme.fhAccentTeal),
-            ),
+            
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -86,15 +83,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                     valueColor:
                         AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "PROCESSING",
-                  style: TextStyle(
-                      color: AppTheme.fhAccentTeal,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0),
                 ),
               ],
             ),

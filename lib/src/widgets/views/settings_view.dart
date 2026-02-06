@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
-import 'package:arcane/src/widgets/settings/timezone_selector.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -405,8 +404,6 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
               children: [
-                const TimezoneSelector(),
-                const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   decoration: InputDecoration(
                     labelText: 'Start Day of the Week',

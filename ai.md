@@ -1,8 +1,8 @@
 Make the following changes:
 
-    * Add feature:
-        - Value finder:
-            - Each time I run system startup, auto generate answers for some value questions based on the input given to system startup (Like if my reflections already have better answers, prompt me to add that to my value answers) so user dont have to manually type in values everytime, for values with an answer, just append the new answer and also we dont need answer for all value questions, just the ones that our reflections have answers
+    * Remove featuresL
+        - Wallet
+        - Time Sync
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
