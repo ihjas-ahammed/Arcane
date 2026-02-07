@@ -26,6 +26,7 @@ import 'package:arcane/src/providers/actions/task_actions.dart';
 import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
 import 'package:arcane/src/providers/actions/timer_actions.dart';
 import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -101,12 +102,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
 
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
     _initializeSkills();
     _initializeValues();
     _initialize();
@@ -159,13 +162,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
 
-  // Expose Proxies to Fix Compilation Errors
+  // Expose Proxies
   Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
 
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  ReportActions get reportActions => _reportActions;
 
   // --- INITIALIZATION ---
 
@@ -401,7 +405,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     };
   }
 
-  // Restore the missing public method for manual loads
   void loadAppStateFromMap(Map<String, dynamic> data) {
     _loadStateFromMap(data);
     _saveLocalSnapshot(forceFlush: true);
@@ -643,7 +646,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
   
-  // Logic placeholders to satisfy existing calls from UI without breaking changes
   void _cleanOverlappingSessions() {
     bool hasChanges = false;
     List<Map<String, dynamic>> allSessions = [];
@@ -944,8 +946,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   Future<List<Map<String, dynamic>>> generateStartDayReport() async { 
-    // Simplified logic
-    return []; 
+    return await _reportActions.generateStartDayReport();
+  }
+  
+  void saveStartDayReport(String date, Map<String, dynamic> data) {
+    if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
+    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
+    _completedByDay[date]['startDayReport'] = data;
+    _markDirty('history');
+    _scheduleRealtimeSync();
+    notifyListeners();
   }
   
   Map<String, dynamic>? getStartDayReport(String date) {

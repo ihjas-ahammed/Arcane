@@ -25,15 +25,19 @@ class SystemMetricWidget extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: AppTheme.fhTextPrimary.withValues(alpha: 0.8),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: AppTheme.fhTextPrimary.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               "$value%",
               style: TextStyle(

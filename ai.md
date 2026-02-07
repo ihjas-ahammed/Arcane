@@ -1,8 +1,7 @@
 Make the following changes:
 
-    * Improve performance:
-        - Fix that most of the time data is not synced right, like sometime I close timer and quit app but data is not saved
-        - Remove the initial loading screen; quick load offline data and update online data in background
+    * Fix operative forcast, in the last update the whole feature was gone, like the re-calculate and system startup buttons both didnt work
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 
