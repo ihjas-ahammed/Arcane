@@ -27,26 +27,28 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("MANUAL LOG"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
-          const SizedBox(height: 16),
-          _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
-          if (_startTime != null && _endTime != null) ...[
-             const SizedBox(height: 12),
-             Row(
-               children: [
-                 Checkbox(
-                   value: _isNextDay, 
-                   activeColor: AppTheme.fhAccentTeal,
-                   onChanged: (val) => setState(() => _isNextDay = val ?? false)
-                 ),
-                 const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
-               ],
-             )
-          ]
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
+            if (_startTime != null && _endTime != null) ...[
+               const SizedBox(height: 12),
+               Row(
+                 children: [
+                   Checkbox(
+                     value: _isNextDay, 
+                     activeColor: AppTheme.fhAccentTeal,
+                     onChanged: (val) => setState(() => _isNextDay = val ?? false)
+                   ),
+                   const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
+                 ],
+               )
+            ]
+          ],
+        ),
       ),
       actions: [
         TextButton(

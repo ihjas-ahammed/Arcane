@@ -2446,6 +2446,7 @@ import 'package:arcane/src/screens/home_screen.dart';
 import 'package:arcane/src/screens/login_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/sync_indicator.dart'; // New component
 import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {
@@ -2458,6 +2459,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
+    // Watch AppProvider to rebuild Theme if task color changes
     final appProvider = context.watch<AppProvider>();
 
     final Color currentTaskColor =
@@ -2469,38 +2471,54 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
-          // If purely auth loading (initial startup), show spinner
+          // If purely auth loading (initial startup), show full screen spinner
           if (appProvider.authLoading) {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
-              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+              body: Center(
+                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
-          
+
           if (appProvider.currentUser == null) {
             return const LoginScreen();
           }
-          
-          // Once authenticated, even if syncing in background, show Home
+
+          // Main App Layout
           return Stack(
             children: [
               const HomeScreen(),
-              // Optional: Small sync indicator
+              
+              // Non-blocking sync indicator for auto-saves
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: SyncIndicator(
+                  isVisible: appProvider.isSyncing && !appProvider.isManuallySaving && !appProvider.isManuallyLoading,
+                ),
+              ),
+
+              // Blocking loading overlay for critical manual operations
               if (appProvider.isManuallySaving || appProvider.isManuallyLoading)
-                Positioned(
-                  bottom: 20,
-                  right: 20,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20)
-                      ),
-                      child: const SizedBox(
-                        width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: AppTheme.fhAccentTeal),
+                          const SizedBox(height: 16),
+                          Text(
+                            appProvider.isManuallyLoading ? "LOADING DATA..." : "SYNCING...",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: AppTheme.fontDisplay,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.bold
+                            ),
+                          )
+                        ],
                       ),
                     ),
                   ),
@@ -3933,6 +3951,7 @@ import 'package:arcane/src/providers/actions/task_actions.dart';
 import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
 import 'package:arcane/src/providers/actions/timer_actions.dart';
 import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -4008,12 +4027,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
 
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
     _initializeSkills();
     _initializeValues();
     _initialize();
@@ -4066,13 +4087,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
 
-  // Expose Proxies to Fix Compilation Errors
+  // Expose Proxies
   Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) =>
       _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
 
   ProjectActions get projectActions => _projectActions;
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  ReportActions get reportActions => _reportActions;
 
   // --- INITIALIZATION ---
 
@@ -4150,6 +4172,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           if (!loadedLocal || cloudTs > _settings.lastModified) {
             _loadStateFromMap(cloudData);
             _hasUnsavedChanges = false;
+            // Offload initial local save to avoid UI jank
             _saveLocalSnapshot(forceFlush: true);
           } else if (loadedLocal && _settings.lastModified > cloudTs) {
             _hasUnsavedChanges = true;
@@ -4186,6 +4209,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
     try {
       final fullData = getAppStateAsMap();
+      // LocalStorageService now uses compute/isolate internally to avoid blocking UI
       await _localStorageService.saveState(fullData);
       
       if (forceFlush) {
@@ -4196,7 +4220,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           
           final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
           final file = File('${backupDir.path}/backup_$timestamp.json');
-          await file.writeAsString(jsonEncode(fullData));
+          
+          // Offload encoding to isolate for backup as well
+          final jsonString = await compute((Map<String, dynamic> data) => jsonEncode(data), fullData);
+          await file.writeAsString(jsonString);
           
           final files = backupDir.listSync().whereType<File>().toList();
           files.sort((a, b) => a.path.compareTo(b.path));
@@ -4220,6 +4247,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
 
       try {
+        // Awaiting here ensures local cache is updated, but since it's async/isolate, UI won't freeze
         await _saveLocalSnapshot();
 
         bool success = true;
@@ -4273,7 +4301,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void _scheduleRealtimeSync() {
-    _saveLocalSnapshot();
+    // Fire local save immediately (async/isolate) but don't await to block UI thread logic flow if called from sync functions
+    _saveLocalSnapshot(); 
+    
     if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
     if (_realtimeSyncDebouncer?.isActive ?? false) {
       _realtimeSyncDebouncer!.cancel();
@@ -4308,7 +4338,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     };
   }
 
-  // Restore the missing public method for manual loads
   void loadAppStateFromMap(Map<String, dynamic> data) {
     _loadStateFromMap(data);
     _saveLocalSnapshot(forceFlush: true);
@@ -4550,7 +4579,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
   
-  // Logic placeholders to satisfy existing calls from UI without breaking changes
   void _cleanOverlappingSessions() {
     bool hasChanges = false;
     List<Map<String, dynamic>> allSessions = [];
@@ -4851,8 +4879,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   Future<List<Map<String, dynamic>>> generateStartDayReport() async { 
-    // Simplified logic
-    return []; 
+    return await _reportActions.generateStartDayReport();
+  }
+  
+  void saveStartDayReport(String date, Map<String, dynamic> data) {
+    if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
+    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
+    _completedByDay[date]['startDayReport'] = data;
+    _markDirty('history');
+    _scheduleRealtimeSync();
+    notifyListeners();
   }
   
   Map<String, dynamic>? getStartDayReport(String date) {
@@ -6750,6 +6786,72 @@ class ProjectActions {
   }
 }
 --- END OF FILE lib/src/providers/actions/project_actions.dart ---
+
+--- START OF FILE lib/src/providers/actions/report_actions.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/utils/ai_context_helper.dart';
+import 'package:arcane/src/utils/helpers.dart';
+import 'package:intl/intl.dart';
+
+class ReportActions {
+  final AppProvider _provider;
+  final AIService _aiService;
+
+  ReportActions(this._provider) : _aiService = _provider.aiService;
+
+  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    
+    // Gather Reflections Context
+    final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+
+    // Gather Sessions Context
+    final sessionsStrBuffer = StringBuffer();
+    for (var task in _provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isAfter(sevenDaysAgo)) {
+            sessionsStrBuffer.writeln("[${DateFormat('MM-dd').format(session.startTime)}] ${task.name} - ${sub.name}: ${session.durationMinutes}m");
+          }
+        }
+      }
+    }
+
+    final valuesContext = AiContextHelper.serializeValues(_provider.lifeValues);
+
+    _provider.setLoadingTask("Generating Startup Report...");
+    
+    try {
+      final result = await _aiService.generateStartDayReport(
+        reflectionsList: reflectionsStr,
+        sessionsList: sessionsStrBuffer.toString(),
+        userValues: valuesContext,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ReportAI] $msg"),
+      );
+
+      // Save report to today's history via Provider method
+      final today = getTodayDateString();
+      _provider.saveStartDayReport(today, result);
+
+      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+
+    } catch (e) {
+      debugPrint("Error generating start day report: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/report_actions.dart ---
 
 --- START OF FILE lib/src/screens/chatbot_screen.dart ---
 import 'package:flutter/material.dart';
@@ -11005,6 +11107,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+// Top-level function for isolate
+String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
+Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
+
 class LocalStorageService {
   static const String _fileName = 'arcane_local_cache.json';
 
@@ -11016,9 +11122,8 @@ class LocalStorageService {
   Future<void> saveState(Map<String, dynamic> state) async {
     try {
       final file = await _localFile;
-      // Use a separate thread or async write to prevent UI jank
-      // but ensure it's awaited where critical.
-      final jsonString = jsonEncode(state);
+      // Offload heavy JSON serialization to a background isolate
+      final jsonString = await compute(_encodeJson, state);
       await file.writeAsString(jsonString, flush: true);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
@@ -11031,7 +11136,8 @@ class LocalStorageService {
       if (await file.exists()) {
         final contents = await file.readAsString();
         if (contents.isEmpty) return null;
-        return jsonDecode(contents) as Map<String, dynamic>;
+        // Offload parsing to background isolate
+        return await compute(_decodeJson, contents);
       }
     } catch (e) {
       debugPrint("LocalStorage Load Error: $e");
@@ -15641,15 +15747,17 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("ADJUST LOG"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimeRow("START", _startTime, () => _pickTime(true)),
-          const SizedBox(height: 12),
-          _buildTimeRow("END", _endTime, () => _pickTime(false)),
-          const SizedBox(height: 16),
-          Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTimeRow("START", _startTime, () => _pickTime(true)),
+            const SizedBox(height: 12),
+            _buildTimeRow("END", _endTime, () => _pickTime(false)),
+            const SizedBox(height: 16),
+            Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+          ],
+        ),
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
@@ -15808,26 +15916,28 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("MANUAL LOG"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
-          const SizedBox(height: 16),
-          _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
-          if (_startTime != null && _endTime != null) ...[
-             const SizedBox(height: 12),
-             Row(
-               children: [
-                 Checkbox(
-                   value: _isNextDay, 
-                   activeColor: AppTheme.fhAccentTeal,
-                   onChanged: (val) => setState(() => _isNextDay = val ?? false)
-                 ),
-                 const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
-               ],
-             )
-          ]
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
+            if (_startTime != null && _endTime != null) ...[
+               const SizedBox(height: 12),
+               Row(
+                 children: [
+                   Checkbox(
+                     value: _isNextDay, 
+                     activeColor: AppTheme.fhAccentTeal,
+                     onChanged: (val) => setState(() => _isNextDay = val ?? false)
+                   ),
+                   const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
+                 ],
+               )
+            ]
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -20872,15 +20982,19 @@ class SystemMetricWidget extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: AppTheme.fhTextPrimary.withValues(alpha: 0.8),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: AppTheme.fhTextPrimary.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               "$value%",
               style: TextStyle(
@@ -21686,6 +21800,71 @@ class TacticalDirectivesList extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/ui/tactical_directives_list.dart ---
+
+--- START OF FILE lib/src/widgets/ui/sync_indicator.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SyncIndicator extends StatelessWidget {
+  final bool isVisible;
+
+  const SyncIndicator({super.key, required this.isVisible});
+
+  @override
+  Widget build(BuildContext context) {
+    // We use an AnimatedOpacity for smooth appearance/disappearance
+    // ensuring layout doesn't jump.
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: IgnorePointer(
+        ignoring: !isVisible,
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.fhAccentTeal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                "SAVING DATA...",
+                style: TextStyle(
+                  color: AppTheme.fhTextPrimary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  fontFamily: AppTheme.fontDisplay,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/sync_indicator.dart ---
 
 --- START OF FILE lib/src/widgets/views/chatbot_view.dart ---
 // lib/src/widgets/views/chatbot_view.dart

@@ -247,6 +247,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           if (!loadedLocal || cloudTs > _settings.lastModified) {
             _loadStateFromMap(cloudData);
             _hasUnsavedChanges = false;
+            // Offload initial local save to avoid UI jank
             _saveLocalSnapshot(forceFlush: true);
           } else if (loadedLocal && _settings.lastModified > cloudTs) {
             _hasUnsavedChanges = true;
@@ -283,6 +284,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
     try {
       final fullData = getAppStateAsMap();
+      // LocalStorageService now uses compute/isolate internally to avoid blocking UI
       await _localStorageService.saveState(fullData);
       
       if (forceFlush) {
@@ -293,7 +295,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           
           final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
           final file = File('${backupDir.path}/backup_$timestamp.json');
-          await file.writeAsString(jsonEncode(fullData));
+          
+          // Offload encoding to isolate for backup as well
+          final jsonString = await compute((Map<String, dynamic> data) => jsonEncode(data), fullData);
+          await file.writeAsString(jsonString);
           
           final files = backupDir.listSync().whereType<File>().toList();
           files.sort((a, b) => a.path.compareTo(b.path));
@@ -317,6 +322,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
 
       try {
+        // Awaiting here ensures local cache is updated, but since it's async/isolate, UI won't freeze
         await _saveLocalSnapshot();
 
         bool success = true;
@@ -370,7 +376,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void _scheduleRealtimeSync() {
-    _saveLocalSnapshot();
+    // Fire local save immediately (async/isolate) but don't await to block UI thread logic flow if called from sync functions
+    _saveLocalSnapshot(); 
+    
     if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
     if (_realtimeSyncDebouncer?.isActive ?? false) {
       _realtimeSyncDebouncer!.cancel();

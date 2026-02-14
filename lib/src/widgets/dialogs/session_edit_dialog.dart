@@ -59,15 +59,17 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("ADJUST LOG"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimeRow("START", _startTime, () => _pickTime(true)),
-          const SizedBox(height: 12),
-          _buildTimeRow("END", _endTime, () => _pickTime(false)),
-          const SizedBox(height: 16),
-          Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTimeRow("START", _startTime, () => _pickTime(true)),
+            const SizedBox(height: 12),
+            _buildTimeRow("END", _endTime, () => _pickTime(false)),
+            const SizedBox(height: 16),
+            Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+          ],
+        ),
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [

@@ -34,10 +34,6 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Optimization: Listen only to relevant parts if possible, but for now Provider<AppProvider> 
-    // triggers rebuild. We rely on ValorantTimerText for the second-by-second updates
-    // so this card doesn't rebuild every second.
-    
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
@@ -52,8 +48,12 @@ class SubmissionCard extends StatelessWidget {
     final isRunning = timerState?.isRunning ?? false;
     final bool isCompleted = currentSubTask.completed;
 
-    // We calculate totalSeconds for the progress bar once per build (not every tick)
-    final double totalTodaySeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    // Calculate time for display
+    // If running, we pass only historical time to ValorantTimerText so it can add the live ticker itself
+    // If not running, we pass total calculated time
+    final double displayBaseTime = isRunning 
+        ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
+        : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
     // --- Progress Calculation ---
     double progressValue = 0.0;
@@ -65,14 +65,15 @@ class SubmissionCard extends StatelessWidget {
     } else {
       final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
       final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
-      progressValue = (totalTodaySeconds / maxTime).clamp(0.0, 1.0);
+      // Use full total for progress bar calculation even if running
+      final fullTotal = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+      progressValue = (fullTotal / maxTime).clamp(0.0, 1.0);
     }
 
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = parentTask.taskColor;
     if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
 
-    // Flexible layout for small screens
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
@@ -190,11 +191,10 @@ class SubmissionCard extends StatelessWidget {
               
               // Right Side: Timer & Action
               if (!isCompleted) ...[
-                // The ATOM handles the ticking, ensuring entire card doesn't rebuild per second
                 ValorantTimerText(
                   isRunning: isRunning,
                   startTime: timerState?.startTime,
-                  accumulatedTime: totalTodaySeconds,
+                  accumulatedTime: displayBaseTime,
                   style: TextStyle(
                       fontFamily: "RobotoMono",
                       color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
@@ -204,10 +204,8 @@ class SubmissionCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () {
-                    // Logic handled by actions; ensures immediate state write
                     if (isRunning) {
-                      provider.pauseTimer(subTask.id); // Triggers immediate local save
-                      // Also reset the session visually or logic if needed
+                      provider.pauseTimer(subTask.id); 
                       provider.logTimerAndReset(subTask.id); 
                     } else {
                       provider.startTimer(subTask.id, 'subtask', parentTask.id);

@@ -4,7 +4,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 
 /// A self-contained timer widget that ticks independently of the main app state rebuilds.
-/// It takes an initial start time and running status.
 class ActiveSessionTimerDisplay extends StatefulWidget {
   final bool isRunning;
   final DateTime? startTime;
@@ -37,7 +36,6 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   @override
   void didUpdateWidget(ActiveSessionTimerDisplay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // React to external state changes (e.g. user pressed pause/play)
     if (widget.isRunning != oldWidget.isRunning || 
         widget.startTime != oldWidget.startTime || 
         widget.totalTodaySeconds != oldWidget.totalTodaySeconds) {
@@ -57,7 +55,7 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   }
 
   void _startTicker() {
-    _stopTicker(); // Ensure single timer
+    _stopTicker();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) _updateTime();
     });
@@ -69,46 +67,19 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   }
 
   void _updateTime() {
-    // If running, we calculate elapsed time dynamically to avoid needing provider updates per second
     double secondsToDisplay = widget.totalTodaySeconds;
     
     if (widget.isRunning && widget.startTime != null) {
-      // Logic: provider.totalTodaySeconds usually only updates on stop events or major rebuilds.
-      // We assume totalTodaySeconds passed in INCLUDES the accumulated time so far *minus* current session if provider isn't ticking.
-      // But typically, provider methods calculate todaySeconds by summing logs + current active session duration.
-      // Since provider is no longer ticking, `widget.totalTodaySeconds` might only reflect completed logs + static start time offset.
-      // To get a smooth tick, we calculate:
-      // Display = (Static Total from Logs) + (Now - StartTime)
-      // However, we rely on the passed value being mostly correct for "base". 
-      // Simplified: We just re-calculate elapsed if running.
+      final now = DateTime.now();
       
-      // NOTE: For this widget to work perfectly without provider ticks, the parent must pass
-      // a `totalTodaySeconds` that includes PAST sessions, but maybe NOT the current running session's dynamic part?
-      // Actually, standard pattern: passing `Accumulated` + `StartTime`.
-      // Let's assume `totalTodaySeconds` passed in *includes* real-time calc from provider's `getTodaySeconds`.
-      // Since provider isn't rebuilding, `totalTodaySeconds` won't change every second.
-      // So we must add the *additional* elapsed time since this widget built? 
-      // No, simpler: Calculate elapsed since `startTime` and add to a base?
-      // The variable naming `totalTodaySeconds` implies total. 
-      // Let's check `TaskCalculations`. It calculates based on `DateTime.now()`.
-      // So if parent doesn't rebuild, `totalTodaySeconds` is stale.
-      
-      // FIX: We need the *base* accumulated time separate from start time time to do client-side ticking properly.
-      // But we can approximate:
-      // If we know it IS running, the `totalTodaySeconds` passed in was correct *at the moment of build*.
-      // We can update it locally.
-      
-      // Actually, safest approach for UI consistency without refactoring entire model:
-      // Just recalculate the "current session duration" part here and add to "historical duration".
-      // But we don't have historical separated easily here.
-      
-      // Alternative: Just display the time passed in the current session if running (Active Session Focus),
-      // OR display total. The UI label says "CURRENT SESSION" if running.
-      // So we just show `Now - StartTime`.
-      
-      final currentSessionSeconds = DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
-      secondsToDisplay = currentSessionSeconds; 
-      // Note: The UI says "CURRENT SESSION" when running, so displaying just session time is accurate to label.
+      // Fix for huge numbers: Clamp to today's duration if displaying session time
+      final midnight = DateTime(now.year, now.month, now.day);
+      final effectiveStart = widget.startTime!.isBefore(midnight) 
+          ? midnight 
+          : widget.startTime!;
+          
+      final currentSessionSeconds = now.difference(effectiveStart).inSeconds.toDouble();
+      secondsToDisplay = currentSessionSeconds < 0 ? 0 : currentSessionSeconds; 
     }
 
     if (mounted) {

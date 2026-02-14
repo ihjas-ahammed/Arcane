@@ -69,13 +69,23 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
 
   void _updateTime() {
     double seconds = widget.accumulatedTime;
+    
     if (widget.isRunning && widget.startTime != null) {
-      // If running, show ONLY current session duration as per request
-      final elapsed = DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
-      seconds = elapsed;
-    } else {
-      // If not running, show accumulated total
-      seconds = widget.accumulatedTime;
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+      
+      // Fix for "104 hours" bug:
+      // If start time was days ago, we clamp effective start to today's midnight.
+      // This ensures we only display the portion of the current session that occurred today.
+      final effectiveStart = widget.startTime!.isBefore(midnight) 
+          ? midnight 
+          : widget.startTime!;
+      
+      final elapsedToday = now.difference(effectiveStart).inSeconds.toDouble();
+      
+      // accumulatedTime passed from parent should be Historical (Completed) Today
+      // So Total Today = Historical + Current Session Today
+      seconds = widget.accumulatedTime + (elapsedToday < 0 ? 0 : elapsedToday);
     }
     
     if (mounted) {

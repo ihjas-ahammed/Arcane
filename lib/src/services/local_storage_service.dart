@@ -3,6 +3,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+// Top-level function for isolate
+String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
+Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
+
 class LocalStorageService {
   static const String _fileName = 'arcane_local_cache.json';
 
@@ -14,9 +18,8 @@ class LocalStorageService {
   Future<void> saveState(Map<String, dynamic> state) async {
     try {
       final file = await _localFile;
-      // Use a separate thread or async write to prevent UI jank
-      // but ensure it's awaited where critical.
-      final jsonString = jsonEncode(state);
+      // Offload heavy JSON serialization to a background isolate
+      final jsonString = await compute(_encodeJson, state);
       await file.writeAsString(jsonString, flush: true);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
@@ -29,7 +32,8 @@ class LocalStorageService {
       if (await file.exists()) {
         final contents = await file.readAsString();
         if (contents.isEmpty) return null;
-        return jsonDecode(contents) as Map<String, dynamic>;
+        // Offload parsing to background isolate
+        return await compute(_decodeJson, contents);
       }
     } catch (e) {
       debugPrint("LocalStorage Load Error: $e");
