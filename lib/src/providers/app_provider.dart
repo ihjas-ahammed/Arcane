@@ -4,7 +4,6 @@ import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/ai_context_helper.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
@@ -18,7 +17,6 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart';
 
@@ -64,8 +62,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
-  List<LifeValue> _lifeValues = [];
-  List<LifeValue> get lifeValues => _lifeValues;
+  // Values feature removed
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -111,7 +108,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
     _initializeSkills();
-    _initializeValues();
     _initialize();
     
     WidgetsBinding.instance.addObserver(this);
@@ -183,12 +179,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
         Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
       ];
-    }
-  }
-
-  void _initializeValues() {
-    if (_lifeValues.isEmpty) {
-      _lifeValues = LifeValue.getDefaults();
     }
   }
 
@@ -356,7 +346,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                 'lastSuccessfulSaveTimestamp': DateTime.now().toIso8601String(),
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
-                'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -409,7 +398,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
     };
   }
 
@@ -467,19 +455,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           .where((l) => l != null && l is Map<String, dynamic>)
           .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
           .toList();
-    }
-
-    if (data['lifeValues'] != null && data['lifeValues'] is List) {
-      _lifeValues = (data['lifeValues'] as List)
-          .where((v) => v != null && v is Map<String, dynamic>)
-          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
-          .toList();
-    }
-    if (_lifeValues.length < 10) {
-      final defaults = LifeValue.getDefaults();
-      for (var def in defaults) {
-        if (!_lifeValues.any((v) => v.id == def.id)) _lifeValues.add(def);
-      }
     }
 
     _isChatbotMemoryInitialized = true;
@@ -730,7 +705,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _reflectionLogs = [];
     _completedByDay = {};
     _initializeSkills();
-    _initializeValues();
   }
 
   Future<void> _handleDailyReset() async {
@@ -922,11 +896,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
-    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
     final result = await _aiService.generateDailySummary(
       reflections: logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason}).toList(),
       previousBriefings: [],
-      userValues: valuesContext,
       modelCandidates: settings.liteModels,
       currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
@@ -983,69 +955,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
   
-  void reorderValues(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
-    final item = _lifeValues.removeAt(oldIndex);
-    _lifeValues.insert(newIndex, item);
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  void updateValueAnswer(String valueId, String questionId, String answer) {
-    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
-    if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
-      if (qIndex != -1) {
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _markDirty('settings');
-        _scheduleRealtimeSync();
-        notifyListeners();
-      }
-    }
-  }
-  
-  Future<void> analyzeValueAlignment(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return;
-    setLoadingTask("Analyzing...");
-    try {
-      final result = await _aiService.analyzeValueAlignment(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-      value.score = result['score'] as int;
-      value.lastInsight = result['insight'] as String?;
-      _hasUnsavedChanges = true;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-  
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return [];
-    return await _aiService.generateTasksFromValues(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg));
-  }
-  
   Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { 
     final actualTimestamp = timestamp ?? DateTime.now();
-    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
     setLoadingTask("Analyzing...");
     
     final result = await _aiService.evaluateReflection(
@@ -1053,7 +964,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         emotion: emotion,
         reason: reason,
         modelCandidates: settings.liteModels,
-        userValues: valuesContext, 
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
     
@@ -1089,7 +999,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     return {
       'xpGained': xpAllocation,
-      'valueUpdates': result['value_updates'] ?? []
     };
   }
   

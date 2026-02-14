@@ -12,7 +12,7 @@ import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
+import 'package:arcane/src/widgets/items/checkpoint_item.dart'; // NEW
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -512,7 +512,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             .map((sss) {
                               // Check for linked info
                               final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
-                              return ValorantListItem(
+                              // Using the new CheckpointItem for better performance
+                              return CheckpointItem(
                                   title: sss.name,
                                   isCompleted: sss.completed,
                                   linkedLabel: linkedInfo != null 
@@ -532,7 +533,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                           liveSubTask.id,
                                           sss.id);
                                     } else {
-                                      provider.completeSubSubtask(
+                                      provider.taskActions.completeSubSubtask(
                                           widget.parentTask.id,
                                           liveSubTask.id,
                                           sss.id);

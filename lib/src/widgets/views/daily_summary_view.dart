@@ -11,7 +11,6 @@ import 'package:arcane/src/utils/chart_data_helper.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart'; // Import Confirm Dialog
 import 'package:arcane/src/screens/neural_archive_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
@@ -129,12 +128,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       setState(() {
         _tempGeneratedBriefing = briefingData;
       });
-
-      // Handle Value Updates from Briefing
-      final valueUpdates = briefingData['value_updates'] as List<dynamic>?;
-      if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
-        _processValueUpdates(provider, valueUpdates);
-      }
       
     } catch (e) {
       if (mounted) {
@@ -179,70 +172,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateStartDayReport(AppProvider provider) async {
     setState(() => _isGeneratingStartDay = true);
     try {
-      final valueUpdates = await provider.generateStartDayReport();
-      
-      if (valueUpdates.isNotEmpty && mounted) {
-        _processValueUpdates(provider, valueUpdates);
-      }
+      await provider.generateStartDayReport();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
     } finally {
       if (mounted) setState(() => _isGeneratingStartDay = false);
-    }
-  }
-
-  Future<void> _processValueUpdates(AppProvider provider, List<dynamic> valueUpdates) async {
-    for (var update in valueUpdates) {
-      if (update is Map) {
-        final updateMap = update as Map<String, dynamic>;
-        
-        // Normalize structure if keys differ (from 'addition' to 'suggestedAnswer' logic)
-        // Note: The dialog expects 'suggestedAnswer'. The AI returns 'addition' sometimes based on prompt.
-        // Let's normalize it here.
-        if (updateMap['suggestedAnswer'] == null && updateMap['addition'] != null) {
-           // We need to fetch current answer to append? 
-           // Or does the dialog handle it?
-           // The Dialog logic simply shows 'suggestedAnswer'.
-           // Let's construct the full answer here if it's an append.
-           
-           final valueId = updateMap['valueId'];
-           final questionId = updateMap['questionId'];
-           final addition = updateMap['addition'];
-           
-           String currentAnswer = '';
-           try {
-             final v = provider.lifeValues.firstWhere((v) => v.id == valueId);
-             final q = v.questions.firstWhere((q) => q.id == questionId);
-             currentAnswer = q.answer;
-           } catch (_) {}
-           
-           if (currentAnswer.isNotEmpty) {
-             updateMap['suggestedAnswer'] = "$currentAnswer\n\n[UPDATE]: $addition";
-           } else {
-             updateMap['suggestedAnswer'] = addition;
-           }
-        }
-
-        final shouldUpdate = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => ValueUpdateConfirmDialog(
-            updateData: updateMap
-          )
-        );
-
-        if (shouldUpdate == true) {
-          provider.updateValueAnswer(
-            updateMap['valueId'], 
-            updateMap['questionId'], 
-            updateMap['suggestedAnswer']
-          );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
-            );
-          }
-        }
-      }
     }
   }
 

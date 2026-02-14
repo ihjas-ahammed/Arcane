@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/ai_context_helper.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:intl/intl.dart';
 
@@ -31,15 +30,12 @@ class ReportActions {
       }
     }
 
-    final valuesContext = AiContextHelper.serializeValues(_provider.lifeValues);
-
     _provider.setLoadingTask("Generating Startup Report...");
     
     try {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        userValues: valuesContext,
         modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,

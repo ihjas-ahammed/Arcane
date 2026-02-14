@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/values_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
@@ -28,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'LOGBOOK',
-    'VALUES',
     'PROJECTS',
     'SYSTEM',
   ];
@@ -162,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const LogbookScreen(),
-      const ValuesScreen(),
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
@@ -221,15 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
               fontFamily: AppTheme.fontDisplay,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
-              fontSize: 10, // Reduced font size
+              fontSize: 10,
             ),
             unselectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               letterSpacing: 0.5,
-              fontSize: 10, // Reduced font size
+              fontSize: 10,
             ),
-            // Fix overflow by hiding labels on unselected items on small screens if needed,
-            // or just rely on fixed type with smaller fonts.
             type: BottomNavigationBarType.fixed,
             elevation: 0,
             currentIndex: _selectedIndex,
@@ -242,10 +237,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.notebookOutline),
                 label: 'LOGBOOK',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.diamondStone),
-                label: 'VALUES',
               ),
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.rocketLaunchOutline),

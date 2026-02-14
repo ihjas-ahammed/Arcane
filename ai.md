@@ -1,7 +1,7 @@
 Make the following changes:
 
-    * Fix the problem like that in screenshot, clearly reflections dont have that much time and it will fix whenI stop and play the timer, so find the real issue and solve that
-
+    * Fix the delay in chcking check points, by using async saving
+    * Remove values tab and its feature, it doesnt seem to be that useful, also make sure consider all code connected with values
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

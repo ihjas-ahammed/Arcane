@@ -5,7 +5,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/common/growing_text_field.dart';
 
@@ -95,45 +94,16 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         final xpGained = result['xpGained'] as Map<String, int>;
-        final valueUpdates = result['valueUpdates'] as List<dynamic>?;
 
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP Dialog first
+          // Show XP Dialog
           await showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.8),
             builder: (ctx) => XpGainDialog(xpGained: xpGained),
           );
-
-          // Check for Value Updates
-          if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
-            for (var update in valueUpdates) {
-              if (update is Map) {
-                // Show confirm dialog
-                final shouldUpdate = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => ValueUpdateConfirmDialog(
-                    updateData: update as Map<String, dynamic>
-                  )
-                );
-
-                if (shouldUpdate == true) {
-                  appProvider.updateValueAnswer(
-                    update['valueId'], 
-                    update['questionId'], 
-                    update['suggestedAnswer']
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
-                    );
-                  }
-                }
-              }
-            }
-          }
         }
       } catch (e) {
         if (mounted) {

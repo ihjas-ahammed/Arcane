@@ -222,27 +222,23 @@ class AIService {
     required String emotion,
     required String reason,
     required List<String> modelCandidates,
-    required List<Map<String, dynamic>> userValues, 
     List<Map<String, String>>? dailyReflections,
     List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
     final prompt = """
     Analyze this reflection log.
-    Context Values: ${jsonEncode(userValues)}
     Trigger: $trigger
     Emotion: $emotion
     Reason: $reason
     
     1. Provide constructive feedback.
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON: {
       "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...},
-      "value_updates": [ { "valueId": "string", "questionId": "string", "suggestedAnswer": "string", "reason": "string" } ] (Optional, empty if none)
+      "xp_allocation": {"Wisdom": int, ...}
     }
     """;
     
@@ -258,7 +254,6 @@ class AIService {
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
     required List<String> previousBriefings,
-    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -269,29 +264,17 @@ class AIService {
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    Values & Questions (Context): ${jsonEncode(userValues)}
     
     Tone: Empathetic, psychologically wise, tactical advisor.
     
     Tasks:
     1. Create a concise summary of the day's psychological state.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. VALUE FINDER: Review the logs. Do they answer any of the user's Value Questions (provided in Context)? If yes, extract the answer. 
-       - If the question has no answer, propose the new text.
-       - If it has an answer, propose a text to APPEND or REFINE the existing one.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 60 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ],
-      "value_updates": [ 
-         { 
-           "valueId": "string", 
-           "questionId": "string", 
-           "suggestedAnswer": "string", 
-           "reason": "string" 
-         } 
-      ]
+      "improvements": [ {"ability": "string", "insight": "string"} ]
     }
     """;
     
@@ -335,74 +318,6 @@ class AIService {
         return resp.text ?? "Error";
     });
   }
-
-  // --- Value Analysis & Generation ---
-
-  Future<Map<String, dynamic>> analyzeValueAlignment({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the user's alignment with the value '$valueName'.
-    Q&A Data: ${jsonEncode(questionsAndAnswers)}
-    
-    1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
-    2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "score": int,
-      "insight": "string"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValues({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
-    Context: ${jsonEncode(questionsAndAnswers)}
-    CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "tasks": [
-        { "name": "string", "isCountable": boolean, "targetCount": int (0 if not countable), "type": "Task" }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-        
-    return (result['tasks'] as List?)?.map((t) => t as Map<String, dynamic>).toList() ?? [];
-  }
   
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
@@ -436,7 +351,6 @@ class AIService {
   Future<Map<String, dynamic>> generateStartDayReport({
     required String reflectionsList,
     required String sessionsList,
-    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -448,31 +362,19 @@ class AIService {
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
-    Values & Questions: ${jsonEncode(userValues)}
     
     Task:
     1. Analyze the user's momentum.
     2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. VALUE FINDER: Review the logs/momentum. Do they answer any of the user's Value Questions? If yes, extract the answer.
-       - If the question has no answer, propose the new text.
-       - If it has an answer, propose a text to APPEND (start with "\\n\\n[UPDATE]: ") or REFINE the existing one.
-    6. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
       "forecast": "string",
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"],
-      "value_updates": [ 
-         { 
-           "valueId": "string", 
-           "questionId": "string", 
-           "suggestedAnswer": "string", 
-           "reason": "string" 
-         } 
-      ]
+      "directives": ["string", "string", "string"]
     }
     """;
 

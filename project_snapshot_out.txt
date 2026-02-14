@@ -2476,7 +2476,8 @@ class _MyAppState extends State<MyApp> {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
               body: Center(
-                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+                  child:
+                      CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
 
@@ -2488,13 +2489,15 @@ class _MyAppState extends State<MyApp> {
           return Stack(
             children: [
               const HomeScreen(),
-              
+
               // Non-blocking sync indicator for auto-saves
               Positioned(
-                bottom: 0,
+                top: 100,
                 right: 0,
                 child: SyncIndicator(
-                  isVisible: appProvider.isSyncing && !appProvider.isManuallySaving && !appProvider.isManuallyLoading,
+                  isVisible: appProvider.isSyncing &&
+                      !appProvider.isManuallySaving &&
+                      !appProvider.isManuallyLoading,
                 ),
               ),
 
@@ -2507,16 +2510,18 @@ class _MyAppState extends State<MyApp> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const CircularProgressIndicator(color: AppTheme.fhAccentTeal),
+                          const CircularProgressIndicator(
+                              color: AppTheme.fhAccentTeal),
                           const SizedBox(height: 16),
                           Text(
-                            appProvider.isManuallyLoading ? "LOADING DATA..." : "SYNCING...",
+                            appProvider.isManuallyLoading
+                                ? "LOADING DATA..."
+                                : "SYNCING...",
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: AppTheme.fontDisplay,
-                              letterSpacing: 1.5,
-                              fontWeight: FontWeight.bold
-                            ),
+                                color: Colors.white,
+                                fontFamily: AppTheme.fontDisplay,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.bold),
                           )
                         ],
                       ),
@@ -2530,6 +2535,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
 --- END OF FILE lib/src/app.dart ---
 
 --- START OF FILE lib/src/config/api_keys.dart ---
@@ -11797,33 +11803,35 @@ class TaskCalculations {
   /// Includes completed sessions from today and the current elapsed time of an active timer if running.
   static double getTodaySeconds(SubTask subTask, ActiveTimerInfo? activeTimer) {
     final now = DateTime.now();
-    double totalSeconds = 0;
+    double totalSeconds = getHistoricalTodaySeconds(subTask);
 
-    // 1. Sum up historical sessions for today
+    // 2. Add active timer if it started today or is running into today
+    if (activeTimer != null && activeTimer.isRunning) {
+      // Calculate portion of active timer that falls within today
+      final midnight = DateTime(now.year, now.month, now.day);
+      final effectiveStart = activeTimer.startTime.isBefore(midnight) 
+          ? midnight 
+          : activeTimer.startTime;
+      
+      final elapsedToday = now.difference(effectiveStart).inSeconds.toDouble();
+      if (elapsedToday > 0) {
+        totalSeconds += elapsedToday;
+      }
+    }
+
+    return totalSeconds;
+  }
+
+  /// Calculates only the sum of completed sessions for today.
+  static double getHistoricalTodaySeconds(SubTask subTask) {
+    final now = DateTime.now();
+    double totalSeconds = 0;
+    
     for (var session in subTask.sessions) {
       if (_isSameDay(session.startTime, now)) {
         totalSeconds += session.durationSeconds;
       }
     }
-
-    // 2. Add active timer if it started today
-    if (activeTimer != null) {
-      // If the timer is running, calculate elapsed time since start + accumulated paused time (if logic allows)
-      // Note: activeTimer.accumulatedDisplayTime usually stores time for the *current session* being recorded.
-      // If the timer spans across days (started yesterday, still running), strictly speaking, 
-      // we should only count the portion after midnight. 
-      // For simplicity in this context, if the timer started today, we count it.
-      
-      if (_isSameDay(activeTimer.startTime, now)) {
-        if (activeTimer.isRunning) {
-           final currentSessionDuration = (now.difference(activeTimer.startTime).inMilliseconds / 1000.0);
-           totalSeconds += activeTimer.accumulatedDisplayTime + currentSessionDuration;
-        } else {
-           totalSeconds += activeTimer.accumulatedDisplayTime;
-        }
-      }
-    }
-
     return totalSeconds;
   }
 
@@ -13611,10 +13619,6 @@ class SubmissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Optimization: Listen only to relevant parts if possible, but for now Provider<AppProvider> 
-    // triggers rebuild. We rely on ValorantTimerText for the second-by-second updates
-    // so this card doesn't rebuild every second.
-    
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
@@ -13629,8 +13633,12 @@ class SubmissionCard extends StatelessWidget {
     final isRunning = timerState?.isRunning ?? false;
     final bool isCompleted = currentSubTask.completed;
 
-    // We calculate totalSeconds for the progress bar once per build (not every tick)
-    final double totalTodaySeconds = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    // Calculate time for display
+    // If running, we pass only historical time to ValorantTimerText so it can add the live ticker itself
+    // If not running, we pass total calculated time
+    final double displayBaseTime = isRunning 
+        ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
+        : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
     // --- Progress Calculation ---
     double progressValue = 0.0;
@@ -13642,14 +13650,15 @@ class SubmissionCard extends StatelessWidget {
     } else {
       final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
       final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
-      progressValue = (totalTodaySeconds / maxTime).clamp(0.0, 1.0);
+      // Use full total for progress bar calculation even if running
+      final fullTotal = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+      progressValue = (fullTotal / maxTime).clamp(0.0, 1.0);
     }
 
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     if (isRunning) borderColor = parentTask.taskColor;
     if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
 
-    // Flexible layout for small screens
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
@@ -13767,11 +13776,10 @@ class SubmissionCard extends StatelessWidget {
               
               // Right Side: Timer & Action
               if (!isCompleted) ...[
-                // The ATOM handles the ticking, ensuring entire card doesn't rebuild per second
                 ValorantTimerText(
                   isRunning: isRunning,
                   startTime: timerState?.startTime,
-                  accumulatedTime: totalTodaySeconds,
+                  accumulatedTime: displayBaseTime,
                   style: TextStyle(
                       fontFamily: "RobotoMono",
                       color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
@@ -13781,10 +13789,8 @@ class SubmissionCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () {
-                    // Logic handled by actions; ensures immediate state write
                     if (isRunning) {
-                      provider.pauseTimer(subTask.id); // Triggers immediate local save
-                      // Also reset the session visually or logic if needed
+                      provider.pauseTimer(subTask.id); 
                       provider.logTimerAndReset(subTask.id); 
                     } else {
                       provider.startTimer(subTask.id, 'subtask', parentTask.id);
@@ -19900,7 +19906,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 
 /// A self-contained timer widget that ticks independently of the main app state rebuilds.
-/// It takes an initial start time and running status.
 class ActiveSessionTimerDisplay extends StatefulWidget {
   final bool isRunning;
   final DateTime? startTime;
@@ -19933,7 +19938,6 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   @override
   void didUpdateWidget(ActiveSessionTimerDisplay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // React to external state changes (e.g. user pressed pause/play)
     if (widget.isRunning != oldWidget.isRunning || 
         widget.startTime != oldWidget.startTime || 
         widget.totalTodaySeconds != oldWidget.totalTodaySeconds) {
@@ -19953,7 +19957,7 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   }
 
   void _startTicker() {
-    _stopTicker(); // Ensure single timer
+    _stopTicker();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) _updateTime();
     });
@@ -19965,46 +19969,19 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
   }
 
   void _updateTime() {
-    // If running, we calculate elapsed time dynamically to avoid needing provider updates per second
     double secondsToDisplay = widget.totalTodaySeconds;
     
     if (widget.isRunning && widget.startTime != null) {
-      // Logic: provider.totalTodaySeconds usually only updates on stop events or major rebuilds.
-      // We assume totalTodaySeconds passed in INCLUDES the accumulated time so far *minus* current session if provider isn't ticking.
-      // But typically, provider methods calculate todaySeconds by summing logs + current active session duration.
-      // Since provider is no longer ticking, `widget.totalTodaySeconds` might only reflect completed logs + static start time offset.
-      // To get a smooth tick, we calculate:
-      // Display = (Static Total from Logs) + (Now - StartTime)
-      // However, we rely on the passed value being mostly correct for "base". 
-      // Simplified: We just re-calculate elapsed if running.
+      final now = DateTime.now();
       
-      // NOTE: For this widget to work perfectly without provider ticks, the parent must pass
-      // a `totalTodaySeconds` that includes PAST sessions, but maybe NOT the current running session's dynamic part?
-      // Actually, standard pattern: passing `Accumulated` + `StartTime`.
-      // Let's assume `totalTodaySeconds` passed in *includes* real-time calc from provider's `getTodaySeconds`.
-      // Since provider isn't rebuilding, `totalTodaySeconds` won't change every second.
-      // So we must add the *additional* elapsed time since this widget built? 
-      // No, simpler: Calculate elapsed since `startTime` and add to a base?
-      // The variable naming `totalTodaySeconds` implies total. 
-      // Let's check `TaskCalculations`. It calculates based on `DateTime.now()`.
-      // So if parent doesn't rebuild, `totalTodaySeconds` is stale.
-      
-      // FIX: We need the *base* accumulated time separate from start time time to do client-side ticking properly.
-      // But we can approximate:
-      // If we know it IS running, the `totalTodaySeconds` passed in was correct *at the moment of build*.
-      // We can update it locally.
-      
-      // Actually, safest approach for UI consistency without refactoring entire model:
-      // Just recalculate the "current session duration" part here and add to "historical duration".
-      // But we don't have historical separated easily here.
-      
-      // Alternative: Just display the time passed in the current session if running (Active Session Focus),
-      // OR display total. The UI label says "CURRENT SESSION" if running.
-      // So we just show `Now - StartTime`.
-      
-      final currentSessionSeconds = DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
-      secondsToDisplay = currentSessionSeconds; 
-      // Note: The UI says "CURRENT SESSION" when running, so displaying just session time is accurate to label.
+      // Fix for huge numbers: Clamp to today's duration if displaying session time
+      final midnight = DateTime(now.year, now.month, now.day);
+      final effectiveStart = widget.startTime!.isBefore(midnight) 
+          ? midnight 
+          : widget.startTime!;
+          
+      final currentSessionSeconds = now.difference(effectiveStart).inSeconds.toDouble();
+      secondsToDisplay = currentSessionSeconds < 0 ? 0 : currentSessionSeconds; 
     }
 
     if (mounted) {
@@ -21846,17 +21823,7 @@ class SyncIndicator extends StatelessWidget {
                   color: AppTheme.fhAccentTeal,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Text(
-                "SAVING DATA...",
-                style: TextStyle(
-                  color: AppTheme.fhTextPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  fontFamily: AppTheme.fontDisplay,
-                ),
-              ),
+              
             ],
           ),
         ),
@@ -25546,13 +25513,23 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
 
   void _updateTime() {
     double seconds = widget.accumulatedTime;
+    
     if (widget.isRunning && widget.startTime != null) {
-      // If running, show ONLY current session duration as per request
-      final elapsed = DateTime.now().difference(widget.startTime!).inSeconds.toDouble();
-      seconds = elapsed;
-    } else {
-      // If not running, show accumulated total
-      seconds = widget.accumulatedTime;
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+      
+      // Fix for "104 hours" bug:
+      // If start time was days ago, we clamp effective start to today's midnight.
+      // This ensures we only display the portion of the current session that occurred today.
+      final effectiveStart = widget.startTime!.isBefore(midnight) 
+          ? midnight 
+          : widget.startTime!;
+      
+      final elapsedToday = now.difference(effectiveStart).inSeconds.toDouble();
+      
+      // accumulatedTime passed from parent should be Historical (Completed) Today
+      // So Total Today = Historical + Current Session Today
+      seconds = widget.accumulatedTime + (elapsedToday < 0 ? 0 : elapsedToday);
     }
     
     if (mounted) {

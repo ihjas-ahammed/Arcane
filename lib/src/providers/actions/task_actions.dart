@@ -607,6 +607,7 @@ class TaskActions {
     bool subSubTaskCompletedSuccessfully = false;
     SubSubTask? completedSubSubTaskInstanceForLog;
 
+    // Use a copy of mainTasks for optimistic update
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
@@ -647,20 +648,24 @@ class TaskActions {
       return task;
     }).toList();
 
+    // Trigger update immediately
     if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
-      _provider.setProviderState(mainTasks: newMainTasks);
-      
-      if (!fromSync) {
-        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-      }
+      // Async state update to prevent UI blocking
+      Future.microtask(() {
+        _provider.setProviderState(mainTasks: newMainTasks);
+        
+        if (!fromSync) {
+          _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
+        }
 
-      logToDailySummary('subSubtaskCompleted', {
-        'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
-        'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
-        'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
-        'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
-        'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
-        'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+        logToDailySummary('subSubtaskCompleted', {
+          'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
+          'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
+          'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
+          'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
+          'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
+          'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+        });
       });
     }
   }
@@ -694,10 +699,13 @@ class TaskActions {
       return task;
     }).toList();
 
-    _provider.setProviderState(mainTasks: newMainTasks);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
-    }
+    // Async update
+    Future.microtask(() {
+      _provider.setProviderState(mainTasks: newMainTasks);
+      if (!fromSync) {
+        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
+      }
+    });
   }
 
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
