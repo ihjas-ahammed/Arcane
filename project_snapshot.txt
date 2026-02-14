@@ -1,15 +1,33 @@
 
---- START OF FILE lib/src/utils/ai_context_helper.dart ---
-// lib/src/utils/ai_context_helper.dart
+--- START OF FILE lib/src/models/timeline_models.dart ---
+import 'package:flutter/material.dart';
 
-class AiContextHelper {
-  // Previously handled LifeValues. Kept for future context expansion (e.g. Skills).
-  // Currently empty as Values feature is removed.
-  static List<Map<String, dynamic>> getEmptyContext() {
-    return [];
-  }
+class TimelineEntry {
+  final String id;
+  final DateTime startTime;
+  final DateTime endTime;
+  final String title;
+  final String? subtitle;
+  final Color color;
+  final bool isEditable;
+  final bool isPredicted; // New field
+  final dynamic originalObject; // To pass back for editing actions
+
+  TimelineEntry({
+    required this.id,
+    required this.startTime,
+    required this.endTime,
+    required this.title,
+    this.subtitle,
+    required this.color,
+    this.isEditable = false,
+    this.isPredicted = false,
+    this.originalObject,
+  });
+
+  int get durationSeconds => endTime.difference(startTime).inSeconds;
 }
---- END OF FILE lib/src/utils/ai_context_helper.dart ---
+--- END OF FILE lib/src/models/timeline_models.dart ---
 
 --- START OF FILE lib/src/services/ai_service.dart ---
 import 'dart:convert';
@@ -25,6 +43,12 @@ class AIService {
     String jsonString = raw.trim();
     int jsonStart = jsonString.indexOf('{');
     int jsonEnd = jsonString.lastIndexOf('}');
+
+    if (jsonStart == -1) {
+      // Try finding list brackets if object not found
+      jsonStart = jsonString.indexOf('[');
+      jsonEnd = jsonString.lastIndexOf(']');
+    }
 
     if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
       jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
@@ -112,6 +136,65 @@ class AIService {
         }
       },
     );
+  }
+
+  // --- Prediction ---
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, // Text representation of last 14 days
+    required String currentTime,
+    required String availableTasksContext, // List of available task names to map to
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-3 likely sessions for the remainder of the day.
+    3. Do not predict past midnight.
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    OUTPUT JSON ARRAY ONLY:
+    [
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    final result = await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        String? raw = response.text;
+        if (raw == null) throw Exception("Empty AI response");
+        String jsonStr = _cleanJsonString(raw);
+        return jsonDecode(jsonStr);
+      },
+    );
+
+    if (result is List) {
+      return result.map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
   }
 
   Future<String> queryNeuralArchive({
@@ -403,3059 +486,622 @@ class AIService {
 }
 --- END OF FILE lib/src/services/ai_service.dart ---
 
---- START OF FILE lib/src/providers/app_provider.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/services/firebase_service.dart' as fb_service;
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/local_storage_service.dart';
-import 'package:arcane/src/utils/constants.dart';
+--- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:collection/collection.dart';
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:intl/intl.dart';
 
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart';
+class ScheduleHeroWidget extends StatelessWidget {
+  final String latestTaskName;
+  final String mostSpentTaskName;
+  final int mostSpentTimeSeconds;
+  final String greeting;
 
-import 'package:arcane/src/providers/actions/task_actions.dart';
-import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
-import 'package:arcane/src/providers/actions/timer_actions.dart';
-import 'package:arcane/src/providers/actions/project_actions.dart';
-import 'package:arcane/src/providers/actions/report_actions.dart';
-import 'package:arcane/src/services/ai_service.dart';
-
-class AppProvider with ChangeNotifier, WidgetsBindingObserver {
-  final StorageService _storageService = StorageService();
-  final LocalStorageService _localStorageService = LocalStorageService();
-  final AIService _aiService = AIService();
-
-  AIService get aiService => _aiService;
-
-  Timer? _autoSaveTimer;
-  Timer? _realtimeSyncDebouncer;
-
-  String? _loadingTaskName;
-  String? get loadingTaskName => _loadingTaskName;
-
-  User? _currentUser;
-  User? get currentUser => _currentUser;
-  bool _authLoading = true;
-  bool get authLoading => _authLoading;
-  
-  bool _isSyncing = false; 
-  bool get isSyncing => _isSyncing;
-  bool get isDataLoadingAfterLogin => false;
-
-  bool _isUsernameMissing = false;
-  bool get isUsernameMissing => _isUsernameMissing;
-
-  String? _lastLoginDate;
-  List<MainTask> _mainTasks =
-      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-  Map<String, dynamic> _completedByDay = {};
-
-  List<Skill> _skills = [];
-  List<Skill> get skills => _skills;
-  List<ReflectionLog> _reflectionLogs = [];
-  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
-
-  // Values feature removed
-
-  AppSettings _settings = AppSettings();
-  String? _selectedTaskId;
-  int _apiKeyIndex = 0;
-  Map<String, ActiveTimerInfo> _activeTimers = {};
-
-  final Set<String> _dirtyCollections = {};
-
-  bool _hasUnsavedChanges = false;
-  bool _isManuallySaving = false;
-  bool get isManuallySaving => _isManuallySaving;
-  bool _isManuallyLoading = false;
-  bool get isManuallyLoading => _isManuallyLoading;
-  DateTime? _lastSuccessfulSaveTimestamp;
-  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
-
-  bool _isGeneratingSubquestsForTask = false;
-  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
-
-  String? get lastLoginDate => _lastLoginDate;
-  List<MainTask> get mainTasks => _mainTasks;
-  Map<String, dynamic> get completedByDay => _completedByDay;
-
-  AppSettings get settings => _settings;
-  String? get selectedTaskId => _selectedTaskId;
-  int get apiKeyIndex => _apiKeyIndex;
-  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
-
-  ChatbotMemory _chatbotMemory = ChatbotMemory();
-  ChatbotMemory get chatbotMemory => _chatbotMemory;
-  bool _isChatbotMemoryInitialized = false;
-
-  late final TaskActions _taskActions;
-  late final AIGenerationActions _aiGenerationActions;
-  late final TimerActions _timerActions;
-  late final ProjectActions _projectActions;
-  late final ReportActions _reportActions;
-
-  AppProvider() {
-    _taskActions = TaskActions(this);
-    _aiGenerationActions = AIGenerationActions(this);
-    _timerActions = TimerActions(this);
-    _projectActions = ProjectActions(this);
-    _reportActions = ReportActions(this);
-    _initializeSkills();
-    _initialize();
-    
-    WidgetsBinding.instance.addObserver(this);
-  }
+  const ScheduleHeroWidget({
+    super.key,
+    required this.latestTaskName,
+    required this.mostSpentTaskName,
+    required this.mostSpentTimeSeconds,
+    this.greeting = "SYSTEM ONLINE",
+  });
 
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _autoSaveTimer?.cancel();
-    _realtimeSyncDebouncer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (_hasUnsavedChanges && _currentUser != null) {
-        _saveLocalSnapshot(forceFlush: true);
-        if (_settings.autoSaveEnabled) {
-          _performActualSave();
-        }
-      }
-    }
-  }
-
-  // --- ACTIONS EXPOSURE ---
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) =>
-      _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) =>
-      _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
-  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
-  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
-  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
-  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
-  void pauseTimer(String id) => _timerActions.pauseTimer(id);
-  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
-
-  // Expose Proxies
-  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) =>
-      _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
-
-  ProjectActions get projectActions => _projectActions;
-  TaskActions get taskActions => _taskActions;
-  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
-  ReportActions get reportActions => _reportActions;
-
-  // --- INITIALIZATION ---
-
-  void _initializeSkills() {
-    if (_skills.isEmpty) {
-      _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
-      ];
-    }
-  }
-
-  Future<void> _initialize() async {
-    fb_service.authStateChanges.listen(_onAuthStateChanged);
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges &&
-          _currentUser != null &&
-          !_isManuallySaving &&
-          !_isManuallyLoading &&
-          _settings.autoSaveEnabled) {
-        _performActualSave();
-      }
-    });
-  }
-
-  Future<void> _onAuthStateChanged(User? user) async {
-    if (_authLoading && _currentUser != null && user != null && _currentUser!.uid == user.uid) return;
-    
-    _authLoading = true;
-    notifyListeners();
-
-    if (user != null) {
-      _currentUser = user;
-      
-      // 1. Try Load Local Cache First (Instant UI)
-      final localData = await _localStorageService.loadState();
-      bool loadedLocal = false;
-      if (localData != null) {
-        _loadStateFromMap(localData);
-        loadedLocal = true;
-        
-        _hasUnsavedChanges = false;
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        _handleDailyReset();
-        
-        _authLoading = false;
-        notifyListeners();
-      }
-
-      _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
-      _isChatbotMemoryInitialized = false;
-      initializeChatbotMemory();
-
-      // 2. Fetch Cloud Data in Background
-      _isSyncing = true;
-      if (loadedLocal) notifyListeners();
-
-      try {
-        final cloudData = await _storageService.getUserData(user.uid);
-        if (cloudData != null) {
-          int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-          
-          if (!loadedLocal || cloudTs > _settings.lastModified) {
-            _loadStateFromMap(cloudData);
-            _hasUnsavedChanges = false;
-            // Offload initial local save to avoid UI jank
-            _saveLocalSnapshot(forceFlush: true);
-          } else if (loadedLocal && _settings.lastModified > cloudTs) {
-            _hasUnsavedChanges = true;
-            _scheduleRealtimeSync();
-          }
-        } else if (!loadedLocal) {
-          await _resetToInitialState();
-          _lastLoginDate = helper.getTodayDateString();
-          _hasUnsavedChanges = true;
-          await _performActualSave();
-        }
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        _handleDailyReset();
-      } catch (e) {
-        debugPrint("Cloud sync init failed: $e");
-      } finally {
-        _isSyncing = false;
-        _authLoading = false;
-        notifyListeners();
-      }
-
-    } else {
-      _currentUser = null;
-      await _resetToInitialState();
-      await _localStorageService.clearState();
-      _hasUnsavedChanges = false;
-      _isChatbotMemoryInitialized = false;
-      _authLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
-    try {
-      final fullData = getAppStateAsMap();
-      // LocalStorageService now uses compute/isolate internally to avoid blocking UI
-      await _localStorageService.saveState(fullData);
-      
-      if (forceFlush) {
-        if (Platform.isAndroid || Platform.isWindows) {
-          final docsDir = await getApplicationDocumentsDirectory();
-          final backupDir = Directory('${docsDir.path}/backups');
-          if (!await backupDir.exists()) await backupDir.create(recursive: true);
-          
-          final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-          final file = File('${backupDir.path}/backup_$timestamp.json');
-          
-          // Offload encoding to isolate for backup as well
-          final jsonString = await compute((Map<String, dynamic> data) => jsonEncode(data), fullData);
-          await file.writeAsString(jsonString);
-          
-          final files = backupDir.listSync().whereType<File>().toList();
-          files.sort((a, b) => a.path.compareTo(b.path));
-          if (files.length > 5) {
-            for (var i = 0; i < files.length - 5; i++) {
-              await files[i].delete();
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Local snapshot failed: $e");
-    }
-  }
-
-  Future<void> _performActualSave() async {
-    if (_currentUser != null) {
-      bool isAutoSave = !_isManuallySaving;
-      if (!isAutoSave) setLoadingTask("Syncing Database...");
-      _isSyncing = true;
-      notifyListeners();
-
-      try {
-        // Awaiting here ensures local cache is updated, but since it's async/isolate, UI won't freeze
-        await _saveLocalSnapshot();
-
-        bool success = true;
-        final nowTs = DateTime.now().millisecondsSinceEpoch;
-        _settings.lastModified = nowTs;
-
-        if (_dirtyCollections.isNotEmpty) {
-          if (_dirtyCollections.contains('tasks')) {
-            if (!await _storageService.saveTasks(_currentUser!.uid, {
-              'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()
-            })) success = false;
-          }
-          if (_dirtyCollections.contains('history')) {
-            if (!await _storageService.saveHistory(
-                _currentUser!.uid, {'completedByDay': _completedByDay}))
-              success = false;
-          }
-          if (_dirtyCollections.contains('reflections')) {
-            if (!await _storageService.saveReflections(_currentUser!.uid, {
-              'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
-            })) success = false;
-          }
-          
-          if (_dirtyCollections.contains('settings') || success) {
-             final settingsData = {
-                'lastLoginDate': _lastLoginDate,
-                'settings': settings.toJson(),
-                'selectedTaskId': _selectedTaskId,
-                'apiKeyIndex': _apiKeyIndex,
-                'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-                'lastSuccessfulSaveTimestamp': DateTime.now().toIso8601String(),
-                'chatbotMemory': _chatbotMemory.toJson(),
-                'skills': _skills.map((s) => s.toJson()).toList(),
-              };
-              if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
-          }
-          if (success) _dirtyCollections.clear();
-        }
-
-        if (success) {
-          _lastSuccessfulSaveTimestamp = DateTime.now();
-          _hasUnsavedChanges = false;
-        }
-      } finally {
-        _isSyncing = false;
-        if (!isAutoSave) setLoadingTask(null);
-        notifyListeners();
-      }
-    }
-  }
-
-  void _scheduleRealtimeSync() {
-    // Fire local save immediately (async/isolate) but don't await to block UI thread logic flow if called from sync functions
-    _saveLocalSnapshot(); 
-    
-    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
-    if (_realtimeSyncDebouncer?.isActive ?? false) {
-      _realtimeSyncDebouncer!.cancel();
-    }
-    _realtimeSyncDebouncer = Timer(const Duration(seconds: 2), () {
-      if (_hasUnsavedChanges && !_isManuallySaving) {
-        _performActualSave();
-      }
-    });
-  }
-
-  void _markDirty(String collection) {
-    _dirtyCollections.add(collection);
-    _hasUnsavedChanges = true;
-    _settings.lastModified = DateTime.now().millisecondsSinceEpoch;
-  }
-
-  Map<String, dynamic> getAppStateAsMap() {
-    return {
-      'lastLoginDate': _lastLoginDate,
-      'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList(),
-      'completedByDay': _completedByDay,
-      'settings': settings.toJson(),
-      'selectedTaskId': _selectedTaskId,
-      'apiKeyIndex': _apiKeyIndex,
-      'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-      'lastSuccessfulSaveTimestamp': _lastSuccessfulSaveTimestamp?.toIso8601String(),
-      'chatbotMemory': _chatbotMemory.toJson(),
-      'skills': _skills.map((s) => s.toJson()).toList(),
-      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-    };
-  }
-
-  void loadAppStateFromMap(Map<String, dynamic> data) {
-    _loadStateFromMap(data);
-    _saveLocalSnapshot(forceFlush: true);
-    _hasUnsavedChanges = true;
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void _loadStateFromMap(Map<String, dynamic> data) {
-    _lastLoginDate = data['lastLoginDate'] as String?;
-    _mainTasks = (data['mainTasks'] as List<dynamic>?)
-            ?.map((mtJson) => MainTask.fromJson(mtJson as Map<String, dynamic>))
-            .toList() ??
-        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-    _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
-    _completedByDay.forEach((date, dayDataMap) {
-      if (dayDataMap is Map<String, dynamic>) {
-        dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
-        dayDataMap.putIfAbsent('subtasksCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent('checkpointsCompleted', () => <Map<String, dynamic>>[]);
-      }
-    });
-    
-    _settings = data['settings'] != null
-        ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>)
-        : AppSettings();
-    
-    _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
-    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
-        {};
-    
-    final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
-    _lastSuccessfulSaveTimestamp = timestampString != null ? DateTime.tryParse(timestampString) : null;
-    
-    _chatbotMemory = data['chatbotMemory'] != null
-        ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
-        : ChatbotMemory();
-    
-    if (data['skills'] != null && data['skills'] is List) {
-      _skills = (data['skills'] as List)
-          .where((s) => s != null && s is Map<String, dynamic>)
-          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
-          .toList();
-    }
-    if (_skills.isEmpty) _initializeSkills();
-
-    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
-      _reflectionLogs = (data['reflectionLogs'] as List)
-          .where((l) => l != null && l is Map<String, dynamic>)
-          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
-          .toList();
-    }
-
-    _isChatbotMemoryInitialized = true;
-    if (_settings.dataVersion < 1) {
-      _settings.dataVersion = 1;
-      _hasUnsavedChanges = true; 
-    }
-  }
-
-  void setProviderState(
-      {String? lastLoginDate,
-      List<MainTask>? mainTasks,
-      Map<String, dynamic>? completedByDay,
-      Map<String, ActiveTimerInfo>? activeTimers,
-      DateTime? lastSuccessfulSaveTimestamp,
-      bool? isUsernameMissing,
-      ChatbotMemory? chatbotMemory,
-      bool doNotify = true,
-      bool doPersist = true}) {
-    bool changed = false;
-    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
-      _lastLoginDate = lastLoginDate;
-      changed = true;
-    }
-    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
-      _mainTasks = List.from(mainTasks);
-      changed = true;
-    }
-    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
-      _completedByDay = Map.from(completedByDay);
-      changed = true;
-    }
-    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
-      _activeTimers = Map.from(activeTimers);
-      changed = true;
-    }
-    if (lastSuccessfulSaveTimestamp != null &&
-        _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
-      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp;
-      changed = true;
-    }
-    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
-      _isUsernameMissing = isUsernameMissing;
-      changed = true;
-    }
-    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
-      _chatbotMemory = chatbotMemory;
-      changed = true;
-    }
-    if (changed) {
-      if (doPersist) {
-        if (mainTasks != null) _markDirty('tasks');
-        if (completedByDay != null) _markDirty('history');
-        if (lastLoginDate != null || activeTimers != null || lastSuccessfulSaveTimestamp != null || chatbotMemory != null) _markDirty('settings');
-        
-        _scheduleRealtimeSync();
-      }
-      if (doNotify) notifyListeners();
-    }
-  }
-
-  void _fixTimerAnomalies() {
-    final runningTimers = _activeTimers.entries.where((e) => e.value.isRunning).toList();
-    if (runningTimers.length > 1) {
-      runningTimers.sort((a, b) => b.value.startTime.compareTo(a.value.startTime));
-      for (var entry in runningTimers.sublist(1)) {
-        _timerActions.pauseTimer(entry.key);
-      }
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-    }
-  }
-
-  void setSettings(AppSettings newSettings) {
-    _settings = newSettings;
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  void setSelectedTaskId(String? taskId) {
-    if (_selectedTaskId != taskId) {
-      _selectedTaskId = taskId;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-  
-  Future<void> restoreFromLocalSnapshot(File backupFile) async {
-    try {
-      final content = await backupFile.readAsString();
-      final data = jsonDecode(content) as Map<String, dynamic>;
-      _loadStateFromMap(data);
-      _hasUnsavedChanges = true;
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Error restoring snapshot: $e");
-      rethrow;
-    }
-  }
-  
-  Future<void> manuallySaveToCloud() async {
-    if (_currentUser == null) throw Exception("Not logged in.");
-    _isManuallySaving = true;
-    notifyListeners();
-    try {
-      await _performActualSave();
-    } finally {
-      _isManuallySaving = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> manuallyLoadFromCloud() async {
-    if (_currentUser == null) throw Exception("Not logged in.");
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final data = await _storageService.getUserData(_currentUser!.uid);
-      if (data != null) {
-        _loadStateFromMap(data);
-        _saveLocalSnapshot(forceFlush: true);
-        _hasUnsavedChanges = false;
-      }
-    } finally {
-      _isManuallyLoading = false;
-      notifyListeners();
-    }
-  }
-  
-  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
-  Future<void> logoutUser() async {
-    if (_currentUser != null) { 
-       await _saveLocalSnapshot(forceFlush: true);
-       await _localStorageService.clearState();
-    }
-    await fb_service.signOut();
-  }
-  
-  Future<void> signupUser(String email, String password, String username) async {
-    _authLoading = true;
-    notifyListeners();
-    try {
-      UserCredential uc = await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(email: email, password: password);
-      _currentUser = uc.user;
-      if (_currentUser != null) {
-        await _currentUser!.updateDisplayName(username);
-        await _currentUser!.reload();
-        _currentUser = fb_service.firebaseAuthInstance.currentUser;
-        await _resetToInitialState();
-        _lastLoginDate = helper.getTodayDateString();
-        _hasUnsavedChanges = true;
-        await _performActualSave();
-      }
-    } finally {
-      _authLoading = false;
-      notifyListeners();
-    }
-  }
-  
-  void setProviderApiKeyIndex(int index) {
-    if (_apiKeyIndex != index) _apiKeyIndex = index;
-  }
-  void setProviderAISubquestLoading(bool isLoading) {
-    _isGeneratingSubquestsForTask = isLoading;
-    notifyListeners();
-  }
-  void setLoadingTask(String? taskName) {
-    _loadingTaskName = taskName;
-    notifyListeners();
-  }
-  
-  void _cleanOverlappingSessions() {
-    bool hasChanges = false;
-    List<Map<String, dynamic>> allSessions = [];
-    
-    for (var main in _mainTasks) {
-      for (var sub in main.subTasks) {
-        for (var session in sub.sessions) {
-          allSessions.add({
-            'session': session,
-            'subId': sub.id,
-            'mainId': main.id,
-          });
-        }
-      }
-    }
-
-    if (allSessions.isEmpty) return;
-
-    allSessions.sort((a, b) {
-      final sA = (a['session'] as TaskSession);
-      final sB = (b['session'] as TaskSession);
-      return sA.startTime.compareTo(sB.startTime);
-    });
-
-    List<Map<String, dynamic>> sessionsToDelete = [];
-
-    for (int i = 0; i < allSessions.length - 1; i++) {
-      final current = allSessions[i];
-      final next = allSessions[i + 1];
-      
-      final cSess = current['session'] as TaskSession;
-      final nSess = next['session'] as TaskSession;
-
-      if (nSess.startTime.isBefore(cSess.endTime)) {
-        final cTimestamp = TimeValidationHelper.getCreationTimestamp(cSess.id);
-        final nTimestamp = TimeValidationHelper.getCreationTimestamp(nSess.id);
-
-        if (nTimestamp > cTimestamp) {
-          sessionsToDelete.add(next);
-        } else {
-          sessionsToDelete.add(current);
-        }
-      }
-    }
-
-    if (sessionsToDelete.isNotEmpty) {
-      final idsToDelete = sessionsToDelete.map((e) => (e['session'] as TaskSession).id).toSet();
-      
-      for (var main in _mainTasks) {
-        for (var sub in main.subTasks) {
-          final initialCount = sub.sessions.length;
-          sub.sessions.removeWhere((s) => idsToDelete.contains(s.id));
-          if (sub.sessions.length != initialCount) {
-            int totalSeconds = 0;
-            for (var s in sub.sessions) totalSeconds += s.durationSeconds;
-            sub.currentTimeSpent = totalSeconds;
-            hasChanges = true;
-          }
-        }
-      }
-    }
-
-    if (hasChanges) {
-      _markDirty('tasks');
-      _scheduleRealtimeSync();
-    }
-  }
-
-  Future<void> _resetToInitialState() async {
-    _lastLoginDate = null;
-    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-    _settings = AppSettings();
-    _activeTimers = {};
-    _reflectionLogs = [];
-    _completedByDay = {};
-    _initializeSkills();
-  }
-
-  Future<void> _handleDailyReset() async {
-    if (_currentUser == null) return;
-    final today = helper.getTodayDateString();
-    bool hasResetRun = false;
-
-    if (_lastLoginDate != today) {
-      hasResetRun = true;
-      _lastLoginDate = today;
-      _markDirty('settings');
-      for (var task in _mainTasks) {
-        if (task.lastWorkedDate != today) task.dailyTimeSpent = 0;
-      }
-      _markDirty('tasks');
-    }
-
-    final now = DateTime.now();
-    final todayMidnight = DateTime(now.year, now.month, now.day);
-    bool tasksChanged = false;
-
-    for (var mainTask in _mainTasks) {
-      for (var subTask in mainTask.subTasks) {
-        if (subTask.isRecurring) {
-          if (subTask.completed &&
-              subTask.lastCompletedDate != null &&
-              subTask.lastCompletedDate!.isBefore(todayMidnight)) {
-            subTask.completed = false;
-            subTask.completedDate = null;
-            tasksChanged = true;
-          }
-          if (subTask.isCountable &&
-              subTask.currentCount > 0 &&
-              subTask.updatedAt.isBefore(todayMidnight)) {
-            subTask.currentCount = 0;
-            tasksChanged = true;
-          }
-          for (var checkpoint in subTask.subSubTasks) {
-            if (checkpoint.completed) {
-              DateTime? cpDate;
-              if (checkpoint.completionTimestamp != null) {
-                try {
-                  cpDate = DateTime.parse(checkpoint.completionTimestamp!);
-                } catch (_) {}
-              }
-              if (cpDate == null || cpDate.isBefore(todayMidnight)) {
-                checkpoint.completed = false;
-                checkpoint.completionTimestamp = null;
-                tasksChanged = true;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (tasksChanged) {
-      _markDirty('tasks');
-    }
-
-    if (hasResetRun) {
-      _chatbotMemory.lastWeeklySummary = "Weekly summary pending...";
-      initializeChatbotMemory();
-      notifyListeners();
-    } else if (tasksChanged) {
-      notifyListeners();
-    }
-  }
-
-  void initializeChatbotMemory() { 
-    if (!_isChatbotMemoryInitialized) {
-       if (_chatbotMemory.conversationHistory.isEmpty) {
-         _chatbotMemory.conversationHistory.add(ChatbotMessage(id: 'init_${DateTime.now().millisecondsSinceEpoch}', text: 'Hello Agent.', sender: MessageSender.bot, timestamp: DateTime.now()));
-       }
-       _isChatbotMemoryInitialized = true;
-    }
-  }
-
-  Future<void> changePasswordHandler(String pwd) async { 
-    await fb_service.changePassword(pwd); 
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-  }
-  
-  Future<void> updateUserDisplayName(String name) async { 
-    await _currentUser?.updateDisplayName(name); 
-    notifyListeners(); 
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-  }
-  
-  Future<void> clearAllData() async { 
-    await _storageService.deleteUserData(_currentUser!.uid); 
-    await _resetToInitialState(); 
-    await _localStorageService.clearState();
-    notifyListeners(); 
-  }
-  
-  void addCustomApiKey(String key) { 
-    settings.customApiKeys.add(key); 
-    _markDirty('settings'); 
-    _scheduleRealtimeSync(); 
-    notifyListeners(); 
-  }
-  void removeCustomApiKey(String key) { 
-    settings.customApiKeys.remove(key); 
-    _markDirty('settings'); 
-    _scheduleRealtimeSync(); 
-    notifyListeners(); 
-  }
-  
-  Future<void> sendMessageToChatbot(String userMessageText) async { 
-    if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
-    _chatbotMemory.conversationHistory.add(ChatbotMessage(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        text: userMessageText,
-        sender: MessageSender.user,
-        timestamp: DateTime.now()));
-    notifyListeners();
-    setLoadingTask("Consulting Advisor...");
-    try {
-      final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels,
-        memory: _chatbotMemory,
-        userMessage: userMessageText,
-        dataContext: "User Context Placeholder",
-        currentApiKeyIndex: _apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        systemInstruction: settings.customChatbotPrompt,
-        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
-        onLog: (logMsg) => {},
-      );
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
-          text: botResponseText,
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-    } catch (e) {
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          text: "Error connecting. ${e.toString()}",
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-    } finally {
-      setLoadingTask(null);
-      _markDirty('settings');
-      notifyListeners();
-    }
-  }
-  
-  Map<String, dynamic> getLast7DaysData() { 
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    final logsBuffer = StringBuffer();
-    final Map<String, int> totalTimePerTask = {};
-
-    final relevantLogs = _reflectionLogs.where((log) =>
-      log.timestamp.isAfter(sevenDaysAgo) && log.timestamp.isBefore(now.add(const Duration(days: 1)))
-    ).toList();
-
-    for (var log in relevantLogs) {
-      logsBuffer.writeln("- [${DateFormat('yyyy-MM-dd').format(log.timestamp)}] ${log.trigger} -> ${log.emotion} (${log.reason})");
-    }
-
-    for (var task in _mainTasks) {
-      int taskTotal = 0;
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isAfter(sevenDaysAgo) && session.startTime.isBefore(now.add(const Duration(days: 1)))) {
-            taskTotal += session.durationSeconds;
-          }
-        }
-      }
-      if (taskTotal > 0) {
-        totalTimePerTask[task.name] = taskTotal;
-      }
-    }
-
-    final timeBuffer = StringBuffer();
-    totalTimePerTask.forEach((name, seconds) {
-      final hours = (seconds / 3600).toStringAsFixed(1);
-      timeBuffer.writeln("- $name: $hours hrs");
-    });
-
-    return {
-      'logs': logsBuffer.toString(),
-      'times': timeBuffer.toString(),
-    };
-  }
-  
-  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
-    final result = await _aiService.generateDailySummary(
-      reflections: logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason}).toList(),
-      previousBriefings: [],
-      modelCandidates: settings.liteModels,
-      currentApiKeyIndex: apiKeyIndex,
-      customApiKeys: settings.customApiKeys,
-      onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-      onLog: (msg) => debugPrint(msg)
-    );
-    return result; 
-  }
-  
-  Map<String, dynamic>? getTacticalBriefing(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
-      final data = _completedByDay[date]['aiBriefing'];
-      if (data is Map<String, dynamic>) return data;
-    }
-    return null;
-  }
-  
-  void saveTacticalBriefing(String date, Map<String, dynamic> data) {
-    if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
-    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
-    _completedByDay[date]['aiBriefing'] = data;
-    _markDirty('history');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  Future<List<Map<String, dynamic>>> generateStartDayReport() async { 
-    return await _reportActions.generateStartDayReport();
-  }
-  
-  void saveStartDayReport(String date, Map<String, dynamic> data) {
-    if (!_completedByDay.containsKey(date)) _completedByDay[date] = {};
-    if (_completedByDay[date] is! Map) _completedByDay[date] = <String, dynamic>{};
-    _completedByDay[date]['startDayReport'] = data;
-    _markDirty('history');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  Map<String, dynamic>? getStartDayReport(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
-      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>?;
-    }
-    return null;
-  }
-  
-  int get7DaySkillMomentum(String skillName) {
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    return _reflectionLogs
-        .where((log) =>
-            log.timestamp.isAfter(sevenDaysAgo) &&
-            log.timestamp.isBefore(now.add(const Duration(days: 1))))
-        .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
-  }
-  
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { 
-    final actualTimestamp = timestamp ?? DateTime.now();
-    setLoadingTask("Analyzing...");
-    
-    final result = await _aiService.evaluateReflection(
-        trigger: trigger,
-        emotion: emotion,
-        reason: reason,
-        modelCandidates: settings.liteModels,
-        customApiKeys: settings.customApiKeys,
-        systemInstruction: settings.customReflectionPrompt);
-    
-    setLoadingTask(null);
-
-    Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map) {
-      (result['xp_allocation'] as Map).forEach((key, value) =>
-          xpAllocation[key.toString()] = (value as num).toInt());
-    }
-
-    List<Skill> updatedSkills = List.from(_skills);
-    xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull(
-          (s) => s.name.toLowerCase() == skillName.toLowerCase());
-      if (skill != null) skill.addXp(xp);
-    });
-
-    _reflectionLogs.add(ReflectionLog(
-        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
-        timestamp: actualTimestamp,
-        trigger: trigger,
-        emotion: emotion,
-        reason: reason,
-        aiFeedback: result['feedback'] ?? "Log recorded.",
-        xpGained: xpAllocation));
-
-    _skills = updatedSkills;
-    _markDirty('reflections');
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-
-    return {
-      'xpGained': xpAllocation,
-    };
-  }
-  
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) {
-    _reflectionLogs.add(ReflectionLog(
-        id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
-        timestamp: timestamp ?? DateTime.now(),
-        trigger: trigger,
-        emotion: emotion,
-        reason: reason,
-        aiFeedback: "Log recorded manually...",
-        xpGained: {}));
-    _markDirty('reflections');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) {
-    final index = _reflectionLogs.indexWhere((l) => l.id == id);
-    if (index != -1) {
-      final old = _reflectionLogs[index];
-      if (trigger != null) old.trigger = trigger;
-      if (emotion != null) old.emotion = emotion;
-      if (reason != null) old.reason = reason;
-      _markDirty('reflections');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-  
-  void deleteReflectionLog(String id) {
-    _reflectionLogs.removeWhere((l) => l.id == id);
-    _markDirty('reflections');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  MainTask? getSelectedTask() => _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId);
-  
-  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
-    // Basic stub, real impl used helpers
-    return List.filled(7, false);
-  }
-  
-  int getYesterdaysTimeForTask(String taskId) {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
-    final dayData = _completedByDay[yesterdayStr];
-    if (dayData != null && dayData['taskTimes'] != null) {
-      final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
-      return (taskTimes[taskId] as num?)?.toInt() ?? 0;
-    }
-    return 0;
-  }
-  
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
-    for (var mainTask in _mainTasks) {
-      for (var project in mainTask.projects) {
-        final result = _findStepLinkedToRecursive(project.steps, targetId);
-        if (result != null) {
-          return {
-            'mainTaskId': mainTask.id,
-            'projectId': project.id,
-            'projectTitle': project.title,
-            'stepId': result.id,
-            'stepTitle': result.title,
-          };
-        }
-      }
-    }
-    return null;
-  }
-
-  ProjectStep? _findStepLinkedToRecursive(List<ProjectStep> steps, String targetId) {
-    for (var step in steps) {
-      if (step.linkedTaskId == targetId) return step;
-      final found = _findStepLinkedToRecursive(step.substeps, targetId);
-      if (found != null) return found;
-    }
-    return null;
-  }
-}
---- END OF FILE lib/src/providers/app_provider.dart ---
-
---- START OF FILE lib/src/providers/actions/task_actions.dart ---
-// lib/src/providers/actions/task_actions.dart
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart'; // Import Validation Helper
-import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
-
-class TaskActions {
-  final AppProvider _provider;
-
-  TaskActions(this._provider);
-
-  // ... [Keep existing basic actions like addMainTask, editMainTask, logToDailySummary] ...
-  
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final List<SubTask> updatedSubtasks = List.from(task.subTasks);
-        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
-          final SubTask item = updatedSubtasks.removeAt(oldIndex);
-          updatedSubtasks.insert(newIndex, item);
-        }
-        return task.copyWith(subTasks: updatedSubtasks);
-      }
-      return task;
-    }).toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void addMainTask(
-      {required String name,
-      required String description,
-      required String theme,
-      required String colorHex}) {
-    final newTask = MainTask(
-      id: 'mt_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      description: description,
-      theme: theme,
-      colorHex: colorHex,
-    );
-    _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
-  }
-
-  void editMainTask(String taskId,
-      {required String name,
-      required String description,
-      required String theme,
-      required String colorHex}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == taskId) {
-        return task.copyWith(
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex,
-        );
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void logToDailySummary(String type, Map<String, dynamic> data) {
-    final today = getTodayDateString();
-    final newCompletedByDay =
-        Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ??
-        {
-          'taskTimes': <String, int>{},
-          'subtasksCompleted': <Map<String, dynamic>>[],
-          'checkpointsCompleted': <Map<String, dynamic>>[],
-        });
-
-    if (type == 'taskTime') {
-      final taskTimes =
-          Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
-      taskTimes[data['taskId'] as String] =
-          (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
-      dayData['taskTimes'] = taskTimes;
-    } else if (type == 'subtaskCompleted') {
-      final subtasksCompleted = List<Map<String, dynamic>>.from(
-          dayData['subtasksCompleted'] as List? ?? []);
-      subtasksCompleted.add(data);
-      dayData['subtasksCompleted'] = subtasksCompleted;
-    } else if (type == 'subSubtaskCompleted') {
-      final checkpointsCompleted = List<Map<String, dynamic>>.from(
-          dayData['checkpointsCompleted'] as List? ?? []);
-      if (!data.containsKey('completionTimestamp')) {
-        data['completionTimestamp'] = DateTime.now().toIso8601String();
-      }
-      checkpointsCompleted.add(data);
-      dayData['checkpointsCompleted'] = checkpointsCompleted;
-    }
-
-    newCompletedByDay[today] = dayData;
-    _provider.setProviderState(completedByDay: newCompletedByDay);
-  }
-
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
-    final newSubtask = SubTask(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
-      name: subtaskData['name'] as String,
-      description: subtaskData['description'] as String? ?? '',
-      isCountable: subtaskData['isCountable'] as bool? ?? false,
-      targetCount: subtaskData['isCountable'] as bool? ?? false
-          ? (subtaskData['targetCount'] as int? ?? 1)
-          : 0,
-      completed: subtaskData['completed'] as bool? ?? false,
-      completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
-      isRecurring: subtaskData['isRecurring'] as bool? ?? false,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      subSubTasks:
-          (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
-                  ?.map((sssData) => SubSubTask(
-                        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.fold<int>(0, (prevSt, st) => prevSt + st.subSubTasks.length)) + 1)}_${sssData['name']?.hashCode ?? 0}',
-                        name: sssData['name'] as String,
-                        isCountable: sssData['isCountable'] as bool? ?? false,
-                        targetCount: sssData['isCountable'] as bool? ?? false
-                            ? (sssData['targetCount'] as int? ?? 1)
-                            : 0,
-                      ))
-                  .toList() ??
-              [],
-    );
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: [...task.subTasks, newSubtask],
-        );
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    return newSubtask.id;
-  }
-
-  void updateSubtask(
-      String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
-    MainTask? taskToUpdate =
-        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (taskToUpdate == null) return;
-
-    SubTask? subtaskToUpdate =
-        taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
-    if (subtaskToUpdate == null) return;
-
-    final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
-
-    if (updates.containsKey('name')) {
-      subtaskToUpdate.name = updates['name'] as String;
-    }
-    if (updates.containsKey('description')) {
-      subtaskToUpdate.description = updates['description'] as String;
-    }
-    if (updates.containsKey('isRecurring')) {
-      subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
-    }
-    
-    // Always update timestamp on modification
-    subtaskToUpdate.updatedAt = DateTime.now();
-
-    if (updates.containsKey('currentTimeSpent')) {
-      subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
-    }
-    if (updates.containsKey('completed')) {
-      subtaskToUpdate.completed = updates['completed'] as bool;
-      if (!subtaskToUpdate.completed) {
-        subtaskToUpdate.completedDate = null;
-        subtaskToUpdate.lastCompletedDate = null;
-      }
-    }
-
-    int timeDifference = 0;
-    if (updates.containsKey('currentTimeSpent')) {
-      timeDifference = subtaskToUpdate.currentTimeSpent - oldSubtaskTime;
-    }
-
-    if (timeDifference != 0) {
-      taskToUpdate.dailyTimeSpent =
-          (taskToUpdate.dailyTimeSpent) + timeDifference;
-      taskToUpdate.lastWorkedDate = getTodayDateString();
-      logToDailySummary(
-          'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
-    }
-
-    final newMainTasks = _provider.mainTasks
-        .map((t) => t.id == mainTaskId ? taskToUpdate : t)
-        .toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
-    // Validation: Check for overlap globally
-    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
-      return false; // Indicating failure due to overlap
-    }
-
-    final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
-    final durationSeconds = session.durationSeconds;
-    
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
-            lastWorkedDate: getTodayDateString(),
-            subTasks: task.subTasks.map((st) {
-              if (st.id == subTaskId) {
-                final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
-                // Recalculate total time from scratch based on session logs
-                final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-
-                return SubTask(
-                  id: st.id, name: st.name, description: st.description, completed: st.completed, 
-                  currentTimeSpent: totalTime,
-                  completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                  currentCount: st.currentCount, subSubTasks: st.subSubTasks,
-                  sessions: newSessions,
-                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-                );
-              }
-              return st;
-            }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    _syncDateWithSessions(start, end);
-    return true; // Success
-  }
-
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
-    // Validation: Check for overlap globally, excluding self
-    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
-      return; // Abort update on overlap
-    }
-
-    DateTime? oldStart;
-    DateTime? oldEnd;
-    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
-    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) {
-        oldStart = oldSession.startTime;
-        oldEnd = oldSession.endTime;
-    }
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final updatedSessions = st.sessions.map((s) {
-              if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
-              return s;
-            }).toList();
-            
-            // Recalculate total time from scratch
-            int totalTime = 0;
-            for (var s in updatedSessions) totalTime += s.durationSeconds;
-            
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, 
-              currentTimeSpent: totalTime,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, subSubTasks: st.subSubTasks,
-              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    
-    // Sync logic to handle potential cross-day updates
-    if (oldStart != null && oldEnd != null) {
-        _syncDateWithSessions(oldStart, oldEnd); // Re-calculate old days
-    }
-    _syncDateWithSessions(newStart, newEnd); // Calculate new days
-  }
-
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
-    DateTime? oldStart;
-    DateTime? oldEnd;
-    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
-    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-    if (oldSession != null) {
-        oldStart = oldSession.startTime;
-        oldEnd = oldSession.endTime;
-    }
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        int deduction = oldSession?.durationSeconds ?? 0;
-        return task.copyWith(
-            // We adjust MainTask time by deduction since MainTask aggregates many subtasks
-            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
-            // Recalculate total time from scratch for SubTask
-            final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed,
-              currentTimeSpent: totalTime,
-              completedDate: st.completedDate, isCountable: st.isCountable,
-              targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
-              sessions: remainingSessions,
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    
-    if (oldStart != null && oldEnd != null) {
-        _syncDateWithSessions(oldStart, oldEnd);
-    }
-  }
-
-  // Handles splitting time across days if session spans midnight
-  void _syncDateWithSessions(DateTime start, DateTime end) {
-    // Get list of unique dates involved in this range (usually 1 or 2)
-    final Set<String> affectedDates = {};
-    DateTime current = DateTime(start.year, start.month, start.day);
-    final last = DateTime(end.year, end.month, end.day);
-    
-    while (!current.isAfter(last)) {
-      affectedDates.add(DateFormat('yyyy-MM-dd').format(current));
-      current = current.add(const Duration(days: 1));
-    }
-
-    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-
-    for (var dateStr in affectedDates) {
-      final date = DateTime.parse(dateStr);
-      final nextDay = date.add(const Duration(days: 1));
-      
-      final Map<String, int> taskTimes = {};
-      
-      for (var task in _provider.mainTasks) {
-        int taskTotal = 0;
-        for (var sub in task.subTasks) {
-          for (var session in sub.sessions) {
-            // Calculate overlap with this day (date 00:00 to nextDay 00:00)
-            final overlapStart = session.startTime.isAfter(date) ? session.startTime : date;
-            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
-            
-            if (overlapStart.isBefore(overlapEnd)) {
-                taskTotal += overlapEnd.difference(overlapStart).inSeconds;
-            }
-          }
-        }
-        if (taskTotal > 0) taskTimes[task.id] = taskTotal;
-      }
-      
-      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
-      dayData['taskTimes'] = taskTimes;
-      newCompletedByDay[dateStr] = dayData;
-    }
-    
-    _provider.setProviderState(completedByDay: newCompletedByDay);
-  }
-
-  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
-    MainTask? mainTask =
-        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (mainTask == null) return false;
-    SubTask? subTask =
-        mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
-    if (subTask == null || subTask.completed) return false;
-
-    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) {
-      return false;
-    }
-
-    if (subTask.currentTimeSpent <= 0 && !subTask.isCountable) {
-      bool allSubSubTasksDone =
-          subTask.subSubTasks.every((sss) => sss.completed);
-      if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
-      if (subTask.subSubTasks.isEmpty && subTask.currentTimeSpent <= 0) {
-        // Allow completion if forced by sync (e.g. from Project Step)
-        if (!fromSync) return false;
-      }
-    }
-
-    ActiveTimerInfo? timerForSubtask = _provider.activeTimers[subtaskId];
-    if (timerForSubtask != null) {
-      _provider.logTimerAndReset(subtaskId);
-    }
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subtaskId) {
-              return SubTask(
-                  id: st.id,
-                  name: st.name,
-                  description: st.description,
-                  completed: true,
-                  completedDate: getTodayDateString(),
-                  currentTimeSpent: st.currentTimeSpent,
-                  isCountable: st.isCountable,
-                  targetCount: st.targetCount,
-                  currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks,
-                  sessions: st.sessions,
-                  isRecurring: st.isRecurring,
-                  lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
-                  createdAt: st.createdAt,
-                  updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-
-    // Sync back to Project Steps if NOT initiated from there
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
-    }
-
-    logToDailySummary('subtaskCompleted', {
-      'parentTaskId': mainTask.id,
-      'name': subTask.name,
-      'timeLogged': subTask.currentTimeSpent,
-      'isCountable': subTask.isCountable,
-      'currentCount': subTask.currentCount,
-      'targetCount': subTask.targetCount
-    });
-    return true;
-  }
-
-  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subtaskId) {
-              return SubTask(
-                  id: st.id,
-                  name: st.name,
-                  description: st.description,
-                  completed: false,
-                  completedDate: null,
-                  currentTimeSpent: st.currentTimeSpent,
-                  isCountable: st.isCountable,
-                  targetCount: st.targetCount,
-                  currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks,
-                  sessions: st.sessions,
-                  isRecurring: st.isRecurring,
-                  lastCompletedDate: null,
-                  createdAt: st.createdAt,
-                  updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
-    }
-  }
-
-  void deleteSubtask(String mainTaskId, String subtaskId) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    final newActiveTimers =
-        Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-    newActiveTimers.remove(subtaskId);
-    _provider.setProviderState(
-        mainTasks: newMainTasks, activeTimers: newActiveTimers);
-  }
-
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
-    // ... [Implementation unchanged] ...
-    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
-    if (taskToUpdate == null) return;
-    SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
-    if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
-
-    final newSubtask = SubTask(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
-      name: subTaskToDuplicate.name, description: subTaskToDuplicate.description, completed: false, currentTimeSpent: 0, completedDate: null,
-      isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
-      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
-        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
-        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
-      )).toList(), sessions: [],
-      isRecurring: subTaskToDuplicate.isRecurring,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  // ... [Other methods unchanged]
-  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
-    final newSubSubtask = SubSubTask(
-      id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
-      name: subSubtaskData['name'] as String,
-      isCountable: subSubtaskData['isCountable'] as bool? ?? false,
-      targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
-      completionTimestamp: null,
-    );
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    return newSubSubtask.id;
-  }
-
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
-    // ... [Implementation unchanged] ...
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            final updatedSub = SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks.map((sss) {
-                if (sss.id == subSubtaskId) {
-                  final updatedSss = SubSubTask(
-                    id: sss.id,
-                    name: updates['name'] as String? ?? sss.name,
-                    completed: updates['completed'] as bool? ?? sss.completed,
-                    isCountable: updates['isCountable'] as bool? ?? sss.isCountable,
-                    targetCount: updates['targetCount'] as int? ?? sss.targetCount,
-                    currentCount: updates['currentCount'] as int? ?? sss.currentCount,
-                    completionTimestamp: updates['completionTimestamp'] as String? ?? sss.completionTimestamp,
-                  );
-                  if (updatedSss.isCountable) updatedSss.currentCount = updatedSss.currentCount.clamp(0, updatedSss.targetCount);
-                  return updatedSss;
-                }
-                return sss;
-              }).toList(), sessions: st.sessions,
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-            );
-            return updatedSub;
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    bool subSubTaskCompletedSuccessfully = false;
-    SubSubTask? completedSubSubTaskInstanceForLog;
-
-    // Use a copy of mainTasks for optimistic update
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == parentSubtaskId) {
-              return SubTask(
-                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks.map((sss) {
-                  if (sss.id == subSubtaskId && !sss.completed) {
-                    if (sss.isCountable && sss.currentCount < sss.targetCount && !fromSync) {
-                      subSubTaskCompletedSuccessfully = false;
-                      return sss;
-                    }
-                    SubSubTask updatedSss = SubSubTask(
-                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
-                      targetCount: sss.targetCount, currentCount: sss.currentCount,
-                      completionTimestamp: DateTime.now().toIso8601String(),
-                    );
-                    completedSubSubTaskInstanceForLog = SubSubTask(
-                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
-                      targetCount: sss.targetCount, currentCount: sss.currentCount,
-                      completionTimestamp: updatedSss.completionTimestamp,
-                    );
-                    subSubTaskCompletedSuccessfully = true;
-                    return updatedSss;
-                  }
-                  return sss;
-                }).toList(), sessions: st.sessions,
-                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    // Trigger update immediately
-    if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
-      // Async state update to prevent UI blocking
-      Future.microtask(() {
-        _provider.setProviderState(mainTasks: newMainTasks);
-        
-        if (!fromSync) {
-          _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-        }
-
-        logToDailySummary('subSubtaskCompleted', {
-          'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
-          'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
-          'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
-          'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
-          'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
-          'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
-        });
-      });
-    }
-  }
-
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == parentSubtaskId) {
-              return SubTask(
-                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks.map((sss) {
-                  if (sss.id == subSubtaskId && sss.completed) {
-                    return SubSubTask(
-                      id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
-                      targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
-                    );
-                  }
-                  return sss;
-                }).toList(), sessions: st.sessions,
-                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    // Async update
-    Future.microtask(() {
-      _provider.setProviderState(mainTasks: newMainTasks);
-      if (!fromSync) {
-        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
-      }
-    });
-  }
-
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == parentSubtaskId) {
-              return SubTask(
-                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount,
-                subSubTasks: st.subSubTasks.where((sss) => sss.id != subSubtaskId).toList(),
-                sessions: st.sessions,
-                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-}
---- END OF FILE lib/src/providers/actions/task_actions.dart ---
-
---- START OF FILE lib/src/providers/actions/report_actions.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:intl/intl.dart';
-
-class ReportActions {
-  final AppProvider _provider;
-  final AIService _aiService;
-
-  ReportActions(this._provider) : _aiService = _provider.aiService;
-
-  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    
-    // Gather Reflections Context
-    final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
-    final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
-
-    // Gather Sessions Context
-    final sessionsStrBuffer = StringBuffer();
-    for (var task in _provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isAfter(sevenDaysAgo)) {
-            sessionsStrBuffer.writeln("[${DateFormat('MM-dd').format(session.startTime)}] ${task.name} - ${sub.name}: ${session.durationMinutes}m");
-          }
-        }
-      }
-    }
-
-    _provider.setLoadingTask("Generating Startup Report...");
-    
-    try {
-      final result = await _aiService.generateStartDayReport(
-        reflectionsList: reflectionsStr,
-        sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.liteModels,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ReportAI] $msg"),
-      );
-
-      // Save report to today's history via Provider method
-      final today = getTodayDateString();
-      _provider.saveStartDayReport(today, result);
-
-      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
-
-    } catch (e) {
-      debugPrint("Error generating start day report: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-}
---- END OF FILE lib/src/providers/actions/report_actions.dart ---
-
---- START OF FILE lib/src/screens/home_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/widgets/header_widget.dart';
-import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/skills_drawer.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/screens/more_screen.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  late AppProvider _appProvider;
-  bool _isUsernameDialogShowing = false;
-  int _selectedIndex = 0;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  static const List<String> _viewTitles = <String>[
-    'MISSIONS',
-    'LOGBOOK',
-    'PROJECTS',
-    'SYSTEM',
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _appProvider = Provider.of<AppProvider>(context, listen: false);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_appProvider.selectedTaskId == null &&
-          _appProvider.mainTasks.isNotEmpty) {
-        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
-      }
-      _checkAndPromptForUsername(_appProvider);
-    });
-    _appProvider.addListener(_handleProviderForUsernamePrompt);
-  }
-
-  void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(
-        Provider.of<AppProvider>(context, listen: false));
-  }
-
-  void _checkAndPromptForUsername(AppProvider appProvider) {
-    if (mounted &&
-        appProvider.isUsernameMissing &&
-        appProvider.currentUser != null &&
-        !_isUsernameDialogShowing &&
-        !appProvider.authLoading &&
-        !appProvider.isDataLoadingAfterLogin) {
-      setState(() => _isUsernameDialogShowing = true);
-      _showUsernameDialog(context, appProvider).then((_) {
-        if (mounted) setState(() => _isUsernameDialogShowing = false);
-      });
-    }
-  }
-
-  Future<void> _showUsernameDialog(
-      BuildContext context, AppProvider appProvider) async {
-    final TextEditingController usernameController = TextEditingController();
-    final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    final Color currentAccentColor = appProvider.getSelectedTask()?.taskColor ??
-        Theme.of(context).colorScheme.secondary;
-
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Set Your Callsign',
-              style: TextStyle(color: currentAccentColor)),
-          content: Form(
-            key: dialogFormKey,
-            child: TextFormField(
-              controller: usernameController,
-              decoration:
-                  const InputDecoration(hintText: "Enter callsign (username)"),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Callsign cannot be empty.';
-                }
-                if (value.trim().length < 3) {
-                  return 'Must be at least 3 characters.';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: <Widget>[
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: currentAccentColor),
-              child: Text('CONFIRM CALLSIGN',
-                  style: TextStyle(
-                      color: ThemeData.estimateBrightnessForColor(
-                                  currentAccentColor) ==
-                              Brightness.dark
-                          ? AppTheme.fhTextPrimary
-                          : AppTheme.fhBgDeepDark)),
-              onPressed: () async {
-                if (dialogFormKey.currentState!.validate()) {
-                  String newUsername = usernameController.text.trim();
-                  Navigator.of(dialogContext).pop();
-                  await appProvider.updateUserDisplayName(newUsername);
-                  if (!mounted) return;
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Callsign updated!'),
-                          backgroundColor: AppTheme.fhAccentGreen),
-                    );
-                  }
-                }
-              },
-            ),
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.fhBgDark,
+            AppTheme.fhBgDeepDark,
           ],
-        );
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _appProvider.removeListener(_handleProviderForUsernamePrompt);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isLargeScreen = screenWidth > 900;
-
-    final appProvider = context.watch<AppProvider>();
-    final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
-    final ThemeData dynamicTheme =
-        AppTheme.getThemeData(primaryAccent: currentTaskColor);
-
-    final List<Widget> widgetOptions = <Widget>[
-      Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const TaskDetailsView(),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ]
       ),
-      const LogbookScreen(),
-      Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
-        ),
-      ),
-      const MoreScreen(),
-    ];
-
-    return Theme(
-      data: dynamicTheme,
-      child: Scaffold(
-        key: _scaffoldKey,
-        appBar: HeaderWidget(
-          currentViewLabel: _viewTitles[_selectedIndex],
-          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
-        ),
-        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(),
-        body: SafeArea(
-          child: Row(
-            children: [
-              if (isLargeScreen)
-                Container(
-                  width: 280,
-                  decoration: BoxDecoration(
-                    color: dynamicTheme.cardTheme.color,
-                    border: Border(
-                        right: BorderSide(
-                            color: dynamicTheme.dividerTheme.color ??
-                                AppTheme.fhBorderColor,
-                            width: 1)),
-                  ),
-                  child: const TaskNavigationDrawer(),
-                ),
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: widgetOptions,
-                ),
-              ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            border: Border(
-              top: BorderSide(color: AppTheme.fhBorderColor, width: 1.0),
-            ),
-          ),
-          child: BottomNavigationBar(
-            backgroundColor: AppTheme.fhBgDeepDark,
-            selectedItemColor: AppTheme.fhAccentRed,
-            unselectedItemColor: AppTheme.fhTextSecondary,
-            selectedLabelStyle: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-              fontSize: 10,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              letterSpacing: 0.5,
-              fontSize: 10,
-            ),
-            type: BottomNavigationBarType.fixed,
-            elevation: 0,
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            items: <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.targetAccount),
-                label: 'MISSIONS',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.notebookOutline),
-                label: 'LOGBOOK',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.rocketLaunchOutline),
-                label: 'PROJECTS',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.dotsGrid),
-                label: 'SYSTEM',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
---- END OF FILE lib/src/screens/home_screen.dart ---
-
---- START OF FILE lib/src/widgets/views/daily_summary_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
-import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
-import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
-import 'package:arcane/src/widgets/ui/chart_carousel.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/utils/chart_data_helper.dart'; 
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
-import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
-import 'package:arcane/src/screens/neural_archive_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
-
-class DailySummaryView extends StatefulWidget {
-  const DailySummaryView({super.key});
-
-  @override
-  State<DailySummaryView> createState() => _DailySummaryViewState();
-}
-
-class _DailySummaryViewState extends State<DailySummaryView> {
-  String? _selectedDate;
-  String? _selectedTaskFilter;
-  String? _selectedVirtueFilter;
-  bool _isGeneratingSummary = false;
-  bool _isGeneratingWeeklyReport = false;
-  bool _isGeneratingStartDay = false;
-  
-  Map<String, dynamic>? _tempGeneratedBriefing;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_selectedDate == null) {
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      _selectedDate = today;
-    }
-  }
-
-  void _navigateToReflectionEditor(BuildContext context, {ReflectionLog? initialLog}) {
-    final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReflectionEditorScreen(
-          initialLog: initialLog,
-          dateStr: dateStr,
-        ),
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
-    if (type == 'Reflection') {
-      final logId = currentValue['id'];
-      final log = provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
-      if (log != null) {
-        _navigateToReflectionEditor(context, initialLog: log);
-      }
-      return;
-    }
-  }
-
-  Future<void> _pickDate(BuildContext context) async {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final Set<String> validDates = {};
-    validDates.addAll(appProvider.completedByDay.keys);
-    
-    for (var log in appProvider.reflectionLogs) {
-      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
-    }
-    
-    final today = DateTime.now();
-    validDates.add(DateFormat('yyyy-MM-dd').format(today));
-    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
-
-    final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      selectableDayPredicate: (DateTime date) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(date);
-        return validDates.contains(dateStr);
-      },
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              onPrimary: AppTheme.fhTextPrimary,
-              surface: AppTheme.fhBgDark,
-              onSurface: AppTheme.fhTextPrimary,
-            ),
-            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
-        _tempGeneratedBriefing = null; 
-      });
-    }
-  }
-
-  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
-    if (_selectedDate == null) return;
-    
-    setState(() => _isGeneratingSummary = true);
-    
-    try {
-      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
-      
-      setState(() {
-        _tempGeneratedBriefing = briefingData;
-      });
-      
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
-      }
-    } finally {
-      if (mounted) setState(() => _isGeneratingSummary = false);
-    }
-  }
-
-  Future<void> _generateWeeklyReport(AppProvider provider) async {
-    setState(() => _isGeneratingWeeklyReport = true);
-    try {
-      final data = provider.getLast7DaysData();
-      final aiService = provider.aiService;
-      
-      final result = await aiService.generateWeeklyReport(
-        logsText: data['logs'] as String,
-        timeStatsText: data['times'] as String,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg),
-      );
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => WeeklyReportDialog(reportData: result),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
-      }
-    } finally {
-      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
-    }
-  }
-
-  Future<void> _generateStartDayReport(AppProvider provider) async {
-    setState(() => _isGeneratingStartDay = true);
-    try {
-      await provider.generateStartDayReport();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isGeneratingStartDay = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppProvider>(context);
-    
-    final chartData = ChartDataHelper.prepareWeeklyData(
-      appProvider, 
-      _selectedDate, 
-      _selectedTaskFilter, 
-      _selectedVirtueFilter
-    );
-
-    final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
-    final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
-    
-    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
-    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
-        ? appProvider.reflectionLogs.where((l) {
-            final d = DateTime.parse(_selectedDate!);
-            return l.timestamp.year == d.year &&
-                l.timestamp.month == d.month &&
-                l.timestamp.day == d.day;
-          }).toList()
-        : [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(MdiIcons.archiveSearchOutline, size: 20, color: AppTheme.fhAccentPurple),
-                    tooltip: "NEURAL ARCHIVE",
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NeuralArchiveScreen())),
-                  ),
-                  TextButton.icon(
-                    icon: _isGeneratingWeeklyReport 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(MdiIcons.fileChartOutline, size: 16),
-                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
-                  ),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 12),
-          ChartCarousel(
-            height: 250,
-            pages: [
-              ChartCarouselData(
-                title: "7-DAY PERFORMANCE",
-                chart: WeeklyActivityBarChart(
-                  weeklyData: chartData['activityData'],
-                  dominantColors: chartData['activityColors'],
-                  isVirtue: false,
+              Text(
+                greeting,
+                style: const TextStyle(
+                  color: AppTheme.fhAccentTeal,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
                 ),
               ),
-              ChartCarouselData(
-                title: "VIRTUE GROWTH",
-                chart: WeeklyVirtueBarChart(
-                  weeklyXp: chartData['virtueData'],
-                  dominantVirtueColors: chartData['virtueColors'],
-                ),
-              ),
+              Icon(MdiIcons.chartTimelineVariant, color: AppTheme.fhAccentTeal, size: 16),
             ],
           ),
-
-          const SizedBox(height: 24),
-          
-          InkWell(
-            onTap: () => _pickDate(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                border: Border.all(color: AppTheme.fhBorderColor),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "INSPECT DATE", 
-                        style: TextStyle(
-                          color: AppTheme.fhTextSecondary, 
-                          fontSize: 10, 
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2
-                        )
-                      ),
-                      Text(
-                        _selectedDate ?? 'TODAY', 
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontDisplay, 
-                          letterSpacing: 1.0, 
-                          fontSize: 18,
-                          color: AppTheme.fhTextPrimary,
-                          fontWeight: FontWeight.bold
-                        )
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // START DAY REPORT
-          if (startDayReport != null)
-            StartDayReportCard(
-              report: startDayReport,
-              isRegenerating: _isGeneratingStartDay,
-              onRegenerate: () => _generateStartDayReport(appProvider),
-            )
-          else if (isToday)
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
-                icon: MdiIcons.power,
-                isPrimary: true,
-                color: AppTheme.fhAccentTeal,
-                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
-              ),
-            ),
-
-          const SizedBox(height: 24),
-
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: TimePieChart(
-                          taskData: chartData['dailyTaskTimeData'],
-                          taskColors: chartData['taskColors'],
-                          selectedTask: _selectedTaskFilter,
-                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _buildStatItem(
+                  label: "LATEST OP",
+                  value: latestTaskName.isNotEmpty ? latestTaskName : "N/A",
+                  icon: MdiIcons.clockFast,
+                  color: AppTheme.fhTextPrimary,
                 ),
               ),
-              const SizedBox(width: 12),
+              Container(width: 1, height: 40, color: AppTheme.fhBorderColor.withOpacity(0.3)),
               Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: VirtuePieChart(
-                          logs: reflectionsForDate,
-                          selectedVirtue: _selectedVirtueFilter,
-                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                        ),
-                      ),
-                    ],
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: _buildStatItem(
+                    label: "PRIMARY FOCUS",
+                    value: mostSpentTaskName.isNotEmpty ? mostSpentTaskName : "N/A",
+                    subValue: mostSpentTimeSeconds > 0 ? helper.formatTime(mostSpentTimeSeconds.toDouble()) : null,
+                    icon: MdiIcons.fire,
+                    color: AppTheme.fhAccentOrange,
                   ),
                 ),
               ),
             ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // TACTICAL BRIEFING SECTION
-          if (displayBriefing != null)
-            TacticalBriefingCard(
-              briefingData: displayBriefing,
-              isSaved: savedBriefing != null,
-              onSave: savedBriefing == null 
-                ? () {
-                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                    setState(() {});
-                  } 
-                : null,
-            )
-          else
-            ValorantCard(
-              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
-              child: Column(
-                children: [
-                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ValorantButton(
-                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
-                      isPrimary: false,
-                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
-                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
-                    ),
-                  )
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 24),
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("REFLECTIONS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal),
-                onPressed: () => _navigateToReflectionEditor(context),
-              )
-            ],
-          ),
-          if (reflectionsForDate.isEmpty)
-             const Padding(
-               padding: EdgeInsets.all(8.0),
-               child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
-             )
-          else
-            ...reflectionsForDate.asMap().entries.map((entry) {
-              final log = entry.value;
-              return GestureDetector(
-                onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
-                  'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
-                }),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-                      const SizedBox(height: 4),
-                      Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            
-          const SizedBox(height: 40),
+          )
         ],
       ),
     );
   }
-}
---- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
 
---- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-
-class ReflectionEditorScreen extends StatefulWidget {
-  final ReflectionLog? initialLog;
-  final String dateStr;
-
-  const ReflectionEditorScreen({
-    super.key,
-    this.initialLog,
-    required this.dateStr,
-  });
-
-  @override
-  State<ReflectionEditorScreen> createState() => _ReflectionEditorScreenState();
-}
-
-class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
-  late TextEditingController _triggerController;
-  late TextEditingController _emotionController;
-  late TextEditingController _reasonController;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _triggerController = TextEditingController(text: widget.initialLog?.trigger ?? '');
-    _emotionController = TextEditingController(text: widget.initialLog?.emotion ?? '');
-    _reasonController = TextEditingController(text: widget.initialLog?.reason ?? '');
-  }
-
-  @override
-  void dispose() {
-    _triggerController.dispose();
-    _emotionController.dispose();
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveReflection({bool analyze = true}) async {
-    if (_triggerController.text.trim().isEmpty) return;
-
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final targetDate = DateTime.parse(widget.dateStr);
-    final now = DateTime.now();
-    DateTime timestamp;
-
-    if (targetDate.year == now.year && targetDate.month == now.month && targetDate.day == now.day) {
-      timestamp = now;
-    } else {
-      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
-    }
-
-    if (widget.initialLog != null) {
-      // Editing existing log
-      appProvider.updateReflectionLog(
-        widget.initialLog!.id,
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-      );
-      Navigator.pop(context);
-      return;
-    }
-
-    // New Log
-    if (!analyze) {
-      appProvider.quickSaveReflection(
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-        timestamp: timestamp,
-      );
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    
-    try {
-        final result = await appProvider.processReflection(
-          trigger: _triggerController.text.trim(),
-          emotion: _emotionController.text.trim(),
-          reason: _reasonController.text.trim(),
-          timestamp: timestamp,
-        );
-
-        final xpGained = result['xpGained'] as Map<String, int>;
-
-        if (mounted) {
-          Navigator.pop(context); 
-          
-          // Show XP Dialog
-          await showDialog(
-            context: context,
-            barrierColor: Colors.black.withValues(alpha: 0.8),
-            builder: (ctx) => XpGainDialog(xpGained: xpGained),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e")));
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-  }
-
-  void _deleteLog() {
-    if (widget.initialLog == null) return;
-    
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("DELETE LOG?", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold)),
-        content: const Text("This action cannot be undone. XP gained from this reflection will be removed."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-            onPressed: () {
-              appProvider.deleteReflectionLog(widget.initialLog!.id);
-              Navigator.pop(ctx); 
-              Navigator.pop(context); 
-            },
-            child: const Text("DELETE")
-          )
-        ],
-      )
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
+  Widget _buildStatItem({
+    required String label,
+    required String value,
+    String? subValue,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            // Top Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary))
-                  ),
-                  if (widget.initialLog != null)
-                    IconButton(
-                      icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-                      onPressed: _deleteLog,
-                      tooltip: "Delete Log",
-                    )
-                ],
-              ),
-            ),
-
-            // Editor Area
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  _buildSectionHeader("SITUATION"),
-                  GrowingTextField(controller: _triggerController, hint: "What triggered this event?", minLines: 2),
-                  
-                  const SizedBox(height: 24),
-                  
-                  _buildSectionHeader("FEELING"),
-                  GrowingTextField(controller: _emotionController, hint: "Emotion felt...", minLines: 1),
-
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader("CAUSE"),
-                  GrowingTextField(controller: _reasonController, hint: "Why did this happen? Root cause...", minLines: 3),
-
-                  const SizedBox(height: 40),
-
-                  // Actions
-                  if (widget.initialLog == null) ...[
-                    // New Log Actions
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ValorantButton(
-                          label: _isLoading ? "ANALYZING..." : "ANALYZE & SAVE",
-                          isPrimary: true,
-                          onPressed: _isLoading ? null : () => _saveReflection(analyze: true),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ValorantButton(
-                                label: "ABORT",
-                                isPrimary: false,
-                                onPressed: () => Navigator.pop(context),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextButton(
-                                onPressed: _isLoading ? null : () => _saveReflection(analyze: false),
-                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
-                                child: const Text("QUICK SAVE (NO AI)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    )
-                  ] else ...[
-                    // Edit Existing Log Actions (Simpler)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ValorantButton(
-                            label: "CANCEL",
-                            isPrimary: false,
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ValorantButton(
-                            label: "UPDATE",
-                            isPrimary: true,
-                            onPressed: () => _saveReflection(analyze: false),
-                          ),
-                        ),
-                      ],
-                    )
-                  ]
-                ],
+            Icon(icon, size: 12, color: AppTheme.fhTextSecondary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.fhTextSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
-      child: Text(
-        title,
-        style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
-      ),
+        const SizedBox(height: 6),
+        Text(
+          value.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontFamily: AppTheme.fontDisplay,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        if (subValue != null)
+          Text(
+            subValue,
+            style: TextStyle(
+              color: color.withOpacity(0.7),
+              fontSize: 10,
+              fontFamily: 'RobotoMono',
+            ),
+          )
+      ],
     );
   }
 }
---- END OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
+--- END OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
 
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+--- START OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
-import 'package:arcane/src/widgets/cards/task_info_card.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart'; // NEW
-import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
-import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/drawers/session_log_drawer.dart';
 
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
+class ScheduleTimeline extends StatefulWidget {
+  final List<TimelineEntry> entries;
+  final VoidCallback onAddSession;
+  final Function(TimelineEntry) onEditEntry;
+  final double initialScrollOffset;
 
-  const SubmissionDetailScreen({
+  const ScheduleTimeline({
     super.key,
-    required this.parentTask,
-    required this.subTask,
+    required this.entries,
+    required this.onAddSession,
+    required this.onEditEntry,
+    this.initialScrollOffset = 0,
   });
 
   @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
 }
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
+class _ScheduleTimelineState extends State<ScheduleTimeline> {
+  final double _basePixelsPerHour = 60.0;
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Auto-scroll to earliest relevant time or 8am
+      if (widget.entries.isNotEmpty) {
+        double earliestHour = 24;
+        for(var e in widget.entries) {
+          final h = e.startTime.hour + (e.startTime.minute / 60.0);
+          if (h < earliestHour) earliestHour = h;
+        }
+        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(offset);
+        }
+      } else {
+        final offset = 8 * _basePixelsPerHour;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(offset);
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
-    _checkpointController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
-    }
-  }
+  List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
+    // Filter out short sessions (< 20 mins)
+    final filtered = entries.where((e) => e.durationSeconds >= 20 * 60).toList();
 
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
-      'name': _checkpointController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
-    });
-    _checkpointController.clear();
-  }
-
-  void _showAiCheckpointGenerationDialog(BuildContext context, AppProvider provider) async {
-    final prompt = await showDialog<String>(
-      context: context,
-      builder: (context) => const AiGenerationPromptDialog(
-        title: "GENERATE CHECKPOINTS", 
-        hintText: "E.g., List key milestones for this task...", 
-        actionLabel: "GENERATE"
-      ),
-    );
-
-    if (prompt != null && prompt.isNotEmpty) {
-      provider.aiGenerationActions.generateCheckpointsForSubtask(
-        widget.parentTask.id, 
-        widget.subTask.id, 
-        prompt
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
-      }
-    }
-  }
-
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => SubtaskConfigDialog(
-        initialName: liveSubTask.name,
-        initialDescription: liveSubTask.description,
-        isRecurring: liveSubTask.isRecurring,
-      ),
-    );
-    if (result != null) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, result);
-    }
-  }
-
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => const AddSessionDialog(),
-    );
+    if (filtered.isEmpty) return [];
     
-    if (result != null) {
-      final start = result['start']!;
-      final end = result['end']!;
+    final sorted = List<TimelineEntry>.from(filtered)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
       
-      final success = provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, start, end);
-          
-      if (!success && mounted) {
-         // Show overlap error and offer edit
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: const Text("Overlap detected! Adjust time."),
-             backgroundColor: AppTheme.fhAccentRed,
-             action: SnackBarAction(
-               label: "EDIT",
-               textColor: Colors.white,
-               onPressed: () {
-                 // Re-open edit dialog with these values to let user fix
-                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
-               },
-             ),
-           )
-         );
-      }
-    }
-  }
+    final List<_LayoutEntry> layout = [];
+    final List<List<_LayoutEntry>> columns = [];
 
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        // Only valid if existing session
-        if (!session.id.startsWith('temp')) {
-           provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
+    for (var entry in sorted) {
+      int columnIndex = 0;
+      bool placed = false;
+      
+      while (!placed) {
+        if (columnIndex >= columns.length) {
+          columns.add([]);
         }
-      } else if (result['action'] == 'save') {
-        if (session.id.startsWith('temp')) {
-           // New add retry
-           provider.addSessionToSubtask(
-            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
+        
+        bool hasOverlap = false;
+        for (var colEntry in columns[columnIndex]) {
+          if (entry.startTime.isBefore(colEntry.entry.endTime) &&
+              entry.endTime.isAfter(colEntry.entry.startTime)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+        
+        if (!hasOverlap) {
+          final le = _LayoutEntry(entry, columnIndex);
+          columns[columnIndex].add(le);
+          layout.add(le);
+          placed = true;
         } else {
-           // Update existing
-           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
+          columnIndex++;
         }
       }
     }
+    
+    for (var le in layout) {
+      le.totalCols = columns.length;
+    }
+    
+    return layout;
   }
 
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
+  @override
+  Widget build(BuildContext context) {
+    const int hoursCount = 24;
+    final double pixelsPerHour = _basePixelsPerHour;
+    final double totalHeight = pixelsPerHour * hoursCount;
+    
+    final layoutEntries = _calculateLayout(widget.entries);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          color: AppTheme.fhBgDeepDark,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: GestureDetector(
+              onTapUp: (details) {
+                widget.onAddSession();
+              },
+              child: Container(
+                height: totalHeight,
+                width: double.infinity,
+                color: Colors.transparent,
+                child: Stack(
+                  children: [
+                    // Grid
+                    ...List.generate(hoursCount, (index) {
+                      return Positioned(
+                        top: index * pixelsPerHour,
+                        left: 0, right: 0,
+                        child: Container(
+                          height: pixelsPerHour,
+                          decoration: BoxDecoration(
+                            border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.2), width: 1)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8, top: 4),
+                            child: Text(
+                              "${index.toString().padLeft(2, '0')}:00", 
+                              style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 10, fontFamily: 'RobotoMono')
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+
+                    // Current Time
+                    _buildCurrentTimeIndicator(pixelsPerHour),
+
+                    // Entries
+                    ...layoutEntries.map((le) {
+                      final entry = le.entry;
+                      final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0);
+                      final top = startTotalHours * pixelsPerHour;
+                      final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                      
+                      const double leftGutter = 60.0;
+                      final double availableWidth = constraints.maxWidth - leftGutter - 10;
+                      final double widthPerCol = availableWidth / le.totalCols;
+                      final double left = leftGutter + (le.col * widthPerCol);
+
+                      final isPredicted = entry.isPredicted;
+                      final effectiveColor = isPredicted 
+                          ? entry.color.withOpacity(0.15) 
+                          : entry.color.withOpacity(0.25);
+                      final borderColor = isPredicted
+                          ? entry.color.withOpacity(0.3)
+                          : entry.color;
+
+                      return Positioned(
+                        top: top,
+                        left: left,
+                        width: widthPerCol - 4,
+                        height: height.clamp(2.0, double.infinity),
+                        child: GestureDetector(
+                          onTap: () => widget.onEditEntry(entry),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: effectiveColor,
+                              border: Border.all(
+                                color: borderColor, 
+                                width: isPredicted ? 1 : 1,
+                                style: isPredicted ? BorderStyle.solid : BorderStyle.solid // Could dash if wanted
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: height < 20 
+                              ? null 
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (isPredicted) 
+                                          Padding(
+                                            padding: const EdgeInsets.only(right: 4.0),
+                                            child: Icon(Icons.auto_awesome, size: 10, color: borderColor),
+                                          ),
+                                        Expanded(
+                                          child: Text(
+                                            entry.title, 
+                                            style: TextStyle(
+                                              color: isPredicted ? Colors.white70 : Colors.white, 
+                                              fontSize: 11, 
+                                              fontWeight: isPredicted ? FontWeight.normal : FontWeight.bold
+                                            ),
+                                            maxLines: 1, 
+                                            overflow: TextOverflow.ellipsis
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (height > 40)
+                                      Text(
+                                        "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontFamily: 'RobotoMono'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                  ],
+                                ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildCurrentTimeIndicator(double pixelsPerHour) {
+    final now = DateTime.now();
+    final currentHour = now.hour + (now.minute / 60.0);
+    final top = currentHour * pixelsPerHour;
+
+    return Positioned(
+      top: top,
+      left: 0, 
+      right: 0,
+      child: Row(
+        children: [
+          Container(
+            width: 55,
+            padding: const EdgeInsets.only(right: 4),
+            alignment: Alignment.centerRight,
+            child: Text(
+              DateFormat('HH:mm').format(now),
+              style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontSize: 10, fontFamily: 'RobotoMono'),
+            ),
+          ),
+          const Expanded(child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayoutEntry {
+  final TimelineEntry entry;
+  final int col;
+  int totalCols;
+  _LayoutEntry(this.entry, this.col, {this.totalCols = 1});
+}
+--- END OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
+
+--- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/time_validation_helper.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
+
+class ScheduleView extends StatefulWidget {
+  const ScheduleView({super.key});
+
+  @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
+  DateTime _selectedDate = DateTime.now();
+  List<TimelineEntry> _predictedEntries = [];
+  bool _isPredicting = false;
+
+  // --- Date Control ---
+  void _shiftDate(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+      // Clear predictions on date change to avoid confusion (or keep if specific logic)
+      _predictedEntries.clear(); 
+    });
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _predictedEntries.clear();
+      });
+    }
+  }
+
+  // --- Hero Data ---
+  Map<String, dynamic> _getHeroStats(AppProvider provider) {
+    // 1. Latest Task
+    String latest = "NONE";
+    DateTime? lastTime;
+    
+    // 2. Most Spent Today
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final dayData = provider.completedByDay[todayStr];
+    String mostName = "NONE";
+    int mostSeconds = 0;
+
+    // Check sessions for latest
+    for(var t in provider.mainTasks) {
+      for(var s in t.subTasks) {
+        for(var sess in s.sessions) {
+          if (lastTime == null || sess.endTime.isAfter(lastTime!)) {
+            lastTime = sess.endTime;
+            latest = "${t.name} // ${s.name}";
+          }
+        }
+      }
+    }
+
+    if (dayData != null && dayData['taskTimes'] != null) {
+      final times = dayData['taskTimes'] as Map<String, dynamic>;
+      times.forEach((tid, secs) {
+        final t = provider.mainTasks.firstWhereOrNull((mt) => mt.id == tid);
+        if (t != null && (secs as int) > mostSeconds) {
+          mostSeconds = secs;
+          mostName = t.name;
+        }
+      });
+    }
+
+    return {
+      'latest': latest,
+      'mostName': mostName,
+      'mostTime': mostSeconds,
+    };
+  }
+
+  // --- Prediction ---
+  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
+    // Only predict for today
+    if (!_isSameDay(_selectedDate, DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
+      return;
+    }
+
+    setState(() => _isPredicting = true);
+
+    try {
+      // 1. Gather Context
+      final historyLogs = provider.getLast7DaysData()['logs'] as String; // Reusing helper
+      // Ideally get 14 days, but 7 is decent for recent context.
+      
+      final availableTasks = provider.mainTasks.map((t) => t.name).join(", ");
+      final now = DateTime.now();
+      
+      // 2. AI Call
+      final predictions = await provider.aiService.generateSchedulePrediction(
+        sessionHistory: historyLogs, 
+        currentTime: DateFormat('HH:mm').format(now), 
+        availableTasksContext: availableTasks,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (i) => provider.setProviderApiKeyIndex(i),
+        onLog: (m) => debugPrint(m)
+      );
+
+      // 3. Process Result
+      final List<TimelineEntry> newEntries = [];
+      for(var p in predictions) {
+        final offset = p['startOffsetMinutes'] as int? ?? 0;
+        final duration = p['durationMinutes'] as int? ?? 30;
+        final taskName = p['taskName'] as String? ?? "Predicted";
+        
+        final start = now.add(Duration(minutes: offset));
+        final end = start.add(Duration(minutes: duration));
+        
+        // Find matching task color if possible
+        Color c = AppTheme.fhTextDisabled;
+        final matchedTask = provider.mainTasks.firstWhereOrNull((t) => t.name.toLowerCase().contains(taskName.toLowerCase()));
+        if (matchedTask != null) c = matchedTask.taskColor;
+
+        newEntries.add(TimelineEntry(
+          id: "pred_${DateTime.now().millisecondsSinceEpoch}_${newEntries.length}",
+          startTime: start,
+          endTime: end,
+          title: p['subTaskName'] ?? "Predicted Session",
+          subtitle: taskName,
+          color: c,
+          isPredicted: true,
+          isEditable: true, // Allow editing/deleting
+        ));
+      }
+
+      setState(() {
+        _predictedEntries = newEntries;
+      });
+
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isPredicting = false);
+    }
+  }
+
+  // --- Entries Merging ---
+  List<TimelineEntry> _buildEntries(AppProvider provider) {
     final List<TimelineEntry> entries = [];
     final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
+    // 1. Real Sessions
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          // Check for intersection with selected day
-          // Intersection: (SessionStart < DayEnd) AND (SessionEnd > DayStart)
           if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            
-            // Calculate effective start/end for display on this day's timeline
             DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
             DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
 
-            final bool isCurrentSubTask = sub.id == currentSubTaskId;
             entries.add(TimelineEntry(
               id: session.id,
               startTime: displayStart,
@@ -3463,577 +1109,333 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               title: sub.name,
               subtitle: task.name,
               color: task.taskColor,
-              isEditable: isCurrentSubTask,
+              isEditable: true,
               originalObject: session,
             ));
           }
         }
       }
     }
+
+    // 2. Predicted Sessions (Filter overlaps)
+    for (var pred in _predictedEntries) {
+      // Check for overlap with REAL sessions
+      bool overlaps = false;
+      for (var real in entries) {
+        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        entries.add(pred);
+      }
+    }
+
     return entries;
   }
 
-  Future<void> _pickDateFiltered(BuildContext context, SubTask subTask) async {
-    final Set<String> validDates = {};
-    for (var s in subTask.sessions) {
-      validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
-      // Also add end date if spanning
-      validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
-    }
-    final today = DateTime.now();
-    validDates.add(DateFormat('yyyy-MM-dd').format(today));
-
-    final DateTime? picked = await showDatePicker(
+  // --- Handlers ---
+  void _openProtocolControl(BuildContext context, AppProvider provider) {
+    showModalBottomSheet(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      selectableDayPredicate: (DateTime day) {
-        return validDates.contains(DateFormat('yyyy-MM-dd').format(day));
-      },
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTealFixed,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: ProtocolControlPanel(
+          protocols: provider.mainTasks,
+          selectedProtocolId: provider.selectedTaskId,
+          onSelect: (id) => provider.setSelectedTaskId(id),
+          onAdd: () => _showAddProtocolDialog(context, provider),
+          onEdit: (updatedTask) {
+            provider.editMainTask(
+              updatedTask.id,
+              name: updatedTask.name,
+              description: updatedTask.description,
+              theme: updatedTask.theme,
+              colorHex: updatedTask.colorHex,
+            );
+          },
         ),
-        child: child!,
+      ),
+    );
+  }
+
+  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("NEW PROTOCOL"),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: "NAME"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty) {
+                provider.addMainTask(
+                  name: nameCtrl.text,
+                  description: "New Protocol",
+                  theme: "general",
+                  colorHex: "FF00F8F8" 
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("CREATE"),
+          )
+        ],
+      )
+    );
+  }
+
+  void _handleAddSession(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => const AddSessionDialog(),
+    );
+
+    if (result != null && mounted) {
+      final start = result['start']!;
+      final end = result['end']!;
+      _showTaskSelectorAndAdd(context, provider, start, end);
+    }
+  }
+
+  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppTheme.fhBgMedium,
+          title: const Text("SELECT MISSION"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: provider.mainTasks.length,
+              itemBuilder: (context, index) {
+                final task = provider.mainTasks[index];
+                // Filter incomplete subtasks
+                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                
+                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
+
+                return ExpansionTile(
+                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
+                  children: activeSubtasks.map((sub) {
+                    return ListTile(
+                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                      onTap: () {
+                        provider.addSessionToSubtask(task.id, sub.id, start, end);
+                        Navigator.pop(ctx);
+                        // On successful add, check overlaps with predictions (auto-handled by rebuild)
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
+    if (entry.isPredicted) {
+      // Handle predicted entry tap (Convert or Delete)
+      _handlePredictedEntryTap(context, provider, entry);
+      return;
+    }
+
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+    
+    // ... (Existing edit logic)
+    String? mainTaskId;
+    String? subTaskId;
+    
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+          break;
+        }
+      }
+      if (mainTaskId != null) break;
+    }
+
+    if (mainTaskId == null || subTaskId == null) return;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(
+        initialStart: session.startTime,
+        initialEnd: session.endTime,
       ),
     );
 
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
+      }
     }
+  }
+
+  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(entry.title),
+        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _predictedEntries.removeWhere((e) => e.id == entry.id);
+              });
+              Navigator.pop(ctx);
+            }, 
+            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Trigger Add Session flow pre-filled
+              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
+            }, 
+            child: const Text("LOG REAL SESSION")
+          )
+        ],
+      )
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
+    final entries = _buildEntries(provider);
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final heroStats = _getHeroStats(provider);
 
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
+    return Column(
+      children: [
+        // HERO SECTION
+        ScheduleHeroWidget(
+          latestTaskName: heroStats['latest'],
+          mostSpentTaskName: heroStats['mostName'],
+          mostSpentTimeSeconds: heroStats['mostTime'],
+        ),
 
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double todaySeconds =
-        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
-    final String formattedTotalToday = helper.formatTime(todaySeconds);
-
-    final bool isRunning = timerState?.isRunning ?? false;
-    
-    final int completedCheckpoints =
-        liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      endDrawer:
-          SessionLogDrawer(parentTask: widget.parentTask, subTask: liveSubTask),
-      body: Stack(
-        children: [
-          Positioned(
-            right: -50,
-            top: 50,
-            child: Opacity(
-              opacity: 0.05,
-              child:
-                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
-            ),
+        // CONTROLS
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark,
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
           ),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  // Top Bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white70),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        Builder(
-                          builder: (context) => IconButton(
-                            icon: Icon(MdiIcons.history, color: Colors.white70),
-                            tooltip: "Session History",
-                            onPressed: () =>
-                                Scaffold.of(context).openEndDrawer(),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(MdiIcons.pencilOutline,
-                              color: Colors.white70),
-                          tooltip: "Configure Task",
-                          onPressed: () => _handleEditSubtask(
-                              context, provider, liveSubTask),
-                        ),
-                      ],
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(-1),
                   ),
-
-                  // Header Info
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  InkWell(
+                    onTap: () => _pickDate(context),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          widget.parentTask.name.toUpperCase(),
-                          style: TextStyle(
-                            color: widget.parentTask.taskColor,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            fontSize: 12,
-                            fontFamily: AppTheme.fontDisplay,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          liveSubTask.name.toUpperCase(),
+                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 36,
-                            height: 1.0,
-                            fontFamily: AppTheme.fontDisplay,
+                            color: AppTheme.fhAccentTeal,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Stats Row
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      children: [
-                        ValorantAbilitySlot(
-                          hotkey: "Q",
-                          label: "TODAY",
-                          value: formattedTotalToday,
-                          icon: MdiIcons.clockFast,
-                          isActive: isRunning,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "E",
-                          label: "STEPS",
-                          value: "$completedCheckpoints/$totalCheckpoints",
-                          icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 &&
-                              completedCheckpoints == totalCheckpoints,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "C",
-                          label: "LOGS",
-                          value: "${liveSubTask.sessions.length}",
-                          icon: MdiIcons.history,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "X",
-                          label: "STATUS",
-                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed
-                              ? MdiIcons.checkAll
-                              : MdiIcons.target,
-                          isActive: liveSubTask.completed,
-                          onTap: () {
-                            if (liveSubTask.completed) {
-                              provider.taskActions.uncompleteSubtask(
-                                  widget.parentTask.id, liveSubTask.id);
-                            } else {
-                              provider.completeSubtask(
-                                  widget.parentTask.id, liveSubTask.id);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  
-                  // Info Card
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: TaskInfoCard(
-                      description: liveSubTask.description,
-                      isRecurring: liveSubTask.isRecurring,
-                      createdAt: liveSubTask.createdAt,
-                      updatedAt: liveSubTask.updatedAt,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(color: Colors.white10),
-
-                  // Timer Control
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isRunning
-                            ? [
-                                AppTheme.fhAccentRed.withOpacity(0.2),
-                                Colors.transparent
-                              ]
-                            : [
-                                Colors.white.withOpacity(0.05),
-                                Colors.transparent
-                              ],
-                        begin: Alignment.bottomLeft,
-                        end: Alignment.topRight,
-                      ),
-                      border: Border(
-                          left: BorderSide(
-                              color: isRunning
-                                  ? AppTheme.fhAccentRed
-                                  : AppTheme.fhTextSecondary,
-                              width: 2)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Modular Timer Component
-                        ActiveSessionTimerDisplay(
-                          isRunning: isRunning,
-                          startTime: timerState?.startTime,
-                          totalTodaySeconds: todaySeconds,
-                        ),
-                        FloatingActionButton.small(
-                          backgroundColor: isRunning
-                              ? AppTheme.fhAccentRed
-                              : AppTheme.fhAccentTealFixed,
-                          foregroundColor: Colors.black,
-                          onPressed: () {
-                              if (isRunning) {
-                                provider.pauseTimer(liveSubTask.id);
-                                provider.logTimerAndReset(liveSubTask.id);
-                              } else {
-                                provider.startTimer(liveSubTask.id, 'subtask',
-                                    widget.parentTask.id);
-                              }
-                            },
-                          child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Weekly Bar Graph
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SubtaskWeeklyChart(
-                      subTask: liveSubTask,
-                      accentColor: widget.parentTask.taskColor,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Checkpoints & Timeline
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "TACTICAL OBJECTIVES",
-                              style: TextStyle(
-                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                  letterSpacing: 1.5),
-                            ),
-                            InkWell(
-                              onTap: () => _showAiCheckpointGenerationDialog(context, provider),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.5))),
-                                child: Icon(MdiIcons.robotExcitedOutline, size: 14, color: AppTheme.fhAccentPurple),
-                              ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...liveSubTask.subSubTasks
-                            .map((sss) {
-                              // Check for linked info
-                              final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
-                              // Using the new CheckpointItem for better performance
-                              return CheckpointItem(
-                                  title: sss.name,
-                                  isCompleted: sss.completed,
-                                  linkedLabel: linkedInfo != null 
-                                      ? "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}" 
-                                      : null,
-                                  onUnlink: linkedInfo != null ? () {
-                                    provider.projectActions.unlinkStep(
-                                      linkedInfo['mainTaskId'], 
-                                      linkedInfo['projectId'], 
-                                      linkedInfo['stepId']
-                                    );
-                                  } : null,
-                                  onToggle: () {
-                                    if (sss.completed) {
-                                      provider.taskActions.uncompleteSubSubtask(
-                                          widget.parentTask.id,
-                                          liveSubTask.id,
-                                          sss.id);
-                                    } else {
-                                      provider.taskActions.completeSubSubtask(
-                                          widget.parentTask.id,
-                                          liveSubTask.id,
-                                          sss.id);
-                                    }
-                                  },
-                                  onDelete: () => provider.deleteSubSubtask(
-                                      widget.parentTask.id,
-                                      liveSubTask.id,
-                                      sss.id),
-                                );
-                            }),
-
-                        // Quick Add
-                        Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.2),
-                            border: Border(
-                                bottom: BorderSide(
-                                    color: Colors.white.withOpacity(0.1))),
-                          ),
-                          child: TextField(
-                            controller: _checkpointController,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                            decoration: const InputDecoration(
-                              hintText: "+ ADD OBJECTIVE",
-                              hintStyle: TextStyle(
-                                  color: Colors.white24,
-                                  fontSize: 12,
-                                  letterSpacing: 1.0),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            onSubmitted: (_) => _handleAddCheckpoint(provider),
+                        Text(
+                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
                           ),
                         ),
-
-                        // Timeline Header with Filtered Date Picker
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            GestureDetector(
-                              onTap: () =>
-                                  _pickDateFiltered(context, liveSubTask),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    DateFormat('MMM dd')
-                                        .format(_selectedDate)
-                                        .toUpperCase(),
-                                    style: const TextStyle(
-                                        color: AppTheme.fhAccentTealFixed,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: AppTheme.fontDisplay,
-                                        fontSize: 16),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_drop_down,
-                                      color: AppTheme.fhAccentTealFixed,
-                                      size: 16),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add,
-                                  size: 20, color: Colors.white54),
-                              onPressed: () =>
-                                  _showAddSessionDialog(context, provider),
-                              tooltip: "Log Manual Session",
-                            ),
-                          ],
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          color: Colors.black.withOpacity(0.2),
-                          child: ScheduleTimeline(
-                            entries: timelineEntries,
-                            onAddSession: () =>
-                                _showAddSessionDialog(context, provider),
-                            onEditEntry: (entry) {
-                              if (entry.originalObject is TaskSession) {
-                                _handleSessionEdit(context, provider,
-                                    entry.originalObject as TaskSession);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 40),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(1),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-
-/// A lightweight item widget for checkpoints to handle optimistic updates
-/// and prevent full screen redraws on simple toggles.
-class CheckpointItem extends StatefulWidget {
-  final String title;
-  final bool isCompleted;
-  final String? linkedLabel;
-  final VoidCallback? onUnlink;
-  final VoidCallback onToggle;
-  final VoidCallback onDelete;
-
-  const CheckpointItem({
-    super.key,
-    required this.title,
-    required this.isCompleted,
-    this.linkedLabel,
-    this.onUnlink,
-    required this.onToggle,
-    required this.onDelete,
-  });
-
-  @override
-  State<CheckpointItem> createState() => _CheckpointItemState();
-}
-
-class _CheckpointItemState extends State<CheckpointItem> {
-  late bool _localCompleted;
-
-  @override
-  void initState() {
-    super.initState();
-    _localCompleted = widget.isCompleted;
-  }
-
-  @override
-  void didUpdateWidget(covariant CheckpointItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isCompleted != oldWidget.isCompleted) {
-      _localCompleted = widget.isCompleted;
-    }
-  }
-
-  void _handleToggle() {
-    setState(() {
-      _localCompleted = !_localCompleted;
-    });
-    // Call the parent callback which triggers the provider update
-    // The provider update is now async, so UI won't freeze.
-    widget.onToggle();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.6),
-        border: Border(
-          left: BorderSide(
-            color: _localCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor,
-            width: 4,
-          ),
-          bottom: BorderSide(
-            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
-            width: 1,
+              Row(
+                children: [
+                  if (isToday)
+                    IconButton(
+                      icon: _isPredicting 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
+                      tooltip: "PREDICT SCHEDULE",
+                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                    ),
+                  IconButton(
+                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
+                    tooltip: "PROTOCOL CONTROL",
+                    onPressed: () => _openProtocolControl(context, provider),
+                  ),
+                ],
+              )
+            ],
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: RhombusCheckbox(
-              checked: _localCompleted,
-              onChanged: (_) => _handleToggle(),
-              size: CheckboxSize.small,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.title.toUpperCase(),
-                  style: TextStyle(
-                    color: _localCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontBody,
-                    decoration: _localCompleted ? TextDecoration.lineThrough : null,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
+
+        Expanded(
+          child: Stack(
+            children: [
+              ScheduleTimeline(
+                entries: entries,
+                onAddSession: () => _handleAddSession(context, provider),
+                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
+                initialScrollOffset: 0,
+              ),
+              Positioned(
+                right: 20,
+                bottom: 20,
+                child: FloatingActionButton(
+                  backgroundColor: AppTheme.fhAccentRed,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                  onPressed: () => _handleAddSession(context, provider),
                 ),
-                if (widget.linkedLabel != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: LinkedTaskIndicator(
-                      label: widget.linkedLabel!,
-                      onUnlink: widget.onUnlink,
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
-          IconButton(
-            icon: Icon(Icons.close, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-            onPressed: widget.onDelete,
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(8),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
---- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+--- END OF FILE lib/src/widgets/views/schedule_view.dart ---

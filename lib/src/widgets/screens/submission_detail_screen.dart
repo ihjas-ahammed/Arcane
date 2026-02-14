@@ -10,9 +10,9 @@ import 'package:arcane/src/widgets/cards/task_info_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart'; // NEW
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -116,7 +116,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           widget.parentTask.id, widget.subTask.id, start, end);
           
       if (!success && mounted) {
-         // Show overlap error and offer edit
          ScaffoldMessenger.of(context).showSnackBar(
            SnackBar(
              content: const Text("Overlap detected! Adjust time."),
@@ -125,7 +124,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                label: "EDIT",
                textColor: Colors.white,
                onPressed: () {
-                 // Re-open edit dialog with these values to let user fix
                  _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
                },
              ),
@@ -144,18 +142,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        // Only valid if existing session
         if (!session.id.startsWith('temp')) {
            provider.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
         }
       } else if (result['action'] == 'save') {
         if (session.id.startsWith('temp')) {
-           // New add retry
            provider.addSessionToSubtask(
             widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
         } else {
-           // Update existing
            provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
         }
@@ -170,17 +165,16 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     for (var task in provider.mainTasks) {
+      if (task.id != widget.parentTask.id) continue;
+      
       for (var sub in task.subTasks) {
+        if (sub.id != currentSubTaskId) continue;
+
         for (var session in sub.sessions) {
-          // Check for intersection with selected day
-          // Intersection: (SessionStart < DayEnd) AND (SessionEnd > DayStart)
           if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            
-            // Calculate effective start/end for display on this day's timeline
             DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
             DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
 
-            final bool isCurrentSubTask = sub.id == currentSubTaskId;
             entries.add(TimelineEntry(
               id: session.id,
               startTime: displayStart,
@@ -188,7 +182,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               title: sub.name,
               subtitle: task.name,
               color: task.taskColor,
-              isEditable: isCurrentSubTask,
+              isEditable: true,
               originalObject: session,
             ));
           }
@@ -202,7 +196,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final Set<String> validDates = {};
     for (var s in subTask.sessions) {
       validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
-      // Also add end date if spanning
       validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
     }
     final today = DateTime.now();
@@ -280,7 +273,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -311,7 +303,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  // Header Info
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
@@ -347,7 +338,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Stats Row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -401,7 +391,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
                   
-                  // Info Card
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: TaskInfoCard(
@@ -415,7 +404,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(color: Colors.white10),
 
-                  // Timer Control
                   Container(
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(20),
@@ -443,7 +431,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Modular Timer Component
                         ActiveSessionTimerDisplay(
                           isRunning: isRunning,
                           startTime: timerState?.startTime,
@@ -469,7 +456,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  // Weekly Bar Graph
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: SubtaskWeeklyChart(
@@ -480,7 +466,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Checkpoints & Timeline
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
@@ -510,9 +495,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         const SizedBox(height: 8),
                         ...liveSubTask.subSubTasks
                             .map((sss) {
-                              // Check for linked info
                               final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
-                              // Using the new CheckpointItem for better performance
                               return CheckpointItem(
                                   title: sss.name,
                                   isCompleted: sss.completed,
@@ -546,7 +529,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 );
                             }),
 
-                        // Quick Add
                         Container(
                           margin: const EdgeInsets.only(top: 8, bottom: 24),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -575,7 +557,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
                         ),
 
-                        // Timeline Header with Filtered Date Picker
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -612,6 +593,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ),
                         Container(
                           margin: const EdgeInsets.only(top: 8),
+                          height: 300, 
                           color: Colors.black.withOpacity(0.2),
                           child: ScheduleTimeline(
                             entries: timelineEntries,

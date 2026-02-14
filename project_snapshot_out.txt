@@ -3401,390 +3401,6 @@ class MainTaskTemplate {
 
 --- END OF FILE lib/src/models/task_models.dart ---
 
---- START OF FILE lib/src/models/value_models.dart ---
-import 'package:flutter/material.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ValueQuestion {
-  final String id;
-  final String question;
-  String answer;
-
-  ValueQuestion({
-    required this.id,
-    required this.question,
-    this.answer = '',
-  });
-
-  factory ValueQuestion.fromJson(Map<String, dynamic> json) {
-    return ValueQuestion(
-      id: json['id'] as String,
-      question: json['question'] as String,
-      answer: json['answer'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'question': question,
-      'answer': answer,
-    };
-  }
-}
-
-class LifeValue {
-  final String id;
-  final String title;
-  final String description;
-  final String iconName; // Store icon as string for JSON serialization
-  int score; // 0 to 100 based on AI analysis of answers
-  String? lastInsight; // Brief insight note from AI
-  final List<ValueQuestion> questions;
-
-  LifeValue({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.iconName,
-    this.score = 0,
-    this.lastInsight,
-    required this.questions,
-  });
-
-  IconData get icon => _getIconFromName(iconName);
-
-  static IconData _getIconFromName(String name) {
-    switch (name) {
-      case 'homeHeart':
-        return MdiIcons.homeHeart;
-      case 'heartOutline':
-        return MdiIcons.heartOutline;
-      case 'accountGroupOutline':
-        return MdiIcons.accountGroupOutline;
-      case 'briefcaseOutline':
-        return MdiIcons.briefcaseOutline;
-      case 'schoolOutline':
-        return MdiIcons.schoolOutline;
-      case 'controllerClassicOutline':
-        return MdiIcons.controllerClassicOutline;
-      case 'meditation':
-        return MdiIcons.meditation;
-      case 'handHeartOutline':
-        return MdiIcons.handHeartOutline;
-      case 'treeOutline':
-        return MdiIcons.treeOutline;
-      case 'runFast':
-        return MdiIcons.runFast;
-      default:
-        return MdiIcons.helpCircleOutline;
-    }
-  }
-
-  static String _mapCodePointToName(int codePoint) {
-    // Map existing code points back to names for migration
-    if (codePoint == MdiIcons.homeHeart.codePoint) return 'homeHeart';
-    if (codePoint == MdiIcons.heartOutline.codePoint) return 'heartOutline';
-    if (codePoint == MdiIcons.accountGroupOutline.codePoint)
-      return 'accountGroupOutline';
-    if (codePoint == MdiIcons.briefcaseOutline.codePoint)
-      return 'briefcaseOutline';
-    if (codePoint == MdiIcons.schoolOutline.codePoint) return 'schoolOutline';
-    if (codePoint == MdiIcons.controllerClassicOutline.codePoint)
-      return 'controllerClassicOutline';
-    if (codePoint == MdiIcons.meditation.codePoint) return 'meditation';
-    if (codePoint == MdiIcons.handHeartOutline.codePoint)
-      return 'handHeartOutline';
-    if (codePoint == MdiIcons.treeOutline.codePoint) return 'treeOutline';
-    if (codePoint == MdiIcons.runFast.codePoint) return 'runFast';
-    return 'helpCircleOutline';
-  }
-
-  factory LifeValue.fromJson(Map<String, dynamic> json) {
-    String? iconName = json['iconName'] as String?;
-    if (iconName == null && json['iconCodePoint'] != null) {
-      iconName = _mapCodePointToName(json['iconCodePoint'] as int);
-    }
-
-    return LifeValue(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String? ?? '',
-      iconName: iconName ?? 'helpCircleOutline',
-      score: json['score'] as int? ?? 0,
-      lastInsight: json['lastInsight'] as String?,
-      questions: (json['questions'] as List<dynamic>)
-          .map((q) => ValueQuestion.fromJson(q as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'iconName': iconName,
-      'score': score,
-      'lastInsight': lastInsight,
-      'questions': questions.map((q) => q.toJson()).toList(),
-    };
-  }
-
-  // Static definition of the default values hierarchy
-  static List<LifeValue> getDefaults() {
-    return [
-      LifeValue(
-        id: 'family',
-        title: 'Family',
-        description: 'Roles, qualities, and relationships with relatives.',
-        iconName: 'homeHeart',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What sort of brother/sister, son/daughter, father/mother (or other relative) do you want to be?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What personal qualities would you like to bring to these relationships?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'How would you treat others if you were the ‘ideal you’ in these relationships?'),
-          ValueQuestion(
-              id: 'q4',
-              question:
-                  'What sort of ongoing activities do you want to do with your relatives?'),
-          ValueQuestion(
-              id: 'q5',
-              question: 'What sort of relationships do you want to build?'),
-        ],
-      ),
-      LifeValue(
-        id: 'partners',
-        title: 'Partners',
-        description:
-            'Intimacy, shared qualities, and treatment of your partner.',
-        iconName: 'heartOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What sort of partner would you like to be in an intimate relationship?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What personal qualities would you like to develop within this relationship?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'How would you treat your partner if you were the ‘ideal you’ in this relationship?'),
-          ValueQuestion(
-              id: 'q4',
-              question: 'What sort of relationship do you want to build?'),
-          ValueQuestion(
-              id: 'q5',
-              question:
-                  'What sort of ongoing activities do you want to do with your partner?'),
-        ],
-      ),
-      LifeValue(
-        id: 'friendships',
-        title: 'Friendships',
-        description: 'Being a good friend and building social bonds.',
-        iconName: 'accountGroupOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question: 'What does it mean to you to be a good friend?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'If you could be the ‘ideal you’, how would you behave toward your friends?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'What personal qualities would you like to bring to these friendships?'),
-          ValueQuestion(
-              id: 'q4',
-              question: 'What sort of friendships do you want to build?'),
-          ValueQuestion(
-              id: 'q5',
-              question:
-                  'What sort of ongoing activities do you want to do with your friends?'),
-        ],
-      ),
-      LifeValue(
-        id: 'work',
-        title: 'Work',
-        description: 'Professional conduct, relationships, and meaning.',
-        iconName: 'briefcaseOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What sort of worker or employer would you like to be?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What personal qualities would you like to bring to the workplace?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'How would you treat your co-workers if you were the ‘ideal you’?'),
-          ValueQuestion(
-              id: 'q4',
-              question:
-                  'What sort of relationships do you want to build with your colleagues?'),
-          ValueQuestion(
-              id: 'q5',
-              question:
-                  'What sort of ongoing activities do you want to do with your colleagues?'),
-          ValueQuestion(
-              id: 'q6', question: 'What would make your work more meaningful?'),
-        ],
-      ),
-      LifeValue(
-        id: 'education',
-        title: 'Education',
-        description: 'Learning, skills, and intellectual growth.',
-        iconName: 'schoolOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What do you value about learning, education or training?'),
-          ValueQuestion(
-              id: 'q2',
-              question: 'What new skills or knowledge would you like to gain?'),
-          ValueQuestion(
-              id: 'q3',
-              question: 'What further education or training appeals to you?'),
-          ValueQuestion(
-              id: 'q4',
-              question: 'What sort of student/trainee would you like to be?'),
-          ValueQuestion(
-              id: 'q5',
-              question:
-                  'What personal qualities would you like to bring to your studies?'),
-          ValueQuestion(
-              id: 'q6',
-              question:
-                  'What sort of relationships would you like to build with other students?'),
-        ],
-      ),
-      LifeValue(
-        id: 'fun',
-        title: 'Fun',
-        description: 'Hobbies, relaxation, creativity, and leisure.',
-        iconName: 'controllerClassicOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What sorts of hobbies, sports or leisure activities do you want to participate in?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'On an ongoing basis, how do you wish to relax and unwind?'),
-          ValueQuestion(
-              id: 'q3',
-              question: 'On an ongoing basis, how do you wish to have fun?'),
-          ValueQuestion(id: 'q4', question: 'How do you wish to be creative?'),
-          ValueQuestion(
-              id: 'q5',
-              question: 'What sorts of new activities would you like to try?'),
-          ValueQuestion(
-              id: 'q6',
-              question: 'What old activities would you like to take up again?'),
-        ],
-      ),
-      LifeValue(
-        id: 'spirituality',
-        title: 'Spirituality',
-        description: 'Inner life, faith, or philosophical connection.',
-        iconName: 'meditation',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question: 'What is important to you in this area of life?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What spiritual activities would you like to do on an ongoing basis?'),
-        ],
-      ),
-      LifeValue(
-        id: 'community',
-        title: 'Community',
-        description: 'Contribution, volunteering, and civic engagement.',
-        iconName: 'handHeartOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question: 'How would you like to contribute to your community?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What interest groups, charities or political parties would you like to support?'),
-        ],
-      ),
-      LifeValue(
-        id: 'nature',
-        title: 'Nature',
-        description: 'Environment, connection to earth, and surroundings.',
-        iconName: 'treeOutline',
-        questions: [
-          ValueQuestion(
-              id: 'q1',
-              question:
-                  'What aspects of nature would you like to connect with?'),
-          ValueQuestion(
-              id: 'q2',
-              question:
-                  'What environments would you like to spend more time in?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'How would you like to care for the variety of environments around you?'),
-          ValueQuestion(
-              id: 'q4',
-              question:
-                  'What activities would you like to do that get you out into nature?'),
-          ValueQuestion(
-              id: 'q5',
-              question:
-                  'What activities would you like to do that alter your environment in creative ways?'),
-        ],
-      ),
-      LifeValue(
-        id: 'health',
-        title: 'Health',
-        description: 'Physical well-being, diet, sleep, and exercise.',
-        iconName: 'runFast',
-        questions: [
-          ValueQuestion(
-              id: 'q1', question: 'How would you like to care for your body?'),
-          ValueQuestion(
-              id: 'q2',
-              question: 'What sort of physical health do you want to build?'),
-          ValueQuestion(
-              id: 'q3',
-              question:
-                  'What sort of ongoing activities do you want to do in terms of taking care of your body?'),
-          ValueQuestion(
-              id: 'q4',
-              question:
-                  'How do you want to look after your health with regard to sleep, diet, exercise?'),
-        ],
-      ),
-    ];
-  }
-}
-
---- END OF FILE lib/src/models/value_models.dart ---
-
 --- START OF FILE lib/src/models/app_state_models.dart ---
 // lib/src/models/app_state_models.dart
 
@@ -3935,7 +3551,6 @@ import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/ai_context_helper.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
@@ -3949,7 +3564,6 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/value_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart';
 
@@ -3995,8 +3609,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
-  List<LifeValue> _lifeValues = [];
-  List<LifeValue> get lifeValues => _lifeValues;
+  // Values feature removed
 
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
@@ -4042,7 +3655,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
     _initializeSkills();
-    _initializeValues();
     _initialize();
     
     WidgetsBinding.instance.addObserver(this);
@@ -4114,12 +3726,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
         Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
       ];
-    }
-  }
-
-  void _initializeValues() {
-    if (_lifeValues.isEmpty) {
-      _lifeValues = LifeValue.getDefaults();
     }
   }
 
@@ -4287,7 +3893,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                 'lastSuccessfulSaveTimestamp': DateTime.now().toIso8601String(),
                 'chatbotMemory': _chatbotMemory.toJson(),
                 'skills': _skills.map((s) => s.toJson()).toList(),
-                'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
           }
@@ -4340,7 +3945,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       'chatbotMemory': _chatbotMemory.toJson(),
       'skills': _skills.map((s) => s.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
     };
   }
 
@@ -4398,19 +4002,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           .where((l) => l != null && l is Map<String, dynamic>)
           .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
           .toList();
-    }
-
-    if (data['lifeValues'] != null && data['lifeValues'] is List) {
-      _lifeValues = (data['lifeValues'] as List)
-          .where((v) => v != null && v is Map<String, dynamic>)
-          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
-          .toList();
-    }
-    if (_lifeValues.length < 10) {
-      final defaults = LifeValue.getDefaults();
-      for (var def in defaults) {
-        if (!_lifeValues.any((v) => v.id == def.id)) _lifeValues.add(def);
-      }
     }
 
     _isChatbotMemoryInitialized = true;
@@ -4661,7 +4252,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _reflectionLogs = [];
     _completedByDay = {};
     _initializeSkills();
-    _initializeValues();
   }
 
   Future<void> _handleDailyReset() async {
@@ -4853,11 +4443,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
-    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
     final result = await _aiService.generateDailySummary(
       reflections: logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason}).toList(),
       previousBriefings: [],
-      userValues: valuesContext,
       modelCandidates: settings.liteModels,
       currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
@@ -4914,69 +4502,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         .fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
   }
   
-  void reorderValues(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
-    final item = _lifeValues.removeAt(oldIndex);
-    _lifeValues.insert(newIndex, item);
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-  
-  void updateValueAnswer(String valueId, String questionId, String answer) {
-    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
-    if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex].questions.indexWhere((q) => q.id == questionId);
-      if (qIndex != -1) {
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _markDirty('settings');
-        _scheduleRealtimeSync();
-        notifyListeners();
-      }
-    }
-  }
-  
-  Future<void> analyzeValueAlignment(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return;
-    setLoadingTask("Analyzing...");
-    try {
-      final result = await _aiService.analyzeValueAlignment(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-      value.score = result['score'] as int;
-      value.lastInsight = result['insight'] as String?;
-      _hasUnsavedChanges = true;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-  
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return [];
-    return await _aiService.generateTasksFromValues(
-        valueName: value.title,
-        questionsAndAnswers: value.questions.map((q) => {'question': q.question, 'answer': q.answer}).toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKeys: settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg));
-  }
-  
   Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { 
     final actualTimestamp = timestamp ?? DateTime.now();
-    final valuesContext = AiContextHelper.serializeValues(_lifeValues);
     setLoadingTask("Analyzing...");
     
     final result = await _aiService.evaluateReflection(
@@ -4984,7 +4511,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         emotion: emotion,
         reason: reason,
         modelCandidates: settings.liteModels,
-        userValues: valuesContext, 
         customApiKeys: settings.customApiKeys,
         systemInstruction: settings.customReflectionPrompt);
     
@@ -5020,7 +4546,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     return {
       'xpGained': xpAllocation,
-      'valueUpdates': result['value_updates'] ?? []
     };
   }
   
@@ -5855,6 +5380,7 @@ class TaskActions {
     bool subSubTaskCompletedSuccessfully = false;
     SubSubTask? completedSubSubTaskInstanceForLog;
 
+    // Use a copy of mainTasks for optimistic update
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
@@ -5895,20 +5421,24 @@ class TaskActions {
       return task;
     }).toList();
 
+    // Trigger update immediately
     if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
-      _provider.setProviderState(mainTasks: newMainTasks);
-      
-      if (!fromSync) {
-        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-      }
+      // Async state update to prevent UI blocking
+      Future.microtask(() {
+        _provider.setProviderState(mainTasks: newMainTasks);
+        
+        if (!fromSync) {
+          _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
+        }
 
-      logToDailySummary('subSubtaskCompleted', {
-        'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
-        'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
-        'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
-        'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
-        'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
-        'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+        logToDailySummary('subSubtaskCompleted', {
+          'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
+          'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
+          'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
+          'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
+          'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
+          'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+        });
       });
     }
   }
@@ -5942,10 +5472,13 @@ class TaskActions {
       return task;
     }).toList();
 
-    _provider.setProviderState(mainTasks: newMainTasks);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
-    }
+    // Async update
+    Future.microtask(() {
+      _provider.setProviderState(mainTasks: newMainTasks);
+      if (!fromSync) {
+        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
+      }
+    });
   }
 
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
@@ -6797,7 +6330,6 @@ class ProjectActions {
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/ai_context_helper.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:intl/intl.dart';
 
@@ -6827,15 +6359,12 @@ class ReportActions {
       }
     }
 
-    final valuesContext = AiContextHelper.serializeValues(_provider.lifeValues);
-
     _provider.setLoadingTask("Generating Startup Report...");
     
     try {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        userValues: valuesContext,
         modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
@@ -7185,14 +6714,14 @@ class SettingsScreen extends StatelessWidget {
 --- START OF FILE lib/src/screens/home_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/values_screen.dart';
+import 'package:arcane/src/screens/logbook_screen.dart'; // Renamed/Refactored intent: This is Analytics/DailySummary
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/schedule_view.dart'; // NEW
 import 'package:arcane/src/screens/more_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
@@ -7210,11 +6739,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // Updated Tab List
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
-    'LOGBOOK',
-    'VALUES',
+    'SCHEDULE', // New
     'PROJECTS',
+    'ANALYTICS', // Was Logbook
     'SYSTEM',
   ];
 
@@ -7340,20 +6870,25 @@ class _HomeScreenState extends State<HomeScreen> {
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
     final List<Widget> widgetOptions = <Widget>[
+      // 0: MISSIONS
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const TaskDetailsView(),
         ),
       ),
-      const LogbookScreen(),
-      const ValuesScreen(),
+      // 1: SCHEDULE (NEW)
+      const ScheduleView(),
+      // 2: PROJECTS
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
+      // 3: ANALYTICS (Was Logbook)
+      const LogbookScreen(), 
+      // 4: SYSTEM (More)
       const MoreScreen(),
     ];
 
@@ -7406,15 +6941,13 @@ class _HomeScreenState extends State<HomeScreen> {
               fontFamily: AppTheme.fontDisplay,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
-              fontSize: 10, // Reduced font size
+              fontSize: 10,
             ),
             unselectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
               letterSpacing: 0.5,
-              fontSize: 10, // Reduced font size
+              fontSize: 10,
             ),
-            // Fix overflow by hiding labels on unselected items on small screens if needed,
-            // or just rely on fixed type with smaller fonts.
             type: BottomNavigationBarType.fixed,
             elevation: 0,
             currentIndex: _selectedIndex,
@@ -7425,16 +6958,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'MISSIONS',
               ),
               BottomNavigationBarItem(
-                icon: Icon(MdiIcons.notebookOutline),
-                label: 'LOGBOOK',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.diamondStone),
-                label: 'VALUES',
+                icon: Icon(MdiIcons.calendarClock), // Schedule
+                label: 'SCHEDULE',
               ),
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.rocketLaunchOutline),
                 label: 'PROJECTS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.notebookOutline),
+                label: 'ANALYTICS',
               ),
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.dotsGrid),
@@ -7447,7 +6980,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
 --- END OF FILE lib/src/screens/home_screen.dart ---
 
 --- START OF FILE lib/src/screens/bus_schedule_screen.dart ---
@@ -9467,431 +8999,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
 }
 --- END OF FILE lib/src/screens/timetable_screen.dart ---
 
---- START OF FILE lib/src/screens/value_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/value_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/dialogs/value_task_generation_dialog.dart';
-import 'package:arcane/src/widgets/ui/value_question_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ValueDetailScreen extends StatefulWidget {
-  final String valueId;
-
-  const ValueDetailScreen({super.key, required this.valueId});
-
-  @override
-  State<ValueDetailScreen> createState() => _ValueDetailScreenState();
-}
-
-class _ValueDetailScreenState extends State<ValueDetailScreen> {
-  bool _isAnalyzing = false;
-  bool _isGenerating = false;
-
-  Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentTeal;
-    if (score >= 50) return AppTheme.fhAccentGold;
-    return AppTheme.fhAccentRed;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final value = provider.lifeValues.firstWhere((v) => v.id == widget.valueId);
-    final Color scoreColor = _getScoreColor(value.score);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      // Ensure resize for keyboard interaction with text fields
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // --- HEADER ---
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(
-                        color: AppTheme.fhBorderColor, width: 1.0)),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back,
-                        color: AppTheme.fhTextPrimary),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text("${value.title.toUpperCase()}",
-                        style: const TextStyle(
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: AppTheme.fhTextPrimary),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: scoreColor),
-                      color: scoreColor.withOpacity(0.1),
-                    ),
-                    child: Text("${value.score}%",
-                        style: TextStyle(
-                            color: scoreColor,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay)),
-                  )
-                ],
-              ),
-            ),
-
-            // --- CONTENT ---
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Description Box
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppTheme.fhBgDark,
-                        border: const Border(
-                            left: BorderSide(
-                                color: AppTheme.fhAccentTeal, width: 4)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(value.icon,
-                                  color: AppTheme.fhAccentTeal, size: 28),
-                              const SizedBox(width: 12),
-                              Text("PROTOCOL DESCRIPTION",
-                                  style: TextStyle(
-                                      color: AppTheme.fhTextSecondary
-                                          .withOpacity(0.7),
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.2,
-                                      fontSize: 12)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            value.description,
-                            style: const TextStyle(
-                                color: AppTheme.fhTextPrimary,
-                                height: 1.5,
-                                fontSize: 15),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Insight Note
-                    if (value.lastInsight != null &&
-                        value.lastInsight!.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.fhAccentPurple.withOpacity(0.1),
-                          border: Border.all(
-                              color: AppTheme.fhAccentPurple.withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("AI INSIGHT",
-                                style: TextStyle(
-                                    color: AppTheme.fhAccentPurple,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    letterSpacing: 1.0)),
-                            const SizedBox(height: 8),
-                            Text(
-                              value.lastInsight!,
-                              style: const TextStyle(
-                                  color: AppTheme.fhTextPrimary,
-                                  fontStyle: FontStyle.italic,
-                                  height: 1.4,
-                                  fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 32),
-
-                    // Questions Header
-                    Row(
-                      children: [
-                        Container(width: 8, height: 8, color: AppTheme.fhAccentRed),
-                        const SizedBox(width: 8),
-                        Text("Analysis Questions",
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                    color: AppTheme.fhTextPrimary,
-                                    fontFamily: AppTheme.fontDisplay,
-                                    letterSpacing: 1.5)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Questions List (Using Modular Widget)
-                    ...value.questions.map((q) => ValueQuestionCard(
-                          question: q,
-                          valueId: value.id,
-                        )),
-
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-
-            // --- FOOTER ACTIONS ---
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: AppTheme.fhBgDeepDark,
-                border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ValorantButton(
-                      label: _isAnalyzing ? "WAIT" : "ANALYZE",
-                      isPrimary: false,
-                      icon: MdiIcons.chartLine,
-                      onPressed: _isAnalyzing
-                          ? null
-                          : () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              setState(() => _isAnalyzing = true);
-                              try {
-                                await provider.analyzeValueAlignment(value.id);
-                                if (!mounted) return;
-                                messenger.showSnackBar(const SnackBar(
-                                    content: Text("Alignment Score Updated!"),
-                                    backgroundColor: AppTheme.fhAccentGreen));
-                              } catch (e) {
-                                if (!mounted) return;
-                                messenger.showSnackBar(
-                                    SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed));
-                              } finally {
-                                if (mounted)
-                                  setState(() => _isAnalyzing = false);
-                              }
-                            },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ValorantButton(
-                      label: _isGenerating ? "WAIT" : "GET TASK",
-                      isPrimary: true,
-                      icon: MdiIcons.robotHappy,
-                      onPressed: _isGenerating
-                          ? null
-                          : () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              setState(() => _isGenerating = true);
-                              final currentContext = context;
-                              try {
-                                final tasks = await provider
-                                    .generateTasksFromValue(value.id);
-                                
-                                if (!mounted) return;
-                                
-                                if (tasks.isEmpty) {
-                                   messenger.showSnackBar(const SnackBar(content: Text("No actionable tasks generated. Try adding more detail to answers.")));
-                                } else {
-                                  showDialog(
-                                    context: currentContext,
-                                    builder: (ctx) => ValueTaskGenerationDialog(
-                                        generatedTasks: tasks),
-                                  );
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                messenger.showSnackBar(
-                                    SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed));
-                              } finally {
-                                if (mounted)
-                                  setState(() => _isGenerating = false);
-                              }
-                            },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
---- END OF FILE lib/src/screens/value_detail_screen.dart ---
-
---- START OF FILE lib/src/screens/values_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/screens/value_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_value_card.dart';
-import 'package:provider/provider.dart';
-
-class ValuesScreen extends StatelessWidget {
-  const ValuesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final values = provider.lifeValues;
-
-    // Calculate overall alignment
-    double totalScore = 0;
-    for (var v in values) {
-      totalScore += v.score;
-    }
-    final double averageScore =
-        values.isEmpty ? 0 : totalScore / values.length / 100.0;
-    final int averagePercent = (averageScore * 100).toInt();
-
-    Color progressColor = AppTheme.fhAccentRed;
-    if (averagePercent >= 80) progressColor = AppTheme.fhAccentTeal;
-    else if (averagePercent >= 50) progressColor = AppTheme.fhAccentGold;
-
-    return Container(
-      color: AppTheme.fhBgDeepDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header resembling Agent Select
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "SELECT PROTOCOL",
-                  style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.fhTextPrimary,
-                      height: 0.9,
-                      letterSpacing: 2.0),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "DEFINE YOUR CORE DRIVERS // ALIGN YOUR ACTIONS",
-                  style: TextStyle(
-                    color: AppTheme.fhTextSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Overall Alignment Bar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("OVERALL ALIGNMENT",
-                        style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                            letterSpacing: 1.0)),
-                    Text("$averagePercent%",
-                        style: TextStyle(
-                            color: progressColor,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 16)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: averageScore,
-                    backgroundColor: AppTheme.fhBgDark,
-                    color: progressColor,
-                    minHeight: 6,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            // Use ReorderableListView for dragging sorting
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: values.length,
-              onReorder: (oldIndex, newIndex) {
-                provider.reorderValues(oldIndex, newIndex);
-              },
-              proxyDecorator: (child, index, animation) {
-                return Material(
-                  color: Colors.transparent,
-                  elevation: 6,
-                  child: child,
-                );
-              },
-              itemBuilder: (context, index) {
-                final value = values[index];
-                return Padding(
-                  key: ValueKey(value.id),
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: SizedBox(
-                    height: 120, // Fixed height for consistency
-                    child: ValorantValueCard(
-                      value: value,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ValueDetailScreen(valueId: value.id),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
---- END OF FILE lib/src/screens/values_screen.dart ---
-
 --- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -10841,27 +9948,23 @@ class AIService {
     required String emotion,
     required String reason,
     required List<String> modelCandidates,
-    required List<Map<String, dynamic>> userValues, 
     List<Map<String, String>>? dailyReflections,
     List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
     final prompt = """
     Analyze this reflection log.
-    Context Values: ${jsonEncode(userValues)}
     Trigger: $trigger
     Emotion: $emotion
     Reason: $reason
     
     1. Provide constructive feedback.
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CHECK if this reflection implies an update to a Value's questions or answers. If the user realizes something about their values, suggest an update.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON: {
       "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...},
-      "value_updates": [ { "valueId": "string", "questionId": "string", "suggestedAnswer": "string", "reason": "string" } ] (Optional, empty if none)
+      "xp_allocation": {"Wisdom": int, ...}
     }
     """;
     
@@ -10877,7 +9980,6 @@ class AIService {
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
     required List<String> previousBriefings,
-    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -10888,29 +9990,17 @@ class AIService {
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    Values & Questions (Context): ${jsonEncode(userValues)}
     
     Tone: Empathetic, psychologically wise, tactical advisor.
     
     Tasks:
     1. Create a concise summary of the day's psychological state.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. VALUE FINDER: Review the logs. Do they answer any of the user's Value Questions (provided in Context)? If yes, extract the answer. 
-       - If the question has no answer, propose the new text.
-       - If it has an answer, propose a text to APPEND or REFINE the existing one.
-    4. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 60 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ],
-      "value_updates": [ 
-         { 
-           "valueId": "string", 
-           "questionId": "string", 
-           "suggestedAnswer": "string", 
-           "reason": "string" 
-         } 
-      ]
+      "improvements": [ {"ability": "string", "insight": "string"} ]
     }
     """;
     
@@ -10954,74 +10044,6 @@ class AIService {
         return resp.text ?? "Error";
     });
   }
-
-  // --- Value Analysis & Generation ---
-
-  Future<Map<String, dynamic>> analyzeValueAlignment({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the user's alignment with the value '$valueName'.
-    Q&A Data: ${jsonEncode(questionsAndAnswers)}
-    
-    1. Determine an alignment score (0-100) based on the depth and positivity of the answers. Empty answers score 0.
-    2. Provide a short, insightful comment (max 30 words) on how they can improve or maintain this value.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "score": int,
-      "insight": "string"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValues({
-    required String valueName,
-    required List<Map<String, String>> questionsAndAnswers,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate 3 specific, actionable tasks to help the user embody the value '$valueName'.
-    Context: ${jsonEncode(questionsAndAnswers)}
-    CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "tasks": [
-        { "name": "string", "isCountable": boolean, "targetCount": int (0 if not countable), "type": "Task" }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-        
-    return (result['tasks'] as List?)?.map((t) => t as Map<String, dynamic>).toList() ?? [];
-  }
   
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
@@ -11055,7 +10077,6 @@ class AIService {
   Future<Map<String, dynamic>> generateStartDayReport({
     required String reflectionsList,
     required String sessionsList,
-    required List<Map<String, dynamic>> userValues, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -11067,31 +10088,19 @@ class AIService {
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
-    Values & Questions: ${jsonEncode(userValues)}
     
     Task:
     1. Analyze the user's momentum.
     2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. VALUE FINDER: Review the logs/momentum. Do they answer any of the user's Value Questions? If yes, extract the answer.
-       - If the question has no answer, propose the new text.
-       - If it has an answer, propose a text to APPEND (start with "\\n\\n[UPDATE]: ") or REFINE the existing one.
-    6. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
     
     Output JSON ONLY:
     {
       "forecast": "string",
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"],
-      "value_updates": [ 
-         { 
-           "valueId": "string", 
-           "questionId": "string", 
-           "suggestedAnswer": "string", 
-           "reason": "string" 
-         } 
-      ]
+      "directives": ["string", "string", "string"]
     }
     """;
 
@@ -11104,7 +10113,6 @@ class AIService {
         onLog: onLog);
   }
 }
-
 --- END OF FILE lib/src/services/ai_service.dart ---
 
 --- START OF FILE lib/src/services/local_storage_service.dart ---
@@ -11842,22 +10850,13 @@ class TaskCalculations {
 --- END OF FILE lib/src/utils/task_calculations.dart ---
 
 --- START OF FILE lib/src/utils/ai_context_helper.dart ---
-import 'package:arcane/src/models/value_models.dart';
+// lib/src/utils/ai_context_helper.dart
 
 class AiContextHelper {
-  /// Serializes LifeValues into a simplified map structure for AI context.
-  /// Includes current answers so the AI can decide whether to append or refine.
-  static List<Map<String, dynamic>> serializeValues(List<LifeValue> values) {
-    return values.map((v) => {
-      'id': v.id,
-      'title': v.title,
-      'description': v.description,
-      'questions': v.questions.map((q) => {
-        'id': q.id,
-        'question': q.question,
-        'current_answer': q.answer
-      }).toList()
-    }).toList();
+  // Previously handled LifeValues. Kept for future context expansion (e.g. Skills).
+  // Currently empty as Values feature is removed.
+  static List<Map<String, dynamic>> getEmptyContext() {
+    return [];
   }
 }
 --- END OF FILE lib/src/utils/ai_context_helper.dart ---
@@ -12746,81 +11745,6 @@ class QuickActionCard extends StatelessWidget {
 }
 
 --- END OF FILE lib/src/widgets/cards/quick_action_card.dart ---
-
---- START OF FILE lib/src/widgets/cards/life_value_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/value_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-// REPLACED BY ValorantValueCard BUT KEPT FOR BACKWARD COMPATIBILITY OR REFERENCE
-class LifeValueCard extends StatelessWidget {
-  final LifeValue value;
-  final VoidCallback onTap;
-
-  const LifeValueCard({super.key, required this.value, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    // Redirect to the new design
-    // Ideally, this file should be deleted or completely replaced.
-    // For now, I'll return the old design but with updated colors just in case it's used elsewhere.
-    
-    final double progress = value.score / 100.0;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 4,
-                    backgroundColor: AppTheme.fhBgDeepDark,
-                    color: _getScoreColor(value.score),
-                  ),
-                ),
-                Icon(
-                  value.icon,
-                  size: 28,
-                  color: AppTheme.fhTextPrimary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value.title.toUpperCase(),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppTheme.fhTextPrimary,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentGreen;
-    if (score >= 50) return AppTheme.fhAccentGold;
-    return AppTheme.fhAccentRed;
-  }
-}
---- END OF FILE lib/src/widgets/cards/life_value_card.dart ---
 
 --- START OF FILE lib/src/widgets/cards/project_dashboard_card.dart ---
 import 'package:flutter/material.dart';
@@ -16388,258 +15312,6 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/subtask_config_dialog.dart ---
 
---- START OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/task_generation_row.dart';
-import 'package:provider/provider.dart';
-
-class ValueTaskGenerationDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> generatedTasks;
-
-  const ValueTaskGenerationDialog({super.key, required this.generatedTasks});
-
-  @override
-  State<ValueTaskGenerationDialog> createState() =>
-      _ValueTaskGenerationDialogState();
-}
-
-class _ValueTaskGenerationDialogState extends State<ValueTaskGenerationDialog> {
-  final List<Map<String, dynamic>> _finalTasksConfig = [];
-  String? _defaultMainTaskId;
-
-  @override
-  void initState() {
-    super.initState();
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    _defaultMainTaskId =
-        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
-
-    // Initialize config list
-    for (var task in widget.generatedTasks) {
-      _finalTasksConfig.add({}); // Will be populated by row callbacks
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-
-    return Dialog(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      insetPadding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
-            ),
-            child: const Text("TACTICAL INTEGRATION",
-                style: TextStyle(
-                    fontFamily: AppTheme.fontDisplay,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: AppTheme.fhTextPrimary)),
-          ),
-
-          // Content
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                      "Configure generated actions and assign them to active protocols.",
-                      style: TextStyle(color: AppTheme.fhTextSecondary)),
-                  const SizedBox(height: 16),
-                  ...widget.generatedTasks.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final taskData = entry.value;
-                    return TaskGenerationRow(
-                      taskData: taskData,
-                      availableMissions: provider.mainTasks,
-                      defaultMissionId: _defaultMainTaskId,
-                      onChanged: (config) {
-                        _finalTasksConfig[index] = config;
-                      },
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-
-          // Footer
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("CANCEL")),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhAccentTeal,
-                      foregroundColor: AppTheme.fhBgDeepDark),
-                  onPressed: () {
-                    int count = 0;
-                    for (var config in _finalTasksConfig) {
-                      if (config['isSelected'] == true &&
-                          config['missionId'] != null) {
-                        final missionId = config['missionId'] as String;
-                        final name = config['name'] as String;
-                        final isCountable =
-                            config['isCountable'] as bool? ?? false;
-                        final targetCount =
-                            config['targetCount'] as int? ?? 0;
-
-                        if (config['type'] == 'Task') {
-                          // Add as SubTask
-                          provider.addSubtask(missionId, {
-                            'name': name,
-                            'isCountable': isCountable,
-                            'targetCount': targetCount,
-                          });
-                          count++;
-                        } else if (config['type'] == 'Checkpoint' &&
-                            config['parentId'] != null) {
-                          // Add as SubSubTask
-                          provider.addSubSubtask(
-                              missionId, config['parentId'] as String, {
-                            'name': name,
-                            'isCountable': isCountable,
-                            'targetCount': targetCount,
-                          });
-                          count++;
-                        }
-                      }
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("$count actions integrated!")));
-                    Navigator.pop(context);
-                  },
-                  child: const Text("INTEGRATE"),
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
-
---- END OF FILE lib/src/widgets/dialogs/value_task_generation_dialog.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/value_update_confirm_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class ValueUpdateConfirmDialog extends StatelessWidget {
-  final Map<String, dynamic> updateData;
-
-  const ValueUpdateConfirmDialog({super.key, required this.updateData});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    // Find value and question for context display
-    String valueTitle = "Protocol";
-    String questionText = "Question";
-    try {
-      final value = provider.lifeValues.firstWhere((v) => v.id == updateData['valueId']);
-      valueTitle = value.title;
-      final q = value.questions.firstWhere((q) => q.id == updateData['questionId']);
-      questionText = q.question;
-    } catch (_) {}
-
-    final suggestedAnswer = updateData['suggestedAnswer'] ?? '...';
-    // Simple check if it's an append operation by looking for newline or specific marker we added
-    final bool isAppend = suggestedAnswer.contains('\n\n[UPDATE]:');
-
-    return AlertDialog(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      title: Row(
-        children: [
-          Icon(MdiIcons.databaseSyncOutline, color: AppTheme.fhAccentTeal),
-          const SizedBox(width: 8),
-          const Text("VALUES UPDATE", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18)),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Based on your logs, the system suggests updating the following protocol data:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
-            const SizedBox(height: 16),
-            
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppTheme.fhBgDark, border: Border.all(color: AppTheme.fhBorderColor)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("PROTOCOL: $valueTitle", style: const TextStyle(color: AppTheme.fhAccentPurple, fontSize: 10, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text("Q: $questionText", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 12),
-                  Text(
-                    isAppend ? "APPENDING NEW DATA:" : "SUGGESTED ANSWER:", 
-                    style: TextStyle(
-                      color: isAppend ? AppTheme.fhAccentGreen : AppTheme.fhAccentTeal, 
-                      fontSize: 10, 
-                      fontWeight: FontWeight.bold
-                    )
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    suggestedAnswer, 
-                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, height: 1.4)
-                  ),
-                ],
-              ),
-            ),
-            
-            if (updateData['reason'] != null) ...[
-              const SizedBox(height: 12),
-              Text("REASON: ${updateData['reason']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
-            ]
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text("IGNORE"),
-        ),
-        ValorantButton(
-          label: isAppend ? "APPEND DATA" : "UPDATE PROTOCOL",
-          onPressed: () => Navigator.pop(context, true),
-          isPrimary: true,
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/value_update_confirm_dialog.dart ---
-
 --- START OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -16890,7 +15562,6 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/common/growing_text_field.dart';
 
@@ -16980,45 +15651,16 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         final xpGained = result['xpGained'] as Map<String, int>;
-        final valueUpdates = result['valueUpdates'] as List<dynamic>?;
 
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP Dialog first
+          // Show XP Dialog
           await showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.8),
             builder: (ctx) => XpGainDialog(xpGained: xpGained),
           );
-
-          // Check for Value Updates
-          if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
-            for (var update in valueUpdates) {
-              if (update is Map) {
-                // Show confirm dialog
-                final shouldUpdate = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => ValueUpdateConfirmDialog(
-                    updateData: update as Map<String, dynamic>
-                  )
-                );
-
-                if (shouldUpdate == true) {
-                  appProvider.updateValueAnswer(
-                    update['valueId'], 
-                    update['questionId'], 
-                    update['suggestedAnswer']
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
-                    );
-                  }
-                }
-              }
-            }
-          }
         }
       } catch (e) {
         if (mounted) {
@@ -17197,9 +15839,9 @@ import 'package:arcane/src/widgets/cards/task_info_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -17303,7 +15945,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           widget.parentTask.id, widget.subTask.id, start, end);
           
       if (!success && mounted) {
-         // Show overlap error and offer edit
          ScaffoldMessenger.of(context).showSnackBar(
            SnackBar(
              content: const Text("Overlap detected! Adjust time."),
@@ -17312,7 +15953,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                label: "EDIT",
                textColor: Colors.white,
                onPressed: () {
-                 // Re-open edit dialog with these values to let user fix
                  _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
                },
              ),
@@ -17331,18 +15971,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     );
     if (result != null) {
       if (result['action'] == 'delete') {
-        // Only valid if existing session
         if (!session.id.startsWith('temp')) {
            provider.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
         }
       } else if (result['action'] == 'save') {
         if (session.id.startsWith('temp')) {
-           // New add retry
            provider.addSessionToSubtask(
             widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
         } else {
-           // Update existing
            provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
         }
@@ -17357,17 +15994,16 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     for (var task in provider.mainTasks) {
+      if (task.id != widget.parentTask.id) continue;
+      
       for (var sub in task.subTasks) {
+        if (sub.id != currentSubTaskId) continue;
+
         for (var session in sub.sessions) {
-          // Check for intersection with selected day
-          // Intersection: (SessionStart < DayEnd) AND (SessionEnd > DayStart)
           if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            
-            // Calculate effective start/end for display on this day's timeline
             DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
             DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
 
-            final bool isCurrentSubTask = sub.id == currentSubTaskId;
             entries.add(TimelineEntry(
               id: session.id,
               startTime: displayStart,
@@ -17375,7 +16011,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               title: sub.name,
               subtitle: task.name,
               color: task.taskColor,
-              isEditable: isCurrentSubTask,
+              isEditable: true,
               originalObject: session,
             ));
           }
@@ -17389,7 +16025,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     final Set<String> validDates = {};
     for (var s in subTask.sessions) {
       validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
-      // Also add end date if spanning
       validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
     }
     final today = DateTime.now();
@@ -17467,7 +16102,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -17498,7 +16132,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  // Header Info
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
@@ -17534,7 +16167,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Stats Row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -17588,7 +16220,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
                   
-                  // Info Card
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: TaskInfoCard(
@@ -17602,7 +16233,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(color: Colors.white10),
 
-                  // Timer Control
                   Container(
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(20),
@@ -17630,7 +16260,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Modular Timer Component
                         ActiveSessionTimerDisplay(
                           isRunning: isRunning,
                           startTime: timerState?.startTime,
@@ -17656,7 +16285,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  // Weekly Bar Graph
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: SubtaskWeeklyChart(
@@ -17667,7 +16295,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Checkpoints & Timeline
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
@@ -17697,9 +16324,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         const SizedBox(height: 8),
                         ...liveSubTask.subSubTasks
                             .map((sss) {
-                              // Check for linked info
                               final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
-                              return ValorantListItem(
+                              return CheckpointItem(
                                   title: sss.name,
                                   isCompleted: sss.completed,
                                   linkedLabel: linkedInfo != null 
@@ -17719,7 +16345,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                           liveSubTask.id,
                                           sss.id);
                                     } else {
-                                      provider.completeSubSubtask(
+                                      provider.taskActions.completeSubSubtask(
                                           widget.parentTask.id,
                                           liveSubTask.id,
                                           sss.id);
@@ -17732,7 +16358,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 );
                             }),
 
-                        // Quick Add
                         Container(
                           margin: const EdgeInsets.only(top: 8, bottom: 24),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -17761,7 +16386,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
                         ),
 
-                        // Timeline Header with Filtered Date Picker
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -17798,6 +16422,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ),
                         Container(
                           margin: const EdgeInsets.only(top: 8),
+                          height: 300, 
                           color: Colors.black.withOpacity(0.2),
                           child: ScheduleTimeline(
                             entries: timelineEntries,
@@ -20702,235 +19327,6 @@ class RecurringCompletedSection extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
 
---- START OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/gestures.dart';
-import 'dart:collection';
-
-class ScheduleTimeline extends StatefulWidget {
-  final List<TimelineEntry> entries;
-  final VoidCallback onAddSession;
-  final Function(TimelineEntry) onEditEntry;
-
-  const ScheduleTimeline({
-    super.key,
-    required this.entries,
-    required this.onAddSession,
-    required this.onEditEntry,
-  });
-
-  @override
-  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
-}
-
-class _ScheduleTimelineState extends State<ScheduleTimeline> {
-  double _scale = 2.0;
-  final double _basePixelsPerHour = 60.0;
-
-  void _zoomIn() {
-    setState(() {
-      _scale = (_scale + 0.5).clamp(0.5, 10.0);
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _scale = (_scale - 0.5).clamp(0.5, 10.0);
-    });
-  }
-
-  // --- Logic to handle overlapping entries ---
-  List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    if (entries.isEmpty) return [];
-    
-    // Sort by start time
-    final sorted = List<TimelineEntry>.from(entries)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-      
-    final List<_LayoutEntry> layout = [];
-    final List<List<_LayoutEntry>> columns = [];
-
-    for (var entry in sorted) {
-      int columnIndex = 0;
-      bool placed = false;
-      
-      while (!placed) {
-        if (columnIndex >= columns.length) {
-          columns.add([]);
-        }
-        
-        // Check if this column has an overlap
-        bool hasOverlap = false;
-        for (var colEntry in columns[columnIndex]) {
-          if (entry.startTime.isBefore(colEntry.entry.endTime) &&
-              entry.endTime.isAfter(colEntry.entry.startTime)) {
-            hasOverlap = true;
-            break;
-          }
-        }
-        
-        if (!hasOverlap) {
-          final le = _LayoutEntry(entry, columnIndex);
-          columns[columnIndex].add(le);
-          layout.add(le);
-          placed = true;
-        } else {
-          columnIndex++;
-        }
-      }
-    }
-    
-    // Set total columns for each entry in a conflict group
-    for (var le in layout) {
-      le.totalCols = columns.length;
-    }
-    
-    return layout;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    DateTime minStart = now;
-    DateTime maxEnd = now;
-
-    if (widget.entries.isNotEmpty) {
-      minStart = widget.entries.first.startTime;
-      maxEnd = widget.entries.first.endTime;
-      for (var s in widget.entries) {
-        if (s.startTime.isBefore(minStart)) minStart = s.startTime;
-        if (s.endTime.isAfter(maxEnd)) maxEnd = s.endTime;
-      }
-    }
-
-    final startHour = minStart.hour;
-    int endHour = maxEnd.hour + (maxEnd.minute > 0 ? 1 : 0);
-    if (endHour <= startHour + 2) endHour = startHour + 4;
-    if (endHour > 24) endHour = 24;
-
-    final int hoursCount = endHour - startHour;
-    final double pixelsPerHour = _basePixelsPerHour * _scale;
-    final double totalHeight = pixelsPerHour * hoursCount;
-    
-    final layoutEntries = _calculateLayout(widget.entries);
-
-    return Stack(
-      children: [
-        Listener(
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              setState(() => _scale = (_scale - event.scrollDelta.dy * 0.001).clamp(0.5, 10.0));
-            }
-          },
-          child: GestureDetector(
-            onScaleUpdate: (details) => setState(() => _scale = (_scale * details.scale).clamp(0.5, 10.0)),
-            child: Container(
-              height: totalHeight,
-              width: double.infinity,
-              color: Colors.transparent,
-              child: Stack(
-                children: [
-                  // Hour Grid
-                  ...List.generate(hoursCount, (index) {
-                    final currentHour = (startHour + index) % 24;
-                    return Positioned(
-                      top: index * pixelsPerHour,
-                      left: 0, right: 0,
-                      child: Container(
-                        height: pixelsPerHour,
-                        decoration: BoxDecoration(
-                          border: Border(top: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.1), width: 1)),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 4, top: 2),
-                          child: Text("${currentHour.toString().padLeft(2, '0')}:00", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 9)),
-                        ),
-                      ),
-                    );
-                  }),
-
-                  // Entries with Overlap Handling
-                  ...layoutEntries.map((le) {
-                    final entry = le.entry;
-                    final startOffset = (entry.startTime.hour * 3600 + entry.startTime.minute * 60 + entry.startTime.second) - (startHour * 3600);
-                    final top = (startOffset / 3600.0) * pixelsPerHour;
-                    final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
-                    
-                    // Visibility check based on height and zoom (hide text if too small)
-                    final bool showText = height > 20 || _scale > 2.5;
-
-                    // Horizontal distribution
-                    const double leftGutter = 50.0;
-                    final double availableWidth = MediaQuery.of(context).size.width - leftGutter - 40;
-                    final double widthPerCol = availableWidth / le.totalCols;
-                    final double left = leftGutter + (le.col * widthPerCol);
-
-                    return Positioned(
-                      top: top,
-                      left: left,
-                      width: widthPerCol - 4,
-                      height: height.clamp(2.0, 9999.0), // Allow slivers
-                      child: GestureDetector(
-                        onTap: entry.isEditable ? () => widget.onEditEntry(entry) : null,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: entry.color.withOpacity(entry.isEditable ? 0.5 : 0.2),
-                            border: Border.all(color: entry.color.withOpacity(0.8), width: entry.isEditable ? 1.5 : 0.5),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          padding: const EdgeInsets.all(4),
-                          child: showText 
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(entry.title, style: TextStyle(color: Colors.white, fontSize: (widthPerCol < 80) ? 9 : 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  if (height > 35) Text("${DateFormat('HH:mm').format(entry.startTime)}", style: const TextStyle(color: Colors.white70, fontSize: 9)),
-                                ],
-                              )
-                            : null, // Just colored block if too small
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          right: 8, top: 8,
-          child: Column(
-            children: [
-              _buildZoomButton(Icons.add, _zoomIn),
-              const SizedBox(height: 8),
-              _buildZoomButton(Icons.remove, _zoomOut),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      height: 32, width: 32,
-      decoration: BoxDecoration(color: AppTheme.fhBgDark.withOpacity(0.8), borderRadius: BorderRadius.circular(8)),
-      child: IconButton(padding: EdgeInsets.zero, icon: Icon(icon, size: 18, color: AppTheme.fhTextPrimary), onPressed: onPressed),
-    );
-  }
-}
-
-class _LayoutEntry {
-  final TimelineEntry entry;
-  final int col;
-  int totalCols;
-  _LayoutEntry(this.entry, this.col, {this.totalCols = 1});
-}
---- END OF FILE lib/src/widgets/ui/schedule_timeline.dart ---
-
 --- START OF FILE lib/src/widgets/ui/system_metric_widget.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -21448,278 +19844,6 @@ class ValorantListItem extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/ui/valorant_list_item.dart ---
-
---- START OF FILE lib/src/widgets/ui/value_generation_item_row.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-
-class ValueGenerationItemRow extends StatefulWidget {
-  final Map<String, dynamic> taskData;
-  final ValueChanged<Map<String, dynamic>> onUpdate;
-
-  const ValueGenerationItemRow({
-    super.key,
-    required this.taskData,
-    required this.onUpdate,
-  });
-
-  @override
-  State<ValueGenerationItemRow> createState() => _ValueGenerationItemRowState();
-}
-
-class _ValueGenerationItemRowState extends State<ValueGenerationItemRow> {
-  late bool _isSelected;
-  late String _type; // 'task' or 'checkpoint'
-  String? _selectedMainTaskId;
-  String? _selectedParentSubTaskId;
-
-  @override
-  void initState() {
-    super.initState();
-    _isSelected = true;
-    _type = 'task';
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    // Safety check for selected ID
-    final initialId = provider.selectedTaskId;
-    if (initialId != null && provider.mainTasks.any((t) => t.id == initialId)) {
-        _selectedMainTaskId = initialId;
-    } else {
-        _selectedMainTaskId = provider.mainTasks.firstOrNull?.id;
-    }
-    
-    // We do NOT call widget.onUpdate here to avoid setState during build.
-    // Instead, the parent handles initial data aggregation based on defaults if needed, 
-    // or we wait for user interaction. 
-    // *Correction*: We need to sync initial state. We can use addPostFrameCallback.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateParentData();
-    });
-  }
-
-  void _updateParentData() {
-    widget.onUpdate({
-      'selected': _isSelected,
-      'type': _type,
-      'mainTaskId': _selectedMainTaskId,
-      'parentSubTaskId': _selectedParentSubTaskId,
-      'originalData': widget.taskData,
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final mainTasks = provider.mainTasks;
-    
-    List<SubTask> availableSubTasks = [];
-    if (_selectedMainTaskId != null) {
-      try {
-        final task = mainTasks.firstWhere((t) => t.id == _selectedMainTaskId);
-        availableSubTasks = task.subTasks;
-      } catch (e) {
-        // Handle case where task might be deleted
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border.all(color: _isSelected ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: Checkbox + Name
-          Row(
-            children: [
-              Checkbox(
-                value: _isSelected,
-                activeColor: AppTheme.fhAccentTeal,
-                checkColor: AppTheme.fhBgDeepDark,
-                onChanged: (val) {
-                  setState(() => _isSelected = val ?? false);
-                  _updateParentData();
-                },
-              ),
-              Expanded(
-                child: Text(
-                  widget.taskData['name'] ?? 'Unknown Action',
-                  style: TextStyle(
-                    color: _isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextDisabled,
-                    fontWeight: FontWeight.bold
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          if (_isSelected) ...[
-            const SizedBox(height: 8),
-            // Row 2: Type + Main Task
-            Row(
-              children: [
-                // Type Dropdown
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    value: _type,
-                    decoration: const InputDecoration(
-                      labelText: "TYPE",
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
-                    dropdownColor: AppTheme.fhBgDark,
-                    items: const [
-                      DropdownMenuItem(value: 'task', child: Text("SUB-MISSION")),
-                      DropdownMenuItem(value: 'checkpoint', child: Text("CHECKPOINT")),
-                    ],
-                    onChanged: (val) {
-                      setState(() {
-                        _type = val!;
-                        // Reset parent subtask if switching to task
-                        if (_type == 'task') _selectedParentSubTaskId = null;
-                      });
-                      _updateParentData();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Main Task Dropdown
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    value: mainTasks.any((t) => t.id == _selectedMainTaskId) ? _selectedMainTaskId : null,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: "MISSION",
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
-                    dropdownColor: AppTheme.fhBgDark,
-                    items: mainTasks.map((t) => DropdownMenuItem(
-                      value: t.id, 
-                      child: Text(t.name.toUpperCase(), overflow: TextOverflow.ellipsis)
-                    )).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedMainTaskId = val;
-                        _selectedParentSubTaskId = null; // Reset subtask choice on mission change
-                      });
-                      _updateParentData();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            // Row 3: Parent Subtask (Only if Checkpoint)
-            if (_type == 'checkpoint') ...[
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: availableSubTasks.any((st) => st.id == _selectedParentSubTaskId) ? _selectedParentSubTaskId : null,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: "PARENT SUB-MISSION",
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                ),
-                style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
-                dropdownColor: AppTheme.fhBgDark,
-                items: availableSubTasks.isEmpty 
-                  ? [const DropdownMenuItem(value: null, child: Text("No Sub-Missions Available"))]
-                  : availableSubTasks.map((st) => DropdownMenuItem(
-                      value: st.id, 
-                      child: Text(st.name, overflow: TextOverflow.ellipsis)
-                    )).toList(),
-                onChanged: availableSubTasks.isEmpty ? null : (val) {
-                  setState(() => _selectedParentSubTaskId = val);
-                  _updateParentData();
-                },
-              ),
-            ],
-          ]
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/value_generation_item_row.dart ---
-
---- START OF FILE lib/src/widgets/ui/value_question_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/value_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-
-class ValueQuestionCard extends StatelessWidget {
-  final ValueQuestion question;
-  final String valueId;
-
-  const ValueQuestionCard({
-    super.key,
-    required this.question,
-    required this.valueId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withOpacity(0.5),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            question.question,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextSecondary,
-                fontSize: 12,
-                letterSpacing: 0.5),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            initialValue: question.answer,
-            maxLines: null,
-            style: const TextStyle(
-                color: AppTheme.fhTextPrimary,
-                fontFamily: 'RobotoMono',
-                fontSize: 14),
-            decoration: InputDecoration(
-              hintText: "INPUT DATA...",
-              hintStyle:
-                  TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5)),
-              border: InputBorder.none,
-              filled: true,
-              fillColor: Colors.black.withOpacity(0.2),
-              contentPadding: const EdgeInsets.all(12),
-              isDense: true,
-            ),
-            onChanged: (val) {
-              provider.updateValueAnswer(valueId, question.id, val);
-            },
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/value_question_card.dart ---
 
 --- START OF FILE lib/src/widgets/ui/tactical_directives_list.dart ---
 import 'package:flutter/material.dart';
@@ -23030,7 +21154,6 @@ import 'package:arcane/src/utils/chart_data_helper.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/value_update_confirm_dialog.dart'; // Import Confirm Dialog
 import 'package:arcane/src/screens/neural_archive_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
@@ -23148,12 +21271,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       setState(() {
         _tempGeneratedBriefing = briefingData;
       });
-
-      // Handle Value Updates from Briefing
-      final valueUpdates = briefingData['value_updates'] as List<dynamic>?;
-      if (valueUpdates != null && valueUpdates.isNotEmpty && mounted) {
-        _processValueUpdates(provider, valueUpdates);
-      }
       
     } catch (e) {
       if (mounted) {
@@ -23198,70 +21315,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateStartDayReport(AppProvider provider) async {
     setState(() => _isGeneratingStartDay = true);
     try {
-      final valueUpdates = await provider.generateStartDayReport();
-      
-      if (valueUpdates.isNotEmpty && mounted) {
-        _processValueUpdates(provider, valueUpdates);
-      }
+      await provider.generateStartDayReport();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
     } finally {
       if (mounted) setState(() => _isGeneratingStartDay = false);
-    }
-  }
-
-  Future<void> _processValueUpdates(AppProvider provider, List<dynamic> valueUpdates) async {
-    for (var update in valueUpdates) {
-      if (update is Map) {
-        final updateMap = update as Map<String, dynamic>;
-        
-        // Normalize structure if keys differ (from 'addition' to 'suggestedAnswer' logic)
-        // Note: The dialog expects 'suggestedAnswer'. The AI returns 'addition' sometimes based on prompt.
-        // Let's normalize it here.
-        if (updateMap['suggestedAnswer'] == null && updateMap['addition'] != null) {
-           // We need to fetch current answer to append? 
-           // Or does the dialog handle it?
-           // The Dialog logic simply shows 'suggestedAnswer'.
-           // Let's construct the full answer here if it's an append.
-           
-           final valueId = updateMap['valueId'];
-           final questionId = updateMap['questionId'];
-           final addition = updateMap['addition'];
-           
-           String currentAnswer = '';
-           try {
-             final v = provider.lifeValues.firstWhere((v) => v.id == valueId);
-             final q = v.questions.firstWhere((q) => q.id == questionId);
-             currentAnswer = q.answer;
-           } catch (_) {}
-           
-           if (currentAnswer.isNotEmpty) {
-             updateMap['suggestedAnswer'] = "$currentAnswer\n\n[UPDATE]: $addition";
-           } else {
-             updateMap['suggestedAnswer'] = addition;
-           }
-        }
-
-        final shouldUpdate = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => ValueUpdateConfirmDialog(
-            updateData: updateMap
-          )
-        );
-
-        if (shouldUpdate == true) {
-          provider.updateValueAnswer(
-            updateMap['valueId'], 
-            updateMap['questionId'], 
-            updateMap['suggestedAnswer']
-          );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Protocol Updated."), backgroundColor: AppTheme.fhAccentGreen)
-            );
-          }
-        }
-      }
     }
   }
 
@@ -24206,6 +22264,328 @@ class _SettingsViewState extends State<SettingsView> {
 
 --- END OF FILE lib/src/widgets/views/settings_view.dart ---
 
+--- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ScheduleView extends StatefulWidget {
+  const ScheduleView({super.key});
+
+  @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
+  DateTime _selectedDate = DateTime.now();
+
+  void _shiftDate(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+    });
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _openProtocolControl(BuildContext context, AppProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: ProtocolControlPanel(
+          protocols: provider.mainTasks,
+          selectedProtocolId: provider.selectedTaskId,
+          onSelect: (id) {
+            provider.setSelectedTaskId(id);
+          },
+          onAdd: () {
+            _showAddProtocolDialog(context, provider);
+          },
+          onEdit: (updatedTask) {
+            provider.editMainTask(
+              updatedTask.id,
+              name: updatedTask.name,
+              description: updatedTask.description,
+              theme: updatedTask.theme,
+              colorHex: updatedTask.colorHex,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("NEW PROTOCOL"),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: "NAME"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty) {
+                provider.addMainTask(
+                  name: nameCtrl.text,
+                  description: "New Protocol",
+                  theme: "general",
+                  colorHex: "FF00F8F8" 
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("CREATE"),
+          )
+        ],
+      )
+    );
+  }
+
+  void _handleAddSession(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => const AddSessionDialog(),
+    );
+
+    if (result != null && mounted) {
+      final start = result['start']!;
+      final end = result['end']!;
+      _showTaskSelectorAndAdd(context, provider, start, end);
+    }
+  }
+
+  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppTheme.fhBgMedium,
+          title: const Text("SELECT MISSION"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: provider.mainTasks.length,
+              itemBuilder: (context, index) {
+                final task = provider.mainTasks[index];
+                return ExpansionTile(
+                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
+                  children: task.subTasks.map((sub) {
+                    return ListTile(
+                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                      onTap: () {
+                        provider.addSessionToSubtask(task.id, sub.id, start, end);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+    
+    String? mainTaskId;
+    String? subTaskId;
+    
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+          break;
+        }
+      }
+      if (mainTaskId != null) break;
+    }
+
+    if (mainTaskId == null || subTaskId == null) return;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(
+        initialStart: session.startTime,
+        initialEnd: session.endTime,
+      ),
+    );
+
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
+      }
+    }
+  }
+
+  List<TimelineEntry> _buildEntries(AppProvider provider) {
+    final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: displayStart,
+              endTime: displayEnd,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: true,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+    return entries;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final entries = _buildEntries(provider);
+    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark,
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(-1),
+                  ),
+                  InkWell(
+                    onTap: () => _pickDate(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhAccentTeal,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(1),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
+                tooltip: "PROTOCOL CONTROL",
+                onPressed: () => _openProtocolControl(context, provider),
+              ),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: Stack(
+            children: [
+              ScheduleTimeline(
+                entries: entries,
+                onAddSession: () => _handleAddSession(context, provider),
+                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
+                initialScrollOffset: 0,
+              ),
+              Positioned(
+                right: 20,
+                bottom: 20,
+                child: FloatingActionButton(
+                  backgroundColor: AppTheme.fhAccentRed,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                  onPressed: () => _handleAddSession(context, provider),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/schedule_view.dart ---
+
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -24596,178 +22976,6 @@ class ValorantCard extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/valorant/valorant_card.dart ---
-
---- START OF FILE lib/src/widgets/valorant/valorant_value_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/value_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class ValorantValueCard extends StatelessWidget {
-  final LifeValue value;
-  final VoidCallback onTap;
-
-  const ValorantValueCard({super.key, required this.value, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final Color accentColor = _getScoreColor(value.score);
-    final bool isAligned = value.score >= 80;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipPath(
-        clipper: const _BeveledClipper(),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            border: Border(
-              bottom: BorderSide(color: accentColor, width: 3), // Color bar at bottom
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Background Image / Pattern (Placeholder)
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.05,
-                  child: Image.network(
-                    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80",
-                    fit: BoxFit.cover,
-                    errorBuilder: (c,e,s) => Container(),
-                  ),
-                ),
-              ),
-              
-              // Decorative Border Outline
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _BorderPainter(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                ),
-              ),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon Top Right
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Icon(value.icon, color: accentColor, size: 24),
-                    ),
-                    
-                    const Spacer(),
-                    
-                    // Title
-                    Text(
-                      value.title.toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.fhTextPrimary,
-                        letterSpacing: 1.0,
-                        height: 0.9,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    
-                    // Score / Status
-                    Row(
-                      children: [
-                        Container(
-                          width: 6, height: 6,
-                          color: accentColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isAligned ? "ALIGNED" : "PENDING",
-                          style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          "${value.score}%",
-                          style: TextStyle(
-                            color: accentColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            fontFamily: AppTheme.fontDisplay
-                          ),
-                        )
-                      ],
-                    )
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getScoreColor(int score) {
-    if (score >= 80) return AppTheme.fhAccentTeal;
-    if (score >= 50) return AppTheme.fhAccentGold;
-    return AppTheme.fhAccentRed;
-  }
-}
-
-class _BeveledClipper extends CustomClipper<Path> {
-  const _BeveledClipper();
-
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    const cut = 16.0;
-    
-    path.moveTo(0, 0); // Top Left
-    path.lineTo(size.width, 0); // Top Right
-    path.lineTo(size.width, size.height - cut); // Right side down to cut
-    path.lineTo(size.width - cut, size.height); // Cut Bottom Right
-    path.lineTo(0, size.height); // Bottom Left
-    path.close();
-    
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _BorderPainter extends CustomPainter {
-  final Color color;
-  _BorderPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    const cut = 16.0;
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height - cut);
-    path.lineTo(size.width - cut, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
---- END OF FILE lib/src/widgets/valorant/valorant_value_card.dart ---
 
 --- START OF FILE lib/src/widgets/common/growing_text_field.dart ---
 import 'package:flutter/material.dart';
@@ -25553,6 +23761,601 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
   }
 }
 --- END OF FILE lib/src/widgets/atoms/valorant_timer_text.dart ---
+
+--- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+
+/// A lightweight item widget for checkpoints to handle optimistic updates
+/// and prevent full screen redraws on simple toggles.
+class CheckpointItem extends StatefulWidget {
+  final String title;
+  final bool isCompleted;
+  final String? linkedLabel;
+  final VoidCallback? onUnlink;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+
+  const CheckpointItem({
+    super.key,
+    required this.title,
+    required this.isCompleted,
+    this.linkedLabel,
+    this.onUnlink,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  @override
+  State<CheckpointItem> createState() => _CheckpointItemState();
+}
+
+class _CheckpointItemState extends State<CheckpointItem> {
+  late bool _localCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _localCompleted = widget.isCompleted;
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckpointItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      _localCompleted = widget.isCompleted;
+    }
+  }
+
+  void _handleToggle() {
+    setState(() {
+      _localCompleted = !_localCompleted;
+    });
+    // Call the parent callback which triggers the provider update
+    // The provider update is now async, so UI won't freeze.
+    widget.onToggle();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark.withValues(alpha: 0.6),
+        border: Border(
+          left: BorderSide(
+            color: _localCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor,
+            width: 4,
+          ),
+          bottom: BorderSide(
+            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: RhombusCheckbox(
+              checked: _localCompleted,
+              onChanged: (_) => _handleToggle(),
+              size: CheckboxSize.small,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title.toUpperCase(),
+                  style: TextStyle(
+                    color: _localCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontBody,
+                    decoration: _localCompleted ? TextDecoration.lineThrough : null,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (widget.linkedLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: LinkedTaskIndicator(
+                      label: widget.linkedLabel!,
+                      onUnlink: widget.onUnlink,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
+            onPressed: widget.onDelete,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/protocol_control_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+
+class ProtocolControlPanel extends StatelessWidget {
+  final List<MainTask> protocols;
+  final String? selectedProtocolId;
+  final Function(String) onSelect;
+  final Function(MainTask) onEdit;
+  final VoidCallback onAdd;
+
+  const ProtocolControlPanel({
+    super.key,
+    required this.protocols,
+    required this.selectedProtocolId,
+    required this.onSelect,
+    required this.onEdit,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
+              color: AppTheme.fhBgDark,
+            ),
+            child: Row(
+              children: [
+                Icon(MdiIcons.consoleLine, color: AppTheme.fhAccentTeal),
+                const SizedBox(width: 12),
+                const Text(
+                  "PROTOCOL CONTROL",
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontDisplay,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.0,
+                    color: AppTheme.fhTextPrimary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: AppTheme.fhTextSecondary),
+                  onPressed: () => Navigator.pop(context),
+                )
+              ],
+            ),
+          ),
+
+          // List
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: protocols.length,
+              separatorBuilder: (c, i) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final protocol = protocols[index];
+                final isSelected = protocol.id == selectedProtocolId;
+                
+                return GestureDetector(
+                  onTap: () => onSelect(protocol.id),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected ? protocol.taskColor.withOpacity(0.1) : Colors.transparent,
+                      border: Border.all(
+                        color: isSelected ? protocol.taskColor : AppTheme.fhBorderColor.withOpacity(0.3),
+                        width: isSelected ? 2 : 1
+                      ),
+                      borderRadius: BorderRadius.circular(4), // Slightly rounded for comfort
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        // Color Indicator / Selector
+                        GestureDetector(
+                          onTap: () => _showColorPicker(context, protocol),
+                          child: Container(
+                            width: 16, height: 16,
+                            decoration: BoxDecoration(
+                              color: protocol.taskColor,
+                              border: Border.all(color: Colors.white30),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                protocol.name.toUpperCase(),
+                                style: TextStyle(
+                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  fontFamily: AppTheme.fontDisplay,
+                                  letterSpacing: 1.0
+                                ),
+                              ),
+                              Text(
+                                protocol.theme.toUpperCase(),
+                                style: TextStyle(
+                                  color: isSelected ? protocol.taskColor : AppTheme.fhTextDisabled,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Edit Action
+                        IconButton(
+                          icon: Icon(MdiIcons.pencilOutline, size: 20, color: AppTheme.fhTextSecondary),
+                          onPressed: () => onEdit(protocol),
+                        ),
+                        
+                        if (isSelected)
+                          Icon(MdiIcons.checkBold, color: protocol.taskColor, size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Add Button
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ValorantButton(
+              label: "INITIALIZE NEW PROTOCOL",
+              icon: MdiIcons.plus,
+              isPrimary: true,
+              onPressed: onAdd,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showColorPicker(BuildContext context, MainTask protocol) {
+    showDialog(
+      context: context,
+      builder: (ctx) => ColorSelectorDialog(
+        selectedColor: protocol.taskColor,
+        onColorSelected: (color) {
+          final hex = color.value.toRadixString(16).toUpperCase().substring(2);
+          // We need to trigger an update. Since MainTask is immutable-ish in provider lists without action,
+          // we use the onEdit callback or a direct action if available.
+          // For simplicity, we assume onEdit handles full updates, but here we just want color.
+          // Let's modify the copy and pass it to onEdit.
+          final updated = protocol.copyWith(colorHex: hex);
+          onEdit(updated);
+        },
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/schedule/protocol_control_panel.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:intl/intl.dart';
+
+class ScheduleTimeline extends StatefulWidget {
+  final List<TimelineEntry> entries;
+  final VoidCallback onAddSession;
+  final Function(TimelineEntry) onEditEntry;
+  final double initialScrollOffset;
+
+  const ScheduleTimeline({
+    super.key,
+    required this.entries,
+    required this.onAddSession,
+    required this.onEditEntry,
+    this.initialScrollOffset = 0,
+  });
+
+  @override
+  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
+}
+
+class _ScheduleTimelineState extends State<ScheduleTimeline> {
+  double _scale = 1.5;
+  final double _basePixelsPerHour = 60.0;
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.entries.isNotEmpty) {
+        double earliestHour = 24;
+        for(var e in widget.entries) {
+          final h = e.startTime.hour + (e.startTime.minute / 60.0);
+          if (h < earliestHour) earliestHour = h;
+        }
+        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour * _scale;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(offset);
+        }
+      } else {
+        final offset = 8 * _basePixelsPerHour * _scale;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(offset);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _zoomIn() {
+    setState(() {
+      _scale = (_scale + 0.25).clamp(0.5, 4.0);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _scale = (_scale - 0.25).clamp(0.5, 4.0);
+    });
+  }
+
+  List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
+    if (entries.isEmpty) return [];
+    
+    final sorted = List<TimelineEntry>.from(entries)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      
+    final List<_LayoutEntry> layout = [];
+    final List<List<_LayoutEntry>> columns = [];
+
+    for (var entry in sorted) {
+      int columnIndex = 0;
+      bool placed = false;
+      
+      while (!placed) {
+        if (columnIndex >= columns.length) {
+          columns.add([]);
+        }
+        
+        bool hasOverlap = false;
+        for (var colEntry in columns[columnIndex]) {
+          if (entry.startTime.isBefore(colEntry.entry.endTime) &&
+              entry.endTime.isAfter(colEntry.entry.startTime)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+        
+        if (!hasOverlap) {
+          final le = _LayoutEntry(entry, columnIndex);
+          columns[columnIndex].add(le);
+          layout.add(le);
+          placed = true;
+        } else {
+          columnIndex++;
+        }
+      }
+    }
+    
+    for (var le in layout) {
+      le.totalCols = columns.length;
+    }
+    
+    return layout;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const int hoursCount = 24;
+    final double pixelsPerHour = _basePixelsPerHour * _scale;
+    final double totalHeight = pixelsPerHour * hoursCount;
+    
+    final layoutEntries = _calculateLayout(widget.entries);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          color: AppTheme.fhBgDeepDark,
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                controller: _scrollController,
+                child: GestureDetector(
+                  onScaleUpdate: (details) {
+                    setState(() {
+                      _scale = (_scale * details.scale).clamp(0.5, 4.0);
+                    });
+                  },
+                  onTapUp: (details) {
+                    widget.onAddSession();
+                  },
+                  child: Container(
+                    height: totalHeight,
+                    width: double.infinity,
+                    color: Colors.transparent,
+                    child: Stack(
+                      children: [
+                        // Grid
+                        ...List.generate(hoursCount, (index) {
+                          return Positioned(
+                            top: index * pixelsPerHour,
+                            left: 0, right: 0,
+                            child: Container(
+                              height: pixelsPerHour,
+                              decoration: BoxDecoration(
+                                border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.2), width: 1)),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8, top: 4),
+                                child: Text(
+                                  "${index.toString().padLeft(2, '0')}:00", 
+                                  style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 10, fontFamily: 'RobotoMono')
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+
+                        // Current Time
+                        _buildCurrentTimeIndicator(pixelsPerHour),
+
+                        // Entries
+                        ...layoutEntries.map((le) {
+                          final entry = le.entry;
+                          final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0);
+                          final top = startTotalHours * pixelsPerHour;
+                          final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                          
+                          const double leftGutter = 60.0;
+                          final double availableWidth = constraints.maxWidth - leftGutter - 10;
+                          final double widthPerCol = availableWidth / le.totalCols;
+                          final double left = leftGutter + (le.col * widthPerCol);
+
+                          return Positioned(
+                            top: top,
+                            left: left,
+                            width: widthPerCol - 4,
+                            height: height.clamp(2.0, double.infinity),
+                            child: GestureDetector(
+                              onTap: () => widget.onEditEntry(entry),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: entry.color.withOpacity(0.25),
+                                  border: Border.all(color: entry.color, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: height < 20 
+                                  ? null 
+                                  : Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          entry.title, 
+                                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          maxLines: 1, 
+                                          overflow: TextOverflow.ellipsis
+                                        ),
+                                        if (height > 40)
+                                          Text(
+                                            "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontFamily: 'RobotoMono'),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )
+                                      ],
+                                    ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Zoom
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: Column(
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: "zoom_in",
+                      onPressed: _zoomIn,
+                      backgroundColor: AppTheme.fhBgDark,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      child: const Icon(Icons.add),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "zoom_out",
+                      onPressed: _zoomOut,
+                      backgroundColor: AppTheme.fhBgDark,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      child: const Icon(Icons.remove),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildCurrentTimeIndicator(double pixelsPerHour) {
+    final now = DateTime.now();
+    final currentHour = now.hour + (now.minute / 60.0);
+    final top = currentHour * pixelsPerHour;
+
+    return Positioned(
+      top: top,
+      left: 0, 
+      right: 0,
+      child: Row(
+        children: [
+          Container(
+            width: 55,
+            padding: const EdgeInsets.only(right: 4),
+            alignment: Alignment.centerRight,
+            child: Text(
+              DateFormat('HH:mm').format(now),
+              style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontSize: 10, fontFamily: 'RobotoMono'),
+            ),
+          ),
+          const Expanded(child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayoutEntry {
+  final TimelineEntry entry;
+  final int col;
+  int totalCols;
+  _LayoutEntry(this.entry, this.col, {this.totalCols = 1});
+}
+--- END OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

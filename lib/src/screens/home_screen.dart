@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
+import 'package:arcane/src/screens/logbook_screen.dart'; // Renamed/Refactored intent: This is Analytics/DailySummary
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/schedule_view.dart'; // NEW
 import 'package:arcane/src/screens/more_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
@@ -24,10 +25,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // Updated Tab List
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
-    'LOGBOOK',
+    'SCHEDULE', // New
     'PROJECTS',
+    'ANALYTICS', // Was Logbook
     'SYSTEM',
   ];
 
@@ -153,19 +156,25 @@ class _HomeScreenState extends State<HomeScreen> {
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
     final List<Widget> widgetOptions = <Widget>[
+      // 0: MISSIONS
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const TaskDetailsView(),
         ),
       ),
-      const LogbookScreen(),
+      // 1: SCHEDULE (NEW)
+      const ScheduleView(),
+      // 2: PROJECTS
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
+      // 3: ANALYTICS (Was Logbook)
+      const LogbookScreen(), 
+      // 4: SYSTEM (More)
       const MoreScreen(),
     ];
 
@@ -235,12 +244,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'MISSIONS',
               ),
               BottomNavigationBarItem(
-                icon: Icon(MdiIcons.notebookOutline),
-                label: 'LOGBOOK',
+                icon: Icon(MdiIcons.calendarClock), // Schedule
+                label: 'SCHEDULE',
               ),
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.rocketLaunchOutline),
                 label: 'PROJECTS',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(MdiIcons.notebookOutline),
+                label: 'ANALYTICS',
               ),
               BottomNavigationBarItem(
                 icon: Icon(MdiIcons.dotsGrid),

@@ -12,6 +12,12 @@ class AIService {
     int jsonStart = jsonString.indexOf('{');
     int jsonEnd = jsonString.lastIndexOf('}');
 
+    if (jsonStart == -1) {
+      // Try finding list brackets if object not found
+      jsonStart = jsonString.indexOf('[');
+      jsonEnd = jsonString.lastIndexOf(']');
+    }
+
     if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
       jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
     }
@@ -98,6 +104,65 @@ class AIService {
         }
       },
     );
+  }
+
+  // --- Prediction ---
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, // Text representation of last 14 days
+    required String currentTime,
+    required String availableTasksContext, // List of available task names to map to
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-3 likely sessions for the remainder of the day.
+    3. Do not predict past midnight.
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    OUTPUT JSON ARRAY ONLY:
+    [
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    final result = await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        String? raw = response.text;
+        if (raw == null) throw Exception("Empty AI response");
+        String jsonStr = _cleanJsonString(raw);
+        return jsonDecode(jsonStr);
+      },
+    );
+
+    if (result is List) {
+      return result.map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
   }
 
   Future<String> queryNeuralArchive({
