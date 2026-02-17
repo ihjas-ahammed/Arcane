@@ -59,7 +59,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Filter out short sessions (< 5 mins)
+    // Filter out short sessions (< 5 mins) to keep UI clean
     final filtered = entries.where((e) => e.durationSeconds >= 5 * 60).toList();
 
     if (filtered.isEmpty) return [];
@@ -170,8 +170,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         (entry.durationSeconds / 3600.0) * pixelsPerHour;
 
                     const double leftGutter = 60.0;
+                    // Ensure padding even on narrow screens
                     final double availableWidth =
-                        constraints.maxWidth - leftGutter - 10;
+                        (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
                     final double widthPerCol = availableWidth / le.totalCols;
                     final double left = leftGutter + (le.col * widthPerCol);
 
@@ -186,8 +187,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     return Positioned(
                       top: top,
                       left: left,
-                      width: widthPerCol - 4,
-                      height: height.clamp(2.0, double.infinity),
+                      width: (widthPerCol - 4).clamp(0.0, double.infinity),
+                      height: height.clamp(20.0, double.infinity), // Min height for vis
                       child: GestureDetector(
                         onTap: () => widget.onEditEntry(entry),
                         child: Container(
@@ -196,57 +197,53 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                             border: Border.all(
                                 color: borderColor,
                                 width: isPredicted ? 1 : 1,
-                                style: isPredicted
-                                    ? BorderStyle.solid
-                                    : BorderStyle.solid // Could dash if wanted
+                                style: BorderStyle.solid // Could dash if wanted
                                 ),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
-                          child: height < 20
-                              ? null
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        if (isPredicted)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                right: 4.0),
-                                            child: Icon(Icons.auto_awesome,
-                                                size: 10, color: borderColor),
-                                          ),
-                                        Expanded(
-                                          child: Text(entry.title,
-                                              style: TextStyle(
-                                                  color: isPredicted
-                                                      ? Colors.white70
-                                                      : Colors.white,
-                                                  fontSize: 11,
-                                                  fontWeight: isPredicted
-                                                      ? FontWeight.normal
-                                                      : FontWeight.bold),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis),
-                                        ),
-                                      ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  if (isPredicted)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          right: 4.0),
+                                      child: Icon(Icons.auto_awesome,
+                                          size: 10, color: borderColor),
                                     ),
-                                    if (height > 40)
-                                      Text(
-                                        "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                  Expanded(
+                                    child: Text(entry.title,
                                         style: TextStyle(
-                                            color:
-                                                Colors.white.withOpacity(0.7),
-                                            fontSize: 9,
-                                            fontFamily: 'RobotoMono'),
+                                            color: isPredicted
+                                                ? Colors.white70
+                                                : Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: isPredicted
+                                                ? FontWeight.normal
+                                                : FontWeight.bold),
                                         maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                  ],
-                                ),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
+                              ),
+                              if (height > 30) // Only show time if height allows
+                                Text(
+                                  "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                  style: TextStyle(
+                                      color:
+                                          Colors.white.withOpacity(0.7),
+                                      fontSize: 9,
+                                      fontFamily: 'RobotoMono'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                            ],
+                          ),
                         ),
                       ),
                     );

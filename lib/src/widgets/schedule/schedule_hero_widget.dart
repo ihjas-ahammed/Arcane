@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/atoms/hero_stat_item.dart'; // Modularized
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 
@@ -63,83 +64,30 @@ class ScheduleHeroWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildStatItem(
+                child: HeroStatItem(
                   label: "LATEST OP",
                   value: latestTaskName.isNotEmpty ? latestTaskName : "N/A",
                   icon: MdiIcons.clockFast,
                   color: AppTheme.fhTextPrimary,
                 ),
               ),
-              Container(width: 1, height: 40, color: AppTheme.fhBorderColor.withOpacity(0.3)),
+              Container(width: 1, height: 40, color: AppTheme.fhBorderColor.withOpacity(0.3), margin: const EdgeInsets.symmetric(horizontal: 12)),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 16.0),
-                  child: _buildStatItem(
-                    label: "PRIMARY FOCUS",
-                    value: mostSpentTaskName.isNotEmpty ? mostSpentTaskName : "N/A",
-                    subValue: mostSpentTimeSeconds > 0 ? helper.formatTime(mostSpentTimeSeconds.toDouble()) : null,
-                    icon: MdiIcons.fire,
-                    color: AppTheme.fhAccentOrange,
-                  ),
+                child: HeroStatItem(
+                  label: "PRIMARY FOCUS",
+                  value: mostSpentTaskName.isNotEmpty ? mostSpentTaskName : "N/A",
+                  subValue: mostSpentTimeSeconds > 0 ? helper.formatTime(mostSpentTimeSeconds.toDouble()) : null,
+                  icon: MdiIcons.fire,
+                  color: AppTheme.fhAccentOrange,
                 ),
               ),
             ],
           )
         ],
       ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required String label,
-    required String value,
-    String? subValue,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 12, color: AppTheme.fhTextSecondary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value.toUpperCase(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: color,
-            fontFamily: AppTheme.fontDisplay,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-        if (subValue != null)
-          Text(
-            subValue,
-            style: TextStyle(
-              color: color.withOpacity(0.7),
-              fontSize: 10,
-              fontFamily: 'RobotoMono',
-            ),
-          )
-      ],
     );
   }
 }

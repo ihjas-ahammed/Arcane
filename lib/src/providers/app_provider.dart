@@ -4,6 +4,7 @@ import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/history_helper.dart'; // Imported HistoryHelper
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
@@ -25,6 +26,7 @@ import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
 import 'package:arcane/src/providers/actions/timer_actions.dart';
 import 'package:arcane/src/providers/actions/project_actions.dart';
 import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart'; // Imported ScheduleActions
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -62,8 +64,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<ReflectionLog> _reflectionLogs = [];
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
-  // Values feature removed
-
   AppSettings _settings = AppSettings();
   String? _selectedTaskId;
   int _apiKeyIndex = 0;
@@ -100,6 +100,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
   late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions; // Added ScheduleActions
 
   AppProvider() {
     _taskActions = TaskActions(this);
@@ -107,6 +108,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this); // Initialize ScheduleActions
     _initializeSkills();
     _initialize();
     
@@ -166,6 +168,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
   ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions; // Exposed ScheduleActions
 
   // --- INITIALIZATION ---
 
@@ -869,6 +872,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       logsBuffer.writeln("- [${DateFormat('yyyy-MM-dd').format(log.timestamp)}] ${log.trigger} -> ${log.emotion} (${log.reason})");
     }
 
+    // Call helper for detailed session logs
+    final sessionsString = HistoryHelper.getSessionHistoryString(_mainTasks, 7);
+
     for (var task in _mainTasks) {
       int taskTotal = 0;
       for (var sub in task.subTasks) {
@@ -888,10 +894,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final hours = (seconds / 3600).toStringAsFixed(1);
       timeBuffer.writeln("- $name: $hours hrs");
     });
+  
 
     return {
       'logs': logsBuffer.toString(),
       'times': timeBuffer.toString(),
+      'sessions': sessionsString, // Added session logs
     };
   }
   

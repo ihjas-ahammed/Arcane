@@ -4,33 +4,10 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/utils/json_utils.dart'; // Modularized JSON logic
 
 class AIService {
-  // Helper to clean markdown from JSON response
-  String _cleanJsonString(String raw) {
-    String jsonString = raw.trim();
-    int jsonStart = jsonString.indexOf('{');
-    int jsonEnd = jsonString.lastIndexOf('}');
-
-    if (jsonStart == -1) {
-      // Try finding list brackets if object not found
-      jsonStart = jsonString.indexOf('[');
-      jsonEnd = jsonString.lastIndexOf(']');
-    }
-
-    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
-      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
-    }
-
-    if (jsonString.startsWith("```json")) {
-      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
-    } else if (jsonString.startsWith("```")) {
-      jsonString = jsonString.replaceAll("```", "");
-    }
-
-    return jsonString.trim();
-  }
-
+  
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -63,6 +40,12 @@ class AIService {
           onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
+          // Check if it's a format exception we threw explicitly
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
         }
@@ -95,13 +78,8 @@ class AIService {
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
           throw Exception("AI response was empty.");
         }
-        try {
-          String jsonString = _cleanJsonString(rawResponseText);
-          return jsonDecode(jsonString);
-        } catch (e) {
-          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
-          throw Exception("Failed to parse JSON from AI response.");
-        }
+        
+        return JsonUtils.tryDecode(rawResponseText);
       },
     );
   }
@@ -132,7 +110,12 @@ class AIService {
     3. Do not predict past midnight.
     4. CONFIDENTIALITY: Do not use specific names of real people.
     
-    OUTPUT JSON ARRAY ONLY:
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:
     [
       {
         "taskName": "Exact Name from Available Tasks or New Name",
@@ -154,8 +137,8 @@ class AIService {
         final response = await model.generateContent([genai.Content.text(prompt)]);
         String? raw = response.text;
         if (raw == null) throw Exception("Empty AI response");
-        String jsonStr = _cleanJsonString(raw);
-        return jsonDecode(jsonStr);
+        
+        return JsonUtils.tryDecode(raw);
       },
     );
 
@@ -212,7 +195,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -227,7 +210,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -243,7 +226,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -261,7 +244,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
   }
@@ -277,7 +260,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
   }
@@ -305,6 +288,7 @@ class AIService {
       "feedback": "string", 
       "xp_allocation": {"Wisdom": int, ...}
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
     return await makeAICall(
@@ -341,6 +325,7 @@ class AIService {
       "summary": "string (max 60 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ]
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
     return await makeAICall(
@@ -361,7 +346,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText. ENSURE VALID JSON.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -441,6 +426,7 @@ class AIService {
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
 
     return await makeAICall(

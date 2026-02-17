@@ -115,52 +115,8 @@ class _ScheduleViewState extends State<ScheduleView> {
     setState(() => _isPredicting = true);
 
     try {
-      // 1. Gather Context
-      final historyLogs = provider.getLast7DaysData()['logs'] as String; // Reusing helper
-      // Ideally get 14 days, but 7 is decent for recent context.
+      final newEntries = await provider.scheduleActions.predictSchedule();
       
-      final availableTasks = provider.mainTasks.map((t) => t.name).join(", ");
-      final now = DateTime.now();
-      
-      // 2. AI Call
-      final predictions = await provider.aiService.generateSchedulePrediction(
-        sessionHistory: historyLogs, 
-        currentTime: DateFormat('HH:mm').format(now), 
-        availableTasksContext: availableTasks,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (i) => provider.setProviderApiKeyIndex(i),
-        onLog: (m) => debugPrint(m)
-      );
-
-      // 3. Process Result
-      final List<TimelineEntry> newEntries = [];
-      for(var p in predictions) {
-        final offset = p['startOffsetMinutes'] as int? ?? 0;
-        final duration = p['durationMinutes'] as int? ?? 30;
-        final taskName = p['taskName'] as String? ?? "Predicted";
-        
-        final start = now.add(Duration(minutes: offset));
-        final end = start.add(Duration(minutes: duration));
-        
-        // Find matching task color if possible
-        Color c = AppTheme.fhTextDisabled;
-        final matchedTask = provider.mainTasks.firstWhereOrNull((t) => t.name.toLowerCase().contains(taskName.toLowerCase()));
-        if (matchedTask != null) c = matchedTask.taskColor;
-
-        newEntries.add(TimelineEntry(
-          id: "pred_${DateTime.now().millisecondsSinceEpoch}_${newEntries.length}",
-          startTime: start,
-          endTime: end,
-          title: p['subTaskName'] ?? "Predicted Session",
-          subtitle: taskName,
-          color: c,
-          isPredicted: true,
-          isEditable: true, // Allow editing/deleting
-        ));
-      }
-
       setState(() {
         _predictedEntries = newEntries;
       });

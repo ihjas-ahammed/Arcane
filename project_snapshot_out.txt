@@ -2818,6 +2818,7 @@ class TimelineEntry {
   final String? subtitle;
   final Color color;
   final bool isEditable;
+  final bool isPredicted; // New field
   final dynamic originalObject; // To pass back for editing actions
 
   TimelineEntry({
@@ -2828,6 +2829,7 @@ class TimelineEntry {
     this.subtitle,
     required this.color,
     this.isEditable = false,
+    this.isPredicted = false,
     this.originalObject,
   });
 
@@ -4435,6 +4437,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final hours = (seconds / 3600).toStringAsFixed(1);
       timeBuffer.writeln("- $name: $hours hrs");
     });
+  
 
     return {
       'logs': logsBuffer.toString(),
@@ -9730,27 +9733,10 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/utils/json_utils.dart'; // Modularized JSON logic
 
 class AIService {
-  // Helper to clean markdown from JSON response
-  String _cleanJsonString(String raw) {
-    String jsonString = raw.trim();
-    int jsonStart = jsonString.indexOf('{');
-    int jsonEnd = jsonString.lastIndexOf('}');
-
-    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
-      jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
-    }
-
-    if (jsonString.startsWith("```json")) {
-      jsonString = jsonString.replaceAll("```json", "").replaceAll("```", "");
-    } else if (jsonString.startsWith("```")) {
-      jsonString = jsonString.replaceAll("```", "");
-    }
-
-    return jsonString.trim();
-  }
-
+  
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -9783,6 +9769,12 @@ class AIService {
           onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
+          // Check if it's a format exception we threw explicitly
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
         }
@@ -9815,15 +9807,74 @@ class AIService {
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
           throw Exception("AI response was empty.");
         }
-        try {
-          String jsonString = _cleanJsonString(rawResponseText);
-          return jsonDecode(jsonString);
-        } catch (e) {
-          if (kDebugMode) print("JSON Parse Error. Raw: $rawResponseText");
-          throw Exception("Failed to parse JSON from AI response.");
-        }
+        
+        return JsonUtils.tryDecode(rawResponseText);
       },
     );
+  }
+
+  // --- Prediction ---
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, // Text representation of last 14 days
+    required String currentTime,
+    required String availableTasksContext, // List of available task names to map to
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-3 likely sessions for the remainder of the day.
+    3. Do not predict past midnight.
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:
+    [
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    final result = await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        String? raw = response.text;
+        if (raw == null) throw Exception("Empty AI response");
+        
+        return JsonUtils.tryDecode(raw);
+      },
+    );
+
+    if (result is List) {
+      return result.map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
   }
 
   Future<String> queryNeuralArchive({
@@ -9873,7 +9924,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -9888,7 +9939,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -9904,7 +9955,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
   }
@@ -9922,7 +9973,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
   }
@@ -9938,7 +9989,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people.";
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
     return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
   }
@@ -9966,6 +10017,7 @@ class AIService {
       "feedback": "string", 
       "xp_allocation": {"Wisdom": int, ...}
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
     return await makeAICall(
@@ -10002,6 +10054,7 @@ class AIService {
       "summary": "string (max 60 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ]
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
     return await makeAICall(
@@ -10022,7 +10075,7 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText";
+    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText. ENSURE VALID JSON.";
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -10102,6 +10155,7 @@ class AIService {
       "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
 
     return await makeAICall(
@@ -10860,6 +10914,69 @@ class AiContextHelper {
   }
 }
 --- END OF FILE lib/src/utils/ai_context_helper.dart ---
+
+--- START OF FILE lib/src/utils/json_utils.dart ---
+import 'dart:convert';
+
+class JsonUtils {
+  /// Cleans raw string from AI models to extract valid JSON.
+  /// Handles markdown code blocks, conversational text wrapping, and common trailing comma errors.
+  static String cleanJsonString(String raw) {
+    String jsonString = raw.trim();
+    
+    // Remove markdown code blocks
+    final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+    final match = codeBlockRegex.firstMatch(jsonString);
+    if (match != null) {
+      jsonString = match.group(1)!.trim();
+    }
+
+    // Try to find the outer brackets if there's conversational text (and no code block matched)
+    if (!jsonString.startsWith('{') && !jsonString.startsWith('[')) {
+      int jsonStart = jsonString.indexOf('{');
+      int jsonArrayStart = jsonString.indexOf('[');
+      
+      int start = -1;
+      // Determine which comes first to decide if object or array
+      if (jsonStart != -1 && jsonArrayStart != -1) {
+        start = jsonStart < jsonArrayStart ? jsonStart : jsonArrayStart;
+      } else if (jsonStart != -1) {
+        start = jsonStart;
+      } else if (jsonArrayStart != -1) {
+        start = jsonArrayStart;
+      }
+
+      if (start != -1) {
+        int end = jsonString.lastIndexOf(jsonString[start] == '{' ? '}' : ']');
+        if (end != -1 && end > start) {
+          jsonString = jsonString.substring(start, end + 1);
+        }
+      }
+    }
+
+    // Attempt to fix trailing commas (simple regex approach)
+    // Replaces ,} with } and ,] with ] ignoring whitespace
+    // Note: This is aggressive and might affect string content if it matches, 
+    // but in JSON structure context usually safe for LLM output.
+    jsonString = jsonString.replaceAll(RegExp(r',\s*}'), '}');
+    jsonString = jsonString.replaceAll(RegExp(r',\s*]'), ']');
+
+    return jsonString;
+  }
+
+  /// Tries to decode JSON, throwing a descriptive error with raw content if it fails.
+  static dynamic tryDecode(String raw) {
+    String cleaned = "";
+    try {
+      cleaned = cleanJsonString(raw);
+      return jsonDecode(cleaned);
+    } catch (e) {
+      // Re-throw with raw content for debugging
+      throw FormatException("JSON Decode Failed: $e\n\n--- CLEANED INPUT ---\n$cleaned\n\n--- RAW OUTPUT ---\n$raw");
+    }
+  }
+}
+--- END OF FILE lib/src/utils/json_utils.dart ---
 
 --- START OF FILE lib/src/widgets/header_widget.dart ---
 import 'package:arcane/src/widgets/views/settings_view.dart';
@@ -22270,13 +22387,16 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/time_validation_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
 
 class ScheduleView extends StatefulWidget {
   const ScheduleView({super.key});
@@ -22287,10 +22407,15 @@ class ScheduleView extends StatefulWidget {
 
 class _ScheduleViewState extends State<ScheduleView> {
   DateTime _selectedDate = DateTime.now();
+  List<TimelineEntry> _predictedEntries = [];
+  bool _isPredicting = false;
 
+  // --- Date Control ---
   void _shiftDate(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
+      // Clear predictions on date change to avoid confusion (or keep if specific logic)
+      _predictedEntries.clear(); 
     });
   }
 
@@ -22313,9 +22438,172 @@ class _ScheduleViewState extends State<ScheduleView> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _predictedEntries.clear();
+      });
+    }
   }
 
+  // --- Hero Data ---
+  Map<String, dynamic> _getHeroStats(AppProvider provider) {
+    // 1. Latest Task
+    String latest = "NONE";
+    DateTime? lastTime;
+    
+    // 2. Most Spent Today
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final dayData = provider.completedByDay[todayStr];
+    String mostName = "NONE";
+    int mostSeconds = 0;
+
+    // Check sessions for latest
+    for(var t in provider.mainTasks) {
+      for(var s in t.subTasks) {
+        for(var sess in s.sessions) {
+          if (lastTime == null || sess.endTime.isAfter(lastTime!)) {
+            lastTime = sess.endTime;
+            latest = "${s.name}";
+          }
+        }
+      }
+    }
+
+    if (dayData != null && dayData['taskTimes'] != null) {
+      final times = dayData['taskTimes'] as Map<String, dynamic>;
+      times.forEach((tid, secs) {
+        final t = provider.mainTasks.firstWhereOrNull((mt) => mt.id == tid);
+        if (t != null && (secs as int) > mostSeconds) {
+          mostSeconds = secs;
+          mostName = t.name;
+        }
+      });
+    }
+
+    return {
+      'latest': latest,
+      'mostName': mostName,
+      'mostTime': mostSeconds,
+    };
+  }
+
+  // --- Prediction ---
+  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
+    // Only predict for today
+    if (!_isSameDay(_selectedDate, DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
+      return;
+    }
+
+    setState(() => _isPredicting = true);
+
+    try {
+      // 1. Gather Context
+      final historyLogs = provider.getLast7DaysData()['logs'] as String; // Reusing helper
+      // Ideally get 14 days, but 7 is decent for recent context.
+      
+      final availableTasks = provider.mainTasks.map((t) => t.name).join(", ");
+      final now = DateTime.now();
+      
+      // 2. AI Call
+      final predictions = await provider.aiService.generateSchedulePrediction(
+        sessionHistory: historyLogs, 
+        currentTime: DateFormat('HH:mm').format(now), 
+        availableTasksContext: availableTasks,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (i) => provider.setProviderApiKeyIndex(i),
+        onLog: (m) => debugPrint(m)
+      );
+
+      // 3. Process Result
+      final List<TimelineEntry> newEntries = [];
+      for(var p in predictions) {
+        final offset = p['startOffsetMinutes'] as int? ?? 0;
+        final duration = p['durationMinutes'] as int? ?? 30;
+        final taskName = p['taskName'] as String? ?? "Predicted";
+        
+        final start = now.add(Duration(minutes: offset));
+        final end = start.add(Duration(minutes: duration));
+        
+        // Find matching task color if possible
+        Color c = AppTheme.fhTextDisabled;
+        final matchedTask = provider.mainTasks.firstWhereOrNull((t) => t.name.toLowerCase().contains(taskName.toLowerCase()));
+        if (matchedTask != null) c = matchedTask.taskColor;
+
+        newEntries.add(TimelineEntry(
+          id: "pred_${DateTime.now().millisecondsSinceEpoch}_${newEntries.length}",
+          startTime: start,
+          endTime: end,
+          title: p['subTaskName'] ?? "Predicted Session",
+          subtitle: taskName,
+          color: c,
+          isPredicted: true,
+          isEditable: true, // Allow editing/deleting
+        ));
+      }
+
+      setState(() {
+        _predictedEntries = newEntries;
+      });
+
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isPredicting = false);
+    }
+  }
+
+  // --- Entries Merging ---
+  List<TimelineEntry> _buildEntries(AppProvider provider) {
+    final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    // 1. Real Sessions
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: displayStart,
+              endTime: displayEnd,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: true,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+
+    // 2. Predicted Sessions (Filter overlaps)
+    for (var pred in _predictedEntries) {
+      // Check for overlap with REAL sessions
+      bool overlaps = false;
+      for (var real in entries) {
+        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        entries.add(pred);
+      }
+    }
+
+    return entries;
+  }
+
+  // --- Handlers ---
   void _openProtocolControl(BuildContext context, AppProvider provider) {
     showModalBottomSheet(
       context: context,
@@ -22326,12 +22614,8 @@ class _ScheduleViewState extends State<ScheduleView> {
         child: ProtocolControlPanel(
           protocols: provider.mainTasks,
           selectedProtocolId: provider.selectedTaskId,
-          onSelect: (id) {
-            provider.setSelectedTaskId(id);
-          },
-          onAdd: () {
-            _showAddProtocolDialog(context, provider);
-          },
+          onSelect: (id) => provider.setSelectedTaskId(id),
+          onAdd: () => _showAddProtocolDialog(context, provider),
           onEdit: (updatedTask) {
             provider.editMainTask(
               updatedTask.id,
@@ -22406,14 +22690,20 @@ class _ScheduleViewState extends State<ScheduleView> {
               itemCount: provider.mainTasks.length,
               itemBuilder: (context, index) {
                 final task = provider.mainTasks[index];
+                // Filter incomplete subtasks
+                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                
+                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
+
                 return ExpansionTile(
                   title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
-                  children: task.subTasks.map((sub) {
+                  children: activeSubtasks.map((sub) {
                     return ListTile(
                       title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
                       onTap: () {
                         provider.addSessionToSubtask(task.id, sub.id, start, end);
                         Navigator.pop(ctx);
+                        // On successful add, check overlaps with predictions (auto-handled by rebuild)
                       },
                     );
                   }).toList(),
@@ -22427,9 +22717,16 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
+    if (entry.isPredicted) {
+      // Handle predicted entry tap (Convert or Delete)
+      _handlePredictedEntryTap(context, provider, entry);
+      return;
+    }
+
     if (entry.originalObject is! TaskSession) return;
     final session = entry.originalObject as TaskSession;
     
+    // ... (Existing edit logic)
     String? mainTaskId;
     String? subTaskId;
     
@@ -22463,45 +22760,58 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
-  List<TimelineEntry> _buildEntries(AppProvider provider) {
-    final List<TimelineEntry> entries = [];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(entry.title),
+        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _predictedEntries.removeWhere((e) => e.id == entry.id);
+              });
+              Navigator.pop(ctx);
+            }, 
+            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Trigger Add Session flow pre-filled
+              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
+            }, 
+            child: const Text("LOG REAL SESSION")
+          )
+        ],
+      )
+    );
+  }
 
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-    return entries;
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final entries = _buildEntries(provider);
-    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final heroStats = _getHeroStats(provider);
 
     return Column(
       children: [
+        // HERO SECTION
+        ScheduleHeroWidget(
+          latestTaskName: heroStats['latest'],
+          mostSpentTaskName: heroStats['mostName'],
+          mostSpentTimeSeconds: heroStats['mostTime'],
+        ),
+
+        // CONTROLS
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppTheme.fhBgDark,
             border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
@@ -22531,11 +22841,11 @@ class _ScheduleViewState extends State<ScheduleView> {
                           ),
                         ),
                         Text(
-                          DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(),
+                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
                           style: const TextStyle(
                             color: AppTheme.fhTextPrimary,
                             fontFamily: AppTheme.fontDisplay,
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
                           ),
@@ -22549,11 +22859,23 @@ class _ScheduleViewState extends State<ScheduleView> {
                   ),
                 ],
               ),
-              IconButton(
-                icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
-                tooltip: "PROTOCOL CONTROL",
-                onPressed: () => _openProtocolControl(context, provider),
-              ),
+              Row(
+                children: [
+                  if (isToday)
+                    IconButton(
+                      icon: _isPredicting 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
+                      tooltip: "PREDICT SCHEDULE",
+                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                    ),
+                  IconButton(
+                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
+                    tooltip: "PROTOCOL CONTROL",
+                    onPressed: () => _openProtocolControl(context, provider),
+                  ),
+                ],
+              )
             ],
           ),
         ),
@@ -23762,6 +24084,77 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
 }
 --- END OF FILE lib/src/widgets/atoms/valorant_timer_text.dart ---
 
+--- START OF FILE lib/src/widgets/atoms/hero_stat_item.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class HeroStatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? subValue;
+  final IconData icon;
+  final Color color;
+
+  const HeroStatItem({
+    super.key,
+    required this.label,
+    required this.value,
+    this.subValue,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: AppTheme.fhTextSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value.toUpperCase(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontFamily: AppTheme.fontDisplay,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        if (subValue != null)
+          Text(
+            subValue!,
+            style: TextStyle(
+              color: color.withOpacity(0.7),
+              fontSize: 10,
+              fontFamily: 'RobotoMono',
+            ),
+          )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/atoms/hero_stat_item.dart ---
+
 --- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -24087,28 +24480,29 @@ class ScheduleTimeline extends StatefulWidget {
 }
 
 class _ScheduleTimelineState extends State<ScheduleTimeline> {
-  double _scale = 1.5;
-  final double _basePixelsPerHour = 60.0;
+  final double _basePixelsPerHour = 120.0;
   late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
-    
+    _scrollController =
+        ScrollController(initialScrollOffset: widget.initialScrollOffset);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Auto-scroll to earliest relevant time or 8am
       if (widget.entries.isNotEmpty) {
         double earliestHour = 24;
-        for(var e in widget.entries) {
+        for (var e in widget.entries) {
           final h = e.startTime.hour + (e.startTime.minute / 60.0);
           if (h < earliestHour) earliestHour = h;
         }
-        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour * _scale;
+        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour;
         if (_scrollController.hasClients) {
           _scrollController.jumpTo(offset);
         }
       } else {
-        final offset = 8 * _basePixelsPerHour * _scale;
+        final offset = 8 * _basePixelsPerHour;
         if (_scrollController.hasClients) {
           _scrollController.jumpTo(offset);
         }
@@ -24122,36 +24516,27 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     super.dispose();
   }
 
-  void _zoomIn() {
-    setState(() {
-      _scale = (_scale + 0.25).clamp(0.5, 4.0);
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _scale = (_scale - 0.25).clamp(0.5, 4.0);
-    });
-  }
-
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    if (entries.isEmpty) return [];
-    
-    final sorted = List<TimelineEntry>.from(entries)
+    // Filter out short sessions (< 5 mins) to keep UI clean
+    final filtered = entries.where((e) => e.durationSeconds >= 5 * 60).toList();
+
+    if (filtered.isEmpty) return [];
+
+    final sorted = List<TimelineEntry>.from(filtered)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
-      
+
     final List<_LayoutEntry> layout = [];
     final List<List<_LayoutEntry>> columns = [];
 
     for (var entry in sorted) {
       int columnIndex = 0;
       bool placed = false;
-      
+
       while (!placed) {
         if (columnIndex >= columns.length) {
           columns.add([]);
         }
-        
+
         bool hasOverlap = false;
         for (var colEntry in columns[columnIndex]) {
           if (entry.startTime.isBefore(colEntry.entry.endTime) &&
@@ -24160,7 +24545,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
             break;
           }
         }
-        
+
         if (!hasOverlap) {
           final le = _LayoutEntry(entry, columnIndex);
           columns[columnIndex].add(le);
@@ -24171,155 +24556,163 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
         }
       }
     }
-    
+
     for (var le in layout) {
       le.totalCols = columns.length;
     }
-    
+
     return layout;
   }
 
   @override
   Widget build(BuildContext context) {
     const int hoursCount = 24;
-    final double pixelsPerHour = _basePixelsPerHour * _scale;
+    final double pixelsPerHour = _basePixelsPerHour;
     final double totalHeight = pixelsPerHour * hoursCount;
-    
+
     final layoutEntries = _calculateLayout(widget.entries);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          color: AppTheme.fhBgDeepDark,
-          child: Stack(
-            children: [
-              SingleChildScrollView(
-                controller: _scrollController,
-                child: GestureDetector(
-                  onScaleUpdate: (details) {
-                    setState(() {
-                      _scale = (_scale * details.scale).clamp(0.5, 4.0);
-                    });
-                  },
-                  onTapUp: (details) {
-                    widget.onAddSession();
-                  },
-                  child: Container(
-                    height: totalHeight,
-                    width: double.infinity,
-                    color: Colors.transparent,
-                    child: Stack(
-                      children: [
-                        // Grid
-                        ...List.generate(hoursCount, (index) {
-                          return Positioned(
-                            top: index * pixelsPerHour,
-                            left: 0, right: 0,
-                            child: Container(
-                              height: pixelsPerHour,
-                              decoration: BoxDecoration(
-                                border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.2), width: 1)),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8, top: 4),
-                                child: Text(
-                                  "${index.toString().padLeft(2, '0')}:00", 
-                                  style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 10, fontFamily: 'RobotoMono')
+    return LayoutBuilder(builder: (context, constraints) {
+      return Container(
+        color: AppTheme.fhBgDeepDark,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: GestureDetector(
+            onTapUp: (details) {
+              widget.onAddSession();
+            },
+            child: Container(
+              height: totalHeight,
+              width: double.infinity,
+              color: Colors.transparent,
+              child: Stack(
+                children: [
+                  // Grid
+                  ...List.generate(hoursCount, (index) {
+                    return Positioned(
+                      top: index * pixelsPerHour,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: pixelsPerHour,
+                        decoration: BoxDecoration(
+                          border: Border(
+                              top: BorderSide(
+                                  color:
+                                      AppTheme.fhBorderColor.withOpacity(0.2),
+                                  width: 1)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8, top: 4),
+                          child: Text("${index.toString().padLeft(2, '0')}:00",
+                              style: TextStyle(
+                                  color:
+                                      AppTheme.fhTextSecondary.withOpacity(0.5),
+                                  fontSize: 10,
+                                  fontFamily: 'RobotoMono')),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  // Current Time
+                  _buildCurrentTimeIndicator(pixelsPerHour),
+
+                  // Entries
+                  ...layoutEntries.map((le) {
+                    final entry = le.entry;
+                    final startTotalHours =
+                        entry.startTime.hour + (entry.startTime.minute / 60.0);
+                    final top = startTotalHours * pixelsPerHour;
+                    final height =
+                        (entry.durationSeconds / 3600.0) * pixelsPerHour;
+
+                    const double leftGutter = 60.0;
+                    // Ensure padding even on narrow screens
+                    final double availableWidth =
+                        (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
+                    final double widthPerCol = availableWidth / le.totalCols;
+                    final double left = leftGutter + (le.col * widthPerCol);
+
+                    final isPredicted = entry.isPredicted;
+                    final effectiveColor = isPredicted
+                        ? entry.color.withOpacity(0.15)
+                        : entry.color.withOpacity(0.25);
+                    final borderColor = isPredicted
+                        ? entry.color.withOpacity(0.3)
+                        : entry.color;
+
+                    return Positioned(
+                      top: top,
+                      left: left,
+                      width: (widthPerCol - 4).clamp(0.0, double.infinity),
+                      height: height.clamp(20.0, double.infinity), // Min height for vis
+                      child: GestureDetector(
+                        onTap: () => widget.onEditEntry(entry),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: effectiveColor,
+                            border: Border.all(
+                                color: borderColor,
+                                width: isPredicted ? 1 : 1,
+                                style: BorderStyle.solid // Could dash if wanted
                                 ),
-                              ),
-                            ),
-                          );
-                        }),
-
-                        // Current Time
-                        _buildCurrentTimeIndicator(pixelsPerHour),
-
-                        // Entries
-                        ...layoutEntries.map((le) {
-                          final entry = le.entry;
-                          final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0);
-                          final top = startTotalHours * pixelsPerHour;
-                          final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
-                          
-                          const double leftGutter = 60.0;
-                          final double availableWidth = constraints.maxWidth - leftGutter - 10;
-                          final double widthPerCol = availableWidth / le.totalCols;
-                          final double left = leftGutter + (le.col * widthPerCol);
-
-                          return Positioned(
-                            top: top,
-                            left: left,
-                            width: widthPerCol - 4,
-                            height: height.clamp(2.0, double.infinity),
-                            child: GestureDetector(
-                              onTap: () => widget.onEditEntry(entry),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: entry.color.withOpacity(0.25),
-                                  border: Border.all(color: entry.color, width: 1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                child: height < 20 
-                                  ? null 
-                                  : Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          entry.title, 
-                                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                          maxLines: 1, 
-                                          overflow: TextOverflow.ellipsis
-                                        ),
-                                        if (height > 40)
-                                          Text(
-                                            "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontFamily: 'RobotoMono'),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          )
-                                      ],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  if (isPredicted)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          right: 4.0),
+                                      child: Icon(Icons.auto_awesome,
+                                          size: 10, color: borderColor),
                                     ),
+                                  Expanded(
+                                    child: Text(entry.title,
+                                        style: TextStyle(
+                                            color: isPredicted
+                                                ? Colors.white70
+                                                : Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: isPredicted
+                                                ? FontWeight.normal
+                                                : FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
                               ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                ),
+                              if (height > 30) // Only show time if height allows
+                                Text(
+                                  "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                  style: TextStyle(
+                                      color:
+                                          Colors.white.withOpacity(0.7),
+                                      fontSize: 9,
+                                      fontFamily: 'RobotoMono'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
-              
-              // Zoom
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: Column(
-                  children: [
-                    FloatingActionButton.small(
-                      heroTag: "zoom_in",
-                      onPressed: _zoomIn,
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      child: const Icon(Icons.add),
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "zoom_out",
-                      onPressed: _zoomOut,
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      child: const Icon(Icons.remove),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      }
-    );
+        ),
+      );
+    });
   }
 
   Widget _buildCurrentTimeIndicator(double pixelsPerHour) {
@@ -24329,7 +24722,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
     return Positioned(
       top: top,
-      left: 0, 
+      left: 0,
       right: 0,
       child: Row(
         children: [
@@ -24339,10 +24732,15 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
             alignment: Alignment.centerRight,
             child: Text(
               DateFormat('HH:mm').format(now),
-              style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontSize: 10, fontFamily: 'RobotoMono'),
+              style: const TextStyle(
+                  color: AppTheme.fhAccentRed,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  fontFamily: 'RobotoMono'),
             ),
           ),
-          const Expanded(child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
+          const Expanded(
+              child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
         ],
       ),
     );
@@ -24356,6 +24754,102 @@ class _LayoutEntry {
   _LayoutEntry(this.entry, this.col, {this.totalCols = 1});
 }
 --- END OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/atoms/hero_stat_item.dart'; // Modularized
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+
+class ScheduleHeroWidget extends StatelessWidget {
+  final String latestTaskName;
+  final String mostSpentTaskName;
+  final int mostSpentTimeSeconds;
+  final String greeting;
+
+  const ScheduleHeroWidget({
+    super.key,
+    required this.latestTaskName,
+    required this.mostSpentTaskName,
+    required this.mostSpentTimeSeconds,
+    this.greeting = "SYSTEM ONLINE",
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.fhBgDark,
+            AppTheme.fhBgDeepDark,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ]
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                greeting,
+                style: const TextStyle(
+                  color: AppTheme.fhAccentTeal,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Icon(MdiIcons.chartTimelineVariant, color: AppTheme.fhAccentTeal, size: 16),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: HeroStatItem(
+                  label: "LATEST OP",
+                  value: latestTaskName.isNotEmpty ? latestTaskName : "N/A",
+                  icon: MdiIcons.clockFast,
+                  color: AppTheme.fhTextPrimary,
+                ),
+              ),
+              Container(width: 1, height: 40, color: AppTheme.fhBorderColor.withOpacity(0.3), margin: const EdgeInsets.symmetric(horizontal: 12)),
+              Expanded(
+                child: HeroStatItem(
+                  label: "PRIMARY FOCUS",
+                  value: mostSpentTaskName.isNotEmpty ? mostSpentTaskName : "N/A",
+                  subValue: mostSpentTimeSeconds > 0 ? helper.formatTime(mostSpentTimeSeconds.toDouble()) : null,
+                  icon: MdiIcons.fire,
+                  color: AppTheme.fhAccentOrange,
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';
