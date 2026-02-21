@@ -3,6 +3,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
+import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -17,7 +18,7 @@ class MoreScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text("UTILITIES",
+          Text("UTILITIES & SYSTEM",
               style: theme.textTheme.labelMedium?.copyWith(
                   color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
@@ -52,6 +53,30 @@ class MoreScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const DatabaseEditorScreen()));
+          }),
+
+          const SizedBox(height: 24),
+          Text("CONFIGURATION",
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
+          const SizedBox(height: 12),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.cogOutline,
+              title: "System Settings",
+              subtitle: "App preferences, AI config, and recovery",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                          appBar: AppBar(title: const Text("SETTINGS")),
+                          backgroundColor: AppTheme.fhBgDeepDark,
+                          body: Center(
+                              child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 800),
+                                  child: const SettingsView())),
+                        )));
           }),
         ],
       ),

@@ -1,13 +1,13 @@
-import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart';
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
-  final VoidCallback? onOpenPersona; // Callback for opening end drawer
+  final VoidCallback? onOpenPersona; 
 
   const HeaderWidget(
       {super.key, required this.currentViewLabel, this.onOpenPersona});
@@ -18,13 +18,12 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
     final theme = Theme.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 900;
-    final Color currentAccentColor =
-        appProvider.getSelectedTask()?.taskColor ?? theme.colorScheme.secondary;
+    
+    final double balance = appProvider.financeActions.currentBalance;
 
     return AppBar(
       backgroundColor: AppTheme.fhBgDeepDark,
       automaticallyImplyLeading: !isLargeScreen,
-      // VALORANT Style: Minimal divider
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Container(
@@ -35,8 +34,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       leading: isLargeScreen
           ? Padding(
               padding: const EdgeInsets.only(left: 16.0),
-              child: Icon(MdiIcons.shieldCrownOutline,
-                  color: AppTheme.fhAccentRed),
+              child: Icon(MdiIcons.shieldCrownOutline, color: AppTheme.fhAccentRed),
             )
           : Builder(
               builder: (context) => IconButton(
@@ -47,74 +45,84 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Decorative square
-          Container(
-            width: 8,
-            height: 8,
-            color: AppTheme.fhAccentRed,
-            margin: const EdgeInsets.only(right: 12),
-          ),
-          Text(
-            currentViewLabel.toUpperCase(),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppTheme.fhTextPrimary,
-              letterSpacing: 3.0,
-              fontFamily: AppTheme.fontDisplay,
-              fontWeight: FontWeight.w900,
+          Flexible(
+            child: Text(
+              currentViewLabel.toUpperCase(),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: AppTheme.fhTextPrimary,
+                letterSpacing: 2.0,
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.w900,
+                fontSize: 16, // Adjusted size
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
       centerTitle: true,
       actions: <Widget>[
-        // Status Indicators
         if (appProvider.loadingTaskName != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 12,
-                  height: 12,
+                  width: 12, height: 12,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
 
-        IconButton(
-          icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
-          tooltip: 'SYSTEM SETTINGS',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => Scaffold(
-                        appBar: AppBar(title: const Text("SETTINGS")),
-                        backgroundColor: AppTheme.fhBgDeepDark,
-                        body: Center(
-                            child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 800),
-                                child: const SettingsView())),
-                      )),
-            );
-          },
+        // Balance Widget
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Center(
+            child: InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen())),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgDark,
+                  border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(MdiIcons.currencyInr, size: 14, color: AppTheme.fhAccentTeal),
+                    const SizedBox(width: 2),
+                    Text(
+                      balance.toStringAsFixed(0), 
+                      style: const TextStyle(
+                        color: AppTheme.fhAccentTeal, 
+                        fontFamily: 'RobotoMono', 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 12
+                      )
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
+
         // Persona / Virtues Button
         IconButton(
-          icon: Icon(MdiIcons.shieldAccount, color: AppTheme.fhTextSecondary),
+          icon: Icon(MdiIcons.shieldAccount, color: AppTheme.fhTextSecondary, size: 20),
           onPressed: onOpenPersona,
           tooltip: 'ARMORY',
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
       ],
     );
   }

@@ -8,6 +8,7 @@ const String _docTasks = 'tasks';
 const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
+const String _docFinance = 'finance';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -29,9 +30,10 @@ class StorageService {
       final historySnap = await _dataDocRef(userId, _docHistory).get();
       final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
       final settingsSnap = await _dataDocRef(userId, _docSettings).get();
+      final financeSnap = await _dataDocRef(userId, _docFinance).get();
 
       bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists;
+          tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -39,6 +41,7 @@ class StorageService {
         if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+        if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
         return fullData;
       }
 
@@ -53,27 +56,17 @@ class StorageService {
     }
   }
 
-  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docTasks, data);
-  }
-
-  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docHistory, data);
-  }
-
-  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docReflections, data);
-  }
-
-  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async {
-    return _saveChunk(userId, _docSettings, data);
-  }
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docTasks, data);
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docHistory, data);
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docReflections, data);
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docSettings, data);
+  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docFinance, data);
 
   Future<bool> _saveChunk(
       String userId, String docId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true)); // Use merge for safety
+      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true));
       return true;
     } catch (e) {
       return false;
@@ -99,6 +92,7 @@ class StorageService {
       batch.delete(_dataDocRef(userId, _docHistory));
       batch.delete(_dataDocRef(userId, _docReflections));
       batch.delete(_dataDocRef(userId, _docSettings));
+      batch.delete(_dataDocRef(userId, _docFinance));
       await batch.commit();
       return true;
     } catch (e) {
@@ -110,24 +104,26 @@ class StorageService {
     if (userId.isEmpty) return false;
 
     final tasksData = <String, dynamic>{};
-    if (fullData.containsKey('mainTasks')) {
-      tasksData['mainTasks'] = fullData['mainTasks'];
-    }
+    if (fullData.containsKey('mainTasks')) tasksData['mainTasks'] = fullData['mainTasks'];
 
     final historyData = <String, dynamic>{};
-    if (fullData.containsKey('completedByDay')) {
-      historyData['completedByDay'] = fullData['completedByDay'];
-    }
+    if (fullData.containsKey('completedByDay')) historyData['completedByDay'] = fullData['completedByDay'];
 
     final reflectionsData = <String, dynamic>{};
-    if (fullData.containsKey('reflectionLogs')) {
-      reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
-    }
+    if (fullData.containsKey('reflectionLogs')) reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
+
+    final financeData = <String, dynamic>{};
+    if (fullData.containsKey('transactions')) financeData['transactions'] = fullData['transactions'];
+    if (fullData.containsKey('categories')) financeData['categories'] = fullData['categories'];
+    if (fullData.containsKey('savingsGoals')) financeData['savingsGoals'] = fullData['savingsGoals'];
 
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
     settingsData.remove('reflectionLogs');
+    settingsData.remove('transactions');
+    settingsData.remove('categories');
+    settingsData.remove('savingsGoals');
 
     try {
       final batch = _firestore.batch();
@@ -135,6 +131,7 @@ class StorageService {
       batch.set(_dataDocRef(userId, _docHistory), historyData);
       batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
       batch.set(_dataDocRef(userId, _docSettings), settingsData);
+      batch.set(_dataDocRef(userId, _docFinance), financeData);
       await batch.commit();
       return true;
     } catch (e) {
