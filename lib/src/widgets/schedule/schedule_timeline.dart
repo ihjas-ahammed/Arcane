@@ -292,6 +292,6 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 class _LayoutEntry {
   final TimelineEntry entry;
   final int col;
-  int totalCols;
-  _LayoutEntry(this.entry, this.col, {this.totalCols = 1});
+  int totalCols = 0;
+  _LayoutEntry(this.entry, this.col);
 }

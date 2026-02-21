@@ -38,7 +38,7 @@ class ProjectProgressChart extends StatelessWidget {
 
     double currentProgressSteps = 0;
     double accumulatedTime = 0;
-    final totalSteps = project.steps.length > 0 ? project.steps.length : 1;
+    final totalSteps = project.steps.isNotEmpty ? project.steps.length : 1;
 
     for (var event in history) {
       final date = event['date'] as DateTime;

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';

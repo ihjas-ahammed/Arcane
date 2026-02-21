@@ -1,8 +1,6 @@
 Make the following changes:
 
-    * Fix ai schedule prediction:
-        The refernce for last sevendays, should be session logs instead of reflection logs:
-            - add a new time ['session'] for getLast7DaysData in app provider, this session should go through all tasks that is completed within last 7 days and also all incomplete takss and access the session logs of each task and then chose the ones from last seven days and return it to the prompt
+    * 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

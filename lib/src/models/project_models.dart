@@ -220,8 +220,11 @@ class ProjectStep {
 
       if (calculatedComplete != isCompleted) {
         isCompleted = calculatedComplete;
-        if (isCompleted) completedAt = DateTime.now();
-        else completedAt = null;
+        if (isCompleted) {
+          completedAt = DateTime.now();
+        } else {
+          completedAt = null;
+        }
       }
 
       return childProgress;

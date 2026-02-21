@@ -410,7 +410,7 @@ class _SettingsViewState extends State<SettingsView> {
                     prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
                   ),
                   dropdownColor: AppTheme.fhBgMedium,
-                  value: appProvider.settings.startOfWeek,
+                  initialValue: appProvider.settings.startOfWeek,
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('Monday')),
                     DropdownMenuItem(value: 2, child: Text('Tuesday')),

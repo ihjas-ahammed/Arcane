@@ -226,7 +226,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                         labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
                     ),
                     dropdownColor: AppTheme.fhBgMedium,
-                    value: _aiGenerationMode,
+                    initialValue: _aiGenerationMode,
                     style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
                     items: const [
                       DropdownMenuItem(value: 'text_list', child: Text('List')),

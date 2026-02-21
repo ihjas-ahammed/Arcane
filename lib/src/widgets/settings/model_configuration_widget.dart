@@ -46,7 +46,7 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
           padding: const EdgeInsets.only(bottom: 8.0),
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: effectiveItems.contains(currentSelection) ? currentSelection : null,
+            initialValue: effectiveItems.contains(currentSelection) ? currentSelection : null,
             decoration: InputDecoration(
               labelText: label,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

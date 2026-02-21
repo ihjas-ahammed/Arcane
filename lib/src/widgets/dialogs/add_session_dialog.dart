@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class AddSessionDialog extends StatefulWidget {

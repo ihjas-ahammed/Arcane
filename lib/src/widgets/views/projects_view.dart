@@ -147,19 +147,6 @@ class _ProjectsViewState extends State<ProjectsView> {
                 child: child,
               );
             },
-            children: activeOngoing.map((item) {
-              return Container(
-                key: ValueKey("proj_${item.project.id}"),
-                margin: const EdgeInsets.only(bottom: 4), // Small margin handled by padding in card usually, but list view needs care
-                child: ProjectDashboardCard(
-                  project: item.project,
-                  mainTaskId: item.mainTaskId,
-                  mainTaskName: item.mainTaskName,
-                  accentColor: item.color,
-                  onTap: () => _navigateToDetail(context, item),
-                ),
-              );
-            }).toList(),
 
             // Footer (Inactive, Completed, Actions)
             footer: Column(
@@ -280,6 +267,19 @@ class _ProjectsViewState extends State<ProjectsView> {
                 ),
               ],
             ),
+            children: activeOngoing.map((item) {
+              return Container(
+                key: ValueKey("proj_${item.project.id}"),
+                margin: const EdgeInsets.only(bottom: 4), // Small margin handled by padding in card usually, but list view needs care
+                child: ProjectDashboardCard(
+                  project: item.project,
+                  mainTaskId: item.mainTaskId,
+                  mainTaskName: item.mainTaskName,
+                  accentColor: item.color,
+                  onTap: () => _navigateToDetail(context, item),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],

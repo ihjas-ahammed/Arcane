@@ -3,7 +3,6 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 class ProjectStatsCard extends StatelessWidget {

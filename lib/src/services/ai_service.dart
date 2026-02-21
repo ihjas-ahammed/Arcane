@@ -16,10 +16,10 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final List<String> apiKeysToTry = [
+    final List<String> apiKeysToTry = <String>{
       ...geminiApiKeys,
       if (customApiKeys != null) ...customApiKeys
-    ].toSet().toList();
+    }.toList();
 
     if (apiKeysToTry.isEmpty) {
       throw Exception("No valid Gemini API keys found.");
@@ -106,8 +106,8 @@ class AIService {
     
     INSTRUCTIONS:
     1. Analyze patterns (time of day, duration, sequence).
-    2. Suggest 1-3 likely sessions for the remainder of the day.
-    3. Do not predict past midnight.
+    2. Suggest 1-10 likely sessions for the remainder of the day.
+    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
     4. CONFIDENTIALITY: Do not use specific names of real people.
     
     CRITICAL OUTPUT FORMATTING:
@@ -283,7 +283,8 @@ class AIService {
     1. Provide constructive feedback.
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
+    4. Be empathetic, also dont make it too long, just like a reaction of a therapist
+
     Output JSON: {
       "feedback": "string", 
       "xp_allocation": {"Wisdom": int, ...}
@@ -314,7 +315,7 @@ class AIService {
     Current Logs: ${jsonEncode(reflections)}
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     
-    Tone: Empathetic, psychologically wise, tactical advisor.
+    Tone: Empathetic, psychologically wise, therapist.
     
     Tasks:
     1. Create a concise summary of the day's psychological state.
@@ -322,7 +323,7 @@ class AIService {
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
-      "summary": "string (max 60 words)",
+      "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -415,7 +416,7 @@ class AIService {
     
     Task:
     1. Analyze the user's momentum.
-    2. Provide a futuristic, empathetic 'Forecast' message (max 2 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    2. Provide a futuristic, empathetic 'Forecast' message (max 5 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.

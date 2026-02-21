@@ -4,7 +4,6 @@ import 'package:gap/gap.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:arcane/theme/valorant_theme.dart';
 import 'package:arcane/widgets/valorant_container.dart';
-import 'package:arcane/widgets/valorant_button.dart';
 
 class LogbookScreen extends StatelessWidget {
   const LogbookScreen({super.key});

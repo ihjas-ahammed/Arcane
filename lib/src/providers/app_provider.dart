@@ -326,17 +326,22 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           if (_dirtyCollections.contains('tasks')) {
             if (!await _storageService.saveTasks(_currentUser!.uid, {
               'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()
-            })) success = false;
+            })) {
+              success = false;
+            }
           }
           if (_dirtyCollections.contains('history')) {
             if (!await _storageService.saveHistory(
-                _currentUser!.uid, {'completedByDay': _completedByDay}))
+                _currentUser!.uid, {'completedByDay': _completedByDay})) {
               success = false;
+            }
           }
           if (_dirtyCollections.contains('reflections')) {
             if (!await _storageService.saveReflections(_currentUser!.uid, {
               'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
-            })) success = false;
+            })) {
+              success = false;
+            }
           }
           
           if (_dirtyCollections.contains('settings') || success) {
@@ -686,7 +691,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           sub.sessions.removeWhere((s) => idsToDelete.contains(s.id));
           if (sub.sessions.length != initialCount) {
             int totalSeconds = 0;
-            for (var s in sub.sessions) totalSeconds += s.durationSeconds;
+            for (var s in sub.sessions) {
+              totalSeconds += s.durationSeconds;
+            }
             sub.currentTimeSpent = totalSeconds;
             hasChanges = true;
           }

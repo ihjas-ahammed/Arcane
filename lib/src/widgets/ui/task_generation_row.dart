@@ -118,7 +118,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
             const SizedBox(height: 8),
             // Mission Selector
             DropdownButtonFormField<String>(
-              value: _selectedMissionId,
+              initialValue: _selectedMissionId,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: "MISSION",
@@ -152,7 +152,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
                 Expanded(
                   flex: 2,
                   child: DropdownButtonFormField<String>(
-                    value: _type,
+                    initialValue: _type,
                     decoration: InputDecoration(
                       labelText: "TYPE",
                       labelStyle: const TextStyle(fontSize: 10),
@@ -183,7 +183,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
                   Expanded(
                     flex: 3,
                     child: DropdownButtonFormField<String>(
-                      value: _selectedParentId,
+                      initialValue: _selectedParentId,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: "PARENT SUB-MISSION",

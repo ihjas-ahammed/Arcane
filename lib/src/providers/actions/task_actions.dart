@@ -267,7 +267,9 @@ class TaskActions {
             
             // Recalculate total time from scratch
             int totalTime = 0;
-            for (var s in updatedSessions) totalTime += s.durationSeconds;
+            for (var s in updatedSessions) {
+              totalTime += s.durationSeconds;
+            }
             
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed, 

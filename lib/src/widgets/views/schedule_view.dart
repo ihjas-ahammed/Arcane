@@ -78,9 +78,9 @@ class _ScheduleViewState extends State<ScheduleView> {
     for(var t in provider.mainTasks) {
       for(var s in t.subTasks) {
         for(var sess in s.sessions) {
-          if (lastTime == null || sess.endTime.isAfter(lastTime!)) {
+          if (lastTime == null || sess.endTime.isAfter(lastTime)) {
             lastTime = sess.endTime;
-            latest = "${s.name}";
+            latest = s.name;
           }
         }
       }

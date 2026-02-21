@@ -64,7 +64,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
               title: const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle: const Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
               value: _isRecurring,
-              activeColor: AppTheme.fhAccentTeal,
+              activeThumbColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,
               onChanged: (val) => setState(() => _isRecurring = val),
             ),
