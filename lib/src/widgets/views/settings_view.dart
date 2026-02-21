@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
+import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -168,7 +169,6 @@ class _SettingsViewState extends State<SettingsView> {
               : null);
       if (!mounted) return;
       setState(() {
-        // Only update if we actually got models back
         if (models.isNotEmpty) _availableModels = models;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +181,25 @@ class _SettingsViewState extends State<SettingsView> {
       );
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
+    }
+  }
+
+  Future<void> _handleChangePin(AppProvider provider) async {
+    // If PIN exists, require old PIN first to change
+    if (provider.settings.journalPin != null) {
+      final auth = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
+      if (auth != true) return;
+    }
+    
+    if (!mounted) return;
+    
+    // Set New PIN
+    final newPin = await PinDialog.show(context: context, isSetupMode: true);
+    if (newPin != null && newPin is String) {
+      provider.setJournalPin(newPin);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Security PIN Updated.")));
+      }
     }
   }
 
@@ -345,6 +364,43 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
+          // SECURITY & PRIVACY
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.shieldLockOutline,
+              title: 'Security & Nora Privacy',
+              children: [
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.dialpad, size: 18),
+                  label: Text(appProvider.settings.journalPin == null ? "SET SECURITY PIN" : "CHANGE SECURITY PIN"),
+                  onPressed: () => _handleChangePin(appProvider),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentPurple,
+                    side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5))
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Session Logs', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessSessions,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessSessions = value);
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Finance Data', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessFinance,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessFinance = value);
+                  },
+                ),
+              ]),
+
           // AI CONFIGURATION (Modularized)
           ModelConfigurationWidget(
             appProvider: appProvider,
@@ -365,20 +421,6 @@ class _SettingsViewState extends State<SettingsView> {
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _customChatbotPromptController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'AI Advisor System Prompt',
-                    hintText: 'Define the persona and behavior of the chatbot.',
-                    alignLabelWithHint: true,
-                  ),
-                  onChanged: (val) {
-                    appProvider.setSettings(
-                        appProvider.settings..customChatbotPrompt = val);
-                  },
-                ),
-                const SizedBox(height: 12),
                 TextFormField(
                   controller: _customReflectionPromptController,
                   maxLines: 3,

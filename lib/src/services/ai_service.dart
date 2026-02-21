@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/utils/json_utils.dart'; // Modularized JSON logic
+import 'package:arcane/src/utils/json_utils.dart';
 
 class AIService {
   
@@ -40,12 +39,10 @@ class AIService {
           onNewApiKeyIndex(effectiveIndex);
           return result;
         } catch (e) {
-          // Check if it's a format exception we threw explicitly
           if (e is FormatException && e.message.contains("JSON Decode Failed")) {
              onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
              debugPrint("AI JSON PARSE ERROR:\n${e.message}");
           }
-          
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
         }
@@ -71,8 +68,7 @@ class AIService {
       modelCandidates: modelCandidates,
       requestFn: (apiKey, modelName) async {
         final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response =
-            await model.generateContent([genai.Content.text(prompt)]);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
 
         String? rawResponseText = response.text;
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
@@ -86,9 +82,9 @@ class AIService {
 
   // --- Prediction ---
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
-    required String sessionHistory, // Text representation of last 14 days
+    required String sessionHistory, 
     required String currentTime,
-    required String availableTasksContext, // List of available task names to map to
+    required String availableTasksContext, 
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -137,7 +133,6 @@ class AIService {
         final response = await model.generateContent([genai.Content.text(prompt)]);
         String? raw = response.text;
         if (raw == null) throw Exception("Empty AI response");
-        
         return JsonUtils.tryDecode(raw);
       },
     );
@@ -148,6 +143,7 @@ class AIService {
     return [];
   }
 
+  // Generalized Nora / Neural Archive Query
   Future<String> queryNeuralArchive({
     required String query,
     required String logsContext,
@@ -158,19 +154,9 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    You are the "Neural Archive", an empathetic and highly intelligent system interface for the user's life logs.
-    
-    Here are the logs from the requested timeline:
     $logsContext
     
-    USER QUERY: "$query"
-    
-    INSTRUCTIONS:
-    1. Answer the user's query based strictly on the provided logs.
-    2. Be empathetic, human-like, and insightful. Avoid robotic or list-heavy responses unless asked.
-    3. Do NOT use any Markdown formatting (no bold, no italics, no code blocks). Pure text only.
-    4. If the answer isn't in the logs, gently state that the data is missing.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    USER: "$query"
     """;
 
     return await _executeWithModelAndKeyRotation(
@@ -187,6 +173,7 @@ class AIService {
     );
   }
 
+  // --- Project / Generation methods ---
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
     required String userPrompt,
@@ -274,16 +261,18 @@ class AIService {
     List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
+    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
+    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
+    
     final prompt = """
     Analyze this reflection log.
     Trigger: $trigger
     Emotion: $emotion
     Reason: $reason
     
-    1. Provide constructive feedback.
+    1. Provide constructive feedback. ($instruction)
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    4. Be empathetic, also dont make it too long, just like a reaction of a therapist
 
     Output JSON: {
       "feedback": "string", 
@@ -351,25 +340,6 @@ class AIService {
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
-  Future<String> getChatbotResponse({
-    required List<String> modelCandidates,
-    required ChatbotMemory memory,
-    required String userMessage,
-    required String dataContext,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Chatbot response. Context: $dataContext. History included. CONFIDENTIALITY: Do not use specific names of people mentioned in history. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.";
-    return await _executeWithModelAndKeyRotation(currentApiKeyIndex: currentApiKeyIndex, customApiKeys: customApiKeys, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog, modelCandidates: modelCandidates, requestFn: (k, m) async {
-        final model = genai.GenerativeModel(model: m, apiKey: k);
-        final resp = await model.generateContent([genai.Content.text(prompt)]);
-        return resp.text ?? "Error";
-    });
-  }
-  
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
     
@@ -428,6 +398,154 @@ class AIService {
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Advanced Journaling Tools ---
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Create a list of upto 50 people
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people": [
+        {
+          "name": "string",
+          "relation": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generatePersonDetails({
+    required String personName,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
+    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "details": "string (multiline formatted text)"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy({
+    required String reason,
+    required String feeling,
+    required String action,
+    required String logsText,
+    required String peopleContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    User needs immediate psychological assistance.
+    Current Situation / Reason: $reason
+    Current Feeling: $feeling
+    Planned Action: $action
+    
+    Past Context (Reflections): $logsText
+    Known People: $peopleContext
+    
+    Task:
+    1. Provide a concise, empathetic, and tactical action plan for right now.
+    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
+    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
+    
+    Output JSON ONLY:
+    {
+      "action_plan": "string",
+      "suggested_person": "string or null",
+      "conversation_map": ["step 1", "step 2"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> simulateEvent({
+    required String situation,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
+    
+    Proposed Situation: $situation
+    
+    Past Context (Reflections): $logsText
+    
+    Task:
+    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
+    
+    Output JSON ONLY:
+    {
+      "simulation": "string"
+    }
     """;
 
     return await makeAICall(

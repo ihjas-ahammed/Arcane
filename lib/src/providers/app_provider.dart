@@ -2,11 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/data_export_service.dart';
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:arcane/src/utils/history_helper.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
+import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -19,7 +21,7 @@ import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/finance_models.dart'; // NEW
+import 'package:arcane/src/models/finance_models.dart'; 
 import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'package:arcane/src/providers/actions/task_actions.dart';
@@ -28,12 +30,14 @@ import 'package:arcane/src/providers/actions/timer_actions.dart';
 import 'package:arcane/src/providers/actions/project_actions.dart';
 import 'package:arcane/src/providers/actions/report_actions.dart';
 import 'package:arcane/src/providers/actions/schedule_actions.dart'; 
-import 'package:arcane/src/providers/actions/finance_actions.dart'; // NEW
+import 'package:arcane/src/providers/actions/finance_actions.dart'; 
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
 import 'package:arcane/src/services/ai_service.dart';
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final StorageService _storageService = StorageService();
   final LocalStorageService _localStorageService = LocalStorageService();
+  final DataExportService _exportService = DataExportService();
   final AIService _aiService = AIService();
 
   AIService get aiService => _aiService;
@@ -113,7 +117,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   late final ProjectActions _projectActions;
   late final ReportActions _reportActions;
   late final ScheduleActions _scheduleActions; 
-  late final FinanceActions _financeActions; // NEW
+  late final FinanceActions _financeActions; 
+  late final JournalingActions _journalingActions;
 
   AppProvider() {
     _taskActions = TaskActions(this);
@@ -122,9 +127,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
     _scheduleActions = ScheduleActions(this); 
-    _financeActions = FinanceActions(this); // Init
+    _financeActions = FinanceActions(this); 
+    _journalingActions = JournalingActions(this);
     _initializeSkills();
-    _initializeDefaultFinanceCategories(); // Init
+    _initializeDefaultFinanceCategories(); 
     _initialize();
     
     WidgetsBinding.instance.addObserver(this);
@@ -151,7 +157,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // --- ACTIONS EXPOSURE ---
-  // ... [existing actions omitted for brevity, keeping them intact] ...
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
   void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
   void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
@@ -161,13 +166,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
-  void uncompleteSubtask(String mainTaskId, String subtaskId) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
   void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
   void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
@@ -180,7 +185,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
   ReportActions get reportActions => _reportActions;
   ScheduleActions get scheduleActions => _scheduleActions; 
-  FinanceActions get financeActions => _financeActions; // Exposed
+  FinanceActions get financeActions => _financeActions; 
+  JournalingActions get journalingActions => _journalingActions;
 
   // --- INITIALIZATION ---
 
@@ -386,6 +392,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  void scheduleRealtimeSync() {
+    _scheduleRealtimeSync();
+  }
+
   void _scheduleRealtimeSync() {
     _saveLocalSnapshot(); 
     
@@ -398,6 +408,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _performActualSave();
       }
     });
+  }
+
+  void markDirty(String collection) {
+    _markDirty(collection);
   }
 
   void _markDirty(String collection) {
@@ -544,20 +558,148 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // ... [Other existing methods unchanged] ...
-  void _fixTimerAnomalies() { /* ... */ }
-  void setSettings(AppSettings newSettings) { _settings = newSettings; _markDirty('settings'); _scheduleRealtimeSync(); notifyListeners(); }
-  void setSelectedTaskId(String? taskId) { if (_selectedTaskId != taskId) { _selectedTaskId = taskId; _markDirty('settings'); _scheduleRealtimeSync(); notifyListeners(); } }
-  Future<void> restoreFromLocalSnapshot(File backupFile) async { /* ... */ }
-  Future<void> manuallySaveToCloud() async { /* ... */ }
-  Future<void> manuallyLoadFromCloud() async { /* ... */ }
+  void _fixTimerAnomalies() {
+    bool changed = false;
+    final Map<String, ActiveTimerInfo> fixedTimers = Map.from(_activeTimers);
+
+    fixedTimers.removeWhere((timerId, timerInfo) {
+      if (!timerInfo.isRunning) return false;
+      bool taskFound = false;
+      for (var mainTask in _mainTasks) {
+        if (mainTask.id == timerInfo.mainTaskId) {
+          if (timerInfo.type == 'subtask') {
+             taskFound = mainTask.subTasks.any((st) => st.id == timerId);
+          }
+          break;
+        }
+      }
+      if (!taskFound) changed = true;
+      return !taskFound;
+    });
+
+    if (changed) {
+      setProviderState(activeTimers: fixedTimers);
+    }
+  }
+
+  void setSettings(AppSettings newSettings) { 
+    _settings = newSettings; 
+    _markDirty('settings'); 
+    _scheduleRealtimeSync(); 
+    notifyListeners(); 
+  }
+
+  void setSelectedTaskId(String? taskId) { 
+    if (_selectedTaskId != taskId) { 
+      _selectedTaskId = taskId; 
+      _markDirty('settings'); 
+      _scheduleRealtimeSync(); 
+      notifyListeners(); 
+    } 
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadAppStateFromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> manuallySaveToCloud() async {
+    if (_currentUser == null) return;
+    _isManuallySaving = true;
+    notifyListeners();
+    try {
+      await _performActualSave();
+    } finally {
+      _isManuallySaving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> manuallyLoadFromCloud() async {
+    if (_currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final cloudData = await _storageService.getUserData(_currentUser!.uid);
+      if (cloudData != null) {
+        _loadStateFromMap(cloudData);
+        _hasUnsavedChanges = false;
+        await _saveLocalSnapshot(forceFlush: true);
+      }
+    } finally {
+      _isManuallyLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
-  Future<void> logoutUser() async { /* ... */ }
-  Future<void> signupUser(String email, String password, String username) async { /* ... */ }
+  
+  Future<void> logoutUser() async {
+    await fb_service.signOut();
+  }
+
+  Future<void> signupUser(String email, String password, String username) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName(username);
+      await user.reload();
+      _isUsernameMissing = false;
+      notifyListeners();
+    }
+  }
+
   void setProviderApiKeyIndex(int index) { if (_apiKeyIndex != index) _apiKeyIndex = index; }
   void setProviderAISubquestLoading(bool isLoading) { _isGeneratingSubquestsForTask = isLoading; notifyListeners(); }
   void setLoadingTask(String? taskName) { _loadingTaskName = taskName; notifyListeners(); }
-  void _cleanOverlappingSessions() { /* ... */ }
+  
+  void _cleanOverlappingSessions() {
+    bool changed = false;
+    final newMainTasks = _mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned = [sorted.first];
+          
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned,
+              isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
+
+    if (changed) {
+      setProviderState(mainTasks: newMainTasks, doNotify: false);
+    }
+  }
   
   Future<void> _resetToInitialState() async {
     _lastLoginDate = null;
@@ -569,32 +711,567 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _transactions = [];
     _categories = [];
     _savingsGoals = [];
+    _chatbotMemory = ChatbotMemory();
     _initializeSkills();
     _initializeDefaultFinanceCategories();
   }
 
-  Future<void> _handleDailyReset() async { /* ... */ }
-  void initializeChatbotMemory() { /* ... */ }
-  Future<void> changePasswordHandler(String pwd) async { /* ... */ }
-  Future<void> updateUserDisplayName(String name) async { /* ... */ }
-  Future<void> clearAllData() async { /* ... */ }
-  void addCustomApiKey(String key) { /* ... */ }
-  void removeCustomApiKey(String key) { /* ... */ }
-  Future<void> sendMessageToChatbot(String userMessageText) async { /* ... */ }
-  Map<String, dynamic> getLast7DaysData() { /* ... */ return {}; } // Assuming implementation exists
-  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { return {}; } // Assuming impl
-  Map<String, dynamic>? getTacticalBriefing(String date) { return null; } // Assuming impl
-  void saveTacticalBriefing(String date, Map<String, dynamic> data) { /* ... */ }
-  Future<List<Map<String, dynamic>>> generateStartDayReport() async { return []; }
-  void saveStartDayReport(String date, Map<String, dynamic> data) { /* ... */ }
-  Map<String, dynamic>? getStartDayReport(String date) { return null; }
-  int get7DaySkillMomentum(String skillName) { return 0; }
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { return {}; }
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) { /* ... */ }
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) { /* ... */ }
-  void deleteReflectionLog(String id) { /* ... */ }
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    
+    if (_lastLoginDate != todayStr) {
+      bool tasksChanged = false;
+      final newMainTasks = _mainTasks.map((task) {
+        bool subTasksChanged = false;
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+            // Reset logic
+            bool shouldReset = false;
+            if (st.completed && st.lastCompletedDate != null) {
+              final lastDateStr = DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!);
+              if (lastDateStr != todayStr) {
+                shouldReset = true;
+              }
+            } else if (st.completed && st.lastCompletedDate == null) {
+              shouldReset = true; 
+            }
+            
+            if (shouldReset) {
+              subTasksChanged = true;
+              return SubTask(
+                  id: st.id, name: st.name, description: st.description, completed: false, completedDate: null,
+                  currentTimeSpent: 0, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                  subSubTasks: st.subSubTasks.map((sss) => SubSubTask(
+                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
+                  )).toList(), sessions: [],
+                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+          }
+          return st;
+        }).toList();
+
+        if (subTasksChanged) {
+          tasksChanged = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
+        }
+        
+        if (task.dailyTimeSpent > 0) {
+           tasksChanged = true;
+           return task.copyWith(dailyTimeSpent: 0);
+        }
+        return task;
+      }).toList();
+
+      setProviderState(
+        lastLoginDate: todayStr,
+        mainTasks: tasksChanged ? newMainTasks : _mainTasks,
+      );
+    }
+  }
+
+  void initializeChatbotMemory() {
+    if (!_isChatbotMemoryInitialized) {
+      _isChatbotMemoryInitialized = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> changePasswordHandler(String pwd) async {
+    await fb_service.changePassword(pwd);
+  }
+
+  Future<void> updateUserDisplayName(String name) async {
+    if (_currentUser != null) {
+      await _currentUser!.updateDisplayName(name);
+      await _currentUser!.reload();
+      _currentUser = fb_service.firebaseAuthInstance.currentUser;
+      _isUsernameMissing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> clearAllData() async {
+    if (_currentUser == null) return;
+    await _storageService.deleteUserData(_currentUser!.uid);
+    await _localStorageService.clearState();
+    await _resetToInitialState();
+    _lastSuccessfulSaveTimestamp = null;
+    _hasUnsavedChanges = true; 
+    _markDirty('settings');
+    _markDirty('tasks');
+    _markDirty('history');
+    _markDirty('reflections');
+    _markDirty('finance');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void addCustomApiKey(String key) {
+    if (!_settings.customApiKeys.contains(key)) {
+      final newList = List<String>.from(_settings.customApiKeys)..add(key);
+      setSettings(_settings..customApiKeys = newList);
+    }
+  }
+
+  void removeCustomApiKey(String key) {
+    final newList = List<String>.from(_settings.customApiKeys)..remove(key);
+    setSettings(_settings..customApiKeys = newList);
+  }
+
+  // --- PIN / SECURITY LOGIC ---
+
+  bool verifyPin(String enteredPin) {
+    return _settings.journalPin == enteredPin;
+  }
+
+  void setJournalPin(String newPin) {
+    setSettings(_settings..journalPin = newPin);
+  }
+
+  // --- NORA AI LOGIC ---
+
+  NoraSession? get activeNoraSession {
+    if (_chatbotMemory.activeNoraSessionId == null) return null;
+    return _chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == _chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({
+    required String title,
+    required String tone,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? customContext,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(),
+      title: title,
+      tone: tone,
+      startDate: startDate,
+      endDate: endDate,
+      customContext: customContext,
+    );
+    _chatbotMemory.noraSessions.add(newSession);
+    _chatbotMemory.activeNoraSessionId = newSession.id;
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void switchNoraSession(String sessionId) {
+    if (_chatbotMemory.noraSessions.any((s) => s.id == sessionId)) {
+      _chatbotMemory.activeNoraSessionId = sessionId;
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteNoraSession(String sessionId) {
+    _chatbotMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (_chatbotMemory.activeNoraSessionId == sessionId) {
+      _chatbotMemory.activeNoraSessionId = _chatbotMemory.noraSessions.isNotEmpty ? _chatbotMemory.noraSessions.last.id : null;
+    }
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  String _buildNoraContext(NoraSession session) {
+    final sb = StringBuffer();
+    final start = session.startDate;
+    final end = session.endDate.add(const Duration(days: 1)); // inclusive of end date
+
+    // 1. Reflections
+    final relReflections = _reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    sb.writeln("=== REFLECTIONS ===");
+    if (relReflections.isEmpty) sb.writeln("None in this period.");
+    for (var l in relReflections) {
+      sb.writeln("[${DateFormat('yyyy-MM-dd').format(l.timestamp)}] Trigger: ${l.trigger} -> Emotion: ${l.emotion}");
+    }
+
+    // 2. Sessions (if enabled)
+    if (_settings.noraAccessSessions) {
+      sb.writeln("\n=== TASK SESSIONS ===");
+      bool hasSessions = false;
+      for (var task in _mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var s in sub.sessions) {
+            if (s.startTime.isAfter(start) && s.startTime.isBefore(end)) {
+              sb.writeln("[${DateFormat('MM-dd HH:mm').format(s.startTime)}] ${task.name} - ${sub.name}: ${s.durationMinutes}m");
+              hasSessions = true;
+            }
+          }
+        }
+      }
+      if (!hasSessions) sb.writeln("None in this period.");
+    }
+
+    // 3. Finance (if enabled)
+    if (_settings.noraAccessFinance) {
+      sb.writeln("\n=== FINANCE ===");
+      final relTrans = _transactions.where((t) => t.timestamp.isAfter(start) && t.timestamp.isBefore(end)).toList();
+      if (relTrans.isEmpty) sb.writeln("None in this period.");
+      for (var t in relTrans) {
+        final cat = _categories.firstWhereOrNull((c) => c.id == t.categoryId)?.name ?? "Unknown";
+        sb.writeln("[${DateFormat('yyyy-MM-dd').format(t.timestamp)}] ${t.isIncome ? '+' : '-'}₹${t.amount} ($cat) - ${t.note}");
+      }
+    }
+
+    return sb.toString();
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(
+      id: const Uuid().v4(),
+      text: text,
+      sender: MessageSender.user,
+      timestamp: DateTime.now(),
+    );
+
+    session.messages.add(userMsg);
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+
+    try {
+      final contextLogs = _buildNoraContext(session);
+      final historyStr = session.messages.map((m) => "${m.sender == MessageSender.user ? 'USER' : 'NORA'}: ${m.text}").join("\n");
+
+      final prompt = """
+      ${session.customContext != null 
+          ? "SIMULATION OVERRIDE: You are simulating the following persona/scenario: ${session.customContext}\nDo not act as NORA. Act EXACTLY as the person described."
+          : "You are NORA (Neural Operational Response Agent), an advanced AI.\nYour current persona tone is: ${session.tone}. Adopt this tone fully."
+      }
+      
+      CONTEXT LOGS (from ${DateFormat('MMM dd').format(session.startDate)} to ${DateFormat('MMM dd').format(session.endDate)}):
+      $contextLogs
+      
+      CONVERSATION HISTORY:
+      $historyStr
+      
+      INSTRUCTIONS:
+      1. Respond to the USER's last message based on the Context Logs and History.
+      2. Maintain the assigned persona tone or simulation.
+      3. CONFIDENTIALITY: Do not use specific names of real people mentioned in logs.
+      4. Keep responses concise unless asked for detail. No markdown code blocks for normal text.
+      """;
+
+      final responseText = await _aiService.queryNeuralArchive(
+        query: text,
+        logsContext: prompt,
+        modelCandidates: _settings.liteModels,
+        currentApiKeyIndex: _apiKeyIndex,
+        customApiKeys: _settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+
+      final botMsg = ChatbotMessage(
+        id: const Uuid().v4(),
+        text: responseText,
+        sender: MessageSender.bot,
+        timestamp: DateTime.now(),
+      );
+
+      session.messages.add(botMsg);
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+
+    } catch (e) {
+      final errorMsg = ChatbotMessage(
+        id: const Uuid().v4(),
+        text: "Error connecting to Neural Net: $e",
+        sender: MessageSender.bot,
+        timestamp: DateTime.now(),
+      );
+      session.messages.add(errorMsg);
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  // --- LEGACY CHATBOT WRAPPER (To avoid breaking old references if any exist) ---
+  Future<void> sendMessageToChatbot(String text) async {
+    if (activeNoraSession == null) {
+      createNoraSession(
+        title: "Legacy Chat", 
+        tone: "Assistant", 
+        startDate: DateTime.now().subtract(const Duration(days: 7)), 
+        endDate: DateTime.now()
+      );
+    }
+    await sendNoraMessage(text);
+  }
+
+  // --- REFLECTIONS IMPORT/EXPORT ---
+  Future<void> exportReflections() async {
+    final data = {
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
+    };
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      
+      final currentIds = _reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      
+      if (newLogs.isNotEmpty) {
+        _reflectionLogs.addAll(newLogs);
+        _reflectionLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        _markDirty('reflections');
+        _scheduleRealtimeSync();
+        notifyListeners();
+      }
+    }
+  }
+
+
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(_mainTasks, 7);
+    final recentReflections = _reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+        
+    return {
+      'logs': recentReflections,
+      'times': historyStr, // Renamed for internal use but kept structure compatible
+      'sessions': historyStr
+    };
+  }
+  
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {
+      'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason
+    }).toList();
+    
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) {
+         recentBriefings.add(b['summary']);
+       }
+    }
+
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      modelCandidates: _settings.liteModels, 
+      currentApiKeyIndex: _apiKeyIndex, 
+      customApiKeys: _settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+    return result;
+  }
+  
+  Map<String, dynamic>? getTacticalBriefing(String date) { 
+    if (_completedByDay[date] != null && _completedByDay[date]['aiBriefing'] != null) {
+      return _completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  } 
+  
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) { 
+    if (_completedByDay[date] != null && _completedByDay[date]['startDayReport'] != null) {
+      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  int get7DaySkillMomentum(String skillName) { 
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in _reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { 
+    final eval = await _aiService.evaluateReflection(
+      trigger: trigger, emotion: emotion, reason: reason, 
+      modelCandidates: _settings.liteModels, 
+      customApiKeys: _settings.customApiKeys,
+      systemInstruction: _settings.customReflectionPrompt
+    );
+    
+    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+    
+    // Apply XP to skills
+    for (var entry in xpGained.entries) {
+      if (entry.value > 0) {
+        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.addXp(entry.value);
+        }
+      }
+    }
+
+    final log = ReflectionLog(
+      id: const Uuid().v4(),
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: eval['feedback'] ?? '',
+      xpGained: xpGained,
+    );
+
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _markDirty('settings'); // Settings hold skills
+    _scheduleRealtimeSync();
+    notifyListeners();
+
+    return {'log': log, 'xpGained': xpGained};
+  }
+
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) { 
+    final log = ReflectionLog(
+      id: const Uuid().v4(),
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      aiFeedback: "Saved without AI analysis.",
+      xpGained: {},
+    );
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) { 
+    final log = _reflectionLogs.firstWhereOrNull((l) => l.id == id);
+    if (log != null) {
+      if (trigger != null) log.trigger = trigger;
+      if (emotion != null) log.emotion = emotion;
+      if (reason != null) log.reason = reason;
+      _markDirty('reflections');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteReflectionLog(String id) { 
+    final logIndex = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (logIndex != -1) {
+      final log = _reflectionLogs[logIndex];
+      // Revert XP
+      for (var entry in log.xpGained.entries) {
+        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
+        }
+      }
+      _reflectionLogs.removeAt(logIndex);
+      _markDirty('reflections');
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
   MainTask? getSelectedTask() => _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId);
-  List<bool> getCompletionStatusForCurrentWeek(MainTask task) { return List.filled(7, false); }
-  int getYesterdaysTimeForTask(String taskId) { return 0; }
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) { return null; }
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) { 
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday; // 1 (Mon) to 7 (Sun)
+    
+    // Convert to 0-indexed based on settings (startOfWeek: 1=Mon, 7=Sun)
+    final startOffset = _settings.startOfWeek;
+    
+    // Calculate the date of the start of the current week
+    // e.g. If today is Wed(3) and start is Mon(1), diff is 2.
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    
+    final startOfWeekDate = now.subtract(Duration(days: diff));
+
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break; // Future days remain false
+      
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = _completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) {
+            weeklyStatus[i] = true;
+         }
+      }
+    }
+    return weeklyStatus;
+  }
+
+  int getYesterdaysTimeForTask(String taskId) { 
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = _completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) { 
+    for (var mainTask in _mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {
+            'mainTaskId': mainTask.id,
+            'projectId': project.id,
+            'projectTitle': project.title,
+            'stepId': step.id,
+            'stepTitle': step.title,
+          };
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
 }

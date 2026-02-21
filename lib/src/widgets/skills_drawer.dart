@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -16,10 +15,6 @@ class SkillsDrawer extends StatelessWidget {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
     final todayStr = helper.getTodayDateString();
-    final todayLogs = appProvider.reflectionLogs.where((l) {
-      final logDate = "${l.timestamp.year}-${l.timestamp.month.toString().padLeft(2, '0')}-${l.timestamp.day.toString().padLeft(2, '0')}";
-      return logDate == todayStr;
-    }).toList();
 
     return Drawer(
       width: 360,
@@ -99,13 +94,10 @@ class SkillsDrawer extends StatelessWidget {
                         isPrimary: false,
                       ),
                       const SizedBox(height: 16),
-                      if (todayLogs.isNotEmpty)
-                        ...todayLogs.reversed.map((log) => ReflectionLogCard(log: log))
-                      else
-                        const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Text("No entries today.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
-                        )
+                      const Text(
+                        "Past logs are encrypted. Access via Analytics -> Secure Archives.",
+                        style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic, fontSize: 12)
+                      )
                     ],
                   ),
                 )
@@ -167,7 +159,7 @@ class SkillsDrawer extends StatelessWidget {
     );
   }
 
-  Color _getSkillColor(String name) { /* ... keep existing mapping ... */ 
+  Color _getSkillColor(String name) { 
     switch (name.toLowerCase()) {
       case 'wisdom': return Colors.blueAccent;
       case 'courage': return AppTheme.fhAccentRed;
@@ -179,7 +171,7 @@ class SkillsDrawer extends StatelessWidget {
     }
   }
   
-  IconData _getSkillIcon(String name) { /* ... keep existing mapping ... */ 
+  IconData _getSkillIcon(String name) { 
     switch (name.toLowerCase()) {
       case 'wisdom': return MdiIcons.brain;
       case 'courage': return MdiIcons.sword;

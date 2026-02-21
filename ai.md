@@ -1,23 +1,25 @@
 Make the following changes:
 
-    * Move settings button from top bar to System Tab
-    * In top bar, resize every elements and add a new space to show balance (in finance manager)
-     - on clicking that it will open finance manager
-        - Add expanse/income tracker:
-            - It will have button to add expanse and income
-            - The history is sorted out by date and you can delete any old entries (total balance is calculated based on that)
-            - Add charts:
-                - Pie chart for daily category wise expanse and income (make it possible to select category and add custom category with a color and icon)
-                - Line graph for last seven days daily expanse and income
-        - Add savings tracker:
-            - It will help us save money for a traget task:
-                - Asks for icon, name, target amount and a button to add from my balance when I want to save for this
-                - Make it possible to set a target date, also log daily input to this and use linear regression to predict real time left, also show a progress bar with real progress and a transparent progress based on how much should be saved
-                - Chart:
-                    - Line graph with each day investment (for last seven days)
+    - Add advanced journaling tools - i analysis screen (blow the buttons for archive and ora ai)
+        - People Info:
+            This is a new space with lock (same pin), On initilization (using a button) it fetches all people we know and their names and their relation to user (based on all reflections), and show a list
+            on clicking each people user can further generate more details about them (in a compact advanced screen) based on all reflections
+            This makes it easy to learn and analyse about the people, also user can upadte this info anytime using update button (regenerate based on info of reflection after last update)
+        - Real Quick Therapy:
+            - This is shown outside advanced jornaling tools (in system):
+                It should ask why user need therapy right now, then how he feels now and what he gonna do about it (have inputs with multiline for it)
+                After saving, it runs with AI with all reflections availble and then create a report screen:
+                    - Tells user what to do,
+                    - Also it shows a person in people info user can talk this about and also create a small map of how he have to talk with them about the matter (this is optional user can chose not to do so)
+        - Simulate Situations:
+            - This is part of advanced tools:
+                Simulate EVents:
+                    - This will create a brief note of how a situation may look like in future based on user input and all reflections
+                Simulate Talks:
+                    - This will craete a nora chat session but simulated with anyone from people info (so people info might have much info to simualte a talk), also to make it look real user can manually upload a chat history with the pesrson if needed (like from whatsapp)
+ 
 
-            - It will have a list of such tracker (like in project) and the main fewtaures are in its own screen, also option to edit and delete also a description if needed
-
+    
 
 * Add the above feature still sticking with VALORANT protocol API
 

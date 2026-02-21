@@ -14,9 +14,12 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  
-  // New field for conflict resolution
   int lastModified; 
+  
+  // NEW: Security and Nora AI Settings
+  String? journalPin;
+  bool noraAccessSessions;
+  bool noraAccessFinance;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -40,7 +43,10 @@ class AppSettings {
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-    int? lastModified, // Optional constructor param
+    int? lastModified,
+    this.journalPin,
+    this.noraAccessSessions = false,
+    this.noraAccessFinance = false,
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -78,6 +84,9 @@ class AppSettings {
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
       lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      journalPin: json['journalPin'] as String?,
+      noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
+      noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
     );
   }
   
@@ -97,6 +106,9 @@ class AppSettings {
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
       'lastModified': lastModified,
+      'journalPin': journalPin,
+      'noraAccessSessions': noraAccessSessions,
+      'noraAccessFinance': noraAccessFinance,
     };
   }
 }

@@ -6,18 +6,19 @@ import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
-import 'package:arcane/src/screens/neural_archive_screen.dart';
+import 'package:arcane/src/screens/nora_ai_screen.dart';
+import 'package:arcane/src/screens/reflections_archive_screen.dart';
+import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
 
 class DailySummaryView extends StatefulWidget {
   const DailySummaryView({super.key});
@@ -45,27 +46,24 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  void _navigateToReflectionEditor(BuildContext context, {ReflectionLog? initialLog}) {
-    final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReflectionEditorScreen(
-          initialLog: initialLog,
-          dateStr: dateStr,
-        ),
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, AppProvider provider, String type, int index, dynamic currentValue) {
-    if (type == 'Reflection') {
-      final logId = currentValue['id'];
-      final log = provider.reflectionLogs.firstWhereOrNull((l) => l.id == logId);
-      if (log != null) {
-        _navigateToReflectionEditor(context, initialLog: log);
+  Future<void> _checkPinAndNavigate(BuildContext context, Widget screen) async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    // If PIN is not set, prompt setup
+    if (provider.settings.journalPin == null || provider.settings.journalPin!.isEmpty) {
+      final newPin = await PinDialog.show(context: context, isSetupMode: true);
+      if (newPin != null && newPin is String) {
+        provider.setJournalPin(newPin);
+        if (mounted) {
+           Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        }
       }
-      return;
+    } else {
+      // Verify PIN
+      final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
+      if (success == true && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+      }
     }
   }
 
@@ -172,7 +170,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateStartDayReport(AppProvider provider) async {
     setState(() => _isGeneratingStartDay = true);
     try {
-      await provider.generateStartDayReport();
+      await provider.reportActions.generateStartDayReport();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
     } finally {
@@ -215,23 +213,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(MdiIcons.archiveSearchOutline, size: 20, color: AppTheme.fhAccentPurple),
-                    tooltip: "NEURAL ARCHIVE",
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NeuralArchiveScreen())),
-                  ),
-                  TextButton.icon(
-                    icon: _isGeneratingWeeklyReport 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(MdiIcons.fileChartOutline, size: 16),
-                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
-                  ),
-                ],
-              )
+              TextButton.icon(
+                icon: _isGeneratingWeeklyReport 
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(MdiIcons.fileChartOutline, size: 16),
+                label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -401,46 +390,44 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
           
+          // Secure Log Actions
+          const Text("CLASSIFIED LOGS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("REFLECTIONS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.add_box, color: AppTheme.fhAccentTeal),
-                onPressed: () => _navigateToReflectionEditor(context),
-              )
+               Expanded(
+                 child: ValorantButton(
+                   label: "ARCHIVE",
+                   icon: MdiIcons.lockOutline,
+                   isPrimary: false,
+                   color: AppTheme.fhAccentTeal.withOpacity(0.3),
+                   onPressed: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
+                 )
+               ),
+               const SizedBox(width: 12),
+               Expanded(
+                 child: ValorantButton(
+                   label: "NORA AI",
+                   icon: MdiIcons.brain,
+                   isPrimary: false,
+                   color: AppTheme.fhAccentPurple.withOpacity(0.3),
+                   onPressed: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+                 )
+               ),
             ],
           ),
-          if (reflectionsForDate.isEmpty)
-             const Padding(
-               padding: EdgeInsets.all(8.0),
-               child: Text("No entries recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
+          
+          const SizedBox(height: 12),
+          SizedBox(
+             width: double.infinity,
+             child: ValorantButton(
+               label: "ADVANCED PROTOCOLS",
+               icon: MdiIcons.hexagonMultipleOutline,
+               isPrimary: false,
+               color: AppTheme.fhAccentPurple.withOpacity(0.1),
+               onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
              )
-          else
-            ...reflectionsForDate.asMap().entries.map((entry) {
-              final log = entry.value;
-              return GestureDetector(
-                onTap: () => _showEditDialog(context, appProvider, 'Reflection', entry.key, {
-                  'id': log.id, 'trigger': log.trigger, 'emotion': log.emotion, 'reason': log.reason
-                }),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(log.trigger.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-                      const SizedBox(height: 4),
-                      Text(log.reason, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-                    ],
-                  ),
-                ),
-              );
-            }),
+           ),
             
           const SizedBox(height: 40),
         ],

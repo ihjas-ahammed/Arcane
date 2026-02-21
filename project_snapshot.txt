@@ -1,830 +1,562 @@
---- START OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
-import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/math_utils.dart';
-import 'package:arcane/src/widgets/dialogs/add_savings_log_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
 
-class SavingsDetailScreen extends StatelessWidget {
-  final String goalId;
 
-  const SavingsDetailScreen({super.key, required this.goalId});
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/utils/json_utils.dart';
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    
-    // Use firstWhereOrNull to prevent StateError when the goal is deleted
-    final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
-    
-    // If the goal is deleted, return an empty scaffold to avoid errors while popping
-    if (goal == null) {
-      return const Scaffold(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        body: SizedBox.shrink(),
-      );
-    }
-    
-    // Progress logic
-    final actualProgress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
-    
-    final totalDuration = goal.targetDate.difference(goal.createdAt).inMilliseconds;
-    final elapsed = DateTime.now().difference(goal.createdAt).inMilliseconds;
-    final expectedProgress = totalDuration > 0 ? (elapsed / totalDuration).clamp(0.0, 1.0) : 0.0;
+class AIService {
+  
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final List<String> apiKeysToTry = <String>{
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    }.toList();
 
-    // Linear Regression Prediction
-    DateTime? predictedDate;
-    if (goal.logs.isNotEmpty) {
-      List<Point<double>> points = [const Point(0.0, 0.0)];
-      double cumulative = 0;
-      // Sort logs chronologically for regression
-      final sortedLogs = List.from(goal.logs)..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      for (var log in sortedLogs) {
-        final days = log.timestamp.difference(goal.createdAt).inSeconds / 86400.0;
-        cumulative += log.amount;
-        points.add(Point(days, cumulative));
-      }
-      final reg = MathUtils.linearRegression(points);
-      if (reg['slope']! > 0) {
-        final targetDays = MathUtils.predictX(goal.targetAmount, reg['slope']!, reg['intercept']!);
-        predictedDate = goal.createdAt.add(Duration(seconds: (targetDays * 86400).toInt()));
-      }
+    if (apiKeysToTry.isEmpty) {
+      throw Exception("No valid Gemini API keys found.");
     }
 
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        title: Text(goal.name.toUpperCase()),
-        actions: [
-          IconButton(
-            icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-            onPressed: () {
-              provider.financeActions.deleteSavingsGoal(goal.id);
-              Navigator.pop(context);
-            },
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Stats
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("ACCUMULATED FUNDS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.currentAmount.toStringAsFixed(2)}", style: const TextStyle(color: AppTheme.fhAccentPurple, fontSize: 32, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text("TARGET", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Progress Bar Stack
-            const Text("PROGRESS TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Container(
-              height: 16,
-              width: double.infinity,
-              decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
-              child: Stack(
-                children: [
-                  FractionallySizedBox(
-                    widthFactor: expectedProgress,
-                    child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8))),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: actualProgress,
-                    child: Container(decoration: BoxDecoration(color: actualProgress >= expectedProgress ? AppTheme.fhAccentGreen : AppTheme.fhAccentPurple, borderRadius: BorderRadius.circular(8))),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("Target: ${DateFormat('MMM dd, yyyy').format(goal.targetDate)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-                if (predictedDate != null)
-                  Text("Projected: ${DateFormat('MMM dd, yyyy').format(predictedDate)}", style: TextStyle(color: predictedDate.isBefore(goal.targetDate) ? AppTheme.fhAccentGreen : AppTheme.fhAccentOrange, fontSize: 12)),
-              ],
-            ),
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
 
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text("ALLOCATE FUNDS"),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48), backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
-              onPressed: () => _showAddLogDialog(context, provider, goal.id),
-            ),
-            
-            const SizedBox(height: 32),
-            const Text("INVESTMENT LOG", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...goal.logs.map((log) {
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(MdiIcons.arrowRightBottom, color: AppTheme.fhAccentPurple),
-                title: Text("₹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
-                subtitle: Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
-                trailing: IconButton(
-                  icon: Icon(Icons.delete, color: AppTheme.fhAccentRed.withOpacity(0.7), size: 20),
-                  onPressed: () => provider.financeActions.deleteSavingsLog(goal.id, log.id),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
 
-  void _showAddLogDialog(BuildContext context, AppProvider provider, String goalId) {
-    showDialog(context: context, builder: (ctx) => AddSavingsLogDialog(goalId: goalId));
-  }
-}
---- END OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/finance/finance_tracker_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/finance/finance_charts.dart';
-import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
-import 'package:arcane/src/utils/finance_helpers.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-
-class FinanceTrackerView extends StatefulWidget {
-  const FinanceTrackerView({super.key});
-
-  @override
-  State<FinanceTrackerView> createState() => _FinanceTrackerViewState();
-}
-
-class _FinanceTrackerViewState extends State<FinanceTrackerView> {
-  DateTime _selectedDate = DateTime.now();
-
-  void _showAddTransactionDialog(BuildContext context, bool isIncome) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AddTransactionDialog(isIncome: isIncome),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final balance = provider.financeActions.currentBalance;
-    
-    // Calculate 30d totals
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    double income30d = 0;
-    double expense30d = 0;
-    for (var t in provider.transactions) {
-      if (t.timestamp.isAfter(thirtyDaysAgo)) {
-        if (t.isIncome) income30d += t.amount;
-        else expense30d += t.amount;
-      }
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Balance Card
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.fhBgDark, AppTheme.fhBgDeepDark],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                const Text("TOTAL BALANCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                const SizedBox(height: 8),
-                Text(
-                  "₹${balance.toStringAsFixed(2)}",
-                  style: const TextStyle(color: AppTheme.fhAccentTeal, fontFamily: AppTheme.fontDisplay, fontSize: 40, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatCol("INCOME (30D)", income30d, AppTheme.fhAccentTeal),
-                    Container(width: 1, height: 30, color: AppTheme.fhBorderColor),
-                    _buildStatCol("EXPENSE (30D)", expense30d, AppTheme.fhAccentRed),
-                  ],
-                )
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-          
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text("INCOME"),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal, foregroundColor: Colors.black),
-                  onPressed: () => _showAddTransactionDialog(context, true),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.remove),
-                  label: const Text("EXPENSE"),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed, foregroundColor: Colors.white),
-                  onPressed: () => _showAddTransactionDialog(context, false),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-
-          // Charts
-          FinanceCharts(
-            transactions: provider.transactions,
-            categories: provider.categories,
-            selectedDate: _selectedDate,
-            onDateChanged: (d) => setState(() => _selectedDate = d),
-          ),
-
-          const SizedBox(height: 32),
-          const Text("TRANSACTION HISTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-          const SizedBox(height: 12),
-
-          if (provider.transactions.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No transactions recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic))))
-          else
-            ...provider.transactions.map((tx) {
-              // Note: Use 'FFFFFF' (6 chars) to prevent FormatException when parsed
-              final cat = provider.categories.firstWhere((c) => c.id == tx.categoryId, orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome));
-              final color = Color(int.parse("0xFF${cat.colorHex}"));
-              return Dismissible(
-                key: ValueKey(tx.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: AppTheme.fhAccentRed,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (_) => provider.financeActions.deleteTransaction(tx.id),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withOpacity(0.6),
-                    border: Border(left: BorderSide(color: tx.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, width: 3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                        child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(cat.name.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
-                            if (tx.note.isNotEmpty) Text(tx.note, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
-                            Text(DateFormat('MMM dd, HH:mm').format(tx.timestamp), style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        "${tx.isIncome ? '+' : '-'}₹${tx.amount.toStringAsFixed(2)}",
-                        style: TextStyle(color: tx.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCol(String label, double value, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text("₹${value.toStringAsFixed(0)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 18)),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/finance/finance_tracker_view.dart ---
-
---- START OF FILE lib/src/widgets/finance/finance_charts.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-
-class FinanceCharts extends StatelessWidget {
-  final List<FinanceTransaction> transactions;
-  final List<FinanceCategory> categories;
-  final DateTime selectedDate;
-  final ValueChanged<DateTime> onDateChanged;
-
-  const FinanceCharts({
-    super.key,
-    required this.transactions,
-    required this.categories,
-    required this.selectedDate,
-    required this.onDateChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Daily Expense Pie
-        ValorantCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("DAILY EXPENSES", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2023),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) onDateChanged(picked);
-                    },
-                    child: Row(
-                      children: [
-                        Text(DateFormat('MMM dd').format(selectedDate), style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold)),
-                        const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTeal, size: 16),
-                      ],
-                    ),
-                  )
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(height: 180, child: _buildPieChart()),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 7 Day Line Chart
-        ValorantCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("7-DAY TREND", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Row(
-                    children: [
-                      Container(width: 8, height: 8, color: AppTheme.fhAccentTeal), const SizedBox(width: 4), const Text("IN", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                      const SizedBox(width: 8),
-                      Container(width: 8, height: 8, color: AppTheme.fhAccentRed), const SizedBox(width: 4), const Text("OUT", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                    ],
-                  )
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(height: 180, child: _buildLineChart()),
-            ],
-          ),
-        )
-      ],
-    );
-  }
-
-  Widget _buildPieChart() {
-    Map<String, double> categoryTotals = {};
-    for (var tx in transactions) {
-      if (!tx.isIncome && 
-          tx.timestamp.year == selectedDate.year && 
-          tx.timestamp.month == selectedDate.month && 
-          tx.timestamp.day == selectedDate.day) {
-        categoryTotals[tx.categoryId] = (categoryTotals[tx.categoryId] ?? 0) + tx.amount;
-      }
-    }
-
-    if (categoryTotals.isEmpty) {
-      return const Center(child: Text("NO EXPENSES TODAY", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)));
-    }
-
-    return PieChart(
-      PieChartData(
-        sectionsSpace: 2,
-        centerSpaceRadius: 40,
-        sections: categoryTotals.entries.map((e) {
-          final cat = categories.firstWhere((c) => c.id == e.key, orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: '', isIncomeCategory: false));
-          return PieChartSectionData(
-            color: Color(int.parse("0xFF${cat.colorHex}")),
-            value: e.value,
-            title: '₹${e.value.toInt()}',
-            radius: 20,
-            titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-          );
-        }).toList(),
-      )
-    );
-  }
-
-  Widget _buildLineChart() {
-    final now = DateTime.now();
-    final List<FlSpot> incSpots = [];
-    final List<FlSpot> expSpots = [];
-
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      double inc = 0, exp = 0;
-      for (var tx in transactions) {
-        if (tx.timestamp.year == date.year && tx.timestamp.month == date.month && tx.timestamp.day == date.day) {
-          if (tx.isIncome) inc += tx.amount;
-          else exp += tx.amount;
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
         }
       }
-      incSpots.add(FlSpot((6 - i).toDouble(), inc));
-      expSpots.add(FlSpot((6 - i).toDouble(), exp));
+    }
+    throw Exception(
+        "All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+
+        String? rawResponseText = response.text;
+        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+          throw Exception("AI response was empty.");
+        }
+        
+        return JsonUtils.tryDecode(rawResponseText);
+      },
+    );
+  }
+
+  // --- Prediction ---
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, 
+    required String currentTime,
+    required String availableTasksContext, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-10 likely sessions for the remainder of the day.
+    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:
+    [
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    final result = await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        String? raw = response.text;
+        if (raw == null) throw Exception("Empty AI response");
+        return JsonUtils.tryDecode(raw);
+      },
+    );
+
+    if (result is List) {
+      return result.map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+  // Generalized Nora / Neural Archive Query
+  Future<String> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        return response.text ?? "Archive data corrupted or empty.";
+      },
+    );
+  }
+
+  // --- Project / Generation methods ---
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required List<String> modelCandidates,
+    List<Map<String, String>>? dailyReflections,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
+    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
+    
+    final prompt = """
+    Analyze this reflection log.
+    Trigger: $trigger
+    Emotion: $emotion
+    Reason: $reason
+    
+    1. Provide constructive feedback. ($instruction)
+    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+
+    Output JSON: {
+      "feedback": "string", 
+      "xp_allocation": {"Wisdom": int, ...}
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a Tactical Briefing based on today's reflections.
+    Current Logs: ${jsonEncode(reflections)}
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    
+    Tone: Empathetic, psychologically wise, therapist.
+    
+    Tasks:
+    1. Create a concise summary of the day's psychological state.
+    2. Identify specific ability improvements or growth by comparing with previous context.
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    
+    Output JSON: {
+      "summary": "string (max 120 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText. ENSURE VALID JSON.";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
     }
 
-    return LineChart(
-      LineChartData(
-        gridData: const FlGridData(show: false),
-        titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final date = now.subtract(Duration(days: 6 - value.toInt()));
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(DateFormat('E').format(date), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                );
-              }
-            )
-          )
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: incSpots, color: AppTheme.fhAccentTeal, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withOpacity(0.1))
-          ),
-          LineChartBarData(
-            spots: expSpots, color: AppTheme.fhAccentRed, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentRed.withOpacity(0.1))
-          )
-        ]
-      )
-    );
-  }
-}
---- END OF FILE lib/src/widgets/finance/finance_charts.dart ---
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
 
---- START OF FILE lib/src/widgets/finance/savings_goals_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/screens/finance/savings_detail_screen.dart';
-import 'package:arcane/src/widgets/dialogs/add_savings_goal_dialog.dart';
-import 'package:arcane/src/utils/finance_helpers.dart';
-import 'package:provider/provider.dart';
-
-class SavingsGoalsView extends StatelessWidget {
-  const SavingsGoalsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final goals = provider.savingsGoals;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton.icon(
-            icon: const Icon(Icons.add),
-            label: const Text("INITIALIZE SAVINGS GOAL"),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhBgDark, foregroundColor: AppTheme.fhAccentTeal, side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
-            onPressed: () {
-              showDialog(context: context, builder: (ctx) => const AddSavingsGoalDialog());
-            },
-          ),
-          const SizedBox(height: 24),
-          if (goals.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No active savings goals.", style: TextStyle(color: AppTheme.fhTextDisabled))))
-          else
-            ...goals.map((g) {
-              final progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount).clamp(0.0, 1.0) : 0.0;
-              return GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SavingsDetailScreen(goalId: g.id))),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(FinanceHelpers.getIconData(g.iconName), color: AppTheme.fhAccentPurple, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(g.name.toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-                          ),
-                          Text("₹${g.currentAmount.toStringAsFixed(0)} / ₹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: AppTheme.fhBgDeepDark,
-                          color: AppTheme.fhAccentPurple,
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              );
-            })
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/finance/savings_goals_view.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/add_transaction_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/dialogs/add_category_dialog.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:provider/provider.dart';
-
-class AddTransactionDialog extends StatefulWidget {
-  final bool isIncome;
-  const AddTransactionDialog({super.key, required this.isIncome});
-
-  @override
-  State<AddTransactionDialog> createState() => _AddTransactionDialogState();
-}
-
-class _AddTransactionDialogState extends State<AddTransactionDialog> {
-  final _amountController = TextEditingController();
-  final _noteController = TextEditingController();
-  String? _selectedCategoryId;
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _noteController.dispose();
-    super.dispose();
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          if (methods.contains('generateContent')) {
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return [];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final categories = provider.categories.where((c) => c.isIncomeCategory == widget.isIncome).toList();
+  // --- Start Day Report ---
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
     
-    return AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: Text(widget.isIncome ? "ADD INCOME" : "ADD EXPENSE", style: TextStyle(color: widget.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, fontFamily: AppTheme.fontDisplay)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontSize: 24),
-              decoration: const InputDecoration(prefixText: "₹ ", hintText: "0.00"),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedCategoryId,
-              dropdownColor: AppTheme.fhBgDark,
-              decoration: const InputDecoration(labelText: "CATEGORY"),
-              items: [
-                ...categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, style: const TextStyle(color: Colors.white)))),
-                const DropdownMenuItem(value: 'ADD_NEW', child: Text("+ Add New Category", style: TextStyle(color: AppTheme.fhAccentPurple))),
-              ],
-              onChanged: (val) {
-                if (val == 'ADD_NEW') {
-                  Navigator.pop(context);
-                  showDialog(context: context, builder: (_) => AddCategoryDialog(isIncome: widget.isIncome)).then((_) {
-                     // Could reopen this dialog or just let them reopen it manually.
-                  });
-                } else {
-                  setState(() => _selectedCategoryId = val);
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _noteController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "NOTE (Optional)"),
-            )
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: widget.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, foregroundColor: Colors.black),
-          onPressed: () {
-            final amt = double.tryParse(_amountController.text);
-            if (amt != null && amt > 0 && _selectedCategoryId != null) {
-              provider.financeActions.addTransaction(amt, widget.isIncome, _selectedCategoryId!, _noteController.text.trim(), DateTime.now());
-              Navigator.pop(context);
-            }
-          },
-          child: const Text("CONFIRM"),
-        )
-      ],
-    );
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a futuristic, empathetic 'Forecast' message (max 5 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
+    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "directives": ["string", "string", "string"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // --- Advanced Journaling Tools ---
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user. 
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people": [
+        {
+          "name": "string",
+          "relation": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generatePersonDetails({
+    required String personName,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
+    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "details": "string (multiline formatted text)"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy({
+    required String reason,
+    required String feeling,
+    required String action,
+    required String logsText,
+    required String peopleContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    User needs immediate psychological assistance.
+    Current Situation / Reason: $reason
+    Current Feeling: $feeling
+    Planned Action: $action
+    
+    Past Context (Reflections): $logsText
+    Known People: $peopleContext
+    
+    Task:
+    1. Provide a concise, empathetic, and tactical action plan for right now.
+    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
+    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
+    
+    Output JSON ONLY:
+    {
+      "action_plan": "string",
+      "suggested_person": "string or null",
+      "conversation_map": ["step 1", "step 2"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> simulateEvent({
+    required String situation,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
+    
+    Proposed Situation: $situation
+    
+    Past Context (Reflections): $logsText
+    
+    Task:
+    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
+    
+    Output JSON ONLY:
+    {
+      "simulation": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
   }
 }
---- END OF FILE lib/src/widgets/dialogs/add_transaction_dialog.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/add_savings_goal_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-
-class AddSavingsGoalDialog extends StatefulWidget {
-  const AddSavingsGoalDialog({super.key});
-
-  @override
-  State<AddSavingsGoalDialog> createState() => _AddSavingsGoalDialogState();
-}
-
-class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
-  final _nameController = TextEditingController();
-  final _amountController = TextEditingController();
-  DateTime _targetDate = DateTime.now().add(const Duration(days: 30));
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("NEW SAVINGS PROTOCOL", style: TextStyle(fontFamily: AppTheme.fontDisplay, color: AppTheme.fhTextPrimary)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: "Goal Name")),
-            const SizedBox(height: 16),
-            TextField(controller: _amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Target Amount", prefixText: "₹ ")),
-            const SizedBox(height: 16),
-            const Text("TARGET DATE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: _targetDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 3650)));
-                if (picked != null) setState(() => _targetDate = picked);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                child: Text(DateFormat('MMM dd, yyyy').format(_targetDate), style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold)),
-              ),
-            )
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
-          onPressed: () {
-            final amt = double.tryParse(_amountController.text);
-            if (amt != null && _nameController.text.isNotEmpty) {
-              Provider.of<AppProvider>(context, listen: false).financeActions.addSavingsGoal(_nameController.text.trim(), '', amt, _targetDate, 'target');
-              Navigator.pop(context);
-            }
-          }, 
-          child: const Text("INITIALIZE")
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/add_savings_goal_dialog.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/add_savings_log_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
-
-class AddSavingsLogDialog extends StatefulWidget {
-  final String goalId;
-  const AddSavingsLogDialog({super.key, required this.goalId});
-
-  @override
-  State<AddSavingsLogDialog> createState() => _AddSavingsLogDialogState();
-}
-
-class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
-  final _amountController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    final bal = provider.financeActions.currentBalance;
-
-    return AlertDialog(
-      title: const Text("ALLOCATE FUNDS"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Available Balance: ₹${bal.toStringAsFixed(2)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: 'RobotoMono'),
-            decoration: const InputDecoration(prefixText: "₹ "),
-            autofocus: true,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
-          onPressed: () {
-            final amt = double.tryParse(_amountController.text);
-            if (amt != null && amt > 0) {
-              if (amt > bal) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient balance.")));
-                return;
-              }
-              provider.financeActions.addSavingsLog(widget.goalId, amt);
-              Navigator.pop(context);
-            }
-          }, 
-          child: const Text("CONFIRM")
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/add_savings_log_dialog.dart ---
+--- END OF FILE lib/src/services/ai_service.dart ---
