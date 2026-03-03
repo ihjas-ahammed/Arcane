@@ -36,8 +36,11 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
     double expense30d = 0;
     for (var t in provider.transactions) {
       if (t.timestamp.isAfter(thirtyDaysAgo)) {
-        if (t.isIncome) income30d += t.amount;
-        else expense30d += t.amount;
+        if (t.isIncome) {
+          income30d += t.amount;
+        } else {
+          expense30d += t.amount;
+        }
       }
     }
 

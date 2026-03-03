@@ -48,27 +48,27 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("EMERGENCY THERAPY", style: TextStyle(color: AppTheme.fhAccentRed)),
-        iconTheme: const IconThemeData(color: AppTheme.fhAccentRed),
+        title: const Text("EMERGENCY THERAPY", style: TextStyle(color: AppTheme.fhAccentTeal)),
+        iconTheme: const IconThemeData(color: AppTheme.fhAccentTeal),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("SITUATION REPORT", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+            const Text("SITUATION REPORT", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _reasonController, hint: "Why do you need triage right now?", minLines: 3),
             
             const SizedBox(height: 24),
             
-            const Text("CURRENT STATE", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+            const Text("CURRENT STATE", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _feelingController, hint: "How are you feeling?", minLines: 2),
 
             const SizedBox(height: 24),
 
-            const Text("PLANNED ACTION (OPTIONAL)", style: TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+            const Text("PLANNED ACTION (OPTIONAL)", style: TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _actionController, hint: "What were you planning to do?", minLines: 2),
 
@@ -78,7 +78,7 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
               width: double.infinity,
               child: ValorantButton(
                 label: provider.loadingTaskName == "Formulating Strategy..." ? "PROCESSING..." : "SUBMIT FOR ANALYSIS",
-                color: AppTheme.fhAccentRed,
+                color: AppTheme.fhAccentTeal,
                 onPressed: provider.loadingTaskName != null ? null : () => _submit(provider),
               ),
             )

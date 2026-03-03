@@ -105,7 +105,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
     final result = await showDialog<Map<String, DateTime>>(
       context: context,
-      builder: (ctx) => const AddSessionDialog(),
+      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
     );
     
     if (result != null) {

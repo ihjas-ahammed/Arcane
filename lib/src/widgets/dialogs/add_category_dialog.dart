@@ -13,8 +13,8 @@ class AddCategoryDialog extends StatefulWidget {
 
 class _AddCategoryDialogState extends State<AddCategoryDialog> {
   final _nameController = TextEditingController();
-  String _colorHex = "00F59B";
-  String _iconName = "circle";
+  final String _colorHex = "00F59B";
+  final String _iconName = "circle";
 
   @override
   Widget build(BuildContext context) {

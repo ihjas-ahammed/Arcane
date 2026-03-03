@@ -15,6 +15,7 @@ import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:arcane/src/widgets/ui/reflection_progress_widget.dart';
 import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -224,6 +225,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ],
           ),
           const SizedBox(height: 12),
+          
+          // 1. 7-DAY PERFORMANCE (ChartCarousel)
           ChartCarousel(
             height: 250,
             pages: [
@@ -247,70 +250,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
           
-          InkWell(
-            onTap: () => _pickDate(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                border: Border.all(color: AppTheme.fhBorderColor),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "INSPECT DATE", 
-                        style: TextStyle(
-                          color: AppTheme.fhTextSecondary, 
-                          fontSize: 10, 
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2
-                        )
-                      ),
-                      Text(
-                        _selectedDate ?? 'TODAY', 
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontDisplay, 
-                          letterSpacing: 1.0, 
-                          fontSize: 18,
-                          color: AppTheme.fhTextPrimary,
-                          fontWeight: FontWeight.bold
-                        )
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // START DAY REPORT
-          if (startDayReport != null)
-            StartDayReportCard(
-              report: startDayReport,
-              isRegenerating: _isGeneratingStartDay,
-              onRegenerate: () => _generateStartDayReport(appProvider),
-            )
-          else if (isToday)
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
-                icon: MdiIcons.power,
-                isPrimary: true,
-                color: AppTheme.fhAccentTeal,
-                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
-              ),
-            ),
-
-          const SizedBox(height: 24),
-
+          // 2. MISSION FOCUS & VIRTUE GROWTH PIE CHARTS
           Row(
             children: [
               Expanded(
@@ -356,7 +296,80 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
 
-          // TACTICAL BRIEFING SECTION
+          // 3. INSPECT DATE
+          InkWell(
+            onTap: () => _pickDate(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                border: Border.all(color: AppTheme.fhBorderColor),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "INSPECT DATE", 
+                        style: TextStyle(
+                          color: AppTheme.fhTextSecondary, 
+                          fontSize: 10, 
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2
+                        )
+                      ),
+                      Text(
+                        _selectedDate ?? 'TODAY', 
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontDisplay, 
+                          letterSpacing: 1.0, 
+                          fontSize: 18,
+                          color: AppTheme.fhTextPrimary,
+                          fontWeight: FontWeight.bold
+                        )
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 4. REFLECTION PROGRESS WIDGET
+          ReflectionProgressWidget(
+            logs: reflectionsForDate,
+            dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 5. SYSTEM STARTUP REPORT
+          if (startDayReport != null)
+            StartDayReportCard(
+              report: startDayReport,
+              isRegenerating: _isGeneratingStartDay,
+              onRegenerate: () => _generateStartDayReport(appProvider),
+            )
+          else if (isToday)
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
+                icon: MdiIcons.power,
+                isPrimary: true,
+                color: AppTheme.fhAccentTeal,
+                onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // 6. TACTICAL BRIEFING SECTION
           if (displayBriefing != null)
             TacticalBriefingCard(
               briefingData: displayBriefing,
@@ -390,7 +403,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
           const SizedBox(height: 24),
           
-          // Secure Log Actions
+          // 7. CLASSIFIED LOGS
           const Text("CLASSIFIED LOGS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(

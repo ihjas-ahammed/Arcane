@@ -92,7 +92,12 @@ class TimerActions {
   // Helper to push the session to the task log
   void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
     final now = DateTime.now();
-    final start = timer.startTime;
+    DateTime start = timer.startTime;
+
+    // Cap runaway sessions to 12 hours max to prevent stats corruption if left open accidentally
+    if (now.difference(start).inHours >= 12) {
+      start = now.subtract(const Duration(hours: 1)); 
+    }
 
     // Only log if there's actual time elapsed (> 0ms, effectively)
     if (now.isAfter(start)) {

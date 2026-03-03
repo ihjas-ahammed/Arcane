@@ -128,8 +128,11 @@ class FinanceCharts extends StatelessWidget {
       double inc = 0, exp = 0;
       for (var tx in transactions) {
         if (tx.timestamp.year == date.year && tx.timestamp.month == date.month && tx.timestamp.day == date.day) {
-          if (tx.isIncome) inc += tx.amount;
-          else exp += tx.amount;
+          if (tx.isIncome) {
+            inc += tx.amount;
+          } else {
+            exp += tx.amount;
+          }
         }
       }
       incSpots.add(FlSpot((6 - i).toDouble(), inc));

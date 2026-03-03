@@ -256,6 +256,7 @@ class AIService {
     required String trigger,
     required String emotion,
     required String reason,
+    required String action,
     required List<String> modelCandidates,
     List<Map<String, String>>? dailyReflections,
     List<String>? customApiKeys,
@@ -266,9 +267,10 @@ class AIService {
     
     final prompt = """
     Analyze this reflection log.
-    Trigger: $trigger
-    Emotion: $emotion
+    Situation: $trigger
+    Feeling: $emotion
     Reason: $reason
+    Action Planned: $action
     
     1. Provide constructive feedback. ($instruction)
     2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
@@ -306,8 +308,8 @@ class AIService {
     
     Tone: Empathetic, psychologically wise, therapist.
     
-    Tasks:
-    1. Create a concise summary of the day's psychological state.
+    Task:
+    1. Create a concise summary focusing purely on GRATITUDE. Highlight everything the user should be grateful for based on today's reflections.
     2. Identify specific ability improvements or growth by comparing with previous context.
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
@@ -336,7 +338,21 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText. ENSURE VALID JSON.";
+    final prompt = """
+    Task:
+    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
+    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
+    3. Output JSON: 
+    { 
+      "summary": "string", 
+      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
+      "time_insight": "string",
+      "grateful_people": [ {"name": "string", "reason": "string"} ]
+    } 
+    Logs: $logsText. 
+    Time: $timeStatsText. 
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
@@ -386,7 +402,7 @@ class AIService {
     
     Task:
     1. Analyze the user's momentum.
-    2. Provide a futuristic, empathetic 'Forecast' message (max 5 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
+    2. Provide a futuristic 'Forecast' message focusing intensely on the SPECIFIC IMPROVEMENTS the user can make today based on yesterday's logs and sessions. How can they be better today?
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.

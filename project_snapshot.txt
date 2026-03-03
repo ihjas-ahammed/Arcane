@@ -1,562 +1,2120 @@
+--- START OF FILE project_snapshot_out.txt ---
 
-
---- START OF FILE lib/src/services/ai_service.dart ---
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
+--- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/utils/json_utils.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/history_helper.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:collection/collection.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 
-class AIService {
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/finance_models.dart'; 
+
+import 'package:arcane/src/providers/actions/task_actions.dart';
+import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
+import 'package:arcane/src/providers/actions/timer_actions.dart';
+import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart'; 
+import 'package:arcane/src/providers/actions/finance_actions.dart'; 
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
+import 'package:arcane/src/services/ai_service.dart';
+
+class AppProvider with ChangeNotifier, WidgetsBindingObserver {
+  final StorageService _storageService = StorageService();
+  final LocalStorageService _localStorageService = LocalStorageService();
+  final DataExportService _exportService = DataExportService();
+  final AIService _aiService = AIService();
+
+  AIService get aiService => _aiService;
+
+  Timer? _autoSaveTimer;
+  Timer? _realtimeSyncDebouncer;
+
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
+
+  User? _currentUser;
+  User? get currentUser => _currentUser;
+  bool _authLoading = true;
+  bool get authLoading => _authLoading;
   
-  Future<T> _executeWithModelAndKeyRotation<T>({
-    required List<String> modelCandidates,
-    required Future<T> Function(String apiKey, String modelName) requestFn,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final List<String> apiKeysToTry = <String>{
-      ...geminiApiKeys,
-      if (customApiKeys != null) ...customApiKeys
-    }.toList();
+  bool _isSyncing = false; 
+  bool get isSyncing => _isSyncing;
+  bool get isDataLoadingAfterLogin => false;
 
-    if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
-    }
+  bool _isUsernameMissing = false;
+  bool get isUsernameMissing => _isUsernameMissing;
 
-    for (final model in modelCandidates) {
-      for (int i = 0; i < apiKeysToTry.length; i++) {
-        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-        String effectiveKey = apiKeysToTry[effectiveIndex];
+  String? _lastLoginDate;
+  List<MainTask> _mainTasks =
+      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+  Map<String, dynamic> _completedByDay = {};
 
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
+  List<Skill> _skills = [];
+  List<Skill> get skills => _skills;
+  List<ReflectionLog> _reflectionLogs = [];
+  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
 
-        try {
-          if (kDebugMode) {
-            onLog("Trying Model: $model with Key Index: $effectiveIndex");
-          }
-          final result = await requestFn(effectiveKey, model);
-          onNewApiKeyIndex(effectiveIndex);
-          return result;
-        } catch (e) {
-          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
-             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
-             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
-          }
-          onLog(
-              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+  // --- Finance State ---
+  List<FinanceTransaction> _transactions = [];
+  List<FinanceCategory> _categories = [];
+  List<SavingsGoal> _savingsGoals = [];
+
+  List<FinanceTransaction> get transactions => _transactions;
+  List<FinanceCategory> get categories => _categories;
+  List<SavingsGoal> get savingsGoals => _savingsGoals;
+  // ---------------------
+
+  AppSettings _settings = AppSettings();
+  String? _selectedTaskId;
+  int _apiKeyIndex = 0;
+  Map<String, ActiveTimerInfo> _activeTimers = {};
+
+  final Set<String> _dirtyCollections = {};
+
+  bool _hasUnsavedChanges = false;
+  bool _isManuallySaving = false;
+  bool get isManuallySaving => _isManuallySaving;
+  bool _isManuallyLoading = false;
+  bool get isManuallyLoading => _isManuallyLoading;
+  DateTime? _lastSuccessfulSaveTimestamp;
+  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
+
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+
+  String? get lastLoginDate => _lastLoginDate;
+  List<MainTask> get mainTasks => _mainTasks;
+  Map<String, dynamic> get completedByDay => _completedByDay;
+
+  AppSettings get settings => _settings;
+  String? get selectedTaskId => _selectedTaskId;
+  int get apiKeyIndex => _apiKeyIndex;
+  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
+
+  ChatbotMemory _chatbotMemory = ChatbotMemory();
+  ChatbotMemory get chatbotMemory => _chatbotMemory;
+  bool _isChatbotMemoryInitialized = false;
+
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions; 
+  late final FinanceActions _financeActions; 
+  late final JournalingActions _journalingActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this); 
+    _financeActions = FinanceActions(this); 
+    _journalingActions = JournalingActions(this);
+    _initializeSkills();
+    _initializeDefaultFinanceCategories(); 
+    _initialize();
+    
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoSaveTimer?.cancel();
+    _realtimeSyncDebouncer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (_hasUnsavedChanges && _currentUser != null) {
+        _saveLocalSnapshot(forceFlush: true);
+        if (_settings.autoSaveEnabled) {
+          _performActualSave();
         }
       }
     }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
   }
 
-  Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
+  // --- ACTIONS EXPOSURE ---
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs() => _taskActions.recalibrateTimeLogs(); // Exposed Method
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
 
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
+  ProjectActions get projectActions => _projectActions;
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions; 
+  FinanceActions get financeActions => _financeActions; 
+  JournalingActions get journalingActions => _journalingActions;
+
+  // --- INITIALIZATION ---
+
+  void _initializeSkills() {
+    if (_skills.isEmpty) {
+      _skills = [
+        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
+        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
+        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
+        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
+        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
+        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
+      ];
+    }
+  }
+
+  void _initializeDefaultFinanceCategories() {
+    if (_categories.isEmpty) {
+      _categories = [
+        FinanceCategory(id: 'cat_salary', name: 'Salary', colorHex: '00F59B', iconName: 'briefcase', isIncomeCategory: true),
+        FinanceCategory(id: 'cat_food', name: 'Food', colorHex: 'FF4655', iconName: 'food', isIncomeCategory: false),
+        FinanceCategory(id: 'cat_transport', name: 'Transport', colorHex: 'F1C40F', iconName: 'car', isIncomeCategory: false),
+        FinanceCategory(id: 'cat_bills', name: 'Utilities', colorHex: '5DADE2', iconName: 'flash', isIncomeCategory: false),
+        FinanceCategory(id: 'cat_entertainment', name: 'Entertainment', colorHex: '8A2BE2', iconName: 'gamepad', isIncomeCategory: false),
+      ];
+    }
+  }
+
+  Future<void> _initialize() async {
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (_hasUnsavedChanges &&
+          _currentUser != null &&
+          !_isManuallySaving &&
+          !_isManuallyLoading &&
+          _settings.autoSaveEnabled) {
+        _performActualSave();
+      }
+    });
+  }
+
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (_authLoading && _currentUser != null && user != null && _currentUser!.uid == user.uid) return;
+    
+    _authLoading = true;
+    notifyListeners();
+
+    if (user != null) {
+      _currentUser = user;
+      
+      final localData = await _localStorageService.loadState();
+      bool loadedLocal = false;
+      if (localData != null) {
+        _loadStateFromMap(localData);
+        loadedLocal = true;
+        
+        _hasUnsavedChanges = false;
+        _cleanOverlappingSessions();
+        _fixTimerAnomalies();
+        _handleDailyReset();
+        
+        _authLoading = false;
+        notifyListeners();
+      }
+
+      _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
+      _isChatbotMemoryInitialized = false;
+      initializeChatbotMemory();
+
+      _isSyncing = true;
+      if (loadedLocal) notifyListeners();
+
+      try {
+        final cloudData = await _storageService.getUserData(user.uid);
+        if (cloudData != null) {
+          int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
+          
+          if (!loadedLocal || cloudTs > _settings.lastModified) {
+            _loadStateFromMap(cloudData);
+            _hasUnsavedChanges = false;
+            _saveLocalSnapshot(forceFlush: true);
+          } else if (loadedLocal && _settings.lastModified > cloudTs) {
+            // Local is newer. A previous cloud save failed. Mark all dirty to force sync.
+            _hasUnsavedChanges = true;
+            _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
+            _scheduleRealtimeSync();
+          }
+        } else if (!loadedLocal) {
+          await _resetToInitialState();
+          _lastLoginDate = helper.getTodayDateString();
+          _hasUnsavedChanges = true;
+          await _performActualSave();
+        }
+        _cleanOverlappingSessions();
+        _fixTimerAnomalies();
+        _handleDailyReset();
+      } catch (e) {
+        debugPrint("Cloud sync init failed: $e");
+      } finally {
+        _isSyncing = false;
+        _authLoading = false;
+        notifyListeners();
+      }
+
+    } else {
+      _currentUser = null;
+      await _resetToInitialState();
+      await _localStorageService.clearState();
+      _hasUnsavedChanges = false;
+      _isChatbotMemoryInitialized = false;
+      _authLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
+    try {
+      final fullData = getAppStateAsMap();
+      await _localStorageService.saveState(fullData);
+      
+      if (forceFlush) {
+        if (Platform.isAndroid || Platform.isWindows) {
+          final docsDir = await getApplicationDocumentsDirectory();
+          final backupDir = Directory('${docsDir.path}/backups');
+          if (!await backupDir.exists()) await backupDir.create(recursive: true);
+          
+          final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+          final file = File('${backupDir.path}/backup_$timestamp.json');
+          
+          final jsonString = await compute((Map<String, dynamic> data) => jsonEncode(data), fullData);
+          await file.writeAsString(jsonString);
+          
+          final files = backupDir.listSync().whereType<File>().toList();
+          files.sort((a, b) => a.path.compareTo(b.path));
+          if (files.length > 5) {
+            for (var i = 0; i < files.length - 5; i++) {
+              await files[i].delete();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Local snapshot failed: $e");
+    }
+  }
+
+  Future<void> _performActualSave() async {
+    if (_currentUser != null) {
+      bool isAutoSave = !_isManuallySaving;
+      if (!isAutoSave) setLoadingTask("Syncing Database...");
+      _isSyncing = true;
+      notifyListeners();
+
+      try {
+        final oldTs = _settings.lastModified;
+        final nowTs = DateTime.now().millisecondsSinceEpoch;
+        
+        // Update timestamp BEFORE saving local snapshot so local has the new time
+        _settings.lastModified = nowTs;
+        await _saveLocalSnapshot();
+
+        bool success = true;
+
+        if (_dirtyCollections.isNotEmpty) {
+          if (_dirtyCollections.contains('tasks')) {
+            if (!await _storageService.saveTasks(_currentUser!.uid, {'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()})) success = false;
+          }
+          if (_dirtyCollections.contains('history')) {
+            if (!await _storageService.saveHistory(_currentUser!.uid, {'completedByDay': _completedByDay})) success = false;
+          }
+          if (_dirtyCollections.contains('reflections')) {
+            if (!await _storageService.saveReflections(_currentUser!.uid, {'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()})) success = false;
+          }
+          if (_dirtyCollections.contains('finance')) {
+            if (!await _storageService.saveFinance(_currentUser!.uid, {
+              'transactions': _transactions.map((t) => t.toJson()).toList(),
+              'categories': _categories.map((c) => c.toJson()).toList(),
+              'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
+            })) {
+              success = false;
+            }
+          }
+          
+          if (_dirtyCollections.contains('settings') || success) {
+             if (!success) {
+                // Prevent cloud from having the new timestamp if a partial failure occurred
+                _settings.lastModified = oldTs;
+             }
+             final settingsData = {
+                'lastLoginDate': _lastLoginDate,
+                'settings': settings.toJson(),
+                'selectedTaskId': _selectedTaskId,
+                'apiKeyIndex': _apiKeyIndex,
+                'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
+                'lastSuccessfulSaveTimestamp': DateTime.now().toIso8601String(),
+                'chatbotMemory': _chatbotMemory.toJson(),
+                'skills': _skills.map((s) => s.toJson()).toList(),
+              };
+              if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
+              
+              // Restore memory state
+              _settings.lastModified = nowTs;
+          }
+
+          if (success) {
+            _dirtyCollections.clear();
+            _lastSuccessfulSaveTimestamp = DateTime.now();
+            _hasUnsavedChanges = false;
+          }
+        }
+      } finally {
+        _isSyncing = false;
+        if (!isAutoSave) setLoadingTask(null);
+        notifyListeners();
+      }
+    }
+  }
+
+  void scheduleRealtimeSync() {
+    _scheduleRealtimeSync();
+  }
+
+  void _scheduleRealtimeSync() {
+    // Save locally immediately to preserve unsaved changes against app crashes
+    _saveLocalSnapshot(); 
+    
+    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
+    if (_realtimeSyncDebouncer?.isActive ?? false) {
+      _realtimeSyncDebouncer!.cancel();
+    }
+    _realtimeSyncDebouncer = Timer(const Duration(seconds: 2), () {
+      if (_hasUnsavedChanges && !_isManuallySaving) {
+        _performActualSave();
+      }
+    });
+  }
+
+  void markDirty(String collection) {
+    _markDirty(collection);
+  }
+
+  void _markDirty(String collection) {
+    _dirtyCollections.add(collection);
+    _hasUnsavedChanges = true;
+  }
+
+  Map<String, dynamic> getAppStateAsMap() {
+    return {
+      'lastLoginDate': _lastLoginDate,
+      'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList(),
+      'completedByDay': _completedByDay,
+      'settings': settings.toJson(),
+      'selectedTaskId': _selectedTaskId,
+      'apiKeyIndex': _apiKeyIndex,
+      'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
+      'lastSuccessfulSaveTimestamp': _lastSuccessfulSaveTimestamp?.toIso8601String(),
+      'chatbotMemory': _chatbotMemory.toJson(),
+      'skills': _skills.map((s) => s.toJson()).toList(),
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
+      'transactions': _transactions.map((t) => t.toJson()).toList(),
+      'categories': _categories.map((c) => c.toJson()).toList(),
+      'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
+    };
+  }
+
+  void loadAppStateFromMap(Map<String, dynamic> data) {
+    _loadStateFromMap(data);
+    _hasUnsavedChanges = true;
+    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void _loadStateFromMap(Map<String, dynamic> data) {
+    _lastLoginDate = data['lastLoginDate'] as String?;
+    _mainTasks = (data['mainTasks'] as List<dynamic>?)
+            ?.map((mtJson) => MainTask.fromJson(mtJson as Map<String, dynamic>))
+            .toList() ??
+        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
+    
+    _settings = data['settings'] != null ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>) : AppSettings();
+    _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
+    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
+    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ?? {};
+    
+    final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
+    _lastSuccessfulSaveTimestamp = timestampString != null ? DateTime.tryParse(timestampString) : null;
+    
+    _chatbotMemory = data['chatbotMemory'] != null ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>) : ChatbotMemory();
+    
+    if (data['skills'] != null && data['skills'] is List) {
+      _skills = (data['skills'] as List).whereType<Map<String, dynamic>>().map((s) => Skill.fromJson(s)).toList();
+    }
+    if (_skills.isEmpty) _initializeSkills();
+
+    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
+      _reflectionLogs = (data['reflectionLogs'] as List).whereType<Map<String, dynamic>>().map((l) => ReflectionLog.fromJson(l)).toList();
+    }
+
+    if (data['transactions'] != null && data['transactions'] is List) {
+      _transactions = (data['transactions'] as List).whereType<Map<String, dynamic>>().map((t) => FinanceTransaction.fromJson(t)).toList();
+    }
+    if (data['categories'] != null && data['categories'] is List) {
+      _categories = (data['categories'] as List).whereType<Map<String, dynamic>>().map((c) => FinanceCategory.fromJson(c)).toList();
+    }
+    if (_categories.isEmpty) _initializeDefaultFinanceCategories();
+
+    if (data['savingsGoals'] != null && data['savingsGoals'] is List) {
+      _savingsGoals = (data['savingsGoals'] as List).whereType<Map<String, dynamic>>().map((g) => SavingsGoal.fromJson(g)).toList();
+    }
+
+    _isChatbotMemoryInitialized = true;
+    if (_settings.dataVersion < 1) {
+      _settings.dataVersion = 1;
+      _hasUnsavedChanges = true; 
+    }
+  }
+
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, ActiveTimerInfo>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    bool changed = false;
+    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
+      _lastLoginDate = lastLoginDate; changed = true;
+    }
+    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
+      _mainTasks = List.from(mainTasks); changed = true;
+    }
+    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
+      _completedByDay = Map.from(completedByDay); changed = true;
+    }
+    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
+      _activeTimers = Map.from(activeTimers); changed = true;
+    }
+    if (lastSuccessfulSaveTimestamp != null && _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
+      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp; changed = true;
+    }
+    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
+      _isUsernameMissing = isUsernameMissing; changed = true;
+    }
+    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
+      _chatbotMemory = chatbotMemory; changed = true;
+    }
+    if (transactions != null && !listEquals(_transactions, transactions)) {
+      _transactions = List.from(transactions); changed = true;
+    }
+    if (categories != null && !listEquals(_categories, categories)) {
+      _categories = List.from(categories); changed = true;
+    }
+    if (savingsGoals != null && !listEquals(_savingsGoals, savingsGoals)) {
+      _savingsGoals = List.from(savingsGoals); changed = true;
+    }
+
+    if (changed) {
+      if (doPersist) {
+        if (mainTasks != null) _markDirty('tasks');
+        if (completedByDay != null) _markDirty('history');
+        if (transactions != null || categories != null || savingsGoals != null) _markDirty('finance');
+        if (lastLoginDate != null || activeTimers != null || lastSuccessfulSaveTimestamp != null || chatbotMemory != null) _markDirty('settings');
+        
+        _scheduleRealtimeSync();
+      }
+      if (doNotify) notifyListeners();
+    }
+  }
+
+  void _fixTimerAnomalies() {
+    bool changed = false;
+    final Map<String, ActiveTimerInfo> fixedTimers = Map.from(_activeTimers);
+
+    fixedTimers.removeWhere((timerId, timerInfo) {
+      if (!timerInfo.isRunning) return false;
+      bool taskFound = false;
+      for (var mainTask in _mainTasks) {
+        if (mainTask.id == timerInfo.mainTaskId) {
+          if (timerInfo.type == 'subtask') {
+             taskFound = mainTask.subTasks.any((st) => st.id == timerId);
+          }
+          break;
+        }
+      }
+      if (!taskFound) changed = true;
+      return !taskFound;
+    });
+
+    // Ensure only one timer is running at a time across all devices/sessions
+    String? latestRunningTimerId;
+    DateTime? latestTime;
+    
+    fixedTimers.forEach((id, info) {
+      if (info.isRunning) {
+        if (latestTime == null || info.startTime.isAfter(latestTime!)) {
+          latestTime = info.startTime;
+          latestRunningTimerId = id;
+        }
+      }
+    });
+
+    fixedTimers.forEach((id, info) {
+      if (info.isRunning && id != latestRunningTimerId) {
+        info.isRunning = false;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      setProviderState(activeTimers: fixedTimers);
+    }
+  }
+
+  void setSettings(AppSettings newSettings) { 
+    _settings = newSettings; 
+    _markDirty('settings'); 
+    _scheduleRealtimeSync(); 
+    notifyListeners(); 
+  }
+
+  void setSelectedTaskId(String? taskId) { 
+    if (_selectedTaskId != taskId) { 
+      _selectedTaskId = taskId; 
+      _markDirty('settings'); 
+      _scheduleRealtimeSync(); 
+      notifyListeners(); 
+    } 
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadAppStateFromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> manuallySaveToCloud() async {
+    if (_currentUser == null) return;
+    _isManuallySaving = true;
+    notifyListeners();
+    try {
+      await _performActualSave();
+    } finally {
+      _isManuallySaving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> manuallyLoadFromCloud() async {
+    if (_currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final cloudData = await _storageService.getUserData(_currentUser!.uid);
+      if (cloudData != null) {
+        _loadStateFromMap(cloudData);
+        _hasUnsavedChanges = false;
+        await _saveLocalSnapshot(forceFlush: true);
+      }
+    } finally {
+      _isManuallyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  
+  Future<void> logoutUser() async {
+    await fb_service.signOut();
+  }
+
+  Future<void> signupUser(String email, String password, String username) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName(username);
+      await user.reload();
+      _isUsernameMissing = false;
+      notifyListeners();
+    }
+  }
+
+  void setProviderApiKeyIndex(int index) { if (_apiKeyIndex != index) _apiKeyIndex = index; }
+  void setProviderAISubquestLoading(bool isLoading) { _isGeneratingSubquestsForTask = isLoading; notifyListeners(); }
+  void setLoadingTask(String? taskName) { _loadingTaskName = taskName; notifyListeners(); }
+  
+  void _cleanOverlappingSessions() {
+    bool changed = false;
+    final newMainTasks = _mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned = [sorted.first];
+          
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned,
+              isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
+
+    if (changed) {
+      setProviderState(mainTasks: newMainTasks, doNotify: false);
+    }
+  }
+  
+  Future<void> _resetToInitialState() async {
+    _lastLoginDate = null;
+    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _settings = AppSettings();
+    _activeTimers = {};
+    _reflectionLogs = [];
+    _completedByDay = {};
+    _transactions = [];
+    _categories = [];
+    _savingsGoals = [];
+    _chatbotMemory = ChatbotMemory();
+    _initializeSkills();
+    _initializeDefaultFinanceCategories();
+  }
+
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    
+    if (_lastLoginDate != todayStr) {
+      bool tasksChanged = false;
+      final newMainTasks = _mainTasks.map((task) {
+        bool subTasksChanged = false;
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+            // Reset logic
+            bool shouldReset = false;
+            if (st.completed && st.lastCompletedDate != null) {
+              final lastDateStr = DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!);
+              if (lastDateStr != todayStr) {
+                shouldReset = true;
+              }
+            } else if (st.completed && st.lastCompletedDate == null) {
+              shouldReset = true; 
+            }
+            
+            if (shouldReset) {
+              subTasksChanged = true;
+              return SubTask(
+                  id: st.id, name: st.name, description: st.description, completed: false, completedDate: null,
+                  currentTimeSpent: st.currentTimeSpent, // Keep total time
+                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                  subSubTasks: st.subSubTasks.map((sss) => SubSubTask(
+                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
+                  )).toList(), 
+                  sessions: st.sessions, // KEEP SESSIONS
+                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+          }
+          return st;
+        }).toList();
+
+        if (subTasksChanged) {
+          tasksChanged = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
         }
         
-        return JsonUtils.tryDecode(rawResponseText);
-      },
-    );
-  }
-
-  // --- Prediction ---
-  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
-    required String sessionHistory, 
-    required String currentTime,
-    required String availableTasksContext, 
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
-    
-    HISTORY:
-    $sessionHistory
-    
-    AVAILABLE TASKS (Map prediction to these if possible):
-    $availableTasksContext
-    
-    INSTRUCTIONS:
-    1. Analyze patterns (time of day, duration, sequence).
-    2. Suggest 1-10 likely sessions for the remainder of the day.
-    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
-    4. CONFIDENTIALITY: Do not use specific names of real people.
-    
-    CRITICAL OUTPUT FORMATTING:
-    - Return ONLY valid JSON.
-    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
-    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
-    
-    OUTPUT JSON ARRAY STRUCTURE:
-    [
-      {
-        "taskName": "Exact Name from Available Tasks or New Name",
-        "subTaskName": "Specific Activity",
-        "startOffsetMinutes": int (minutes from Now to start),
-        "durationMinutes": int
-      }
-    ]
-    """;
-
-    final result = await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        String? raw = response.text;
-        if (raw == null) throw Exception("Empty AI response");
-        return JsonUtils.tryDecode(raw);
-      },
-    );
-
-    if (result is List) {
-      return result.map((e) => e as Map<String, dynamic>).toList();
-    }
-    return [];
-  }
-
-  // Generalized Nora / Neural Archive Query
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    $logsContext
-    
-    USER: "$query"
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
-  }
-
-  // --- Project / Generation methods ---
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
-    required String parentStepTitle,
-    required String parentStepDescription,
-    required List<String> existingSubsteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates,
-    required String mainTaskName,
-    required String mainTaskDescription,
-    String? mainTaskTheme,
-    required String generationMode,
-    required String userInput,
-    required int numSubquests,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
-    required String subtaskName,
-    required String parentTaskName,
-    required List<String> existingCheckpoints,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<Map<String, dynamic>> evaluateReflection({
-    required String trigger,
-    required String emotion,
-    required String reason,
-    required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-  }) async {
-    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
-    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
-    
-    final prompt = """
-    Analyze this reflection log.
-    Trigger: $trigger
-    Emotion: $emotion
-    Reason: $reason
-    
-    1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-
-    Output JSON: {
-      "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...}
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: 0,
-        onNewApiKeyIndex: (_) {},
-        onLog: (_) {});
-  }
-
-  Future<Map<String, dynamic>> generateDailySummary({
-    required List<Map<String, String>> reflections,
-    required List<String> previousBriefings,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a Tactical Briefing based on today's reflections.
-    Current Logs: ${jsonEncode(reflections)}
-    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    
-    Tone: Empathetic, psychologically wise, therapist.
-    
-    Tasks:
-    1. Create a concise summary of the day's psychological state.
-    2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
-    
-    Output JSON: {
-      "summary": "string (max 120 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> generateWeeklyReport({
-    required String logsText,
-    required String timeStatsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Analyze logs and time stats for a Weekly Report. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'. Output JSON: { \"summary\": \"string\", \"improved_abilities\": [ {\"name\": \"string\", \"reason\": \"string\", \"score\": int} ], \"time_insight\": \"string\" }. Logs: $logsText. Time: $timeStatsText. ENSURE VALID JSON.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
-    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-    
-    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
-      throw Exception("No valid API Key found to fetch models.");
-    }
-
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['models'] != null && data['models'] is List) {
-        final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
-          if (methods.contains('generateContent')) {
-            return (m['name'] as String).replaceFirst('models/', '');
-          }
-          return null;
-        }).whereType<String>().toList();
-        return models;
-      }
-      return [];
-    } else {
-      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
-    }
-  }
-
-  // --- Start Day Report ---
-  Future<Map<String, dynamic>> generateStartDayReport({
-    required String reflectionsList,
-    required String sessionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a 'System Start-Up Sequence' for the user based on their recent history.
-    Context:
-    Reflections (Last 7 days): $reflectionsList
-    Sessions (Last 7 days): $sessionsList
-    
-    Task:
-    1. Analyze the user's momentum.
-    2. Provide a futuristic, empathetic 'Forecast' message (max 5 sentences) focusing on what *might* happen today based on their trajectory. Be encouraging but realistic.
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  // --- Advanced Journaling Tools ---
-
-  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the following reflection logs and extract a list of specific people mentioned by the user. 
-    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY:
-    {
-      "people": [
-        {
-          "name": "string",
-          "relation": "string"
+        if (task.dailyTimeSpent > 0) {
+           tasksChanged = true;
+           return task.copyWith(dailyTimeSpent: 0);
         }
-      ]
+        return task;
+      }).toList();
+
+      setProviderState(
+        lastLoginDate: todayStr,
+        mainTasks: tasksChanged ? newMainTasks : _mainTasks,
+      );
     }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
   }
 
-  Future<Map<String, dynamic>> generatePersonDetails({
-    required String personName,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
-    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY:
-    {
-      "details": "string (multiline formatted text)"
+  void initializeChatbotMemory() {
+    if (!_isChatbotMemoryInitialized) {
+      _isChatbotMemoryInitialized = true;
+      notifyListeners();
     }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
   }
 
-  Future<Map<String, dynamic>> runQuickTherapy({
-    required String reason,
-    required String feeling,
-    required String action,
-    required String logsText,
-    required String peopleContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    User needs immediate psychological assistance.
-    Current Situation / Reason: $reason
-    Current Feeling: $feeling
-    Planned Action: $action
-    
-    Past Context (Reflections): $logsText
-    Known People: $peopleContext
-    
-    Task:
-    1. Provide a concise, empathetic, and tactical action plan for right now.
-    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
-    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
-    
-    Output JSON ONLY:
-    {
-      "action_plan": "string",
-      "suggested_person": "string or null",
-      "conversation_map": ["step 1", "step 2"]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+  Future<void> changePasswordHandler(String pwd) async {
+    await fb_service.changePassword(pwd);
   }
 
-  Future<Map<String, dynamic>> simulateEvent({
-    required String situation,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
-    
-    Proposed Situation: $situation
-    
-    Past Context (Reflections): $logsText
-    
-    Task:
-    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
-    
-    Output JSON ONLY:
-    {
-      "simulation": "string"
+  Future<void> updateUserDisplayName(String name) async {
+    if (_currentUser != null) {
+      await _currentUser!.updateDisplayName(name);
+      await _currentUser!.reload();
+      _currentUser = fb_service.firebaseAuthInstance.currentUser;
+      _isUsernameMissing = false;
+      notifyListeners();
     }
-    """;
+  }
 
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+  Future<void> clearAllData() async {
+    if (_currentUser == null) return;
+    await _storageService.deleteUserData(_currentUser!.uid);
+    await _localStorageService.clearState();
+    await _resetToInitialState();
+    _lastSuccessfulSaveTimestamp = null;
+    _hasUnsavedChanges = true; 
+    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void addCustomApiKey(String key) {
+    if (!_settings.customApiKeys.contains(key)) {
+      final newList = List<String>.from(_settings.customApiKeys)..add(key);
+      setSettings(_settings..customApiKeys = newList);
+    }
+  }
+
+  void removeCustomApiKey(String key) {
+    final newList = List<String>.from(_settings.customApiKeys)..remove(key);
+    setSettings(_settings..customApiKeys = newList);
+  }
+
+  // --- PIN / SECURITY LOGIC ---
+
+  bool verifyPin(String enteredPin) {
+    return _settings.journalPin == enteredPin;
+  }
+
+  void setJournalPin(String newPin) {
+    setSettings(_settings..journalPin = newPin);
+  }
+
+  // --- NORA AI LOGIC ---
+
+  NoraSession? get activeNoraSession {
+    if (_chatbotMemory.activeNoraSessionId == null) return null;
+    return _chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == _chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({
+    required String title,
+    required String tone,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? customContext,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(),
+      title: title,
+      tone: tone,
+      startDate: startDate,
+      endDate: endDate,
+      customContext: customContext,
+    );
+    _chatbotMemory.noraSessions.add(newSession);
+    _chatbotMemory.activeNoraSessionId = newSession.id;
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void switchNoraSession(String sessionId) {
+    if (_chatbotMemory.noraSessions.any((s) => s.id == sessionId)) {
+      _chatbotMemory.activeNoraSessionId = sessionId;
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteNoraSession(String sessionId) {
+    _chatbotMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (_chatbotMemory.activeNoraSessionId == sessionId) {
+      _chatbotMemory.activeNoraSessionId = _chatbotMemory.noraSessions.isNotEmpty ? _chatbotMemory.noraSessions.last.id : null;
+    }
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  String _buildNoraContext(NoraSession session) {
+    final sb = StringBuffer();
+    final start = session.startDate;
+    final end = session.endDate.add(const Duration(days: 1)); // inclusive of end date
+
+    // 1. Reflections
+    final relReflections = _reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    sb.writeln("=== REFLECTIONS ===");
+    if (relReflections.isEmpty) sb.writeln("None in this period.");
+    for (var l in relReflections) {
+      sb.writeln("[${DateFormat('yyyy-MM-dd').format(l.timestamp)}] Trigger: ${l.trigger} -> Emotion: ${l.emotion}");
+    }
+
+    // 2. Sessions (if enabled)
+    if (_settings.noraAccessSessions) {
+      sb.writeln("\n=== TASK SESSIONS ===");
+      bool hasSessions = false;
+      for (var task in _mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var s in sub.sessions) {
+            if (s.startTime.isAfter(start) && s.startTime.isBefore(end)) {
+              sb.writeln("[${DateFormat('MM-dd HH:mm').format(s.startTime)}] ${task.name} - ${sub.name}: ${s.durationMinutes}m");
+              hasSessions = true;
+            }
+          }
+        }
+      }
+      if (!hasSessions) sb.writeln("None in this period.");
+    }
+
+    // 3. Finance (if enabled)
+    if (_settings.noraAccessFinance) {
+      sb.writeln("\n=== FINANCE ===");
+      final relTrans = _transactions.where((t) => t.timestamp.isAfter(start) && t.timestamp.isBefore(end)).toList();
+      if (relTrans.isEmpty) sb.writeln("None in this period.");
+      for (var t in relTrans) {
+        final cat = _categories.firstWhereOrNull((c) => c.id == t.categoryId)?.name ?? "Unknown";
+        sb.writeln("[${DateFormat('yyyy-MM-dd').format(t.timestamp)}] ${t.isIncome ? '+' : '-'}₹${t.amount} ($cat) - ${t.note}");
+      }
+    }
+
+    return sb.toString();
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(
+      id: const Uuid().v4(),
+      text: text,
+      sender: MessageSender.user,
+      timestamp: DateTime.now(),
+    );
+
+    session.messages.add(userMsg);
+    _markDirty('settings');
+    _scheduleRealtimeSync();
+    notifyListeners();
+
+    try {
+      final contextLogs = _buildNoraContext(session);
+      final historyStr = session.messages.map((m) => "${m.sender == MessageSender.user ? 'USER' : 'NORA'}: ${m.text}").join("\n");
+
+      final prompt = """
+      ${session.customContext != null 
+          ? "SIMULATION OVERRIDE: You are simulating the following persona/scenario: ${session.customContext}\nDo not act as NORA. Act EXACTLY as the person described."
+          : "You are NORA (Neural Operational Response Agent), an advanced AI.\nYour current persona tone is: ${session.tone}. Adopt this tone fully."
+      }
+      
+      CONTEXT LOGS (from ${DateFormat('MMM dd').format(session.startDate)} to ${DateFormat('MMM dd').format(session.endDate)}):
+      $contextLogs
+      
+      CONVERSATION HISTORY:
+      $historyStr
+      
+      INSTRUCTIONS:
+      1. Respond to the USER's last message based on the Context Logs and History.
+      2. Maintain the assigned persona tone or simulation.
+      3. CONFIDENTIALITY: Do not use specific names of real people mentioned in logs.
+      4. Keep responses concise unless asked for detail. No markdown code blocks for normal text.
+      """;
+
+      final responseText = await _aiService.queryNeuralArchive(
+        query: text,
+        logsContext: prompt,
+        modelCandidates: _settings.liteModels,
+        currentApiKeyIndex: _apiKeyIndex,
+        customApiKeys: _settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+
+      final botMsg = ChatbotMessage(
+        id: const Uuid().v4(),
+        text: responseText,
+        sender: MessageSender.bot,
+        timestamp: DateTime.now(),
+      );
+
+      session.messages.add(botMsg);
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+
+    } catch (e) {
+      final errorMsg = ChatbotMessage(
+        id: const Uuid().v4(),
+        text: "Error connecting to Neural Net: $e",
+        sender: MessageSender.bot,
+        timestamp: DateTime.now(),
+      );
+      session.messages.add(errorMsg);
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  // --- LEGACY CHATBOT WRAPPER (To avoid breaking old references if any exist) ---
+  Future<void> sendMessageToChatbot(String text) async {
+    if (activeNoraSession == null) {
+      createNoraSession(
+        title: "Legacy Chat", 
+        tone: "Assistant", 
+        startDate: DateTime.now().subtract(const Duration(days: 7)), 
+        endDate: DateTime.now()
+      );
+    }
+    await sendNoraMessage(text);
+  }
+
+  // --- REFLECTIONS IMPORT/EXPORT ---
+  Future<void> exportReflections() async {
+    final data = {
+      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
+    };
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      
+      final currentIds = _reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      
+      if (newLogs.isNotEmpty) {
+        _reflectionLogs.addAll(newLogs);
+        _reflectionLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        _markDirty('reflections');
+        _scheduleRealtimeSync();
+        notifyListeners();
+      }
+    }
+  }
+
+
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(_mainTasks, 7);
+    final recentReflections = _reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+        
+    return {
+      'logs': recentReflections,
+      'times': historyStr, // Renamed for internal use but kept structure compatible
+      'sessions': historyStr
+    };
+  }
+  
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {
+      'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action
+    }).toList();
+    
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) {
+         recentBriefings.add(b['summary']);
+       }
+    }
+
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      modelCandidates: _settings.liteModels, 
+      currentApiKeyIndex: _apiKeyIndex, 
+      customApiKeys: _settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+    return result;
+  }
+  
+  Map<String, dynamic>? getTacticalBriefing(String date) { 
+    if (_completedByDay[date] != null && _completedByDay[date]['aiBriefing'] != null) {
+      return _completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  } 
+  
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) { 
+    if (_completedByDay[date] != null && _completedByDay[date]['startDayReport'] != null) {
+      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  int get7DaySkillMomentum(String skillName) { 
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in _reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async { 
+    final eval = await _aiService.evaluateReflection(
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      modelCandidates: _settings.liteModels, 
+      customApiKeys: _settings.customApiKeys,
+      systemInstruction: _settings.customReflectionPrompt
+    );
+    
+    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+    
+    // Apply XP to skills
+    for (var entry in xpGained.entries) {
+      if (entry.value > 0) {
+        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.addXp(entry.value);
+        }
+      }
+    }
+
+    final log = ReflectionLog(
+      id: const Uuid().v4(),
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      aiFeedback: eval['feedback'] ?? '',
+      xpGained: xpGained,
+    );
+
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _markDirty('settings'); // Settings hold skills
+    _scheduleRealtimeSync();
+    notifyListeners();
+
+    return {'log': log, 'xpGained': xpGained};
+  }
+
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) { 
+    final log = ReflectionLog(
+      id: const Uuid().v4(),
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      aiFeedback: "Saved without AI analysis.",
+      xpGained: {},
+    );
+    _reflectionLogs.add(log);
+    _markDirty('reflections');
+    _scheduleRealtimeSync();
+    notifyListeners();
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) { 
+    final log = _reflectionLogs.firstWhereOrNull((l) => l.id == id);
+    if (log != null) {
+      if (trigger != null) log.trigger = trigger;
+      if (emotion != null) log.emotion = emotion;
+      if (reason != null) log.reason = reason;
+      if (action != null) log.action = action;
+      _markDirty('reflections');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  void deleteReflectionLog(String id) { 
+    final logIndex = _reflectionLogs.indexWhere((l) => l.id == id);
+    if (logIndex != -1) {
+      final log = _reflectionLogs[logIndex];
+      // Revert XP
+      for (var entry in log.xpGained.entries) {
+        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
+        }
+      }
+      _reflectionLogs.removeAt(logIndex);
+      _markDirty('reflections');
+      _markDirty('settings');
+      _scheduleRealtimeSync();
+      notifyListeners();
+    }
+  }
+
+  MainTask? getSelectedTask() => _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId);
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) { 
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday; // 1 (Mon) to 7 (Sun)
+    
+    // Convert to 0-indexed based on settings (startOfWeek: 1=Mon, 7=Sun)
+    final startOffset = _settings.startOfWeek;
+    
+    // Calculate the date of the start of the current week
+    // e.g. If today is Wed(3) and start is Mon(1), diff is 2.
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    
+    final startOfWeekDate = now.subtract(Duration(days: diff));
+
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break; // Future days remain false
+      
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = _completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) {
+            weeklyStatus[i] = true;
+         }
+      }
+    }
+    return weeklyStatus;
+  }
+
+  int getYesterdaysTimeForTask(String taskId) { 
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = _completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) { 
+    for (var mainTask in _mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {
+            'mainTaskId': mainTask.id,
+            'projectId': project.id,
+            'projectTitle': project.title,
+            'stepId': step.id,
+            'stepTitle': step.title,
+          };
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
   }
 }
---- END OF FILE lib/src/services/ai_service.dart ---
+--- END OF FILE lib/src/providers/app_provider.dart ---
+
+--- START OF FILE lib/src/providers/actions/task_actions.dart ---
+// lib/src/providers/actions/task_actions.dart
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/helpers.dart';
+import 'package:arcane/src/utils/time_validation_helper.dart'; // Import Validation Helper
+import 'package:arcane/src/utils/task_calculations.dart'; // ADDED
+import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
+
+class TaskActions {
+  final AppProvider _provider;
+
+  TaskActions(this._provider);
+
+  // ... [Keep existing basic actions like addMainTask, editMainTask, logToDailySummary] ...
+  
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final List<SubTask> updatedSubtasks = List.from(task.subTasks);
+        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
+          final SubTask item = updatedSubtasks.removeAt(oldIndex);
+          updatedSubtasks.insert(newIndex, item);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void addMainTask(
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
+    final newTask = MainTask(
+      id: 'mt_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      description: description,
+      theme: theme,
+      colorHex: colorHex,
+    );
+    _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
+  }
+
+  void editMainTask(String taskId,
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == taskId) {
+        return task.copyWith(
+          name: name,
+          description: description,
+          theme: theme,
+          colorHex: colorHex,
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void logToDailySummary(String type, Map<String, dynamic> data) {
+    final today = getTodayDateString();
+    final newCompletedByDay =
+        Map<String, dynamic>.from(_provider.completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ??
+        {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+        });
+
+    if (type == 'taskTime') {
+      final taskTimes =
+          Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
+      taskTimes[data['taskId'] as String] =
+          (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
+      dayData['taskTimes'] = taskTimes;
+    } else if (type == 'subtaskCompleted') {
+      final subtasksCompleted = List<Map<String, dynamic>>.from(
+          dayData['subtasksCompleted'] as List? ?? []);
+      subtasksCompleted.add(data);
+      dayData['subtasksCompleted'] = subtasksCompleted;
+    } else if (type == 'subSubtaskCompleted') {
+      final checkpointsCompleted = List<Map<String, dynamic>>.from(
+          dayData['checkpointsCompleted'] as List? ?? []);
+      if (!data.containsKey('completionTimestamp')) {
+        data['completionTimestamp'] = DateTime.now().toIso8601String();
+      }
+      checkpointsCompleted.add(data);
+      dayData['checkpointsCompleted'] = checkpointsCompleted;
+    }
+
+    newCompletedByDay[today] = dayData;
+    _provider.setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
+    final newSubtask = SubTask(
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.length) + 1)}',
+      name: subtaskData['name'] as String,
+      description: subtaskData['description'] as String? ?? '',
+      isCountable: subtaskData['isCountable'] as bool? ?? false,
+      targetCount: subtaskData['isCountable'] as bool? ?? false
+          ? (subtaskData['targetCount'] as int? ?? 1)
+          : 0,
+      completed: subtaskData['completed'] as bool? ?? false,
+      completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
+      isRecurring: subtaskData['isRecurring'] as bool? ?? false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      subSubTasks:
+          (subtaskData['subSubTasksData'] as List<Map<String, dynamic>>?)
+                  ?.map((sssData) => SubSubTask(
+                        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(_provider.mainTasks.fold<int>(0, (prev, task) => prev + task.subTasks.fold<int>(0, (prevSt, st) => prevSt + st.subSubTasks.length)) + 1)}_${sssData['name']?.hashCode ?? 0}',
+                        name: sssData['name'] as String,
+                        isCountable: sssData['isCountable'] as bool? ?? false,
+                        targetCount: sssData['isCountable'] as bool? ?? false
+                            ? (sssData['targetCount'] as int? ?? 1)
+                            : 0,
+                      ))
+                  .toList() ??
+              [],
+    );
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: [...task.subTasks, newSubtask],
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    return newSubtask.id;
+  }
+
+  void updateSubtask(
+      String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
+    MainTask? taskToUpdate =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (taskToUpdate == null) return;
+
+    SubTask? subtaskToUpdate =
+        taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (subtaskToUpdate == null) return;
+
+    final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
+
+    if (updates.containsKey('name')) {
+      subtaskToUpdate.name = updates['name'] as String;
+    }
+    if (updates.containsKey('description')) {
+      subtaskToUpdate.description = updates['description'] as String;
+    }
+    if (updates.containsKey('isRecurring')) {
+      subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    }
+    
+    // Always update timestamp on modification
+    subtaskToUpdate.updatedAt = DateTime.now();
+
+    if (updates.containsKey('currentTimeSpent')) {
+      subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
+    }
+    if (updates.containsKey('completed')) {
+      subtaskToUpdate.completed = updates['completed'] as bool;
+      if (!subtaskToUpdate.completed) {
+        subtaskToUpdate.completedDate = null;
+        subtaskToUpdate.lastCompletedDate = null;
+      }
+    }
+
+    int timeDifference = 0;
+    if (updates.containsKey('currentTimeSpent')) {
+      timeDifference = subtaskToUpdate.currentTimeSpent - oldSubtaskTime;
+    }
+
+    if (timeDifference != 0) {
+      taskToUpdate.dailyTimeSpent =
+          (taskToUpdate.dailyTimeSpent) + timeDifference;
+      taskToUpdate.lastWorkedDate = getTodayDateString();
+      logToDailySummary(
+          'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
+    }
+
+    final newMainTasks = _provider.mainTasks
+        .map((t) => t.id == mainTaskId ? taskToUpdate : t)
+        .toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+    // Validation: Check for overlap globally
+    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
+      return false; // Indicating failure due to overlap
+    }
+
+    final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
+    final durationSeconds = session.durationSeconds;
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
+            lastWorkedDate: getTodayDateString(),
+            subTasks: task.subTasks.map((st) {
+              if (st.id == subTaskId) {
+                final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
+                // Recalculate total time from scratch based on session logs
+                final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+
+                return SubTask(
+                  id: st.id, name: st.name, description: st.description, completed: st.completed, 
+                  currentTimeSpent: totalTime,
+                  completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                  currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+                  sessions: newSessions,
+                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                );
+              }
+              return st;
+            }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _syncDateWithSessions(start, end);
+    return true; // Success
+  }
+
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
+    // Validation: Check for overlap globally, excluding self
+    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
+      return; // Abort update on overlap
+    }
+
+    DateTime? oldStart;
+    DateTime? oldEnd;
+    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            final updatedSessions = st.sessions.map((s) {
+              if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
+              return s;
+            }).toList();
+            
+            // Recalculate total time from scratch
+            int totalTime = 0;
+            for (var s in updatedSessions) {
+              totalTime += s.durationSeconds;
+            }
+            
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, 
+              currentTimeSpent: totalTime,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    
+    // Sync logic to handle potential cross-day updates
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd); // Re-calculate old days
+    }
+    _syncDateWithSessions(newStart, newEnd); // Calculate new days
+  }
+
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
+    DateTime? oldStart;
+    DateTime? oldEnd;
+    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession != null) {
+        oldStart = oldSession.startTime;
+        oldEnd = oldSession.endTime;
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        int deduction = oldSession?.durationSeconds ?? 0;
+        return task.copyWith(
+            // We adjust MainTask time by deduction since MainTask aggregates many subtasks
+            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
+            subTasks: task.subTasks.map((st) {
+          if (st.id == subTaskId) {
+            final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
+            // Recalculate total time from scratch for SubTask
+            final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed,
+              currentTimeSpent: totalTime,
+              completedDate: st.completedDate, isCountable: st.isCountable,
+              targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
+              sessions: remainingSessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    
+    if (oldStart != null && oldEnd != null) {
+        _syncDateWithSessions(oldStart, oldEnd);
+    }
+  }
+
+  // Handles splitting time across days if session spans midnight
+  void _syncDateWithSessions(DateTime start, DateTime end) {
+    // Get list of unique dates involved in this range (usually 1 or 2)
+    final Set<String> affectedDates = {};
+    DateTime current = DateTime(start.year, start.month, start.day);
+    final last = DateTime(end.year, end.month, end.day);
+    
+    while (!current.isAfter(last)) {
+      affectedDates.add(DateFormat('yyyy-MM-dd').format(current));
+      current = current.add(const Duration(days: 1));
+    }
+
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+
+    for (var dateStr in affectedDates) {
+      final date = DateTime.parse(dateStr);
+      final nextDay = date.add(const Duration(days: 1));
+      
+      final Map<String, int> taskTimes = {};
+      
+      for (var task in _provider.mainTasks) {
+        int taskTotal = 0;
+        for (var sub in task.subTasks) {
+          for (var session in sub.sessions) {
+            // Calculate overlap with this day (date 00:00 to nextDay 00:00)
+            final overlapStart = session.startTime.isAfter(date) ? session.startTime : date;
+            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
+            
+            if (overlapStart.isBefore(overlapEnd)) {
+                taskTotal += overlapEnd.difference(overlapStart).inSeconds;
+            }
+          }
+        }
+        if (taskTotal > 0) taskTimes[task.id] = taskTotal;
+      }
+      
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+      dayData['taskTimes'] = taskTimes;
+      newCompletedByDay[dateStr] = dayData;
+    }
+    
+    _provider.setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  Future<void> recalibrateTimeLogs() async {
+    _provider.setLoadingTask("RECALIBRATING...");
+    // Give UI a moment to show loading indicator
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    final now = DateTime.now();
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+
+    // Re-calculate for the last 7 days exactly (0 to 6 days ago)
+    for (int i = 0; i < 7; i++) {
+      final targetDate = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      
+      final Map<String, int> dailyTaskTimes = {};
+      
+      for (var task in _provider.mainTasks) {
+        int taskTotalSeconds = 0;
+        for (var sub in task.subTasks) {
+          for (var session in sub.sessions) {
+            final dayStart = DateTime(targetDate.year, targetDate.month, targetDate.day);
+            final nextDay = dayStart.add(const Duration(days: 1));
+            
+            final overlapStart = session.startTime.isAfter(dayStart) ? session.startTime : dayStart;
+            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
+            
+            if (overlapStart.isBefore(overlapEnd)) {
+                taskTotalSeconds += overlapEnd.difference(overlapStart).inSeconds;
+            }
+          }
+        }
+        if (taskTotalSeconds > 0) {
+          dailyTaskTimes[task.id] = taskTotalSeconds;
+        }
+      }
+      
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? 
+        {'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+      dayData['taskTimes'] = dailyTaskTimes;
+      newCompletedByDay[dateStr] = dayData;
+    }
+    
+    // Update today's MainTask counter explicitly
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayTimes = newCompletedByDay[todayStr]?['taskTimes'] as Map<String, int>? ?? {};
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      return task.copyWith(
+        dailyTimeSpent: todayTimes[task.id] ?? 0
+      );
+    }).toList();
+
+    _provider.setProviderState(
+      completedByDay: newCompletedByDay,
+      mainTasks: newMainTasks
+    );
+    
+    _provider.setLoadingTask(null);
+  }
+
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
+    MainTask? mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return false;
+    SubTask? subTask =
+        mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    if (subTask == null || subTask.completed) return false;
+
+    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) {
+      return false;
+    }
+
+    bool hasTime = subTask.currentTimeSpent > 0;
+    if (subTask.isRecurring) {
+      hasTime = TaskCalculations.getHistoricalTodaySeconds(subTask) > 0;
+      if (_provider.activeTimers[subtaskId]?.isRunning == true) {
+        hasTime = true;
+      }
+    }
+
+    if (!hasTime && !subTask.isCountable) {
+      bool allSubSubTasksDone =
+          subTask.subSubTasks.every((sss) => sss.completed);
+      if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
+      if (subTask.subSubTasks.isEmpty && !hasTime) {
+        // Allow completion if forced by sync (e.g. from Project Step)
+        if (!fromSync) return false;
+      }
+    }
+
+    ActiveTimerInfo? timerForSubtask = _provider.activeTimers[subtaskId];
+    if (timerForSubtask != null) {
+      _provider.logTimerAndReset(subtaskId);
+    }
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subtaskId) {
+              return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  description: st.description,
+                  completed: true,
+                  completedDate: getTodayDateString(),
+                  currentTimeSpent: st.currentTimeSpent,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+
+    // Sync back to Project Steps if NOT initiated from there
+    if (!fromSync) {
+      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
+    }
+
+    logToDailySummary('subtaskCompleted', {
+      'parentTaskId': mainTask.id,
+      'name': subTask.name,
+      'timeLogged': subTask.currentTimeSpent,
+      'isCountable': subTask.isCountable,
+      'currentCount': subTask.currentCount,
+      'targetCount': subTask.targetCount
+    });
+    return true;
+  }
+
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subtaskId) {
+              return SubTask(
+                  id: st.id,
+                  name: st.name,
+                  description: st.description,
+                  completed: false,
+                  completedDate: null,
+                  currentTimeSpent: st.currentTimeSpent,
+                  isCountable: st.isCountable,
+                  targetCount: st.targetCount,
+                  currentCount: st.currentCount,
+                  subSubTasks: st.subSubTasks,
+                  sessions: st.sessions,
+                  isRecurring: st.isRecurring,
+                  lastCompletedDate: null,
+                  createdAt: st.createdAt,
+                  updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+
+    if (!fromSync) {
+      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
+    }
+  }
+
+  void deleteSubtask(String mainTaskId, String subtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    final newActiveTimers =
+        Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+    newActiveTimers.remove(subtaskId);
+    _provider.setProviderState(
+        mainTasks: newMainTasks, activeTimers: newActiveTimers);
+  }
+
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
+    // ... [Implementation unchanged] ...
+    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
+    if (taskToUpdate == null) return;
+    SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
+
+    final newSubtask = SubTask(
+      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
+      name: subTaskToDuplicate.name, description: subTaskToDuplicate.description, completed: false, currentTimeSpent: 0, completedDate: null,
+      isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
+      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
+        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
+        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
+      )).toList(), sessions: [],
+      isRecurring: subTaskToDuplicate.isRecurring,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // ... [Other methods unchanged]
+  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
+    final newSubSubtask = SubSubTask(
+      id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
+      name: subSubtaskData['name'] as String,
+      isCountable: subSubtaskData['isCountable'] as bool? ?? false,
+      targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
+      completionTimestamp: null,
+    );
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            return SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+    return newSubSubtask.id;
+  }
+
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
+    // ... [Implementation unchanged] ...
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            final updatedSub = SubTask(
+              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+              currentCount: st.currentCount,
+              subSubTasks: st.subSubTasks.map((sss) {
+                if (sss.id == subSubtaskId) {
+                  final updatedSss = SubSubTask(
+                    id: sss.id,
+                    name: updates['name'] as String? ?? sss.name,
+                    completed: updates['completed'] as bool? ?? sss.completed,
+                    isCountable: updates['isCountable'] as bool? ?? sss.isCountable,
+                    targetCount: updates['targetCount'] as int? ?? sss.targetCount,
+                    currentCount: updates['currentCount'] as int? ?? sss.currentCount,
+                    completionTimestamp: updates['completionTimestamp'] as String? ?? sss.completionTimestamp,
+                  );
+                  if (updatedSss.isCountable) updatedSss.currentCount = updatedSss.currentCount.clamp(0, updatedSss.targetCount);
+                  return updatedSss;
+                }
+                return sss;
+              }).toList(), sessions: st.sessions,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+            );
+            return updatedSub;
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
+    bool subSubTaskCompletedSuccessfully = false;
+    SubSubTask? completedSubSubTaskInstanceForLog;
+
+    // Use a copy of mainTasks for optimistic update
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && !sss.completed) {
+                    if (sss.isCountable && sss.currentCount < sss.targetCount && !fromSync) {
+                      subSubTaskCompletedSuccessfully = false;
+                      return sss;
+                    }
+                    SubSubTask updatedSss = SubSubTask(
+                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount,
+                      completionTimestamp: DateTime.now().toIso8601String(),
+                    );
+                    completedSubSubTaskInstanceForLog = SubSubTask(
+                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount,
+                      completionTimestamp: updatedSss.completionTimestamp,
+                    );
+                    subSubTaskCompletedSuccessfully = true;
+                    return updatedSss;
+                  }
+                  return sss;
+                }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    // Trigger update immediately
+    if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
+      // Async state update to prevent UI blocking
+      Future.microtask(() {
+        _provider.setProviderState(mainTasks: newMainTasks);
+        
+        if (!fromSync) {
+          _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
+        }
+
+        logToDailySummary('subSubtaskCompleted', {
+          'mainTaskId': mainTaskId, 'parentSubtaskId': parentSubtaskId, 'subSubtaskId': subSubtaskId,
+          'name': completedSubSubTaskInstanceForLog!.name, 'isCountable': completedSubSubTaskInstanceForLog!.isCountable,
+          'currentCount': completedSubSubTaskInstanceForLog!.currentCount, 'targetCount': completedSubSubTaskInstanceForLog!.targetCount,
+          'completionTimestamp': completedSubSubTaskInstanceForLog!.completionTimestamp,
+          'parentSubtaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId)?.name ?? 'N/A',
+          'mainTaskName': _provider.mainTasks.firstWhereOrNull((m) => m.id == mainTaskId)?.name ?? 'N/A'
+        });
+      });
+    }
+  }
+
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.map((sss) {
+                  if (sss.id == subSubtaskId && sss.completed) {
+                    return SubSubTask(
+                      id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
+                      targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
+                    );
+                  }
+                  return sss;
+                }).toList(), sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+
+    // Async update
+    Future.microtask(() {
+      _provider.setProviderState(mainTasks: newMainTasks);
+      if (!fromSync) {
+        _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
+      }
+    });
+  }
+
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: st.subSubTasks.where((sss) => sss.id != subSubtaskId).toList(),
+                sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+}
+--- END OF FILE lib/src/providers/actions/task_actions.dart ---
+
+--- END OF FILE project_snapshot_out.txt ---

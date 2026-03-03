@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:intl/intl.dart';
 
 class AddSessionDialog extends StatefulWidget {
-  const AddSessionDialog({super.key});
+  final DateTime? initialDate;
+
+  const AddSessionDialog({super.key, this.initialDate});
 
   @override
   State<AddSessionDialog> createState() => _AddSessionDialogState();
 }
 
 class _AddSessionDialogState extends State<AddSessionDialog> {
+  late DateTime _startDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  bool _isNextDay = false;
 
   @override
   void initState() {
     super.initState();
-    // Default start to next minute to avoid "now" overlap
-    final initial = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 1)));
-    _startTime = initial;
+    _startDate = widget.initialDate ?? DateTime.now();
+    final initialTime = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 1)));
+    _startTime = initialTime;
   }
 
   @override
@@ -30,21 +33,29 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildDatePickerRow("SESSION DATE", _startDate, (val) => setState(() => _startDate = val)),
+            const SizedBox(height: 16),
             _buildTimePickerRow("START TIME", _startTime, (val) => setState(() => _startTime = val)),
             const SizedBox(height: 16),
             _buildTimePickerRow("END TIME", _endTime, (val) => setState(() => _endTime = val)),
             if (_startTime != null && _endTime != null) ...[
                const SizedBox(height: 12),
-               Row(
-                 children: [
-                   Checkbox(
-                     value: _isNextDay, 
-                     activeColor: AppTheme.fhAccentTeal,
-                     onChanged: (val) => setState(() => _isNextDay = val ?? false)
-                   ),
-                   const Text("Ends Next Day", style: TextStyle(color: AppTheme.fhTextSecondary))
-                 ],
-               )
+               Builder(builder: (context) {
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
+                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+                  
+                  return Row(
+                    children: [
+                      Icon(Icons.info_outline, color: AppTheme.fhTextSecondary, size: 14),
+                      const SizedBox(width: 8),
+                      Text(
+                        end.day != start.day ? "Ends Next Day" : "Same Day", 
+                        style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)
+                      )
+                    ],
+                  );
+               })
             ]
           ],
         ),
@@ -58,18 +69,12 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
           label: "CONFIRM",
           onPressed: (_startTime != null && _endTime != null)
               ? () {
-                  final now = DateTime.now();
-                  final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-                  var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
                   
-                  if (_isNextDay || end.isBefore(start)) {
-                     // If explicity marked next day OR naturally before start (crossing midnight), add day
-                     if (!_isNextDay && end.isBefore(start)) {
-                        // Auto detect crossing midnight if unchecked but time implies it
-                        end = end.add(const Duration(days: 1));
-                     } else if (_isNextDay) {
-                        end = end.add(const Duration(days: 1));
-                     }
+                  // Auto detect crossing midnight
+                  if (end.isBefore(start)) {
+                      end = end.add(const Duration(days: 1));
                   }
                   
                   Navigator.pop(context, {'start': start, 'end': end});
@@ -77,6 +82,53 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
               : null,
         ),
       ],
+    );
+  }
+
+  Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now(),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: AppTheme.fhAccentTeal,
+                      onPrimary: Colors.black,
+                      surface: AppTheme.fhBgDeepDark,
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                ),
+              );
+              if (picked != null) onSelect(picked);
+            },
+            child: Text(
+              DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
+              style: const TextStyle(
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 14,
+                color: AppTheme.fhAccentTeal
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

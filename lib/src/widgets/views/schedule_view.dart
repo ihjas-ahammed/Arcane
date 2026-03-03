@@ -8,7 +8,6 @@ import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -238,7 +237,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   void _handleAddSession(BuildContext context, AppProvider provider) async {
     final result = await showDialog<Map<String, DateTime>>(
       context: context,
-      builder: (ctx) => const AddSessionDialog(),
+      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
     );
 
     if (result != null && mounted) {

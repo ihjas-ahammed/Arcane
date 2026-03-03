@@ -15,6 +15,7 @@ class WeeklyReportDialog extends StatelessWidget {
     final summary = reportData['summary'] as String? ?? "No summary available.";
     final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
     final timeInsight = reportData['time_insight'] as String? ?? "";
+    final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -22,15 +23,12 @@ class WeeklyReportDialog extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         decoration: BoxDecoration(
-          // ignore: deprecated_member_use
-          color: AppTheme.fhBgDeepDark.withOpacity(0.95),
+          color: AppTheme.fhBgDeepDark.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(16),
-          // ignore: deprecated_member_use
-          border: Border.all(color: AppTheme.fhAccentGold.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: AppTheme.fhAccentGold.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              // ignore: deprecated_member_use
-              color: AppTheme.fhAccentGold.withOpacity(0.1),
+              color: AppTheme.fhAccentGold.withValues(alpha: 0.1),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -44,14 +42,12 @@ class WeeklyReportDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                // ignore: deprecated_member_use
-                border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.1))),
+                border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withValues(alpha: 0.1))),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    // ignore: deprecated_member_use
-                    AppTheme.fhAccentGold.withOpacity(0.05),
+                    AppTheme.fhAccentGold.withValues(alpha: 0.05),
                     Colors.transparent
                   ],
                 ),
@@ -63,8 +59,7 @@ class WeeklyReportDialog extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: AppTheme.fhAccentGold),
-                      // ignore: deprecated_member_use
-                      color: AppTheme.fhAccentGold.withOpacity(0.1),
+                      color: AppTheme.fhAccentGold.withValues(alpha: 0.1),
                     ),
                     child: Icon(MdiIcons.medalOutline, color: AppTheme.fhAccentGold, size: 24),
                   ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
@@ -115,8 +110,7 @@ class WeeklyReportDialog extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        // ignore: deprecated_member_use
-                        color: AppTheme.fhBgDark.withOpacity(0.5),
+                        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
                         border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
                       ),
                       child: Text(
@@ -150,6 +144,32 @@ class WeeklyReportDialog extends StatelessWidget {
                       const SizedBox(height: 32),
                     ],
 
+                    // Grateful People Section
+                    if (gratefulPeople.isNotEmpty) ...[
+                      _SectionHeader(title: "ALLIES ACKNOWLEDGED", icon: MdiIcons.handHeart, delay: 600),
+                      const SizedBox(height: 12),
+                      ...gratefulPeople.map((person) {
+                        final pMap = person as Map<String, dynamic>;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.fhBgDark.withValues(alpha: 0.3),
+                            border: Border(left: BorderSide(color: AppTheme.fhAccentGold, width: 2))
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(pMap['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhAccentGold)),
+                              const SizedBox(height: 4),
+                              Text(pMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                            ],
+                          ),
+                        ).animate().fadeIn(delay: 650.ms);
+                      }),
+                      const SizedBox(height: 32),
+                    ],
+
                     // Time Insight Section
                     if (timeInsight.isNotEmpty) ...[
                       _SectionHeader(title: "TEMPORAL INSIGHT", icon: MdiIcons.clockTimeFourOutline, delay: 700),
@@ -157,11 +177,9 @@ class WeeklyReportDialog extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          // ignore: deprecated_member_use
-                          color: AppTheme.fhAccentPurple.withOpacity(0.05),
+                          color: AppTheme.fhAccentPurple.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(8),
-                          // ignore: deprecated_member_use
-                          border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.2)),
+                          border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,8 +249,7 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        // ignore: deprecated_member_use
-        Expanded(child: Container(height: 1, color: AppTheme.fhBorderColor.withOpacity(0.3))),
+        Expanded(child: Container(height: 1, color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
       ],
     ).animate().fadeIn(delay: delay.ms, duration: 400.ms);
   }

@@ -7,6 +7,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:arcane/src/widgets/dialogs/xp_gain_dialog.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/common/growing_text_field.dart';
+import 'package:intl/intl.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -15,7 +16,7 @@ class ReflectionEditorScreen extends StatefulWidget {
   const ReflectionEditorScreen({
     super.key,
     this.initialLog,
-    required this.dateStr,
+    this.dateStr = '',
   });
 
   @override
@@ -26,6 +27,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   late TextEditingController _triggerController;
   late TextEditingController _emotionController;
   late TextEditingController _reasonController;
+  late TextEditingController _actionController;
+  late DateTime _selectedDateTime;
   bool _isLoading = false;
 
   @override
@@ -34,6 +37,21 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     _triggerController = TextEditingController(text: widget.initialLog?.trigger ?? '');
     _emotionController = TextEditingController(text: widget.initialLog?.emotion ?? '');
     _reasonController = TextEditingController(text: widget.initialLog?.reason ?? '');
+    _actionController = TextEditingController(text: widget.initialLog?.action ?? '');
+    
+    if (widget.initialLog != null) {
+      _selectedDateTime = widget.initialLog!.timestamp;
+    } else if (widget.dateStr.isNotEmpty) {
+      final parsed = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
+      final now = DateTime.now();
+      if (parsed.year == now.year && parsed.month == now.month && parsed.day == now.day) {
+        _selectedDateTime = now;
+      } else {
+        _selectedDateTime = DateTime(parsed.year, parsed.month, parsed.day, 12, 0);
+      }
+    } else {
+      _selectedDateTime = DateTime.now();
+    }
   }
 
   @override
@@ -41,22 +59,61 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     _triggerController.dispose();
     _emotionController.dispose();
     _reasonController.dispose();
+    _actionController.dispose();
     super.dispose();
   }
 
+  Future<void> _pickDateTime() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (date == null) return;
+
+    if (!mounted) return;
+    
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
   Future<void> _saveReflection({bool analyze = true}) async {
-    if (_triggerController.text.trim().isEmpty) return;
+    if (_triggerController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Situation cannot be empty.")));
+      return;
+    }
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final targetDate = DateTime.parse(widget.dateStr);
-    final now = DateTime.now();
-    DateTime timestamp;
-
-    if (targetDate.year == now.year && targetDate.month == now.month && targetDate.day == now.day) {
-      timestamp = now;
-    } else {
-      timestamp = DateTime(targetDate.year, targetDate.month, targetDate.day, 12, 0);
-    }
 
     if (widget.initialLog != null) {
       // Editing existing log
@@ -65,7 +122,11 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         trigger: _triggerController.text.trim(),
         emotion: _emotionController.text.trim(),
         reason: _reasonController.text.trim(),
+        action: _actionController.text.trim(),
       );
+      // Currently, date modification for existing logs isn't fully supported in update method,
+      // but UI-wise we allow it. For true date change, we'd need to update timestamp in model.
+      // To keep it simple, we focus on content updates.
       Navigator.pop(context);
       return;
     }
@@ -76,7 +137,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         trigger: _triggerController.text.trim(),
         emotion: _emotionController.text.trim(),
         reason: _reasonController.text.trim(),
-        timestamp: timestamp,
+        action: _actionController.text.trim(),
+        timestamp: _selectedDateTime,
       );
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
@@ -90,7 +152,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
           trigger: _triggerController.text.trim(),
           emotion: _emotionController.text.trim(),
           reason: _reasonController.text.trim(),
-          timestamp: timestamp,
+          action: _actionController.text.trim(),
+          timestamp: _selectedDateTime,
         );
 
         final xpGained = result['xpGained'] as Map<String, int>;
@@ -161,7 +224,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
-                    child: Text("DEBRIEF", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary))
+                    child: Text("REFLECTION LOG", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.fhTextPrimary))
                   ),
                   if (widget.initialLog != null)
                     IconButton(
@@ -178,18 +241,55 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  _buildSectionHeader("SITUATION"),
-                  GrowingTextField(controller: _triggerController, hint: "What triggered this event?", minLines: 2),
-                  
+                  // DateTime Picker
+                  InkWell(
+                    onTap: widget.initialLog == null ? _pickDateTime : null, // Prevent edit time for simplicity
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark,
+                        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("LOG TIMESTAMP", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('MMM dd, yyyy - HH:mm').format(_selectedDateTime),
+                                style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold),
+                              )
+                            ],
+                          ),
+                          if (widget.initialLog == null)
+                            Icon(MdiIcons.calendarClock, color: AppTheme.fhAccentTeal, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
+
+                  _buildSectionHeader("SITUATION (What happened?)"),
+                  GrowingTextField(controller: _triggerController, hint: "Describe the event or situation...", minLines: 2),
                   
-                  _buildSectionHeader("FEELING"),
-                  GrowingTextField(controller: _emotionController, hint: "Emotion felt...", minLines: 1),
+                  const SizedBox(height: 20),
 
-                  const SizedBox(height: 24),
+                  _buildSectionHeader("CAUSE (Why did it happen?)"),
+                  GrowingTextField(controller: _reasonController, hint: "Root cause, context, or triggers...", minLines: 2),
 
-                  _buildSectionHeader("CAUSE"),
-                  GrowingTextField(controller: _reasonController, hint: "Why did this happen? Root cause...", minLines: 3),
+                  const SizedBox(height: 20),
+                  
+                  _buildSectionHeader("FEELING (How do you feel?)"),
+                  GrowingTextField(controller: _emotionController, hint: "Your emotions, physical sensations...", minLines: 2),
+
+                  const SizedBox(height: 20),
+
+                  _buildSectionHeader("ACTION (What will you do?)"),
+                  GrowingTextField(controller: _actionController, hint: "Next steps, coping mechanism, or lesson learned...", minLines: 2),
 
                   const SizedBox(height: 40),
 
@@ -202,6 +302,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                         ValorantButton(
                           label: _isLoading ? "ANALYZING..." : "ANALYZE & SAVE",
                           isPrimary: true,
+                          color: AppTheme.fhAccentTeal,
                           onPressed: _isLoading ? null : () => _saveReflection(analyze: true),
                         ),
                         const SizedBox(height: 12),
@@ -227,7 +328,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                       ],
                     )
                   ] else ...[
-                    // Edit Existing Log Actions (Simpler)
+                    // Edit Existing Log Actions
                     Row(
                       children: [
                         Expanded(
@@ -242,6 +343,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                           child: ValorantButton(
                             label: "UPDATE",
                             isPrimary: true,
+                            color: AppTheme.fhAccentTeal,
                             onPressed: () => _saveReflection(analyze: false),
                           ),
                         ),
@@ -261,8 +363,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, left: 4),
       child: Text(
-        title,
-        style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
+        title.toUpperCase(),
+        style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 11),
       ),
     );
   }

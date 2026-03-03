@@ -85,6 +85,7 @@ class ReflectionLog {
   String trigger;
   String emotion;
   String reason;
+  String action; // Added action field
   final String aiFeedback;
   final Map<String, int> xpGained;
 
@@ -94,6 +95,7 @@ class ReflectionLog {
     required this.trigger,
     required this.emotion,
     required this.reason,
+    this.action = '',
     required this.aiFeedback,
     required this.xpGained,
   });
@@ -105,6 +107,7 @@ class ReflectionLog {
       trigger: json['trigger'] as String? ?? '',
       emotion: json['emotion'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
+      action: json['action'] as String? ?? '', // Fallback for old data
       aiFeedback: json['aiFeedback'] as String? ?? '',
       xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
     );
@@ -117,6 +120,7 @@ class ReflectionLog {
       'trigger': trigger,
       'emotion': emotion,
       'reason': reason,
+      'action': action,
       'aiFeedback': aiFeedback,
       'xpGained': xpGained,
     };

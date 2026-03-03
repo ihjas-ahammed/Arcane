@@ -22,7 +22,6 @@ import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/finance_models.dart'; 
-import 'package:arcane/src/utils/time_validation_helper.dart';
 
 import 'package:arcane/src/providers/actions/task_actions.dart';
 import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
@@ -175,6 +174,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs() => _taskActions.recalibrateTimeLogs(); // Exposed Method
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
@@ -270,7 +270,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             _hasUnsavedChanges = false;
             _saveLocalSnapshot(forceFlush: true);
           } else if (loadedLocal && _settings.lastModified > cloudTs) {
+            // Local is newer. A previous cloud save failed. Mark all dirty to force sync.
             _hasUnsavedChanges = true;
+            _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
             _scheduleRealtimeSync();
           }
         } else if (!loadedLocal) {
@@ -340,11 +342,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
 
       try {
+        final oldTs = _settings.lastModified;
+        final nowTs = DateTime.now().millisecondsSinceEpoch;
+        
+        // Update timestamp BEFORE saving local snapshot so local has the new time
+        _settings.lastModified = nowTs;
         await _saveLocalSnapshot();
 
         bool success = true;
-        final nowTs = DateTime.now().millisecondsSinceEpoch;
-        _settings.lastModified = nowTs;
 
         if (_dirtyCollections.isNotEmpty) {
           if (_dirtyCollections.contains('tasks')) {
@@ -361,10 +366,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
               'transactions': _transactions.map((t) => t.toJson()).toList(),
               'categories': _categories.map((c) => c.toJson()).toList(),
               'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
-            })) success = false;
+            })) {
+              success = false;
+            }
           }
           
           if (_dirtyCollections.contains('settings') || success) {
+             if (!success) {
+                // Prevent cloud from having the new timestamp if a partial failure occurred
+                _settings.lastModified = oldTs;
+             }
              final settingsData = {
                 'lastLoginDate': _lastLoginDate,
                 'settings': settings.toJson(),
@@ -376,13 +387,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                 'skills': _skills.map((s) => s.toJson()).toList(),
               };
               if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
+              
+              // Restore memory state
+              _settings.lastModified = nowTs;
           }
-          if (success) _dirtyCollections.clear();
-        }
 
-        if (success) {
-          _lastSuccessfulSaveTimestamp = DateTime.now();
-          _hasUnsavedChanges = false;
+          if (success) {
+            _dirtyCollections.clear();
+            _lastSuccessfulSaveTimestamp = DateTime.now();
+            _hasUnsavedChanges = false;
+          }
         }
       } finally {
         _isSyncing = false;
@@ -397,6 +411,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void _scheduleRealtimeSync() {
+    // Save locally immediately to preserve unsaved changes against app crashes
     _saveLocalSnapshot(); 
     
     if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
@@ -417,7 +432,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void _markDirty(String collection) {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _settings.lastModified = DateTime.now().millisecondsSinceEpoch;
   }
 
   Map<String, dynamic> getAppStateAsMap() {
@@ -441,13 +455,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void loadAppStateFromMap(Map<String, dynamic> data) {
     _loadStateFromMap(data);
-    _saveLocalSnapshot(forceFlush: true);
     _hasUnsavedChanges = true;
-    _markDirty('settings');
-    _markDirty('tasks');
-    _markDirty('history');
-    _markDirty('reflections');
-    _markDirty('finance');
+    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
     _scheduleRealtimeSync();
     notifyListeners();
   }
@@ -575,6 +584,26 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       if (!taskFound) changed = true;
       return !taskFound;
+    });
+
+    // Ensure only one timer is running at a time across all devices/sessions
+    String? latestRunningTimerId;
+    DateTime? latestTime;
+    
+    fixedTimers.forEach((id, info) {
+      if (info.isRunning) {
+        if (latestTime == null || info.startTime.isAfter(latestTime!)) {
+          latestTime = info.startTime;
+          latestRunningTimerId = id;
+        }
+      }
+    });
+
+    fixedTimers.forEach((id, info) {
+      if (info.isRunning && id != latestRunningTimerId) {
+        info.isRunning = false;
+        changed = true;
+      }
     });
 
     if (changed) {
@@ -740,10 +769,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
               subTasksChanged = true;
               return SubTask(
                   id: st.id, name: st.name, description: st.description, completed: false, completedDate: null,
-                  currentTimeSpent: 0, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                  currentTimeSpent: st.currentTimeSpent, // Keep total time
+                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
                   subSubTasks: st.subSubTasks.map((sss) => SubSubTask(
                     id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
-                  )).toList(), sessions: [],
+                  )).toList(), 
+                  sessions: st.sessions, // KEEP SESSIONS
                   isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
               );
             }
@@ -798,11 +829,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     await _resetToInitialState();
     _lastSuccessfulSaveTimestamp = null;
     _hasUnsavedChanges = true; 
-    _markDirty('settings');
-    _markDirty('tasks');
-    _markDirty('history');
-    _markDirty('reflections');
-    _markDirty('finance');
+    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
     _scheduleRealtimeSync();
     notifyListeners();
   }
@@ -1053,7 +1080,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
     final logsFormatted = logs.map((l) => {
-      'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason
+      'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action
     }).toList();
     
     final recentBriefings = <String>[];
@@ -1119,9 +1146,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     return total;
   }
 
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) async { 
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async { 
     final eval = await _aiService.evaluateReflection(
-      trigger: trigger, emotion: emotion, reason: reason, 
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
       modelCandidates: _settings.liteModels, 
       customApiKeys: _settings.customApiKeys,
       systemInstruction: _settings.customReflectionPrompt
@@ -1145,6 +1172,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       trigger: trigger,
       emotion: emotion,
       reason: reason,
+      action: action,
       aiFeedback: eval['feedback'] ?? '',
       xpGained: xpGained,
     );
@@ -1158,13 +1186,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     return {'log': log, 'xpGained': xpGained};
   }
 
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, DateTime? timestamp}) { 
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) { 
     final log = ReflectionLog(
       id: const Uuid().v4(),
       timestamp: timestamp ?? DateTime.now(),
       trigger: trigger,
       emotion: emotion,
       reason: reason,
+      action: action,
       aiFeedback: "Saved without AI analysis.",
       xpGained: {},
     );
@@ -1174,12 +1203,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason}) { 
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) { 
     final log = _reflectionLogs.firstWhereOrNull((l) => l.id == id);
     if (log != null) {
       if (trigger != null) log.trigger = trigger;
       if (emotion != null) log.emotion = emotion;
       if (reason != null) log.reason = reason;
+      if (action != null) log.action = action;
       _markDirty('reflections');
       _scheduleRealtimeSync();
       notifyListeners();

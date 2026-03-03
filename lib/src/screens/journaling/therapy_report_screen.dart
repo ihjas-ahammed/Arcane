@@ -18,7 +18,7 @@ class TherapyReportScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("TRIAGE REPORT", style: TextStyle(color: AppTheme.fhAccentRed)),
+        title: const Text("TRIAGE REPORT", style: TextStyle(color: AppTheme.fhAccentTeal)),
         automaticallyImplyLeading: false, // Force them to hit "ACKNOWLEDGE"
       ),
       body: SingleChildScrollView(
@@ -28,7 +28,7 @@ class TherapyReportScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(MdiIcons.medicalBag, color: AppTheme.fhAccentRed, size: 28),
+                Icon(MdiIcons.medicalBag, color: AppTheme.fhAccentTeal, size: 28),
                 const SizedBox(width: 12),
                 const Text("ACTION PLAN", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold)),
               ],
@@ -38,7 +38,7 @@ class TherapyReportScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
-                border: Border(left: BorderSide(color: AppTheme.fhAccentRed, width: 4)),
+                border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 4)),
               ),
               child: Text(actionPlan, style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14)),
             ),
@@ -88,7 +88,7 @@ class TherapyReportScreen extends StatelessWidget {
               width: double.infinity,
               child: ValorantButton(
                 label: "ACKNOWLEDGE & CLOSE",
-                color: AppTheme.fhAccentRed,
+                color: AppTheme.fhAccentTeal,
                 onPressed: () => Navigator.pop(context),
               ),
             )

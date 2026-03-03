@@ -45,7 +45,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedCategoryId,
+              initialValue: _selectedCategoryId,
               dropdownColor: AppTheme.fhBgDark,
               decoration: const InputDecoration(labelText: "CATEGORY"),
               items: [

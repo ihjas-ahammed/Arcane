@@ -536,6 +536,53 @@ class _SettingsViewState extends State<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ]),
+          
+          // NEW SECTION: SYSTEM DIAGNOSTICS
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.tools,
+              title: 'System Diagnostics',
+              children: [
+                const Text(
+                  'Use these tools to repair data inconsistencies.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.databaseSyncOutline, size: 18),
+                  label: const Text('RECALIBRATE TIME LOGS'),
+                  onPressed: () async {
+                    try {
+                      await appProvider.recalibrateTimeLogs();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Time logs successfully recalibrated from session history.'),
+                          backgroundColor: AppTheme.fhAccentGreen
+                        ));
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Recalibration failed: $e'),
+                          backgroundColor: AppTheme.fhAccentRed
+                        ));
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentOrange,
+                    side: BorderSide(color: AppTheme.fhAccentOrange.withValues(alpha: 0.5))
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    "Re-syncs total task time data for the past 7 days based strictly on raw session entries. Use if time totals appear incorrect.",
+                    style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ]),
+
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,

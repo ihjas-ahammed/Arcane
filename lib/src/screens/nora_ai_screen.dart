@@ -78,7 +78,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: tone,
+                    initialValue: tone,
                     decoration: const InputDecoration(labelText: "Persona Tone"),
                     dropdownColor: AppTheme.fhBgDark,
                     items: const [

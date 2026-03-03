@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart'; // Import Validation Helper
+import 'package:arcane/src/utils/task_calculations.dart'; // ADDED
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
@@ -382,6 +383,65 @@ class TaskActions {
     _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
+  Future<void> recalibrateTimeLogs() async {
+    _provider.setLoadingTask("RECALIBRATING...");
+    // Give UI a moment to show loading indicator
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    final now = DateTime.now();
+    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
+
+    // Re-calculate for the last 7 days exactly (0 to 6 days ago)
+    for (int i = 0; i < 7; i++) {
+      final targetDate = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      
+      final Map<String, int> dailyTaskTimes = {};
+      
+      for (var task in _provider.mainTasks) {
+        int taskTotalSeconds = 0;
+        for (var sub in task.subTasks) {
+          for (var session in sub.sessions) {
+            final dayStart = DateTime(targetDate.year, targetDate.month, targetDate.day);
+            final nextDay = dayStart.add(const Duration(days: 1));
+            
+            final overlapStart = session.startTime.isAfter(dayStart) ? session.startTime : dayStart;
+            final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
+            
+            if (overlapStart.isBefore(overlapEnd)) {
+                taskTotalSeconds += overlapEnd.difference(overlapStart).inSeconds;
+            }
+          }
+        }
+        if (taskTotalSeconds > 0) {
+          dailyTaskTimes[task.id] = taskTotalSeconds;
+        }
+      }
+      
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? 
+        {'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+      dayData['taskTimes'] = dailyTaskTimes;
+      newCompletedByDay[dateStr] = dayData;
+    }
+    
+    // Update today's MainTask counter explicitly
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayTimes = newCompletedByDay[todayStr]?['taskTimes'] as Map<String, int>? ?? {};
+    
+    final newMainTasks = _provider.mainTasks.map((task) {
+      return task.copyWith(
+        dailyTimeSpent: todayTimes[task.id] ?? 0
+      );
+    }).toList();
+
+    _provider.setProviderState(
+      completedByDay: newCompletedByDay,
+      mainTasks: newMainTasks
+    );
+    
+    _provider.setLoadingTask(null);
+  }
+
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
     MainTask? mainTask =
         _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
@@ -394,11 +454,19 @@ class TaskActions {
       return false;
     }
 
-    if (subTask.currentTimeSpent <= 0 && !subTask.isCountable) {
+    bool hasTime = subTask.currentTimeSpent > 0;
+    if (subTask.isRecurring) {
+      hasTime = TaskCalculations.getHistoricalTodaySeconds(subTask) > 0;
+      if (_provider.activeTimers[subtaskId]?.isRunning == true) {
+        hasTime = true;
+      }
+    }
+
+    if (!hasTime && !subTask.isCountable) {
       bool allSubSubTasksDone =
           subTask.subSubTasks.every((sss) => sss.completed);
       if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
-      if (subTask.subSubTasks.isEmpty && subTask.currentTimeSpent <= 0) {
+      if (subTask.subSubTasks.isEmpty && !hasTime) {
         // Allow completion if forced by sync (e.g. from Project Step)
         if (!fromSync) return false;
       }
