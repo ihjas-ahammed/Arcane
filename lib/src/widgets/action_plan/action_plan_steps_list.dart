@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart'; // Reused for steps
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -26,6 +26,7 @@ class ActionPlanStepsList extends StatefulWidget {
 
 class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   final TextEditingController _stepController = TextEditingController();
+  String _newStepType = 'check'; // 'check' or 'info'
 
   void _addStep(AppProvider provider) {
     if (_stepController.text.trim().isEmpty) return;
@@ -33,6 +34,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
       'name': _stepController.text.trim(),
       'isCountable': false,
       'targetCount': 0,
+      'type': _newStepType,
     });
     _stepController.clear();
   }
@@ -82,6 +84,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             return CheckpointItem(
               title: step.name,
               isCompleted: step.completed,
+              type: step.type,
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
@@ -90,27 +93,52 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 }
               },
               onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onToggleType: () {
+                final newType = step.type == 'check' ? 'info' : 'check';
+                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+              },
             );
           }),
 
         Container(
           margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.2),
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
-          child: TextField(
-            controller: _stepController,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-            decoration: const InputDecoration(
-              hintText: "+ ADD STEP",
-              hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 12),
-            ),
-            onSubmitted: (_) => _addStep(provider),
+          child: Row(
+            children: [
+              PopupMenuButton<String>(
+                icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
+                tooltip: "Change Type",
+                onSelected: (val) => setState(() => _newStepType = val),
+                color: AppTheme.fhBgDark,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                ],
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _stepController,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    hintText: "ADD STEP...",
+                    hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onSubmitted: (_) => _addStep(provider),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
+                onPressed: () => _addStep(provider),
+              )
+            ],
           ),
         ),
       ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
 
+// ... [TaskSession and MainTask classes remain unchanged] ...
 class TaskSession {
   String id;
   DateTime startTime;
@@ -152,21 +153,19 @@ class MainTask {
 class SubTask {
   String id;
   String name;
-  String description; // Optional detail
+  String description;
   bool completed;
   int currentTimeSpent;
   String? completedDate;
   bool isCountable;
   int targetCount;
   int currentCount;
-  List<SubSubTask> subSubTasks; // "How" - Action Steps
+  List<SubSubTask> subSubTasks;
   List<TaskSession> sessions;
   
-  // Action Plan Fields
   String why; // Strategic Intent
   String what; // Expected Outcome/Reward
 
-  // Recurring features
   bool isRecurring;
   DateTime? lastCompletedDate; 
   DateTime createdAt;
@@ -206,8 +205,8 @@ class SubTask {
       isCountable: json['isCountable'] as bool? ?? false,
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
-      why: json['why'] as String? ?? '', // Load Why
-      what: json['what'] as String? ?? '', // Load What
+      why: json['why'] as String? ?? '',
+      what: json['what'] as String? ?? '',
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -256,12 +255,13 @@ class SubTask {
 
 class SubSubTask {
   String id;
-  String name; // Action Step Description
+  String name;
   bool completed;
   bool isCountable;
   int targetCount;
   int currentCount;
   String? completionTimestamp;
+  String type; // 'check' (default) or 'info'
 
   SubSubTask({
     required this.id,
@@ -271,6 +271,7 @@ class SubSubTask {
     this.targetCount = 0,
     this.currentCount = 0,
     this.completionTimestamp,
+    this.type = 'check',
   });
 
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
@@ -282,6 +283,7 @@ class SubSubTask {
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
       completionTimestamp: json['completionTimestamp'] as String?,
+      type: json['type'] as String? ?? 'check',
     );
   }
   Map<String, dynamic> toJson() {
@@ -293,10 +295,12 @@ class SubSubTask {
       'targetCount': targetCount,
       'currentCount': currentCount,
       'completionTimestamp': completionTimestamp,
+      'type': type,
     };
   }
 }
 
+// ... [MainTaskTemplate remains unchanged] ...
 class MainTaskTemplate {
   final String id;
   final String name;

@@ -1,9 +1,7 @@
-Here is the updated project snapshot. I have restructured the Subtask (Submission) data model to support the Action Plan (Why/How/What) methodology and refactored the UI to be modular and screen-size safe.
+Here is the updated project snapshot. I have updated the `SubSubTask` model to support types (Checkable vs Info) and added the ability to duplicate steps. I've also updated the UI components to handle these new features.
 
-**Commands to run (if needed for folder structure):**
-```bash
-mkdir -p lib/src/widgets/action_plan
-```
+**Commands to run:**
+(No new folders needed, utilizing existing structure)
 
 --- START OF FILE project_snapshot_out.txt ---
 
@@ -13,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
 
+// ... [TaskSession and MainTask classes remain unchanged] ...
 class TaskSession {
   String id;
   DateTime startTime;
@@ -162,21 +161,19 @@ class MainTask {
 class SubTask {
   String id;
   String name;
-  String description; // Optional detail
+  String description;
   bool completed;
   int currentTimeSpent;
   String? completedDate;
   bool isCountable;
   int targetCount;
   int currentCount;
-  List<SubSubTask> subSubTasks; // "How" - Action Steps
+  List<SubSubTask> subSubTasks;
   List<TaskSession> sessions;
   
-  // Action Plan Fields
   String why; // Strategic Intent
   String what; // Expected Outcome/Reward
 
-  // Recurring features
   bool isRecurring;
   DateTime? lastCompletedDate; 
   DateTime createdAt;
@@ -216,8 +213,8 @@ class SubTask {
       isCountable: json['isCountable'] as bool? ?? false,
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
-      why: json['why'] as String? ?? '', // Load Why
-      what: json['what'] as String? ?? '', // Load What
+      why: json['why'] as String? ?? '',
+      what: json['what'] as String? ?? '',
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -266,12 +263,13 @@ class SubTask {
 
 class SubSubTask {
   String id;
-  String name; // Action Step Description
+  String name;
   bool completed;
   bool isCountable;
   int targetCount;
   int currentCount;
   String? completionTimestamp;
+  String type; // 'check' (default) or 'info'
 
   SubSubTask({
     required this.id,
@@ -281,6 +279,7 @@ class SubSubTask {
     this.targetCount = 0,
     this.currentCount = 0,
     this.completionTimestamp,
+    this.type = 'check',
   });
 
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
@@ -292,6 +291,7 @@ class SubSubTask {
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
       completionTimestamp: json['completionTimestamp'] as String?,
+      type: json['type'] as String? ?? 'check',
     );
   }
   Map<String, dynamic> toJson() {
@@ -303,10 +303,12 @@ class SubSubTask {
       'targetCount': targetCount,
       'currentCount': currentCount,
       'completionTimestamp': completionTimestamp,
+      'type': type,
     };
   }
 }
 
+// ... [MainTaskTemplate remains unchanged] ...
 class MainTaskTemplate {
   final String id;
   final String name;
@@ -322,804 +324,7 @@ class MainTaskTemplate {
     this.colorHex = "FF00F8F8",
   });
 }
-
 --- END OF FILE lib/src/models/task_models.dart ---
-
---- START OF FILE lib/src/services/ai_service.dart ---
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/utils/json_utils.dart';
-
-class AIService {
-  
-  // ... [Existing _executeWithModelAndKeyRotation and makeAICall methods remain unchanged] ...
-  Future<T> _executeWithModelAndKeyRotation<T>({
-    required List<String> modelCandidates,
-    required Future<T> Function(String apiKey, String modelName) requestFn,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final List<String> apiKeysToTry = <String>{
-      ...geminiApiKeys,
-      if (customApiKeys != null) ...customApiKeys
-    }.toList();
-
-    if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
-    }
-
-    for (final model in modelCandidates) {
-      for (int i = 0; i < apiKeysToTry.length; i++) {
-        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-        String effectiveKey = apiKeysToTry[effectiveIndex];
-
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
-
-        try {
-          if (kDebugMode) {
-            onLog("Trying Model: $model with Key Index: $effectiveIndex");
-          }
-          final result = await requestFn(effectiveKey, model);
-          onNewApiKeyIndex(effectiveIndex);
-          return result;
-        } catch (e) {
-          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
-             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
-             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
-          }
-          onLog(
-              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-        }
-      }
-    }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
-  }
-
-  Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
-        }
-        
-        return JsonUtils.tryDecode(rawResponseText);
-      },
-    );
-  }
-
-  // --- New Method for Action Plan Generation ---
-  Future<Map<String, dynamic>> generateActionPlanSteps({
-    required String taskName,
-    required String why,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Create a tactical action plan (How) and expected outcome (What) for the following objective:
-    
-    OBJECTIVE: $taskName
-    STRATEGIC INTENT (WHY): $why
-    
-    Task:
-    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
-    2. Define the expected result/reward ("What") upon completion.
-    
-    Output JSON ONLY:
-    {
-      "steps": [
-        {"name": "Step description"}
-      ],
-      "what": "Description of the result or reward"
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  // ... [Other methods like generateSchedulePrediction, queryNeuralArchive, etc. remain unchanged] ...
-  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
-    required String sessionHistory, 
-    required String currentTime,
-    required String availableTasksContext, 
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
-    
-    HISTORY:
-    $sessionHistory
-    
-    AVAILABLE TASKS (Map prediction to these if possible):
-    $availableTasksContext
-    
-    INSTRUCTIONS:
-    1. Analyze patterns (time of day, duration, sequence).
-    2. Suggest 1-10 likely sessions for the remainder of the day.
-    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
-    4. CONFIDENTIALITY: Do not use specific names of real people.
-    
-    CRITICAL OUTPUT FORMATTING:
-    - Return ONLY valid JSON.
-    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
-    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
-    
-    OUTPUT JSON ARRAY STRUCTURE:
-    [
-      {
-        "taskName": "Exact Name from Available Tasks or New Name",
-        "subTaskName": "Specific Activity",
-        "startOffsetMinutes": int (minutes from Now to start),
-        "durationMinutes": int
-      }
-    ]
-    """;
-
-    final result = await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        String? raw = response.text;
-        if (raw == null) throw Exception("Empty AI response");
-        return JsonUtils.tryDecode(raw);
-      },
-    );
-
-    if (result is List) {
-      return result.map((e) => e as Map<String, dynamic>).toList();
-    }
-    return [];
-  }
-
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    $logsContext
-    
-    USER: "$query"
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
-  }
-
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
-    required String parentStepTitle,
-    required String parentStepDescription,
-    required List<String> existingSubsteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates,
-    required String mainTaskName,
-    required String mainTaskDescription,
-    String? mainTaskTheme,
-    required String generationMode,
-    required String userInput,
-    required int numSubquests,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
-    required String subtaskName,
-    required String parentTaskName,
-    required List<String> existingCheckpoints,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<Map<String, dynamic>> evaluateReflection({
-    required String trigger,
-    required String emotion,
-    required String reason,
-    required String action,
-    required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-  }) async {
-    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
-    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
-    
-    final prompt = """
-    Analyze this reflection log.
-    Situation: $trigger
-    Feeling: $emotion
-    Reason: $reason
-    Action Planned: $action
-    
-    1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-
-    Output JSON: {
-      "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...}
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: 0,
-        onNewApiKeyIndex: (_) {},
-        onLog: (_) {});
-  }
-
-  Future<Map<String, dynamic>> generateDailySummary({
-    required List<Map<String, String>> reflections,
-    required List<String> previousBriefings,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a Tactical Briefing based on today's reflections.
-    Current Logs: ${jsonEncode(reflections)}
-    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    
-    Tone: Empathetic, psychologically wise, therapist.
-    
-    Task:
-    1. Create a concise summary focusing purely on GRATITUDE. Highlight everything the user should be grateful for based on today's reflections.
-    2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
-    
-    Output JSON: {
-      "summary": "string (max 120 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> generateWeeklyReport({
-    required String logsText,
-    required String timeStatsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
-    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
-    3. Output JSON: 
-    { 
-      "summary": "string", 
-      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
-      "time_insight": "string",
-      "grateful_people": [ {"name": "string", "reason": "string"} ]
-    } 
-    Logs: $logsText. 
-    Time: $timeStatsText. 
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
-    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-    
-    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
-      throw Exception("No valid API Key found to fetch models.");
-    }
-
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['models'] != null && data['models'] is List) {
-        final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
-          if (methods.contains('generateContent')) {
-            return (m['name'] as String).replaceFirst('models/', '');
-          }
-          return null;
-        }).whereType<String>().toList();
-        return models;
-      }
-      return [];
-    } else {
-      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
-    }
-  }
-
-  Future<Map<String, dynamic>> generateStartDayReport({
-    required String reflectionsList,
-    required String sessionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a 'System Start-Up Sequence' for the user based on their recent history.
-    Context:
-    Reflections (Last 7 days): $reflectionsList
-    Sessions (Last 7 days): $sessionsList
-    
-    Task:
-    1. Analyze the user's momentum.
-    2. Provide a futuristic 'Forecast' message focusing intensely on the SPECIFIC IMPROVEMENTS the user can make today based on yesterday's logs and sessions. How can they be better today?
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
-    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
-    Create a list of upto 50 people
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY:
-    {
-      "people": [
-        {
-          "name": "string",
-          "relation": "string"
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<Map<String, dynamic>> generatePersonDetails({
-    required String personName,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
-    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY:
-    {
-      "details": "string (multiline formatted text)"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> runQuickTherapy({
-    required String reason,
-    required String feeling,
-    required String action,
-    required String logsText,
-    required String peopleContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    User needs immediate psychological assistance.
-    Current Situation / Reason: $reason
-    Current Feeling: $feeling
-    Planned Action: $action
-    
-    Past Context (Reflections): $logsText
-    Known People: $peopleContext
-    
-    Task:
-    1. Provide a concise, empathetic, and tactical action plan for right now.
-    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
-    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
-    
-    Output JSON ONLY:
-    {
-      "action_plan": "string",
-      "suggested_person": "string or null",
-      "conversation_map": ["step 1", "step 2"]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> simulateEvent({
-    required String situation,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
-    
-    Proposed Situation: $situation
-    
-    Past Context (Reflections): $logsText
-    
-    Task:
-    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
-    
-    Output JSON ONLY:
-    {
-      "simulation": "string"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-}
---- END OF FILE lib/src/services/ai_service.dart ---
-
---- START OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
-// lib/src/providers/actions/ai_generation_actions.dart
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:flutter/foundation.dart';
-
-class AIGenerationActions {
-  final AppProvider _provider;
-  final AIService _aiService = AIService();
-
-  AIGenerationActions(this._provider);
-
-  void _logToApp(String logMessage) {
-    if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
-  }
-
-  // ... [Existing methods like triggerAISubquestGeneration, generateCheckpointsForSubtask] ...
-  Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
-      String generationMode, String userInput, int numSubquests) async {
-    if (_provider.isGeneratingSubquests) {
-      debugPrint(
-          "[AIActions] triggerAISubquestGeneration skipped, already in progress for task '${mainTaskForSubquests.name}'.");
-      return;
-    }
-    _provider.setProviderAISubquestLoading(true);
-
-    try {
-      final generatedSubquestsRaw = await _aiService.generateAISubquests(
-        modelCandidates: _provider.settings.liteModels,
-        mainTaskName: mainTaskForSubquests.name,
-        mainTaskDescription: mainTaskForSubquests.description,
-        mainTaskTheme: mainTaskForSubquests.theme,
-        generationMode: generationMode,
-        userInput: userInput,
-        numSubquests: numSubquests,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (newIndex) {
-          _provider.setProviderApiKeyIndex(newIndex);
-        },
-        onLog: _logToApp,
-      );
-
-      final List<SubTask> newSubTasksForParent = [];
-      for (var subquestData in generatedSubquestsRaw) {
-        final List<Map<String, dynamic>> subSubTasksDataList =
-            (subquestData['subSubTasksData'] as List<dynamic>? ?? [])
-                .map((item) => item is Map<String, dynamic> ? item : null)
-                .nonNulls
-                .toList();
-
-        final List<SubSubTask> currentSubSubTasks = [];
-        for (int i = 0; i < subSubTasksDataList.length; i++) {
-          final sssData = subSubTasksDataList[i];
-          currentSubSubTasks.add(SubSubTask(
-            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}_$i',
-            name: sssData['name'] as String? ?? 'Unnamed Sub-Sub-Task',
-            isCountable: sssData['isCountable'] as bool? ?? false,
-            targetCount: (sssData['isCountable'] as bool? ?? false)
-                ? (sssData['targetCount'] as int? ?? 1)
-                : 0,
-          ));
-        }
-
-        final newSubTask = SubTask(
-          id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${newSubTasksForParent.length}',
-          name: subquestData['name'] as String? ?? 'Unnamed Sub-Task',
-          isCountable: subquestData['isCountable'] as bool? ?? false,
-          targetCount: (subquestData['isCountable'] as bool? ?? false)
-              ? (subquestData['targetCount'] as int? ?? 1)
-              : 0,
-          subSubTasks: currentSubSubTasks,
-        );
-        newSubTasksForParent.add(newSubTask);
-      }
-
-      final newMainTasks = _provider.mainTasks.map((task) {
-        if (task.id == mainTaskForSubquests.id) {
-          return task.copyWith(
-            subTasks: [...task.subTasks, ...newSubTasksForParent],
-          );
-        }
-        return task;
-      }).toList();
-
-      _provider.setProviderState(mainTasks: newMainTasks);
-    } catch (e, stackTrace) {
-      final errorMessage = e.toString();
-      debugPrint(
-          "[AIActions] CRITICAL ERROR in triggerAISubquestGeneration for task '${mainTaskForSubquests.name}': $errorMessage");
-      if (kDebugMode) {
-        debugPrint(
-            "[AIActions] StackTrace for triggerAISubquestGeneration error: $stackTrace");
-      }
-    } finally {
-      _provider.setProviderAISubquestLoading(false);
-    }
-  }
-
-  Future<void> generateCheckpointsForSubtask(
-      String mainTaskId, String subTaskId, String userPrompt) async {
-    _provider.setProviderAISubquestLoading(true);
-    _provider.setLoadingTask("Generating Checkpoints...");
-
-    try {
-      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
-      final existingCheckpoints = subTask.subSubTasks.map((s) => s.name).toList();
-
-      final newCheckpoints = await _aiService.generateCheckpointsForSubtask(
-        subtaskName: subTask.name,
-        parentTaskName: mainTask.name,
-        existingCheckpoints: existingCheckpoints,
-        userPrompt: userPrompt,
-        modelCandidates: _provider.settings.liteModels,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: _logToApp,
-      );
-
-      for (var cpData in newCheckpoints) {
-        _provider.addSubSubtask(mainTaskId, subTaskId, {
-          'name': cpData['name'] ?? 'New Checkpoint',
-          'isCountable': false,
-          'targetCount': 0,
-        });
-      }
-
-    } catch (e) {
-      debugPrint("Error generating checkpoints: $e");
-    } finally {
-      _provider.setProviderAISubquestLoading(false);
-      _provider.setLoadingTask(null);
-    }
-  }
-
-  Future<void> generateActionPlanSteps(
-      String mainTaskId, String subTaskId, String why) async {
-    _provider.setProviderAISubquestLoading(true);
-    _provider.setLoadingTask("Generating Strategy...");
-
-    try {
-      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
-
-      final result = await _aiService.generateActionPlanSteps(
-        taskName: subTask.name,
-        why: why,
-        modelCandidates: _provider.settings.liteModels,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: _logToApp,
-      );
-
-      final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
-      final what = result['what'] as String? ?? '';
-
-      // Update Subtask with "What"
-      _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
-
-      // Add Steps
-      for (var step in steps) {
-        _provider.addSubSubtask(mainTaskId, subTaskId, {
-          'name': step['name'] ?? 'Action Step',
-          'isCountable': false,
-          'targetCount': 0,
-        });
-      }
-
-    } catch (e) {
-      debugPrint("Error generating action plan: $e");
-    } finally {
-      _provider.setProviderAISubquestLoading(false);
-      _provider.setLoadingTask(null);
-    }
-  }
-}
-
---- END OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
 
 --- START OF FILE lib/src/providers/actions/task_actions.dart ---
 // lib/src/providers/actions/task_actions.dart
@@ -1127,8 +332,8 @@ import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/utils/helpers.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart'; // Import Validation Helper
-import 'package:arcane/src/utils/task_calculations.dart'; // ADDED
+import 'package:arcane/src/utils/time_validation_helper.dart'; 
+import 'package:arcane/src/utils/task_calculations.dart'; 
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
@@ -1137,7 +342,7 @@ class TaskActions {
 
   TaskActions(this._provider);
 
-  // ... [Existing methods reorderSubtasks, addMainTask, editMainTask, logToDailySummary] ...
+  // ... [Existing methods: reorderSubtasks, addMainTask, editMainTask, logToDailySummary, addSubtask, updateSubtask, session methods...] ...
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -1240,8 +445,8 @@ class TaskActions {
       completed: subtaskData['completed'] as bool? ?? false,
       completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
       isRecurring: subtaskData['isRecurring'] as bool? ?? false,
-      why: subtaskData['why'] as String? ?? '', // New Field
-      what: subtaskData['what'] as String? ?? '', // New Field
+      why: subtaskData['why'] as String? ?? '',
+      what: subtaskData['what'] as String? ?? '',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       subSubTasks:
@@ -1253,6 +458,7 @@ class TaskActions {
                         targetCount: sssData['isCountable'] as bool? ?? false
                             ? (sssData['targetCount'] as int? ?? 1)
                             : 0,
+                        type: sssData['type'] as String? ?? 'check',
                       ))
                   .toList() ??
               [],
@@ -1270,40 +476,24 @@ class TaskActions {
     return newSubtask.id;
   }
 
-  void updateSubtask(
-      String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
-    MainTask? taskToUpdate =
-        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
+    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (taskToUpdate == null) return;
 
-    SubTask? subtaskToUpdate =
-        taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    SubTask? subtaskToUpdate = taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     if (subtaskToUpdate == null) return;
 
     final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
 
-    if (updates.containsKey('name')) {
-      subtaskToUpdate.name = updates['name'] as String;
-    }
-    if (updates.containsKey('description')) {
-      subtaskToUpdate.description = updates['description'] as String;
-    }
-    if (updates.containsKey('isRecurring')) {
-      subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
-    }
-    if (updates.containsKey('why')) { // New Field
-      subtaskToUpdate.why = updates['why'] as String;
-    }
-    if (updates.containsKey('what')) { // New Field
-      subtaskToUpdate.what = updates['what'] as String;
-    }
+    if (updates.containsKey('name')) subtaskToUpdate.name = updates['name'] as String;
+    if (updates.containsKey('description')) subtaskToUpdate.description = updates['description'] as String;
+    if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
+    if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
     
-    // Always update timestamp on modification
     subtaskToUpdate.updatedAt = DateTime.now();
 
-    if (updates.containsKey('currentTimeSpent')) {
-      subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
-    }
+    if (updates.containsKey('currentTimeSpent')) subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
     if (updates.containsKey('completed')) {
       subtaskToUpdate.completed = updates['completed'] as bool;
       if (!subtaskToUpdate.completed) {
@@ -1318,26 +508,17 @@ class TaskActions {
     }
 
     if (timeDifference != 0) {
-      taskToUpdate.dailyTimeSpent =
-          (taskToUpdate.dailyTimeSpent) + timeDifference;
+      taskToUpdate.dailyTimeSpent = (taskToUpdate.dailyTimeSpent) + timeDifference;
       taskToUpdate.lastWorkedDate = getTodayDateString();
-      logToDailySummary(
-          'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
+      logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': timeDifference});
     }
 
-    final newMainTasks = _provider.mainTasks
-        .map((t) => t.id == mainTaskId ? taskToUpdate : t)
-        .toList();
-
+    final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate : t).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // ... [Rest of the file remains unchanged: addSessionToSubtask, updateSessionInSubtask, deleteSessionFromSubtask, completeSubtask, etc.]
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
-    // Validation: Check for overlap globally
-    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
-      return false; // Indicating failure due to overlap
-    }
+    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) return false;
 
     final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
     final durationSeconds = session.durationSeconds;
@@ -1350,7 +531,6 @@ class TaskActions {
             subTasks: task.subTasks.map((st) {
               if (st.id == subTaskId) {
                 final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
-                // Recalculate total time from scratch based on session logs
                 final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
 
                 return SubTask(
@@ -1370,14 +550,11 @@ class TaskActions {
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
     _syncDateWithSessions(start, end);
-    return true; // Success
+    return true; 
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
-    // Validation: Check for overlap globally, excluding self
-    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) {
-      return; // Abort update on overlap
-    }
+    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) return;
 
     DateTime? oldStart;
     DateTime? oldEnd;
@@ -1399,7 +576,6 @@ class TaskActions {
               return s;
             }).toList();
             
-            // Recalculate total time from scratch
             int totalTime = 0;
             for (var s in updatedSessions) {
               totalTime += s.durationSeconds;
@@ -1422,11 +598,10 @@ class TaskActions {
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
     
-    // Sync logic to handle potential cross-day updates
     if (oldStart != null && oldEnd != null) {
-        _syncDateWithSessions(oldStart, oldEnd); // Re-calculate old days
+        _syncDateWithSessions(oldStart, oldEnd); 
     }
-    _syncDateWithSessions(newStart, newEnd); // Calculate new days
+    _syncDateWithSessions(newStart, newEnd); 
   }
 
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
@@ -1444,12 +619,10 @@ class TaskActions {
       if (task.id == mainTaskId) {
         int deduction = oldSession?.durationSeconds ?? 0;
         return task.copyWith(
-            // We adjust MainTask time by deduction since MainTask aggregates many subtasks
             dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
             subTasks: task.subTasks.map((st) {
           if (st.id == subTaskId) {
             final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
-            // Recalculate total time from scratch for SubTask
             final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
 
             return SubTask(
@@ -1474,9 +647,7 @@ class TaskActions {
     }
   }
 
-  // Handles splitting time across days if session spans midnight
   void _syncDateWithSessions(DateTime start, DateTime end) {
-    // Get list of unique dates involved in this range (usually 1 or 2)
     final Set<String> affectedDates = {};
     DateTime current = DateTime(start.year, start.month, start.day);
     final last = DateTime(end.year, end.month, end.day);
@@ -1498,7 +669,6 @@ class TaskActions {
         int taskTotal = 0;
         for (var sub in task.subTasks) {
           for (var session in sub.sessions) {
-            // Calculate overlap with this day (date 00:00 to nextDay 00:00)
             final overlapStart = session.startTime.isAfter(date) ? session.startTime : date;
             final overlapEnd = session.endTime.isBefore(nextDay) ? session.endTime : nextDay;
             
@@ -1520,13 +690,11 @@ class TaskActions {
 
   Future<void> recalibrateTimeLogs() async {
     _provider.setLoadingTask("RECALIBRATING...");
-    // Give UI a moment to show loading indicator
     await Future.delayed(const Duration(milliseconds: 500));
 
     final now = DateTime.now();
     final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
 
-    // Re-calculate for the last 7 days exactly (0 to 6 days ago)
     for (int i = 0; i < 7; i++) {
       final targetDate = now.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
@@ -1559,7 +727,6 @@ class TaskActions {
       newCompletedByDay[dateStr] = dayData;
     }
     
-    // Update today's MainTask counter explicitly
     final todayStr = DateFormat('yyyy-MM-dd').format(now);
     final todayTimes = newCompletedByDay[todayStr]?['taskTimes'] as Map<String, int>? ?? {};
     
@@ -1602,7 +769,6 @@ class TaskActions {
           subTask.subSubTasks.every((sss) => sss.completed);
       if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
       if (subTask.subSubTasks.isEmpty && !hasTime) {
-        // Allow completion if forced by sync (e.g. from Project Step)
         if (!fromSync) return false;
       }
     }
@@ -1630,7 +796,7 @@ class TaskActions {
                   subSubTasks: st.subSubTasks,
                   sessions: st.sessions,
                   isRecurring: st.isRecurring,
-                  lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
+                  lastCompletedDate: DateTime.now(), 
                   createdAt: st.createdAt,
                   updatedAt: DateTime.now(),
                   why: st.why, what: st.what,
@@ -1645,7 +811,6 @@ class TaskActions {
 
     _provider.setProviderState(mainTasks: newMainTasks);
 
-    // Sync back to Project Steps if NOT initiated from there
     if (!fromSync) {
       _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
     }
@@ -1717,7 +882,6 @@ class TaskActions {
   }
 
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
-    // ... [Implementation unchanged] ...
     MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
     if (taskToUpdate == null) return;
     SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
@@ -1729,7 +893,7 @@ class TaskActions {
       isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
       subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
         id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
-        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
+        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null, type: sss.type
       )).toList(), sessions: [],
       isRecurring: subTaskToDuplicate.isRecurring,
       why: subTaskToDuplicate.why, what: subTaskToDuplicate.what,
@@ -1744,7 +908,6 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // ... [Other methods unchanged]
   String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) {
     final newSubSubtask = SubSubTask(
       id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
@@ -1752,6 +915,7 @@ class TaskActions {
       isCountable: subSubtaskData['isCountable'] as bool? ?? false,
       targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
       completionTimestamp: null,
+      type: subSubtaskData['type'] as String? ?? 'check',
     );
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -1775,7 +939,6 @@ class TaskActions {
   }
 
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
-    // ... [Implementation unchanged] ...
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
@@ -1794,6 +957,7 @@ class TaskActions {
                     targetCount: updates['targetCount'] as int? ?? sss.targetCount,
                     currentCount: updates['currentCount'] as int? ?? sss.currentCount,
                     completionTimestamp: updates['completionTimestamp'] as String? ?? sss.completionTimestamp,
+                    type: updates['type'] as String? ?? sss.type,
                   );
                   if (updatedSss.isCountable) updatedSss.currentCount = updatedSss.currentCount.clamp(0, updatedSss.targetCount);
                   return updatedSss;
@@ -1813,11 +977,53 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // --- NEW: Duplicate SubSubTask ---
+  void duplicateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == parentSubtaskId) {
+              final index = st.subSubTasks.indexWhere((s) => s.id == subSubtaskId);
+              if (index == -1) return st;
+
+              final original = st.subSubTasks[index];
+              final copy = SubSubTask(
+                id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_copy_${original.name.hashCode}',
+                name: "${original.name} (Copy)",
+                completed: false,
+                isCountable: original.isCountable,
+                targetCount: original.targetCount,
+                currentCount: 0,
+                type: original.type,
+              );
+
+              final newList = List<SubSubTask>.from(st.subSubTasks);
+              newList.insert(index + 1, copy);
+
+              return SubTask(
+                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
+                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
+                currentCount: st.currentCount,
+                subSubTasks: newList,
+                sessions: st.sessions,
+                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                why: st.why, what: st.what,
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     bool subSubTaskCompletedSuccessfully = false;
     SubSubTask? completedSubSubTaskInstanceForLog;
 
-    // Use a copy of mainTasks for optimistic update
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
@@ -1837,12 +1043,9 @@ class TaskActions {
                       id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
                       targetCount: sss.targetCount, currentCount: sss.currentCount,
                       completionTimestamp: DateTime.now().toIso8601String(),
+                      type: sss.type,
                     );
-                    completedSubSubTaskInstanceForLog = SubSubTask(
-                      id: sss.id, name: sss.name, completed: true, isCountable: sss.isCountable,
-                      targetCount: sss.targetCount, currentCount: sss.currentCount,
-                      completionTimestamp: updatedSss.completionTimestamp,
-                    );
+                    completedSubSubTaskInstanceForLog = updatedSss;
                     subSubTaskCompletedSuccessfully = true;
                     return updatedSss;
                   }
@@ -1859,9 +1062,7 @@ class TaskActions {
       return task;
     }).toList();
 
-    // Trigger update immediately
     if (subSubTaskCompletedSuccessfully && completedSubSubTaskInstanceForLog != null) {
-      // Async state update to prevent UI blocking
       Future.microtask(() {
         _provider.setProviderState(mainTasks: newMainTasks);
         
@@ -1896,6 +1097,7 @@ class TaskActions {
                     return SubSubTask(
                       id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable,
                       targetCount: sss.targetCount, currentCount: sss.currentCount, completionTimestamp: null,
+                      type: sss.type,
                     );
                   }
                   return sss;
@@ -1911,7 +1113,6 @@ class TaskActions {
       return task;
     }).toList();
 
-    // Async update
     Future.microtask(() {
       _provider.setProviderState(mainTasks: newMainTasks);
       if (!fromSync) {
@@ -1947,919 +1148,179 @@ class TaskActions {
 }
 --- END OF FILE lib/src/providers/actions/task_actions.dart ---
 
---- START OF FILE lib/src/widgets/views/task_details_view.dart ---
+--- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart';
-import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
-import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
-import 'package:arcane/src/widgets/dialogs/initialize_action_plan_dialog.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class TaskDetailsView extends StatefulWidget {
-  const TaskDetailsView({super.key});
+class CheckpointItem extends StatefulWidget {
+  final String title;
+  final bool isCompleted;
+  final String? linkedLabel;
+  final String type; // 'check' or 'info'
+  final VoidCallback? onUnlink;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onToggleType;
 
-  @override
-  State<TaskDetailsView> createState() => _TaskDetailsViewState();
-}
-
-class _TaskDetailsViewState extends State<TaskDetailsView> {
-
-  void _showAddActionPlanDialog(BuildContext context, AppProvider provider, MainTask task) async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => const InitializeActionPlanDialog(),
-    );
-
-    if (result != null && mounted) {
-      final name = result['name']!;
-      final why = result['why']!;
-      
-      // Create new subtask
-      final newId = provider.addSubtask(task.id, {
-        'name': name,
-        'why': why,
-        'isCountable': false,
-        'subSubTasksData': [] // Empty How/Steps initially
-      });
-
-      // Get created task to pass to details
-      final updatedTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
-      final newSubTask = updatedTask.subTasks.firstWhere((s) => s.id == newId);
-
-      // Navigate to details to finish What/How
-      Navigator.push(
-        context, 
-        MaterialPageRoute(builder: (_) => SubmissionDetailScreen(parentTask: updatedTask, subTask: newSubTask))
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        final task = appProvider.getSelectedTask();
-        final theme = Theme.of(context);
-
-        if (task == null) {
-          return const Center(child: Text('NO PROTOCOL SELECTED'));
-        }
-
-        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
-        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
-
-        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
-        
-        // Split completed tasks into recurring (cooldown) and archived (one-time)
-        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
-        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TaskHeaderCard(
-                task: task,
-                yesterdayTime: yesterdayTime,
-                weeklyCompletion: weeklyCompletion,
-              ),
-
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
-                child: Row(
-                  children: [
-                    Container(width: 4, height: 16, color: task.taskColor),
-                    const SizedBox(width: 8),
-                    Text('ACTIVE ACTION PLANS',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontFamily: AppTheme.fontDisplay,
-                            color: AppTheme.fhTextPrimary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0
-                        )),
-                  ],
-                ),
-              ),
-
-              if (activeSubtasks.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24.0),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    color: AppTheme.fhBgDark.withOpacity(0.3)
-                  ),
-                  child: const Text(
-                      'ALL ACTION PLANS COMPLETED.\nINITIATE NEW PLAN BELOW.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
-                  ),
-                )
-              else
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: activeSubtasks.length,
-                  onReorder: (oldIndex, newIndex) {
-                    appProvider.reorderSubtasks(task.id, oldIndex, newIndex);
-                  },
-                  itemBuilder: (ctx, index) {
-                    final st = activeSubtasks[index];
-                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
-                  },
-                ),
-
-              // Recurring Completed Section
-              RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-
-              // Archived (One-time) Section
-              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: Icon(MdiIcons.plus, size: 18),
-                  label: const Text("INITIALIZE ACTION PLAN"),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhAccentTeal,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: const BeveledRectangleBorder(),
-                      side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
-                  onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
---- END OF FILE lib/src/widgets/views/task_details_view.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/initialize_action_plan_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-
-class InitializeActionPlanDialog extends StatefulWidget {
-  const InitializeActionPlanDialog({super.key});
-
-  @override
-  State<InitializeActionPlanDialog> createState() => _InitializeActionPlanDialogState();
-}
-
-class _InitializeActionPlanDialogState extends State<InitializeActionPlanDialog> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _whyController = TextEditingController();
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _whyController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("INITIATE ACTION PLAN"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("CODENAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GrowingTextField(controller: _nameController, hint: "Plan Name...", minLines: 1),
-            
-            const SizedBox(height: 16),
-            
-            const Text("STRATEGIC INTENT (WHY)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GrowingTextField(controller: _whyController, hint: "Why is this action required?", minLines: 2),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL"),
-        ),
-        ValorantButton(
-          label: "INITIALIZE",
-          onPressed: () {
-            if (_nameController.text.trim().isNotEmpty) {
-              Navigator.pop(context, {
-                'name': _nameController.text.trim(),
-                'why': _whyController.text.trim(),
-              });
-            }
-          },
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/initialize_action_plan_dialog.dart ---
-
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
-import 'package:arcane/src/widgets/cards/task_info_card.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
-import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
-import 'package:arcane/src/widgets/drawers/session_log_drawer.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionDetailScreen({
+  const CheckpointItem({
     super.key,
-    required this.parentTask,
-    required this.subTask,
+    required this.title,
+    required this.isCompleted,
+    this.linkedLabel,
+    this.type = 'check',
+    this.onUnlink,
+    required this.onToggle,
+    required this.onDelete,
+    this.onDuplicate,
+    this.onToggleType,
   });
 
   @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+  State<CheckpointItem> createState() => _CheckpointItemState();
 }
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  DateTime _selectedDate = DateTime.now();
+class _CheckpointItemState extends State<CheckpointItem> {
+  late bool _localCompleted;
 
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
+  @override
+  void initState() {
+    super.initState();
+    _localCompleted = widget.isCompleted;
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckpointItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      _localCompleted = widget.isCompleted;
     }
   }
 
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => SubtaskConfigDialog(
-        initialName: liveSubTask.name,
-        initialDescription: liveSubTask.description,
-        isRecurring: liveSubTask.isRecurring,
-      ),
-    );
-    if (result != null) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, result);
-    }
-  }
-
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
-    );
-    
-    if (result != null) {
-      final start = result['start']!;
-      final end = result['end']!;
-      
-      final success = provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, start, end);
-          
-      if (!success && mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: const Text("Overlap detected! Adjust time."),
-             backgroundColor: AppTheme.fhAccentRed,
-             action: SnackBarAction(
-               label: "EDIT",
-               textColor: Colors.white,
-               onPressed: () {
-                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
-               },
-             ),
-           )
-         );
-      }
-    }
-  }
-
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        if (!session.id.startsWith('temp')) {
-           provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
-        }
-      } else if (result['action'] == 'save') {
-        if (session.id.startsWith('temp')) {
-           provider.addSessionToSubtask(
-            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
-        } else {
-           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
-        }
-      }
-    }
-  }
-
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries = [];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      if (task.id != widget.parentTask.id) continue;
-      
-      for (var sub in task.subTasks) {
-        if (sub.id != currentSubTaskId) continue;
-
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-    return entries;
-  }
-
-  Future<void> _pickDateFiltered(BuildContext context, SubTask subTask) async {
-    final Set<String> validDates = {};
-    for (var s in subTask.sessions) {
-      validDates.add(DateFormat('yyyy-MM-dd').format(s.startTime));
-      validDates.add(DateFormat('yyyy-MM-dd').format(s.endTime));
-    }
-    final today = DateTime.now();
-    validDates.add(DateFormat('yyyy-MM-dd').format(today));
-
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      selectableDayPredicate: (DateTime day) {
-        return validDates.contains(DateFormat('yyyy-MM-dd').format(day));
-      },
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTealFixed,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
-        ),
-        child: child!,
-      ),
-    );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
+  void _handleToggle() {
+    if (widget.type == 'info') return;
+    setState(() {
+      _localCompleted = !_localCompleted;
+    });
+    widget.onToggle();
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
+    final isInfo = widget.type == 'info';
+    final textColor = isInfo 
+        ? AppTheme.fhAccentTeal 
+        : (_localCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary);
+    final bgColor = isInfo 
+        ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) 
+        : AppTheme.fhBgDark.withValues(alpha: 0.6);
+    final borderColor = isInfo
+        ? AppTheme.fhAccentTeal.withValues(alpha: 0.3)
+        : (_localCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor);
 
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
-
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double todaySeconds =
-        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
-    final String formattedTotalToday = helper.formatTime(todaySeconds);
-
-    final bool isRunning = timerState?.isRunning ?? false;
-    
-    final int completedSteps =
-        liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalSteps = liveSubTask.subSubTasks.length;
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      endDrawer:
-          SessionLogDrawer(parentTask: widget.parentTask, subTask: liveSubTask),
-      body: Stack(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(
+          left: BorderSide(
+            color: borderColor,
+            width: 4,
+          ),
+          bottom: BorderSide(
+            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
         children: [
-          Positioned(
-            right: -50,
-            top: 50,
-            child: Opacity(
-              opacity: 0.05,
-              child:
-                  Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
+          if (!isInfo)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: RhombusCheckbox(
+                checked: _localCompleted,
+                onChanged: (_) => _handleToggle(),
+                size: CheckboxSize.small,
+              ),
+            )
+          else 
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Icon(MdiIcons.informationOutline, size: 18, color: AppTheme.fhAccentTeal),
+            ),
+            
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title.toUpperCase(),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                    fontFamily: AppTheme.fontBody,
+                    decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (widget.linkedLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: LinkedTaskIndicator(
+                      label: widget.linkedLabel!,
+                      onUnlink: widget.onUnlink,
+                    ),
+                  ),
+              ],
             ),
           ),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Top Navigation
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white70),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        Builder(
-                          builder: (context) => IconButton(
-                            icon: Icon(MdiIcons.history, color: Colors.white70),
-                            tooltip: "Session History",
-                            onPressed: () =>
-                                Scaffold.of(context).openEndDrawer(),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(MdiIcons.pencilOutline,
-                              color: Colors.white70),
-                          tooltip: "Configure Task",
-                          onPressed: () => _handleEditSubtask(
-                              context, provider, liveSubTask),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Header Title
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.parentTask.name.toUpperCase(),
-                          style: TextStyle(
-                            color: widget.parentTask.taskColor,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            fontSize: 12,
-                            fontFamily: AppTheme.fontDisplay,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          liveSubTask.name.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 36,
-                            height: 1.0,
-                            fontFamily: AppTheme.fontDisplay,
-                            letterSpacing: 1.0,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Ability Slot Stats
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      children: [
-                        ValorantAbilitySlot(
-                          hotkey: "Q",
-                          label: "TODAY",
-                          value: formattedTotalToday,
-                          icon: MdiIcons.clockFast,
-                          isActive: isRunning,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "E",
-                          label: "STEPS",
-                          value: "$completedSteps/$totalSteps",
-                          icon: MdiIcons.formatListChecks,
-                          isActive: completedSteps > 0 &&
-                              completedSteps == totalSteps,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "C",
-                          label: "LOGS",
-                          value: "${liveSubTask.sessions.length}",
-                          icon: MdiIcons.history,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "X",
-                          label: "STATUS",
-                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed
-                              ? MdiIcons.checkAll
-                              : MdiIcons.target,
-                          isActive: liveSubTask.completed,
-                          onTap: () {
-                            if (liveSubTask.completed) {
-                              provider.taskActions.uncompleteSubtask(
-                                  widget.parentTask.id, liveSubTask.id);
-                            } else {
-                              provider.completeSubtask(
-                                  widget.parentTask.id, liveSubTask.id);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  
-                  // Info Card (Recurring / Metadata)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: TaskInfoCard(
-                      description: liveSubTask.description,
-                      isRecurring: liveSubTask.isRecurring,
-                      createdAt: liveSubTask.createdAt,
-                      updatedAt: liveSubTask.updatedAt,
-                    ),
-                  ),
-
-                  // --- ACTION PLAN SECTION START ---
-                  const SizedBox(height: 32),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Text("ACTION PLAN", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontSize: 14)),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 1. WHY (Strategic Intent)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: ActionPlanWhyCard(
-                      initialWhy: liveSubTask.why,
-                      onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'why': val}),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 2. HOW (Tactical Execution / Steps)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: ActionPlanStepsList(
-                      mainTaskId: widget.parentTask.id,
-                      subTaskId: liveSubTask.id,
-                      steps: liveSubTask.subSubTasks,
-                      onGenerate: () => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask.id, liveSubTask.why),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 3. WHAT (Outcome)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: ActionPlanOutcomeCard(
-                      initialWhat: liveSubTask.what,
-                      onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'what': val}),
-                    ),
-                  ),
-                  // --- ACTION PLAN SECTION END ---
-
-                  const SizedBox(height: 32),
-                  const Divider(color: Colors.white10),
-
-                  // Timer Control
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isRunning
-                            ? [
-                                AppTheme.fhAccentRed.withOpacity(0.2),
-                                Colors.transparent
-                              ]
-                            : [
-                                Colors.white.withOpacity(0.05),
-                                Colors.transparent
-                              ],
-                        begin: Alignment.bottomLeft,
-                        end: Alignment.topRight,
-                      ),
-                      border: Border(
-                          left: BorderSide(
-                              color: isRunning
-                                  ? AppTheme.fhAccentRed
-                                  : AppTheme.fhTextSecondary,
-                              width: 2)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        ActiveSessionTimerDisplay(
-                          isRunning: isRunning,
-                          startTime: timerState?.startTime,
-                          totalTodaySeconds: todaySeconds,
-                        ),
-                        FloatingActionButton.small(
-                          backgroundColor: isRunning
-                              ? AppTheme.fhAccentRed
-                              : AppTheme.fhAccentTealFixed,
-                          foregroundColor: Colors.black,
-                          onPressed: () {
-                              if (isRunning) {
-                                provider.pauseTimer(liveSubTask.id);
-                                provider.logTimerAndReset(liveSubTask.id);
-                              } else {
-                                provider.startTimer(liveSubTask.id, 'subtask',
-                                    widget.parentTask.id);
-                              }
-                            },
-                          child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Weekly Chart
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SubtaskWeeklyChart(
-                      subTask: liveSubTask,
-                      accentColor: widget.parentTask.taskColor,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Manual Session Logging & Timeline
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            GestureDetector(
-                              onTap: () =>
-                                  _pickDateFiltered(context, liveSubTask),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    DateFormat('MMM dd')
-                                        .format(_selectedDate)
-                                        .toUpperCase(),
-                                    style: const TextStyle(
-                                        color: AppTheme.fhAccentTealFixed,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: AppTheme.fontDisplay,
-                                        fontSize: 16),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_drop_down,
-                                      color: AppTheme.fhAccentTealFixed,
-                                      size: 16),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add,
-                                  size: 20, color: Colors.white54),
-                              onPressed: () =>
-                                  _showAddSessionDialog(context, provider),
-                              tooltip: "Log Manual Session",
-                            ),
-                          ],
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          height: 300, 
-                          color: Colors.black.withOpacity(0.2),
-                          child: ScheduleTimeline(
-                            entries: timelineEntries,
-                            onAddSession: () =>
-                                _showAddSessionDialog(context, provider),
-                            onEditEntry: (entry) {
-                              if (entry.originalObject is TaskSession) {
-                                _handleSessionEdit(context, provider,
-                                    entry.originalObject as TaskSession);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
-                ],
+          
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
+            color: AppTheme.fhBgDark,
+            onSelected: (value) {
+              if (value == 'delete') widget.onDelete();
+              if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+              if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'duplicate',
+                child: Row(children: [Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
               ),
-            ),
+              PopupMenuItem(
+                value: 'toggle_type',
+                child: Row(children: [
+                  Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                  const SizedBox(width: 8), 
+                  Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(children: [Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/action_plan/action_plan_why_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-
-class ActionPlanWhyCard extends StatefulWidget {
-  final String initialWhy;
-  final ValueChanged<String> onChanged;
-
-  const ActionPlanWhyCard({
-    super.key,
-    required this.initialWhy,
-    required this.onChanged,
-  });
-
-  @override
-  State<ActionPlanWhyCard> createState() => _ActionPlanWhyCardState();
-}
-
-class _ActionPlanWhyCardState extends State<ActionPlanWhyCard> {
-  late TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialWhy);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("STRATEGIC INTENT (WHY)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
-            border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: _controller,
-            maxLines: null,
-            minLines: 2,
-            style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: "Reason for action...",
-              hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-              border: InputBorder.none,
-            ),
-            onChanged: widget.onChanged,
-          ),
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/action_plan/action_plan_why_card.dart ---
-
---- START OF FILE lib/src/widgets/action_plan/action_plan_outcome_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class ActionPlanOutcomeCard extends StatefulWidget {
-  final String initialWhat;
-  final ValueChanged<String> onChanged;
-
-  const ActionPlanOutcomeCard({
-    super.key,
-    required this.initialWhat,
-    required this.onChanged,
-  });
-
-  @override
-  State<ActionPlanOutcomeCard> createState() => _ActionPlanOutcomeCardState();
-}
-
-class _ActionPlanOutcomeCardState extends State<ActionPlanOutcomeCard> {
-  late TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialWhat);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("EXPECTED OUTCOME (WHAT)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
-            border: Border(left: BorderSide(color: AppTheme.fhAccentGold, width: 3)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: _controller,
-            maxLines: null,
-            minLines: 2,
-            style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: "Result or Reward...",
-              hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic),
-              border: InputBorder.none,
-            ),
-            onChanged: widget.onChanged,
-          ),
-        )
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/action_plan/action_plan_outcome_card.dart ---
+--- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 
 --- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart'; // Reused for steps
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -2883,6 +1344,7 @@ class ActionPlanStepsList extends StatefulWidget {
 
 class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   final TextEditingController _stepController = TextEditingController();
+  String _newStepType = 'check'; // 'check' or 'info'
 
   void _addStep(AppProvider provider) {
     if (_stepController.text.trim().isEmpty) return;
@@ -2890,6 +1352,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
       'name': _stepController.text.trim(),
       'isCountable': false,
       'targetCount': 0,
+      'type': _newStepType,
     });
     _stepController.clear();
   }
@@ -2939,6 +1402,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             return CheckpointItem(
               title: step.name,
               isCompleted: step.completed,
+              type: step.type,
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
@@ -2947,27 +1411,52 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 }
               },
               onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onToggleType: () {
+                final newType = step.type == 'check' ? 'info' : 'check';
+                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+              },
             );
           }),
 
         Container(
           margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.2),
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
-          child: TextField(
-            controller: _stepController,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-            decoration: const InputDecoration(
-              hintText: "+ ADD STEP",
-              hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 12),
-            ),
-            onSubmitted: (_) => _addStep(provider),
+          child: Row(
+            children: [
+              PopupMenuButton<String>(
+                icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
+                tooltip: "Change Type",
+                onSelected: (val) => setState(() => _newStepType = val),
+                color: AppTheme.fhBgDark,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                ],
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _stepController,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    hintText: "ADD STEP...",
+                    hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onSubmitted: (_) => _addStep(provider),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
+                onPressed: () => _addStep(provider),
+              )
+            ],
           ),
         ),
       ],
