@@ -163,8 +163,8 @@ class SubTask {
   List<SubSubTask> subSubTasks;
   List<TaskSession> sessions;
   
-  String why; // Strategic Intent
-  String what; // Expected Outcome/Reward
+  String why; 
+  String what; 
 
   bool isRecurring;
   DateTime? lastCompletedDate; 
@@ -261,7 +261,12 @@ class SubSubTask {
   int targetCount;
   int currentCount;
   String? completionTimestamp;
-  String type; // 'check' (default) or 'info'
+  String type; // 'check' or 'info'
+  List<SubSubTask> substeps; // Recursive Sub-Checkpoints
+  
+  // New Fields
+  String why;
+  String what;
 
   SubSubTask({
     required this.id,
@@ -272,7 +277,10 @@ class SubSubTask {
     this.currentCount = 0,
     this.completionTimestamp,
     this.type = 'check',
-  });
+    List<SubSubTask>? substeps,
+    this.why = '',
+    this.what = '',
+  }) : substeps = substeps ?? [];
 
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
     return SubSubTask(
@@ -284,8 +292,15 @@ class SubSubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       completionTimestamp: json['completionTimestamp'] as String?,
       type: json['type'] as String? ?? 'check',
+      why: json['why'] as String? ?? '',
+      what: json['what'] as String? ?? '',
+      substeps: (json['substeps'] as List<dynamic>?)
+              ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
+  
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -296,7 +311,16 @@ class SubSubTask {
       'currentCount': currentCount,
       'completionTimestamp': completionTimestamp,
       'type': type,
+      'why': why,
+      'what': what,
+      'substeps': substeps.map((e) => e.toJson()).toList(),
     };
+  }
+  
+  double calculateProgress() {
+    if (substeps.isEmpty) return completed ? 1.0 : 0.0;
+    int done = substeps.where((s) => s.completed).length;
+    return done / substeps.length;
   }
 }
 

@@ -8,31 +8,38 @@ class FinanceDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Removed Scaffold/AppBar to integrate into main layout via IndexedStack
+    // Use DefaultTabController to manage tabs internally
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        appBar: AppBar(
-          backgroundColor: AppTheme.fhBgDeepDark,
-          title: const Text("FINANCE COMMAND", style: TextStyle(fontFamily: AppTheme.fontDisplay, letterSpacing: 2.0)),
-          centerTitle: true,
-          bottom: const TabBar(
-            indicatorColor: AppTheme.fhAccentTeal,
-            labelColor: AppTheme.fhAccentTeal,
-            unselectedLabelColor: AppTheme.fhTextSecondary,
-            labelStyle: TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-            tabs: [
-              Tab(text: "CASHFLOW"),
-              Tab(text: "SAVINGS"),
-            ],
+      child: Column(
+        children: [
+          // Custom Tab Bar embedded in the view
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.fhBgDeepDark,
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+            ),
+            child: const TabBar(
+              indicatorColor: AppTheme.fhAccentTeal,
+              labelColor: AppTheme.fhAccentTeal,
+              unselectedLabelColor: AppTheme.fhTextSecondary,
+              labelStyle: TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+              tabs: [
+                Tab(text: "CASHFLOW"),
+                Tab(text: "SAVINGS"),
+              ],
+            ),
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            FinanceTrackerView(),
-            SavingsGoalsView(),
-          ],
-        ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                FinanceTrackerView(),
+                SavingsGoalsView(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart'; // Renamed/Refactored intent: This is Analytics/DailySummary
+import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/widgets/views/schedule_view.dart'; // NEW
-import 'package:arcane/src/screens/more_screen.dart';
+import 'package:arcane/src/widgets/views/schedule_view.dart';
+import 'package:arcane/src/screens/more_screen.dart'; 
+import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -25,13 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Updated Tab List
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
-    'SCHEDULE', // New
+    'SCHEDULE',
     'PROJECTS',
-    'ANALYTICS', // Was Logbook
-    'SYSTEM',
+    'ANALYTICS',
+    'WALLET',
   ];
 
   void _onItemTapped(int index) {
@@ -144,6 +144,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _navigateToSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MoreScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -157,25 +164,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final List<Widget> widgetOptions = <Widget>[
       // 0: MISSIONS
-      Center(
+      Align(
+        alignment: Alignment.topCenter, // Fixed: Top alignment instead of Center
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const TaskDetailsView(),
         ),
       ),
-      // 1: SCHEDULE (NEW)
+      // 1: SCHEDULE
       const ScheduleView(),
       // 2: PROJECTS
-      Center(
+      Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const ProjectsView(),
         ),
       ),
-      // 3: ANALYTICS (Was Logbook)
+      // 3: ANALYTICS
       const LogbookScreen(), 
-      // 4: SYSTEM (More)
-      const MoreScreen(),
+      // 4: WALLET
+      const FinanceDashboardScreen(),
     ];
 
     return Theme(
@@ -185,33 +194,36 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: HeaderWidget(
           currentViewLabel: _viewTitles[_selectedIndex],
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+          customAction: IconButton(
+            icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
+            tooltip: "SYSTEM SETTINGS",
+            onPressed: _navigateToSettings,
+          ),
         ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
         endDrawer: const SkillsDrawer(),
-        body: SafeArea(
-          child: Row(
-            children: [
-              if (isLargeScreen)
-                Container(
-                  width: 280,
-                  decoration: BoxDecoration(
-                    color: dynamicTheme.cardTheme.color,
-                    border: Border(
-                        right: BorderSide(
-                            color: dynamicTheme.dividerTheme.color ??
-                                AppTheme.fhBorderColor,
-                            width: 1)),
-                  ),
-                  child: const TaskNavigationDrawer(),
+        body: Row(
+          children: [
+            if (isLargeScreen)
+              Container(
+                width: 280,
+                decoration: BoxDecoration(
+                  color: dynamicTheme.cardTheme.color,
+                  border: Border(
+                      right: BorderSide(
+                          color: dynamicTheme.dividerTheme.color ??
+                              AppTheme.fhBorderColor,
+                          width: 1)),
                 ),
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: widgetOptions,
-                ),
+                child: const TaskNavigationDrawer(),
               ),
-            ],
-          ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: widgetOptions,
+              ),
+            ),
+          ],
         ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
@@ -244,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'MISSIONS',
               ),
               BottomNavigationBarItem(
-                icon: Icon(MdiIcons.calendarClock), // Schedule
+                icon: Icon(MdiIcons.calendarClock),
                 label: 'SCHEDULE',
               ),
               BottomNavigationBarItem(
@@ -256,8 +268,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'ANALYTICS',
               ),
               BottomNavigationBarItem(
-                icon: Icon(MdiIcons.dotsGrid),
-                label: 'SYSTEM',
+                icon: Icon(MdiIcons.walletOutline),
+                label: 'WALLET',
               ),
             ],
           ),

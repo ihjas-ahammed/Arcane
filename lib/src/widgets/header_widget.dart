@@ -3,14 +3,14 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart';
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
   final VoidCallback? onOpenPersona; 
+  final Widget? customAction; // Added to support injecting Settings button
 
   const HeaderWidget(
-      {super.key, required this.currentViewLabel, this.onOpenPersona});
+      {super.key, required this.currentViewLabel, this.onOpenPersona, this.customAction});
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +19,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 900;
     
-    final double balance = appProvider.financeActions.currentBalance;
-
     return AppBar(
       backgroundColor: AppTheme.fhBgDeepDark,
       automaticallyImplyLeading: !isLargeScreen,
@@ -53,7 +51,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                 letterSpacing: 2.0,
                 fontFamily: AppTheme.fontDisplay,
                 fontWeight: FontWeight.w900,
-                fontSize: 16, // Adjusted size
+                fontSize: 16, 
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -81,40 +79,11 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
           const SizedBox(width: 8),
         ],
 
-        // Balance Widget
-        Padding(
-          padding: const EdgeInsets.only(right: 8.0),
-          child: Center(
-            child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FinanceDashboardScreen())),
-              borderRadius: BorderRadius.circular(4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark,
-                  border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(MdiIcons.currencyInr, size: 14, color: AppTheme.fhAccentTeal),
-                    const SizedBox(width: 2),
-                    Text(
-                      balance.toStringAsFixed(0), 
-                      style: const TextStyle(
-                        color: AppTheme.fhAccentTeal, 
-                        fontFamily: 'RobotoMono', 
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 12
-                      )
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        // Removed Balance Widget from Header
+
+        // Custom Action (e.g., Settings on Wallet tab)
+        if (customAction != null)
+          customAction!,
 
         // Persona / Virtues Button
         IconButton(

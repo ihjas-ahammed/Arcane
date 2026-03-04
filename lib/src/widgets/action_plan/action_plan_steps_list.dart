@@ -3,6 +3,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart'; // Import
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -37,6 +38,14 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
       'type': _newStepType,
     });
     _stepController.clear();
+  }
+
+  void _navigateToStepDetail(BuildContext context, SubSubTask step) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+      mainTaskId: widget.mainTaskId,
+      parentSubTaskId: widget.subTaskId,
+      checkpointId: step.id,
+    )));
   }
 
   @override
@@ -85,6 +94,8 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               title: step.name,
               isCompleted: step.completed,
               type: step.type,
+              hasSubsteps: step.substeps.isNotEmpty,
+              onTap: () => _navigateToStepDetail(context, step),
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);

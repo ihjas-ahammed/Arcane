@@ -3,7 +3,7 @@ import 'package:arcane/src/screens/home_screen.dart';
 import 'package:arcane/src/screens/login_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/sync_indicator.dart'; // New component
+import 'package:arcane/src/widgets/ui/sync_indicator.dart';
 import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {
@@ -16,7 +16,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    // Watch AppProvider to rebuild Theme if task color changes
     final appProvider = context.watch<AppProvider>();
 
     final Color currentTaskColor =
@@ -28,7 +27,6 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
-          // If purely auth loading (initial startup), show full screen spinner
           if (appProvider.authLoading) {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
@@ -42,12 +40,12 @@ class _MyAppState extends State<MyApp> {
             return const LoginScreen();
           }
 
-          // Main App Layout
           return Stack(
             children: [
               const HomeScreen(),
 
-              // Non-blocking sync indicator for auto-saves
+              // Floating Sync Indicator - HIDDEN per user request
+              /*
               Positioned(
                 top: 100,
                 right: 0,
@@ -57,8 +55,9 @@ class _MyAppState extends State<MyApp> {
                       !appProvider.isManuallyLoading,
                 ),
               ),
+              */
 
-              // Blocking loading overlay for critical manual operations
+              // Blocking loading overlay for critical manual operations remains
               if (appProvider.isManuallySaving || appProvider.isManuallyLoading)
                 Positioned.fill(
                   child: Container(

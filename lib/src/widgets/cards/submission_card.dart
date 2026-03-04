@@ -70,8 +70,15 @@ class SubmissionCard extends StatelessWidget {
     }
 
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
-    if (isRunning) borderColor = parentTask.taskColor;
-    if (isCompleted) borderColor = parentTask.taskColor.withValues(alpha: 0.5);
+    Color backgroundColor = AppTheme.fhBgDark.withValues(alpha: 0.6);
+    if (isRunning) {
+      borderColor = parentTask.taskColor;
+      backgroundColor = parentTask.taskColor.withValues(alpha: 0.1);
+    }
+    if (isCompleted) {
+      borderColor = parentTask.taskColor.withValues(alpha: 0.5);
+      backgroundColor = Colors.transparent;
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -109,38 +116,19 @@ class SubmissionCard extends StatelessWidget {
         },
         child: ValorantCard(
           borderColor: borderColor,
+          backgroundColor: backgroundColor,
           isSelected: isRunning,
           onTap: () => _openDetailScreen(context),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Circular Progress/Status
+              // Icon Status
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: isCompleted
-                    ? Icon(MdiIcons.checkboxMarkedCircle, size: 28, color: parentTask.taskColor.withValues(alpha: 0.5))
-                    : SizedBox(
-                        width: 32, height: 32,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              value: progressValue,
-                              backgroundColor: AppTheme.fhBgDark,
-                              color: parentTask.taskColor,
-                              strokeWidth: 3,
-                            ),
-                            if (isRunning)
-                              Icon(MdiIcons.play, size: 14, color: parentTask.taskColor)
-                            else
-                              Text(
-                                "${(progressValue * 100).toInt()}",
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary),
-                              )
-                          ],
-                        ),
-                      ),
+                    ? Icon(MdiIcons.checkboxMarkedCircle, size: 24, color: parentTask.taskColor.withValues(alpha: 0.5))
+                    : Icon(MdiIcons.checkboxBlankCircleOutline, size: 24, color: isRunning ? parentTask.taskColor : AppTheme.fhTextSecondary),
               ),
 
               // Title Area
@@ -190,40 +178,45 @@ class SubmissionCard extends StatelessWidget {
               
               // Right Side: Timer & Action
               if (!isCompleted) ...[
-                ValorantTimerText(
-                  isRunning: isRunning,
-                  startTime: timerState?.startTime,
-                  accumulatedTime: displayBaseTime,
-                  style: TextStyle(
-                      fontFamily: "RobotoMono",
-                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () {
-                    if (isRunning) {
-                      provider.pauseTimer(subTask.id); 
-                      provider.logTimerAndReset(subTask.id); 
-                    } else {
-                      provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) : Colors.transparent,
-                      border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
-                      borderRadius: BorderRadius.circular(4),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    ValorantTimerText(
+                      isRunning: isRunning,
+                      startTime: timerState?.startTime,
+                      accumulatedTime: displayBaseTime,
+                      style: TextStyle(
+                          fontFamily: "RobotoMono",
+                          color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
                     ),
-                    child: Icon(
-                      isRunning ? MdiIcons.pause : MdiIcons.play,
-                      size: 16,
-                      color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () {
+                        if (isRunning) {
+                          provider.pauseTimer(subTask.id); 
+                          provider.logTimerAndReset(subTask.id); 
+                        } else {
+                          provider.startTimer(subTask.id, 'subtask', parentTask.id);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isRunning ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) : Colors.transparent,
+                          border: Border.all(color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary.withValues(alpha: 0.5)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          isRunning ? MdiIcons.pause : MdiIcons.play,
+                          size: 14,
+                          color: isRunning ? AppTheme.fhAccentTeal : AppTheme.fhTextPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  ],
+                )
               ] else ...[
                 Icon(MdiIcons.chevronRight, size: 16, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3))
               ]

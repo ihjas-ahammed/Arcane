@@ -42,7 +42,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   AIService get aiService => _aiService;
 
   Timer? _autoSaveTimer;
-  Timer? _realtimeSyncDebouncer;
+  // Timer? _realtimeSyncDebouncer; // Removed in favor of periodic check
 
   String? _loadingTaskName;
   String? get loadingTaskName => _loadingTaskName;
@@ -139,7 +139,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoSaveTimer?.cancel();
-    _realtimeSyncDebouncer?.cancel();
     super.dispose();
   }
 
@@ -168,7 +167,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
   void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
@@ -218,6 +217,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _initialize() async {
     fb_service.authStateChanges.listen(_onAuthStateChanged);
     _autoSaveTimer?.cancel();
+    // Use 1-minute periodic timer for cloud sync
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (_hasUnsavedChanges &&
           _currentUser != null &&
@@ -238,6 +238,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     if (user != null) {
       _currentUser = user;
       
+      // Load local data immediately for instant UI
       final localData = await _localStorageService.loadState();
       bool loadedLocal = false;
       if (localData != null) {
@@ -249,6 +250,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _fixTimerAnomalies();
         _handleDailyReset();
         
+        // Notify immediately to show UI
         _authLoading = false;
         notifyListeners();
       }
@@ -260,6 +262,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _isSyncing = true;
       if (loadedLocal) notifyListeners();
 
+      // Cloud Sync in background
       try {
         final cloudData = await _storageService.getUserData(user.uid);
         if (cloudData != null) {
@@ -270,10 +273,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             _hasUnsavedChanges = false;
             _saveLocalSnapshot(forceFlush: true);
           } else if (loadedLocal && _settings.lastModified > cloudTs) {
-            // Local is newer. A previous cloud save failed. Mark all dirty to force sync.
+            // Local is newer. Cloud save might have failed previously.
             _hasUnsavedChanges = true;
             _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
-            _scheduleRealtimeSync();
+            // Don't wait 1 minute, sync relatively soon
+            _performActualSave();
           }
         } else if (!loadedLocal) {
           await _resetToInitialState();
@@ -347,7 +351,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         
         // Update timestamp BEFORE saving local snapshot so local has the new time
         _settings.lastModified = nowTs;
-        await _saveLocalSnapshot();
+        await _saveLocalSnapshot(); // Ensure local is up to date immediately
 
         bool success = true;
 
@@ -411,18 +415,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void _scheduleRealtimeSync() {
-    // Save locally immediately to preserve unsaved changes against app crashes
+    // 1. Save locally immediately to preserve unsaved changes against app crashes
     _saveLocalSnapshot(); 
     
-    if (!_settings.autoSaveEnabled || _currentUser == null || _isManuallyLoading) return;
-    if (_realtimeSyncDebouncer?.isActive ?? false) {
-      _realtimeSyncDebouncer!.cancel();
-    }
-    _realtimeSyncDebouncer = Timer(const Duration(seconds: 2), () {
-      if (_hasUnsavedChanges && !_isManuallySaving) {
-        _performActualSave();
-      }
-    });
+    // 2. Mark for cloud save
+    _hasUnsavedChanges = true;
+    
+    // The periodic timer in _initialize will handle the actual cloud upload every minute.
   }
 
   void markDirty(String collection) {
@@ -432,6 +431,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void _markDirty(String collection) {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
+    _saveLocalSnapshot(); // Sync local on every dirty mark
   }
 
   Map<String, dynamic> getAppStateAsMap() {
@@ -457,7 +457,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _loadStateFromMap(data);
     _hasUnsavedChanges = true;
     _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
-    _scheduleRealtimeSync();
+    _saveLocalSnapshot(); // Save new state locally
     notifyListeners();
   }
 

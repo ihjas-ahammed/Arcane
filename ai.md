@@ -1,24 +1,10 @@
 Make the following changes:
 
-   Primus: ACTION PLAN UPDATE
-
-Turn every subtasks into an action plan
-
-Start with Why
-
-Why: Write the reason for action
-How: Give step by step procedure (make it possible to add a list of steps with UI)
-What: It is the result of the task, what happens, what's the reward of accomplishing the task
-
-
-Turn every submission to above type, old ones will have why, and how unfilled later user edit them, 
-
-Also when I add submission using the one below, ask why first then on click add goto new subtask creator with all mentioned above
-
-Update submission screen based on the above
-
-And so the progress will be updated based on How, also make it possible to use Gen ai to generate how
-
+    - Move the system button to the finance button as a settings icon
+    - Remove the finance button (money info), add a new tab called Wallet and move the finance screen there (by replacing system tab)
+    
+    - UI:
+        - Update VIRTUE drawer based on the screenshot
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

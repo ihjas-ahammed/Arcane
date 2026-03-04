@@ -35,14 +35,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         'name': name,
         'why': why,
         'isCountable': false,
-        'subSubTasksData': [] // Empty How/Steps initially
+        'subSubTasksData': []
       });
 
-      // Get created task to pass to details
       final updatedTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
       final newSubTask = updatedTask.subTasks.firstWhere((s) => s.id == newId);
 
-      // Navigate to details to finish What/How
       Navigator.push(
         context, 
         MaterialPageRoute(builder: (_) => SubmissionDetailScreen(parentTask: updatedTask, subTask: newSubTask))
@@ -66,12 +64,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
 
         final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
         
-        // Split completed tasks into recurring (cooldown) and archived (one-time)
         final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
         final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
+          // Removed top padding to eliminate space above header
+          padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -82,71 +80,76 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               ),
 
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(width: 4, height: 16, color: task.taskColor),
-                    const SizedBox(width: 8),
-                    Text('ACTIVE ACTION PLANS',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontFamily: AppTheme.fontDisplay,
-                            color: AppTheme.fhTextPrimary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0
-                        )),
+                    Row(
+                      children: [
+                        Container(width: 4, height: 16, color: task.taskColor),
+                        const SizedBox(width: 8),
+                        Text('ACTIVE CONTRACTS',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                                fontFamily: AppTheme.fontDisplay,
+                                color: AppTheme.fhTextPrimary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0
+                            )),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
+                      onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
+                      tooltip: "New Contract",
+                    )
                   ],
                 ),
               ),
 
               if (activeSubtasks.isEmpty)
                 Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   padding: const EdgeInsets.all(24.0),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
                     color: AppTheme.fhBgDark.withOpacity(0.3)
                   ),
-                  child: const Text(
-                      'ALL ACTION PLANS COMPLETED.\nINITIATE NEW PLAN BELOW.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                  child: Column(
+                    children: [
+                      const Text(
+                          'NO ACTIVE CONTRACTS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
+                        child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                      )
+                    ],
                   ),
                 )
               else
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: activeSubtasks.length,
-                  onReorder: (oldIndex, newIndex) {
-                    appProvider.reorderSubtasks(task.id, oldIndex, newIndex);
-                  },
-                  itemBuilder: (ctx, index) {
-                    final st = activeSubtasks[index];
-                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
-                  },
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: Column(
+                    children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
+                  ),
                 ),
 
-              // Recurring Completed Section
-              RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-
-              // Archived (One-time) Section
-              CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: Icon(MdiIcons.plus, size: 18),
-                  label: const Text("INITIALIZE ACTION PLAN"),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhAccentTeal,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: const BeveledRectangleBorder(),
-                      side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
-                  onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                ),
+              // Padding inside sections to align with cards
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
               ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         );

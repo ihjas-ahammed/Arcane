@@ -14,9 +14,13 @@ class MoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      color: AppTheme.fhBgDeepDark,
-      child: ListView(
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("SYSTEM & UTILITIES"),
+        backgroundColor: AppTheme.fhBgDeepDark,
+      ),
+      body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text("UTILITIES & SYSTEM",
