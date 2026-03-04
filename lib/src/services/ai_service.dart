@@ -7,6 +7,7 @@ import 'package:arcane/src/utils/json_utils.dart';
 
 class AIService {
   
+  // ... [Existing _executeWithModelAndKeyRotation and makeAICall methods remain unchanged] ...
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -80,7 +81,46 @@ class AIService {
     );
   }
 
-  // --- Prediction ---
+  // --- New Method for Action Plan Generation ---
+  Future<Map<String, dynamic>> generateActionPlanSteps({
+    required String taskName,
+    required String why,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a tactical action plan (How) and expected outcome (What) for the following objective:
+    
+    OBJECTIVE: $taskName
+    STRATEGIC INTENT (WHY): $why
+    
+    Task:
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
+    2. Define the expected result/reward ("What") upon completion.
+    
+    Output JSON ONLY:
+    {
+      "steps": [
+        {"name": "Step description"}
+      ],
+      "what": "Description of the result or reward"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  // ... [Other methods like generateSchedulePrediction, queryNeuralArchive, etc. remain unchanged] ...
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
@@ -143,7 +183,6 @@ class AIService {
     return [];
   }
 
-  // Generalized Nora / Neural Archive Query
   Future<String> queryNeuralArchive({
     required String query,
     required String logsContext,
@@ -173,7 +212,6 @@ class AIService {
     );
   }
 
-  // --- Project / Generation methods ---
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
     required String userPrompt,
@@ -384,7 +422,6 @@ class AIService {
     }
   }
 
-  // --- Start Day Report ---
   Future<Map<String, dynamic>> generateStartDayReport({
     required String reflectionsList,
     required String sessionsList,
@@ -424,8 +461,6 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
   }
-
-  // --- Advanced Journaling Tools ---
 
   Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
     required String logsText,

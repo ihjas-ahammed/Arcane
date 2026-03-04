@@ -152,19 +152,23 @@ class MainTask {
 class SubTask {
   String id;
   String name;
-  String description;
+  String description; // Optional detail
   bool completed;
   int currentTimeSpent;
   String? completedDate;
   bool isCountable;
   int targetCount;
   int currentCount;
-  List<SubSubTask> subSubTasks;
+  List<SubSubTask> subSubTasks; // "How" - Action Steps
   List<TaskSession> sessions;
   
+  // Action Plan Fields
+  String why; // Strategic Intent
+  String what; // Expected Outcome/Reward
+
   // Recurring features
   bool isRecurring;
-  DateTime? lastCompletedDate; // Stores the date of last completion/reset
+  DateTime? lastCompletedDate; 
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -180,6 +184,8 @@ class SubTask {
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
+    this.why = '',
+    this.what = '',
     this.isRecurring = false,
     this.lastCompletedDate,
     DateTime? createdAt,
@@ -200,6 +206,8 @@ class SubTask {
       isCountable: json['isCountable'] as bool? ?? false,
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
+      why: json['why'] as String? ?? '', // Load Why
+      what: json['what'] as String? ?? '', // Load What
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -234,6 +242,8 @@ class SubTask {
       'isCountable': isCountable,
       'targetCount': targetCount,
       'currentCount': currentCount,
+      'why': why,
+      'what': what,
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
@@ -246,7 +256,7 @@ class SubTask {
 
 class SubSubTask {
   String id;
-  String name;
+  String name; // Action Step Description
   bool completed;
   bool isCountable;
   int targetCount;

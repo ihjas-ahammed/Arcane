@@ -9,16 +9,17 @@ import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
 import 'package:arcane/src/widgets/cards/task_info_card.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart'; 
+import 'package:arcane/src/widgets/drawers/session_log_drawer.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/drawers/session_log_drawer.dart';
 
 class SubmissionDetailScreen extends StatefulWidget {
   final MainTask parentTask;
@@ -35,14 +36,7 @@ class SubmissionDetailScreen extends StatefulWidget {
 }
 
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-
-  @override
-  void dispose() {
-    _checkpointController.dispose();
-    super.dispose();
-  }
 
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
@@ -51,38 +45,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
     } catch (e) {
       return null;
-    }
-  }
-
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
-      'name': _checkpointController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
-    });
-    _checkpointController.clear();
-  }
-
-  void _showAiCheckpointGenerationDialog(BuildContext context, AppProvider provider) async {
-    final prompt = await showDialog<String>(
-      context: context,
-      builder: (context) => const AiGenerationPromptDialog(
-        title: "GENERATE CHECKPOINTS", 
-        hintText: "E.g., List key milestones for this task...", 
-        actionLabel: "GENERATE"
-      ),
-    );
-
-    if (prompt != null && prompt.isNotEmpty) {
-      provider.aiGenerationActions.generateCheckpointsForSubtask(
-        widget.parentTask.id, 
-        widget.subTask.id, 
-        prompt
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
-      }
     }
   }
 
@@ -247,9 +209,9 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
     final bool isRunning = timerState?.isRunning ?? false;
     
-    final int completedCheckpoints =
+    final int completedSteps =
         liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
+    final int totalSteps = liveSubTask.subSubTasks.length;
     final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
 
     return Scaffold(
@@ -273,6 +235,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Top Navigation
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -303,6 +266,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
+                  // Header Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
@@ -338,6 +302,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Ability Slot Stats
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -354,10 +319,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ValorantAbilitySlot(
                           hotkey: "E",
                           label: "STEPS",
-                          value: "$completedCheckpoints/$totalCheckpoints",
+                          value: "$completedSteps/$totalSteps",
                           icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 &&
-                              completedCheckpoints == totalCheckpoints,
+                          isActive: completedSteps > 0 &&
+                              completedSteps == totalSteps,
                         ),
                         const SizedBox(width: 16),
                         ValorantAbilitySlot(
@@ -391,6 +356,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
                   
+                  // Info Card (Recurring / Metadata)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: TaskInfoCard(
@@ -401,9 +367,52 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  // --- ACTION PLAN SECTION START ---
+                  const SizedBox(height: 32),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text("ACTION PLAN", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 1. WHY (Strategic Intent)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: ActionPlanWhyCard(
+                      initialWhy: liveSubTask.why,
+                      onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'why': val}),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 2. HOW (Tactical Execution / Steps)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: ActionPlanStepsList(
+                      mainTaskId: widget.parentTask.id,
+                      subTaskId: liveSubTask.id,
+                      steps: liveSubTask.subSubTasks,
+                      onGenerate: () => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask.id, liveSubTask.why),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 3. WHAT (Outcome)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: ActionPlanOutcomeCard(
+                      initialWhat: liveSubTask.what,
+                      onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'what': val}),
+                    ),
+                  ),
+                  // --- ACTION PLAN SECTION END ---
+
+                  const SizedBox(height: 32),
                   const Divider(color: Colors.white10),
 
+                  // Timer Control
                   Container(
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(20),
@@ -456,6 +465,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
 
+                  // Weekly Chart
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: SubtaskWeeklyChart(
@@ -466,97 +476,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Manual Session Logging & Timeline
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "TACTICAL OBJECTIVES",
-                              style: TextStyle(
-                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                  letterSpacing: 1.5),
-                            ),
-                            InkWell(
-                              onTap: () => _showAiCheckpointGenerationDialog(context, provider),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.5))),
-                                child: Icon(MdiIcons.robotExcitedOutline, size: 14, color: AppTheme.fhAccentPurple),
-                              ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...liveSubTask.subSubTasks
-                            .map((sss) {
-                              final linkedInfo = provider.findLinkedProjectStepInfo(sss.id);
-                              return CheckpointItem(
-                                  title: sss.name,
-                                  isCompleted: sss.completed,
-                                  linkedLabel: linkedInfo != null 
-                                      ? "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}" 
-                                      : null,
-                                  onUnlink: linkedInfo != null ? () {
-                                    provider.projectActions.unlinkStep(
-                                      linkedInfo['mainTaskId'], 
-                                      linkedInfo['projectId'], 
-                                      linkedInfo['stepId']
-                                    );
-                                  } : null,
-                                  onToggle: () {
-                                    if (sss.completed) {
-                                      provider.taskActions.uncompleteSubSubtask(
-                                          widget.parentTask.id,
-                                          liveSubTask.id,
-                                          sss.id);
-                                    } else {
-                                      provider.taskActions.completeSubSubtask(
-                                          widget.parentTask.id,
-                                          liveSubTask.id,
-                                          sss.id);
-                                    }
-                                  },
-                                  onDelete: () => provider.deleteSubSubtask(
-                                      widget.parentTask.id,
-                                      liveSubTask.id,
-                                      sss.id),
-                                );
-                            }),
-
-                        Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.2),
-                            border: Border(
-                                bottom: BorderSide(
-                                    color: Colors.white.withOpacity(0.1))),
-                          ),
-                          child: TextField(
-                            controller: _checkpointController,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                            decoration: const InputDecoration(
-                              hintText: "+ ADD OBJECTIVE",
-                              hintStyle: TextStyle(
-                                  color: Colors.white24,
-                                  fontSize: 12,
-                                  letterSpacing: 1.0),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            onSubmitted: (_) => _handleAddCheckpoint(provider),
-                          ),
-                        ),
-
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

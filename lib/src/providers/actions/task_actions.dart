@@ -13,8 +13,7 @@ class TaskActions {
 
   TaskActions(this._provider);
 
-  // ... [Keep existing basic actions like addMainTask, editMainTask, logToDailySummary] ...
-  
+  // ... [Existing methods reorderSubtasks, addMainTask, editMainTask, logToDailySummary] ...
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -117,6 +116,8 @@ class TaskActions {
       completed: subtaskData['completed'] as bool? ?? false,
       completedDate: (subtaskData['completed'] as bool? ?? false) ? getTodayDateString() : null,
       isRecurring: subtaskData['isRecurring'] as bool? ?? false,
+      why: subtaskData['why'] as String? ?? '', // New Field
+      what: subtaskData['what'] as String? ?? '', // New Field
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       subSubTasks:
@@ -166,6 +167,12 @@ class TaskActions {
     if (updates.containsKey('isRecurring')) {
       subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
     }
+    if (updates.containsKey('why')) { // New Field
+      subtaskToUpdate.why = updates['why'] as String;
+    }
+    if (updates.containsKey('what')) { // New Field
+      subtaskToUpdate.what = updates['what'] as String;
+    }
     
     // Always update timestamp on modification
     subtaskToUpdate.updatedAt = DateTime.now();
@@ -201,6 +208,7 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // ... [Rest of the file remains unchanged: addSessionToSubtask, updateSessionInSubtask, deleteSessionFromSubtask, completeSubtask, etc.]
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     // Validation: Check for overlap globally
     if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) {
@@ -228,6 +236,7 @@ class TaskActions {
                   currentCount: st.currentCount, subSubTasks: st.subSubTasks,
                   sessions: newSessions,
                   isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                  why: st.why, what: st.what,
                 );
               }
               return st;
@@ -279,6 +288,7 @@ class TaskActions {
               currentCount: st.currentCount, subSubTasks: st.subSubTasks,
               sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
               isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              why: st.why, what: st.what,
             );
           }
           return st;
@@ -325,6 +335,7 @@ class TaskActions {
               targetCount: st.targetCount, currentCount: st.currentCount, subSubTasks: st.subSubTasks,
               sessions: remainingSessions,
               isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              why: st.why, what: st.what,
             );
           }
           return st;
@@ -498,6 +509,7 @@ class TaskActions {
                   lastCompletedDate: DateTime.now(), // Store completion time for recurring reset
                   createdAt: st.createdAt,
                   updatedAt: DateTime.now(),
+                  why: st.why, what: st.what,
               );
             }
             return st;
@@ -547,6 +559,7 @@ class TaskActions {
                   lastCompletedDate: null,
                   createdAt: st.createdAt,
                   updatedAt: DateTime.now(),
+                  why: st.why, what: st.what,
               );
             }
             return st;
@@ -595,6 +608,7 @@ class TaskActions {
         name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
       )).toList(), sessions: [],
       isRecurring: subTaskToDuplicate.isRecurring,
+      why: subTaskToDuplicate.why, what: subTaskToDuplicate.what,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -624,6 +638,7 @@ class TaskActions {
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
               currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
               isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              why: st.why, what: st.what,
             );
           }
           return st;
@@ -662,6 +677,7 @@ class TaskActions {
                 return sss;
               }).toList(), sessions: st.sessions,
               isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+              why: st.why, what: st.what,
             );
             return updatedSub;
           }
@@ -709,6 +725,7 @@ class TaskActions {
                   return sss;
                 }).toList(), sessions: st.sessions,
                 isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                why: st.why, what: st.what,
               );
             }
             return st;
@@ -760,6 +777,7 @@ class TaskActions {
                   return sss;
                 }).toList(), sessions: st.sessions,
                 isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                why: st.why, what: st.what,
               );
             }
             return st;
@@ -791,6 +809,7 @@ class TaskActions {
                 subSubTasks: st.subSubTasks.where((sss) => sss.id != subSubtaskId).toList(),
                 sessions: st.sessions,
                 isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
+                why: st.why, what: st.what,
               );
             }
             return st;

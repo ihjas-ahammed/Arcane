@@ -14,6 +14,7 @@ class AIGenerationActions {
     if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
   }
 
+  // ... [Existing methods like triggerAISubquestGeneration, generateCheckpointsForSubtask] ...
   Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
       String generationMode, String userInput, int numSubquests) async {
     if (_provider.isGeneratingSubquests) {
@@ -128,6 +129,48 @@ class AIGenerationActions {
 
     } catch (e) {
       debugPrint("Error generating checkpoints: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> generateActionPlanSteps(
+      String mainTaskId, String subTaskId, String why) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Strategy...");
+
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+
+      final result = await _aiService.generateActionPlanSteps(
+        taskName: subTask.name,
+        why: why,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+      final what = result['what'] as String? ?? '';
+
+      // Update Subtask with "What"
+      _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
+
+      // Add Steps
+      for (var step in steps) {
+        _provider.addSubSubtask(mainTaskId, subTaskId, {
+          'name': step['name'] ?? 'Action Step',
+          'isCountable': false,
+          'targetCount': 0,
+        });
+      }
+
+    } catch (e) {
+      debugPrint("Error generating action plan: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
