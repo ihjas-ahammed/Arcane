@@ -156,7 +156,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       if (mounted) {
         showDialog(
           context: context,
-          builder: (ctx) => WeeklyReportDialog(reportData: result),
+          builder: (ctx) => WeeklyReportDialog(
+            reportData: result,
+            onSave: () async {
+              final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+              await provider.saveWeeklyReport(dateStr, result);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Report Saved to Archive!")));
+                Navigator.pop(ctx);
+              }
+            },
+          ),
         );
       }
     } catch (e) {

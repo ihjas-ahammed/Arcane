@@ -42,7 +42,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   AIService get aiService => _aiService;
 
   Timer? _autoSaveTimer;
-  // Timer? _realtimeSyncDebouncer; // Removed in favor of periodic check
 
   String? _loadingTaskName;
   String? get loadingTaskName => _loadingTaskName;
@@ -173,7 +172,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  Future<void> recalibrateTimeLogs() => _taskActions.recalibrateTimeLogs(); // Exposed Method
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
@@ -287,6 +286,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
         _cleanOverlappingSessions();
         _fixTimerAnomalies();
+        // Auto recalibrate time logs after cloud sync to ensure accuracy
+        await _taskActions.recalibrateTimeLogs(silent: true);
         _handleDailyReset();
       } catch (e) {
         debugPrint("Cloud sync init failed: $e");
@@ -659,6 +660,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _loadStateFromMap(cloudData);
         _hasUnsavedChanges = false;
         await _saveLocalSnapshot(forceFlush: true);
+        await _taskActions.recalibrateTimeLogs(silent: true);
       }
     } finally {
       _isManuallyLoading = false;
@@ -1118,6 +1120,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     dayData['aiBriefing'] = data;
     newCompletedByDay[date] = dayData;
     setProviderState(completedByDay: newCompletedByDay);
+
+    if (_currentUser != null) {
+      _storageService.saveDailyData(_currentUser!.uid, date, 'briefing', data);
+    }
   }
 
   void saveStartDayReport(String date, Map<String, dynamic> data) { 
@@ -1126,6 +1132,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     dayData['startDayReport'] = data;
     newCompletedByDay[date] = dayData;
     setProviderState(completedByDay: newCompletedByDay);
+
+    if (_currentUser != null) {
+      _storageService.saveDailyData(_currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (_currentUser != null) {
+      await _storageService.saveWeeklyReport(_currentUser!.uid, date, data);
+    }
   }
 
   Map<String, dynamic>? getStartDayReport(String date) { 

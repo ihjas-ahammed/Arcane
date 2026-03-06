@@ -437,9 +437,11 @@ class AIService {
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
     
+    Tone: A supportive, insightful human friend having a morning coffee with the user. Friendly, warm, but highly practical and focused on their growth.
+    
     Task:
     1. Analyze the user's momentum.
-    2. Provide a futuristic 'Forecast' message focusing intensely on the SPECIFIC IMPROVEMENTS the user can make today based on yesterday's logs and sessions. How can they be better today?
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today based on yesterday's logs).
     3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
     4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.

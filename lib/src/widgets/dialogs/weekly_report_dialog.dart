@@ -7,8 +7,9 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 class WeeklyReportDialog extends StatelessWidget {
   final Map<String, dynamic> reportData;
+  final VoidCallback? onSave;
 
-  const WeeklyReportDialog({super.key, required this.reportData});
+  const WeeklyReportDialog({super.key, required this.reportData, this.onSave});
 
   @override
   Widget build(BuildContext context) {
@@ -209,15 +210,29 @@ class WeeklyReportDialog extends StatelessWidget {
             // Footer
             Padding(
               padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ValorantButton(
-                  label: "ACKNOWLEDGE",
-                  isPrimary: true,
-                  color: AppTheme.fhAccentGold,
-                  onPressed: () => Navigator.pop(context),
-                ).animate().fadeIn(delay: 1000.ms).scale(),
-              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ValorantButton(
+                      label: "ACKNOWLEDGE",
+                      isPrimary: false,
+                      color: AppTheme.fhTextSecondary,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  if (onSave != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ValorantButton(
+                        label: "ARCHIVE",
+                        isPrimary: true,
+                        color: AppTheme.fhAccentGold,
+                        onPressed: onSave,
+                      ),
+                    ),
+                  ]
+                ],
+              ).animate().fadeIn(delay: 1000.ms).scale(),
             ),
           ],
         ),

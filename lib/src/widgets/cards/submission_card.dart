@@ -6,9 +6,11 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/circular_time_progress.dart'; // Newly added import
 import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // For DateFormat if needed
 
 class SubmissionCard extends StatelessWidget {
   final MainTask parentTask;
@@ -48,26 +50,26 @@ class SubmissionCard extends StatelessWidget {
     final bool isCompleted = currentSubTask.completed;
 
     // Calculate time for display
-    // If running, we pass only historical time to ValorantTimerText so it can add the live ticker itself
-    // If not running, we pass total calculated time
     final double displayBaseTime = isRunning 
         ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
         : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
-    // --- Progress Calculation ---
-    double progressValue = 0.0;
-    if (currentSubTask.subSubTasks.isNotEmpty) {
-      final int completed = currentSubTask.subSubTasks.where((s) => s.completed).length;
-      progressValue = completed / currentSubTask.subSubTasks.length;
-    } else if (currentSubTask.isCountable && currentSubTask.targetCount > 0) {
-      progressValue = currentSubTask.currentCount / currentSubTask.targetCount;
-    } else {
-      final yesterdayTime = provider.getYesterdaysTimeForTask(parentTask.id);
-      final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 3600.0;
-      // Use full total for progress bar calculation even if running
-      final fullTotal = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-      progressValue = (fullTotal / maxTime).clamp(0.0, 1.0);
+    // --- Calculate 7-Day Average ---
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    double total7Days = 0;
+
+    for (var session in currentSubTask.sessions) {
+      if (session.startTime.isAfter(sevenDaysAgo)) {
+        total7Days += session.durationSeconds;
+      }
     }
+    
+    double avgSeconds = total7Days / 7.0;
+    if (avgSeconds < 60) avgSeconds = 60; // minimum 1 minute average for scaling visual
+    
+    final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
 
     Color borderColor = AppTheme.fhBorderColor.withValues(alpha: 0.3);
     Color backgroundColor = AppTheme.fhBgDark.withValues(alpha: 0.6);
@@ -123,12 +125,24 @@ class SubmissionCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon Status
+              // Updated: Advanced Circular Progress Bar
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
-                child: isCompleted
-                    ? Icon(MdiIcons.checkboxMarkedCircle, size: 24, color: parentTask.taskColor.withValues(alpha: 0.5))
-                    : Icon(MdiIcons.checkboxBlankCircleOutline, size: 24, color: isRunning ? parentTask.taskColor : AppTheme.fhTextSecondary),
+                child: GestureDetector(
+                  onTap: () {
+                    // Tap circle to toggle completion
+                    if (isCompleted) {
+                      provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
+                    } else {
+                      provider.completeSubtask(parentTask.id, currentSubTask.id);
+                    }
+                  },
+                  child: CircularTimeProgress(
+                    progress: usageProgress,
+                    isCompleted: isCompleted,
+                    color: parentTask.taskColor,
+                  ),
+                ),
               ),
 
               // Title Area

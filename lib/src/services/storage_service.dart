@@ -73,6 +73,44 @@ class StorageService {
     }
   }
 
+  // NEW: Save Daily Reports & Briefings to /daily/{date}
+  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .doc(date)
+          .set({
+            type: data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // NEW: Save Weekly Reports to /weekly/{date}
+  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .doc(date)
+          .set({
+            'report': data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> deleteLegacyData(String userId) async {
     if (userId.isEmpty) return false;
     try {

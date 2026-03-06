@@ -1,11 +1,17 @@
 Make the following changes:
 
-    - Move the system button to the finance button as a settings icon
-    - Remove the finance button (money info), add a new tab called Wallet and move the finance screen there (by replacing system tab)
+    - Update task card:
+        - Give the advanced circular progress bar instaed of radio button:
+            - Its maximum is the avarage time usage of current submission for last seven days, calculated based on session log
     
-    - UI:
-        - Update VIRTUE drawer based on the screenshot
+    - Use insights from the ui of screenshot and also the theme: valorant protcol
 
+    - Fix data issues:
+        - Auto recalibrate time logs everytime after cloud sync
+        - Save the daily breifing and system startup report to the database at /daily/briefing and /daily/report with day 
+        - Also make it possible user can chose to save weekly briefing
+
+    - Update prompt: update system startup prompt in a way it talks more like a human friend who you can talk in the morning but still keep the primary as to give advice about the following
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 

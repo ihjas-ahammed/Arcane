@@ -407,11 +407,6 @@ class TaskActions {
   }
 
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    // Simplified: Just toggle status via update for now to use recursive logic
-    // Logic for logging counts/timestamps is complex in recursion without context return. 
-    // Assuming UI handles count checks before calling this or we do a simple toggle.
-    // For this update, we will assume standard completion.
-    
     final updates = {
       'completed': true,
       'completionTimestamp': DateTime.now().toIso8601String()
@@ -419,10 +414,8 @@ class TaskActions {
     
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
 
-    // Logging side effect - find it (inefficient but safe)
     if (!fromSync) {
       _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-      // To log to daily summary we need name etc. skipping detailed log for deep recursion for brevity in this snapshot
     }
   }
 
@@ -437,7 +430,6 @@ class TaskActions {
     }
   }
 
-  // ... [Other methods unchanged]
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) return false;
 
@@ -609,9 +601,9 @@ class TaskActions {
     _provider.setProviderState(completedByDay: newCompletedByDay);
   }
 
-  Future<void> recalibrateTimeLogs() async {
-    _provider.setLoadingTask("RECALIBRATING...");
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<void> recalibrateTimeLogs({bool silent = false}) async {
+    if (!silent) _provider.setLoadingTask("RECALIBRATING...");
+    if (!silent) await Future.delayed(const Duration(milliseconds: 500));
 
     final now = DateTime.now();
     final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
@@ -662,7 +654,7 @@ class TaskActions {
       mainTasks: newMainTasks
     );
     
-    _provider.setLoadingTask(null);
+    if (!silent) _provider.setLoadingTask(null);
   }
 
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
