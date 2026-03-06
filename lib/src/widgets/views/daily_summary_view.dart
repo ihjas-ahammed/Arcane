@@ -13,6 +13,7 @@ import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
+import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:arcane/src/widgets/ui/reflection_progress_widget.dart';
@@ -224,13 +225,24 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              TextButton.icon(
-                icon: _isGeneratingWeeklyReport 
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(MdiIcons.fileChartOutline, size: 16),
-                label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(MdiIcons.archiveSearchOutline, color: AppTheme.fhAccentTeal),
+                    tooltip: "Archived Reports",
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedReportsScreen()));
+                    },
+                  ),
+                  TextButton.icon(
+                    icon: _isGeneratingWeeklyReport 
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(MdiIcons.fileChartOutline, size: 16),
+                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
+                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                  ),
+                ],
               ),
             ],
           ),

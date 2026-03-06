@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CheckpointItem extends StatefulWidget {
   final String title;
   final bool isCompleted;
   final String? linkedLabel;
   final String type; // 'check' or 'info'
+  final Color accentColor;
   final VoidCallback? onUnlink;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
@@ -23,6 +25,7 @@ class CheckpointItem extends StatefulWidget {
     required this.isCompleted,
     this.linkedLabel,
     this.type = 'check',
+    required this.accentColor,
     this.onUnlink,
     required this.onToggle,
     required this.onDelete,
@@ -64,123 +67,105 @@ class _CheckpointItemState extends State<CheckpointItem> {
   @override
   Widget build(BuildContext context) {
     final isInfo = widget.type == 'info';
-    final textColor = isInfo 
-        ? AppTheme.fhAccentTeal 
-        : (_localCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary);
-    final bgColor = isInfo 
-        ? AppTheme.fhAccentTeal.withValues(alpha: 0.1) 
-        : AppTheme.fhBgDark.withValues(alpha: 0.6);
-    final borderColor = isInfo
-        ? AppTheme.fhAccentTeal.withValues(alpha: 0.3)
-        : (_localCompleted ? AppTheme.fhAccentGreen : AppTheme.fhBorderColor);
+    final color = widget.accentColor;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border(
-          left: BorderSide(
-            color: borderColor,
-            width: 4,
-          ),
-          bottom: BorderSide(
-            color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+    final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
+    final bgColor = isInfo ? color.withOpacity(0.1) : (_localCompleted ? color.withOpacity(0.15) : AppTheme.fhBgDark.withOpacity(0.6));
+    final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
+    final textColor = AppTheme.fhTextPrimary; // Never dim completely
+
+    return GestureDetector(
+      onTap: widget.onTap, // Open detail on card tap
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border(left: BorderSide(color: borderColor, width: 4)),
         ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                if (!isInfo)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: RhombusCheckbox(
-                      checked: _localCompleted,
-                      onChanged: (_) => _handleToggle(),
-                      size: CheckboxSize.small,
-                    ),
-                  )
-                else 
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(MdiIcons.informationOutline, size: 18, color: AppTheme.fhAccentTeal),
-                  ),
-                  
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title.toUpperCase(),
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
-                          fontFamily: AppTheme.fontBody,
-                          decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
-                          fontSize: 14,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      if (widget.linkedLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: LinkedTaskIndicator(
-                            label: widget.linkedLabel!,
-                            onUnlink: widget.onUnlink,
-                          ),
-                        ),
-                    ],
-                  ),
+        child: Row(
+          children:[
+            // Checkbox logic overrides tap on the left side
+            if (!isInfo)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: RhombusCheckbox(
+                  checked: _localCompleted,
+                  onChanged: (_) => _handleToggle(),
+                  size: CheckboxSize.small,
                 ),
-                
-                // Visual Indicator for nested steps
-                if (widget.hasSubsteps)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Icon(MdiIcons.fileTree, size: 14, color: AppTheme.fhAccentPurple),
-                  ),
+              )
+            else 
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
+              ),
 
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, size: 16, color: AppTheme.fhTextSecondary.withValues(alpha: 0.7)),
-                  color: AppTheme.fhBgDark,
-                  onSelected: (value) {
-                    if (value == 'delete') widget.onDelete();
-                    if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
-                    if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
-                    if (value == 'open' && widget.onTap != null) widget.onTap!();
-                  },
-                  itemBuilder: (context) => [
-                     PopupMenuItem(
-                      value: 'open',
-                      child:  Row(children: [Icon(MdiIcons.arrowRight, size: 16, color: AppTheme.fhAccentTeal), SizedBox(width: 8), Text("Open Details", style: TextStyle(color: AppTheme.fhAccentTeal))]),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:[
+                  Text(
+                    widget.title.toUpperCase(),
+                    style: GoogleFonts.chakraPetch(
+                      color: textColor,
+                      fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                      decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
                     ),
-                     PopupMenuItem(
-                      value: 'duplicate',
-                      child: Row(children: [Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), SizedBox(width: 8), Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                  ),
+                  if (widget.linkedLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: LinkedTaskIndicator(
+                        label: widget.linkedLabel!,
+                        onUnlink: widget.onUnlink,
+                      ),
                     ),
-                    PopupMenuItem(
-                      value: 'toggle_type',
-                      child: Row(children: [
-                        Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
-                        const SizedBox(width: 8), 
-                        Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
-                      ]),
-                    ),
-                     PopupMenuItem(
-                      value: 'delete',
-                      child: Row(children: [Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), SizedBox(width: 8), Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
-                    ),
-                  ],
+                ],
+              ),
+            ),
+            
+            if (widget.hasSubsteps)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(MdiIcons.fileTree, size: 14, color: color),
+              ),
+
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+              color: AppTheme.fhBgDark,
+              onSelected: (value) {
+                if (value == 'delete') widget.onDelete();
+                if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                if (value == 'open' && widget.onTap != null) widget.onTap!();
+              },
+              itemBuilder: (context) =>[
+                  PopupMenuItem(
+                  value: 'open',
+                  child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                ),
+                  PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_type',
+                  child: Row(children:[
+                    Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                    const SizedBox(width: 8), 
+                    Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                  ]),
+                ),
+                  PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );

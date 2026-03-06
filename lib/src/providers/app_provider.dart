@@ -1065,6 +1065,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  // --- WEEKLY REPORTS ---
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (_currentUser == null) return [];
+    return await _storageService.fetchWeeklyReports(_currentUser!.uid);
+  }
 
   Map<String, dynamic> getLast7DaysData() { 
     final historyStr = HistoryHelper.getSessionHistoryString(_mainTasks, 7);

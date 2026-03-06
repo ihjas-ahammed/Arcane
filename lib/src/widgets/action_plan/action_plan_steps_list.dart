@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart'; // Import
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ActionPlanStepsList extends StatefulWidget {
   final String mainTaskId;
   final String subTaskId;
   final List<SubSubTask> steps;
   final VoidCallback onGenerate;
+  final Color accentColor;
 
   const ActionPlanStepsList({
     super.key,
@@ -19,6 +21,7 @@ class ActionPlanStepsList extends StatefulWidget {
     required this.subTaskId,
     required this.steps,
     required this.onGenerate,
+    required this.accentColor,
   });
 
   @override
@@ -27,7 +30,7 @@ class ActionPlanStepsList extends StatefulWidget {
 
 class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   final TextEditingController _stepController = TextEditingController();
-  String _newStepType = 'check'; // 'check' or 'info'
+  String _newStepType = 'check'; 
 
   void _addStep(AppProvider provider) {
     if (_stepController.text.trim().isEmpty) return;
@@ -55,36 +58,42 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            if (widget.steps.isEmpty)
-              TextButton.icon(
-                onPressed: isLoading ? null : widget.onGenerate,
-                icon: isLoading 
-                  ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)) 
-                  : Icon(MdiIcons.robotExcitedOutline, size: 14),
-                label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: const TextStyle(fontSize: 10)),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.fhAccentPurple,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap
+      children:[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+              if (widget.steps.isEmpty)
+                TextButton.icon(
+                  onPressed: isLoading ? null : widget.onGenerate,
+                  icon: isLoading 
+                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
+                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
+                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         
         if (widget.steps.isEmpty && !isLoading)
           Container(
             padding: const EdgeInsets.all(16),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-              color: AppTheme.fhBgDark.withOpacity(0.3)
+              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+              color: AppTheme.fhBgDark.withOpacity(0.5)
             ),
             child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
@@ -95,6 +104,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               isCompleted: step.completed,
               type: step.type,
               hasSubsteps: step.substeps.isNotEmpty,
+              accentColor: widget.accentColor,
               onTap: () => _navigateToStepDetail(context, step),
               onToggle: () {
                 if (step.completed) {
@@ -115,39 +125,50 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
         Container(
           margin: const EdgeInsets.only(top: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-          ),
           child: Row(
-            children: [
-              PopupMenuButton<String>(
-                icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
-                tooltip: "Change Type",
-                onSelected: (val) => setState(() => _newStepType = val),
-                color: AppTheme.fhBgDark,
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                  const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                ],
+            children:[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                child: PopupMenuButton<String>(
+                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
+                  tooltip: "Change Type",
+                  onSelected: (val) => setState(() => _newStepType = val),
+                  color: AppTheme.fhBgDark,
+                  itemBuilder: (context) =>[
+                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   controller: _stepController,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
+                  decoration: InputDecoration(
                     hintText: "ADD STEP...",
-                    hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
-                    border: InputBorder.none,
+                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
+                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
+                    filled: true,
+                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 12),
+                    contentPadding: const EdgeInsets.all(12),
                   ),
                   onSubmitted: (_) => _addStep(provider),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
-                onPressed: () => _addStep(provider),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _addStep(provider),
+                child: Container(
+                  width: 40, height: 40,
+                  color: widget.accentColor.withOpacity(0.2),
+                  alignment: Alignment.center,
+                  child: Text("+", style: TextStyle(color: widget.accentColor, fontWeight: FontWeight.bold, fontSize: 24)),
+                ),
               )
             ],
           ),

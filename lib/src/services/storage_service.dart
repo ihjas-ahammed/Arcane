@@ -73,7 +73,7 @@ class StorageService {
     }
   }
 
-  // NEW: Save Daily Reports & Briefings to /daily/{date}
+  // Save Daily Reports & Briefings to /daily/{date}
   Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
@@ -92,7 +92,7 @@ class StorageService {
     }
   }
 
-  // NEW: Save Weekly Reports to /weekly/{date}
+  // Save Weekly Reports to /weekly/{date}
   Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
@@ -108,6 +108,28 @@ class StorageService {
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  // Fetch all archived weekly reports
+  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+          
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e) {
+      return [];
     }
   }
 

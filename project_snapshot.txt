@@ -1,312 +1,845 @@
-Here is the completely rewritten `CircularTimeProgress` widget. I have translated the SVG paths from your HTML directly into Dart `Path` commands, implemented the specific gradients, the glow filter using `MaskFilter.blur`, and the background ornamentation (spikes/rings) exactly as defined in the provided SVG code.
 
-I have also scaled the coordinate system so the 200x200 SVG logic fits perfectly inside whatever size the widget is given (e.g. the 44x44 slot in the task card).
 
---- START OF FILE project_snapshot_out.txt ---
 
---- START OF FILE lib/src/widgets/ui/circular_time_progress.dart ---
+--- START OF FILE lib/src/widgets/action_plan/action_plan_outcome_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'dart:math' as math;
-import 'dart:ui' as ui; // Needed for gradient shaders
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 
-class CircularTimeProgress extends StatelessWidget {
-  final double progress; // 0.0 to 1.0
-  final bool isCompleted;
-  final Color color;
+class ActionPlanOutcomeCard extends StatefulWidget {
+  final String initialWhat;
+  final ValueChanged<String> onChanged;
+  final Color accentColor;
 
-  const CircularTimeProgress({
+  const ActionPlanOutcomeCard({
     super.key,
-    required this.progress,
-    this.isCompleted = false,
-    required this.color,
+    required this.initialWhat,
+    required this.onChanged,
+    required this.accentColor,
   });
 
   @override
+  State<ActionPlanOutcomeCard> createState() => _ActionPlanOutcomeCardState();
+}
+
+class _ActionPlanOutcomeCardState extends State<ActionPlanOutcomeCard> {
+  late TextEditingController _controller;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialWhat);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged(String val) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 800), () {
+      widget.onChanged(val);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // The HTML container was 300x300, but viewBox was 200x200.
-    // We maintain aspect ratio.
-    return SizedBox(
-      width: 50, 
-      height: 50,
-      child: CustomPaint(
-        painter: _DendroElementPainter(
-          progress: isCompleted ? 1.0 : progress,
-          baseColor: isCompleted ? const Color(0xFF3bfeb9) : color,
-          isCompleted: isCompleted,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:[
+        Container(
+          margin: const EdgeInsets.only(top: 15, bottom: 5),
+          padding: const EdgeInsets.only(left: 10),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: widget.accentColor, width: 2)),
+          ),
+          child: const Text(
+            "EXPECTED OUTCOME (WHAT)",
+            style: TextStyle(
+              color: AppTheme.fhTextSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        TextField(
+          controller: _controller,
+          maxLines: null,
+          minLines: 2,
+          style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: "Result or Reward...",
+            hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+            filled: true,
+            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
+            contentPadding: const EdgeInsets.all(12),
+          ),
+          onChanged: _onTextChanged,
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/action_plan/action_plan_outcome_card.dart ---
+
+--- START OF FILE lib/src/widgets/action_plan/action_plan_why_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
+
+class ActionPlanWhyCard extends StatefulWidget {
+  final String initialWhy;
+  final ValueChanged<String> onChanged;
+  final Color accentColor;
+
+  const ActionPlanWhyCard({
+    super.key,
+    required this.initialWhy,
+    required this.onChanged,
+    required this.accentColor,
+  });
+
+  @override
+  State<ActionPlanWhyCard> createState() => _ActionPlanWhyCardState();
+}
+
+class _ActionPlanWhyCardState extends State<ActionPlanWhyCard> {
+  late TextEditingController _controller;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialWhy);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged(String val) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 800), () {
+      widget.onChanged(val);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:[
+        Container(
+          margin: const EdgeInsets.only(top: 15, bottom: 5),
+          padding: const EdgeInsets.only(left: 10),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: widget.accentColor, width: 2)),
+          ),
+          child: const Text(
+            "STRATEGIC INTENT (WHY)",
+            style: TextStyle(
+              color: AppTheme.fhTextSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        TextField(
+          controller: _controller,
+          maxLines: null,
+          minLines: 2,
+          style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: "Reason for action...",
+            hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+            filled: true,
+            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
+            contentPadding: const EdgeInsets.all(12),
+          ),
+          onChanged: _onTextChanged,
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/action_plan/action_plan_why_card.dart ---
+
+--- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class CheckpointItem extends StatefulWidget {
+  final String title;
+  final bool isCompleted;
+  final String? linkedLabel;
+  final String type; // 'check' or 'info'
+  final Color accentColor;
+  final VoidCallback? onUnlink;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onToggleType;
+  final VoidCallback? onTap; // For opening detail
+  final bool hasSubsteps; // To show visual indicator
+
+  const CheckpointItem({
+    super.key,
+    required this.title,
+    required this.isCompleted,
+    this.linkedLabel,
+    this.type = 'check',
+    required this.accentColor,
+    this.onUnlink,
+    required this.onToggle,
+    required this.onDelete,
+    this.onDuplicate,
+    this.onToggleType,
+    this.onTap,
+    this.hasSubsteps = false,
+  });
+
+  @override
+  State<CheckpointItem> createState() => _CheckpointItemState();
+}
+
+class _CheckpointItemState extends State<CheckpointItem> {
+  late bool _localCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _localCompleted = widget.isCompleted;
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckpointItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      _localCompleted = widget.isCompleted;
+    }
+  }
+
+  void _handleToggle() {
+    if (widget.type == 'info') return;
+    setState(() {
+      _localCompleted = !_localCompleted;
+    });
+    widget.onToggle();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isInfo = widget.type == 'info';
+    final color = widget.accentColor;
+
+    final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
+    final bgColor = isInfo ? color.withOpacity(0.1) : (_localCompleted ? color.withOpacity(0.15) : AppTheme.fhBgDark.withOpacity(0.6));
+    final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
+    final textColor = AppTheme.fhTextPrimary; // Never dim completely
+
+    return GestureDetector(
+      onTap: widget.onTap, // Open detail on card tap
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border(left: BorderSide(color: borderColor, width: 4)),
+        ),
+        child: Row(
+          children:[
+            // Checkbox logic overrides tap on the left side
+            if (!isInfo)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: RhombusCheckbox(
+                  checked: _localCompleted,
+                  onChanged: (_) => _handleToggle(),
+                  size: CheckboxSize.small,
+                ),
+              )
+            else 
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
+              ),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:[
+                  Text(
+                    widget.title.toUpperCase(),
+                    style: GoogleFonts.chakraPetch(
+                      color: textColor,
+                      fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                      decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  if (widget.linkedLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: LinkedTaskIndicator(
+                        label: widget.linkedLabel!,
+                        onUnlink: widget.onUnlink,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
+            if (widget.hasSubsteps)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(MdiIcons.fileTree, size: 14, color: color),
+              ),
+
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+              color: AppTheme.fhBgDark,
+              onSelected: (value) {
+                if (value == 'delete') widget.onDelete();
+                if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                if (value == 'open' && widget.onTap != null) widget.onTap!();
+              },
+              itemBuilder: (context) =>[
+                  PopupMenuItem(
+                  value: 'open',
+                  child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                ),
+                  PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_type',
+                  child: Row(children:[
+                    Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                    const SizedBox(width: 8), 
+                    Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                  ]),
+                ),
+                  PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
+--- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 
-class _DendroElementPainter extends CustomPainter {
-  final double progress;
-  final Color baseColor;
-  final bool isCompleted;
+--- START OF FILE lib/src/widgets/ui/hextech_components.dart ---
+import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
-  _DendroElementPainter({
+class HexCardClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    const cut = 15.0;
+
+    path.moveTo(cut, 0);
+    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height - cut);
+    path.lineTo(size.width - cut, size.height);
+    path.lineTo(0, size.height);
+    path.lineTo(0, cut);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class HexButtonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final w = size.width;
+    final h = size.height;
+    
+    // Polygon: 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0% 50%
+    final cutX = w * 0.1;
+    final halfY = h * 0.5;
+
+    path.moveTo(cutX, 0);
+    path.lineTo(w - cutX, 0);
+    path.lineTo(w, halfY);
+    path.lineTo(w - cutX, h);
+    path.lineTo(cutX, h);
+    path.lineTo(0, halfY);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class HexProgressRingPainter extends CustomPainter {
+  final double progress; // 0.0 to 1.0
+  final Color color;
+
+  HexProgressRingPainter({
     required this.progress,
-    required this.baseColor,
-    required this.isCompleted,
+    required this.color,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Setup Coordinate System
-    // The SVG viewBox is 0 0 200 200. We scale our drawing to fit the widget size.
-    final scale = math.min(size.width, size.height) / 200.0;
-    canvas.translate(size.width / 2, size.height / 2); // Move origin to center
-    canvas.scale(scale); // Scale to match SVG coordinates
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 2;
 
-    // --- COLORS FROM HTML ---
-    const Color cSpikes = Color(0xFF445561);
-    const Color cRingInactive = Color(0xFF5d727d);
-    // Gradient definition for Active Ring
-    const List<Color> dendroGradientColors = [
-      Color(0xFF3bfeb9),
-      Color(0xFF7affbd),
-      Color(0xFF3bfeb9)
-    ];
-    const List<double> dendroGradientStops = [0.0, 0.5, 1.0];
-
-    // --- GROUP 1: BACKGROUND ORNAMENT (The dark grey pattern) ---
-    final spikePaint = Paint()
-      ..color = cSpikes.withOpacity(0.4)
-      ..style = PaintingStyle.fill;
-
-    final spikeStrokePaint = Paint()
-      ..color = cSpikes.withOpacity(0.5)
+    // Background Ring
+    final bgPaint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-
-    // 1a. Spikes
-    // Main Cardinal Spikes (Paths from HTML)
-    // d="M0,-85 L10,-55 L0,-45 L-10,-55 Z" ... rotated 4 times
-    final Path cardinalSpike = Path()
-      ..moveTo(0, -85)
-      ..lineTo(10, -55)
-      ..lineTo(0, -45)
-      ..lineTo(-10, -55)
-      ..close();
-
-    // Diagonal Spikes (Smaller)
-    // d="M45,-45 L55,-55 L65,-45 L55,-35 Z" ... rotated 4 times
-    final Path diagonalSpike = Path()
-      ..moveTo(45, -45)
-      ..lineTo(55, -55)
-      ..lineTo(65, -45)
-      ..lineTo(55, -35)
-      ..close();
-
-    // Draw Cardinals (0, 90, 180, 270)
-    for (int i = 0; i < 4; i++) {
-      canvas.save();
-      canvas.rotate(i * math.pi / 2);
-      canvas.drawPath(cardinalSpike, spikePaint);
-      canvas.restore();
-    }
-
-    // Draw Diagonals (0, 90, 180, 270 relative to their start pos)
-    for (int i = 0; i < 4; i++) {
-      canvas.save();
-      canvas.rotate(i * math.pi / 2);
-      canvas.drawPath(diagonalSpike, spikePaint);
-      canvas.restore();
-    }
-
-    // 1b. Inner decorative circle
-    final circlePaint = Paint()
-      ..color = cSpikes.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
-    canvas.drawCircle(Offset.zero, 42, circlePaint);
-
-    // 1c. Swirl approximations
-    // HTML: d="M-20,-20 Q0,-40 20,-20 Q40,0 20,20 Q0,40 -20,20 Q-40,0 -20,-20"
-    final Path swirls = Path()
-      ..moveTo(-20, -20)
-      ..quadraticBezierTo(0, -40, 20, -20)
-      ..quadraticBezierTo(40, 0, 20, 20)
-      ..quadraticBezierTo(0, 40, -20, 20)
-      ..quadraticBezierTo(-40, 0, -20, -20);
-    canvas.drawPath(swirls, spikeStrokePaint);
-
-
-    // --- GROUP 2: THE RINGS ---
-
-    // 2a. Faint Background Ring
-    // HTML: d="M 30,100 A 70,70 0 1,1 170,100" (This is an arc from bottom-left to bottom-right going over top)
-    // SVG coords are relative to 0,0 top-left.
-    // In our centered canvas:
-    // 30,100 -> (-70, 0)  | 170,100 -> (70, 0) | Radius 70
-    // The SVG path draws the TOP half (180 deg).
-    // Note: Standard progress bars usually go 360. The HTML example seemed to be a specialized UI element.
-    // However, for a general Task Progress, a full 360 ring is usually expected.
-    // I will adapt the "Style" to a full 360 ring for usability, but keep the exact stroke style.
     
-    final bgRingPaint = Paint()
-      ..color = cRingInactive.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(Offset.zero, 70, bgRingPaint);
-
-
-    // 2b. The Bright Active Ring (Progress)
-    // Gradient Shader
-    final Rect arcRect = Rect.fromCircle(center: Offset.zero, radius: 70);
-    final Gradient gradient = ui.Gradient.sweep(
-      Offset.zero,
-      dendroGradientColors,
-      dendroGradientStops,
-      TileMode.clamp,
-      -math.pi / 2, // Start angle alignment
-      math.pi * 2, // End angle alignment
-    );
-
-    final Paint activeRingPaint = Paint()
-      ..shader = gradient
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.square;
-
-    // Glow Filter (Blur)
-    final Paint glowPaint = Paint()
-      ..color = dendroGradientColors[0]
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5); // SVG stdDeviation="2.5" approx
-
-    // Calculate Sweep Angle
-    final double startAngle = -math.pi / 2;
-    final double sweepAngle = 2 * math.pi * progress;
+    canvas.drawCircle(center, radius, bgPaint);
 
     if (progress > 0) {
-      // Draw Glow Layer
-      canvas.drawArc(arcRect, startAngle, sweepAngle, false, glowPaint);
-      // Draw Core Layer
-      canvas.drawArc(arcRect, startAngle, sweepAngle, false, activeRingPaint);
+      // Active Ring
+      final activePaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2); // Glow
 
-      // Decorative Caps (Start and End) - replicating the "L 22,100..." logic from SVG
-      // Start Cap
-      _drawCap(canvas, startAngle, 70, dendroGradientColors[0]);
-      // End Cap
-      _drawCap(canvas, startAngle + sweepAngle, 70, dendroGradientColors[0]);
+      final startAngle = -math.pi / 2; // Start from top
+      final sweepAngle = 2 * math.pi * progress.clamp(0.0, 1.0);
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        activePaint
+      );
     }
-
-
-    // --- GROUP 3: THE CENTER ICON (Dendro Symbol) ---
-    // HTML: transform="translate(100, 100) scale(0.9)"
-    // We are already at 100,100 (0,0 in our translated canvas). We just scale.
-    canvas.save();
-    canvas.scale(0.9);
-
-    final iconStrokePaint = Paint()
-      ..color = const Color(0xFF4fffa8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    
-    // Add Glow to Icon
-    final iconGlowPaint = Paint()
-      ..color = const Color(0xFF4fffa8).withOpacity(0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-
-    // 3a. Teardrop
-    // d="M0,15 Q-12,5 -12,-8 Q-12,-25 0,-35 Q12,-25 12,-8 Q12,5 0,15 Z"
-    final Path teardrop = Path()
-      ..moveTo(0, 15)
-      ..quadraticBezierTo(-12, 5, -12, -8)
-      ..quadraticBezierTo(-12, -25, 0, -35)
-      ..quadraticBezierTo(12, -25, 12, -8)
-      ..quadraticBezierTo(12, 5, 0, 15)
-      ..close();
-
-    // 3b. Inner Fill
-    // d="M0,8 Q-6,2 -6,-8 Q-6,-18 0,-25 Q6,-18 6,-8 Q6,2 0,8 Z"
-    final Path innerFill = Path()
-      ..moveTo(0, 8)
-      ..quadraticBezierTo(-6, 2, -6, -8)
-      ..quadraticBezierTo(-6, -18, 0, -25)
-      ..quadraticBezierTo(6, -18, 6, -8)
-      ..quadraticBezierTo(6, 2, 0, 8)
-      ..close();
-    
-    final Paint fillPaint = Paint()
-      ..color = const Color(0xFF4fffa8)
-      ..style = PaintingStyle.fill;
-
-    // 3c. U Shape / Leaves
-    // d="M-22,-5 Q-22,25 0,38 Q22,25 22,-5"
-    final Path uShape = Path()
-      ..moveTo(-22, -5)
-      ..quadraticBezierTo(-22, 25, 0, 38)
-      ..quadraticBezierTo(22, 25, 22, -5);
-
-    // 3d. Stem
-    // d="M0,38 L0,45"
-    final Path stem = Path()
-      ..moveTo(0, 38)
-      ..lineTo(0, 45);
-
-    // Draw Glows first
-    canvas.drawPath(teardrop, iconGlowPaint);
-    canvas.drawPath(uShape, iconGlowPaint);
-    canvas.drawPath(stem, iconGlowPaint);
-
-    // Draw Strokes
-    canvas.drawPath(teardrop, iconStrokePaint);
-    canvas.drawPath(innerFill, fillPaint); // Filled
-    canvas.drawPath(uShape, iconStrokePaint);
-    canvas.drawPath(stem, iconStrokePaint);
-
-    canvas.restore(); // Undo scale(0.9)
-  }
-
-  void _drawCap(Canvas canvas, double angle, double radius, Color color) {
-    // Replicating the little diamond/square caps from the SVG
-    // SVG: L 22,100 L 30,108 Z (small triangles)
-    // We'll calculate the position on the circle
-    final double x = radius * math.cos(angle);
-    final double y = radius * math.sin(angle);
-
-    final Paint capPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    
-    final Paint capGlow = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-
-    canvas.save();
-    canvas.translate(x, y);
-    canvas.rotate(angle); // Rotate to align with the ring tangent
-
-    // Draw a small rhombus/diamond shape at the tip
-    final Path capPath = Path()
-      ..moveTo(0, -4)
-      ..lineTo(4, 0)
-      ..lineTo(0, 4)
-      ..lineTo(-4, 0)
-      ..close();
-
-    canvas.drawPath(capPath, capGlow);
-    canvas.drawPath(capPath, capPaint);
-    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _DendroElementPainter oldDelegate) {
+  bool shouldRepaint(covariant HexProgressRingPainter oldDelegate) {
     return oldDelegate.progress != progress || 
-           oldDelegate.baseColor != baseColor ||
-           oldDelegate.isCompleted != isCompleted;
+           oldDelegate.color != color;
   }
 }
---- END OF FILE lib/src/widgets/ui/circular_time_progress.dart ---
 
---- END OF FILE project_snapshot_out.txt ---
+class HexProgressRing extends StatelessWidget {
+  final double progress;
+  final Color color;
+  final double size;
+
+  const HexProgressRing({
+    super.key,
+    required this.progress,
+    required this.color,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: HexProgressRingPainter(
+          progress: progress,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/hextech_components.dart ---
+
+--- START OF FILE lib/src/widgets/cards/submission_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/hextech_components.dart';
+import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class SubmissionCard extends StatelessWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionCard({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  void _openDetailScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SubmissionDetailScreen(
+          parentTask: parentTask,
+          subTask: subTask,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final timerState = provider.activeTimers[subTask.id];
+
+    SubTask currentSubTask = subTask;
+    try {
+      final liveParent = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+      currentSubTask = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
+    } catch (_) {}
+
+    final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
+    final isRunning = timerState?.isRunning ?? false;
+    final bool isCompleted = currentSubTask.completed;
+
+    final double displayBaseTime = isRunning 
+        ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
+        : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+
+    // Calculate 7-Day Average to feed progress bar
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    double total7Days = 0;
+
+    for (var session in currentSubTask.sessions) {
+      if (session.startTime.isAfter(sevenDaysAgo)) {
+        total7Days += session.durationSeconds;
+      }
+    }
+    
+    double avgSeconds = total7Days / 7.0;
+    if (avgSeconds < 60) avgSeconds = 60; // minimum 1 minute average for scaling visual
+    
+    final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
+
+    // Style Constants mapped to AppTheme
+    final Color activeAccent = parentTask.taskColor;
+    final bool isActive = isRunning; 
+    
+    // Background Gradients
+    final Gradient bgGradient = isActive 
+      ? LinearGradient(colors:[activeAccent.withOpacity(0.15), AppTheme.fhBgDark.withOpacity(0.9)])
+      : LinearGradient(colors:[AppTheme.fhBgDark.withOpacity(0.8), AppTheme.fhBgDeepDark.withOpacity(0.9)]);
+
+    // Text Colors
+    final Color titleColor = isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary;
+    final Color statusColor = isCompleted ? AppTheme.fhTextDisabled : (isActive ? activeAccent : AppTheme.fhTextSecondary);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Dismissible(
+        key: ValueKey("subtask_${currentSubTask.id}"),
+        background: _buildSwipeAction(
+          alignment: Alignment.centerLeft,
+          color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
+          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
+          label: isCompleted ? "RESTORE" : "COMPLETE",
+        ),
+        secondaryBackground: _buildSwipeAction(
+          alignment: Alignment.centerRight,
+          color: AppTheme.fhAccentRed,
+          icon: Icons.delete_forever,
+          label: "DELETE",
+        ),
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.endToStart) {
+            return await _showDeleteConfirm(context);
+          } else {
+            if (isCompleted) {
+              provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
+              return false; 
+            } else {
+              provider.completeSubtask(parentTask.id, currentSubTask.id);
+              return false; 
+            }
+          }
+        },
+        onDismissed: (direction) {
+          if (direction == DismissDirection.endToStart) {
+            provider.deleteSubtask(parentTask.id, currentSubTask.id);
+          }
+        },
+        child: GestureDetector(
+          onTap: () => _openDetailScreen(context),
+          child: Stack(
+            children:[
+              // Main Card Shape
+              ClipPath(
+                clipper: HexCardClipper(),
+                child: Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    gradient: bgGradient,
+                  ),
+                  child: Stack(
+                    children:[
+                      // Simulated Border via inner shadow if active
+                      if (isActive)
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: activeAccent, width: 2),
+                            boxShadow:[
+                              BoxShadow(color: activeAccent.withOpacity(0.2), blurRadius: 20, inset: true)
+                            ]
+                          ),
+                        )
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.fhBorderColor, width: 1),
+                          ),
+                        ),
+                      
+                      // Mist Effect if active
+                      if (isActive)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: RadialGradient(
+                                colors:[activeAccent.withOpacity(0.1), Colors.transparent],
+                                radius: 0.7
+                              )
+                            ),
+                          ),
+                        ),
+
+                      // Card Content
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Row(
+                          children:[
+                            // Icon / Ring Area
+                            SizedBox(
+                              width: 60, height: 60,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children:[
+                                  HexProgressRing(
+                                    progress: usageProgress, 
+                                    color: activeAccent
+                                  ),
+                                  Icon(
+                                    isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
+                                    color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
+                                    size: 24,
+                                    shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 16),
+
+                            // Text Content
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children:[
+                                  Text(
+                                    currentSubTask.name.toUpperCase(),
+                                    style: GoogleFonts.cinzel(
+                                      color: titleColor,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                    ),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children:[
+                                      Text(
+                                        isCompleted ? "ARCHIVED" : (isActive ? "IN PROGRESS" : "PENDING"),
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                      if (currentSubTask.isRecurring)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 4.0),
+                                          child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
+                                        ),
+                                    ],
+                                  ),
+                                  if (linkedInfo != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: LinkedTaskIndicator(
+                                        label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
+                                        onUnlink: () => provider.projectActions.unlinkStep(
+                                            linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
+                                          ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            // Actions
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children:[
+                                ValorantTimerText(
+                                  isRunning: isRunning,
+                                  startTime: timerState?.startTime,
+                                  accumulatedTime: displayBaseTime,
+                                  style: TextStyle(
+                                    fontFamily: "RobotoMono",
+                                    color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                    fontSize: 12,
+                                    shadows: isActive ?[Shadow(color: activeAccent, blurRadius: 5)] : null
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                
+                                if (!isCompleted)
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (isRunning) {
+                                        provider.pauseTimer(subTask.id); 
+                                        provider.logTimerAndReset(subTask.id); 
+                                      } else {
+                                        provider.startTimer(subTask.id, 'subtask', parentTask.id);
+                                      }
+                                    },
+                                    child: ClipPath(
+                                      clipper: HexButtonClipper(),
+                                      child: Container(
+                                        width: 80, height: 30,
+                                        decoration: BoxDecoration(
+                                          gradient: isActive 
+                                            ? LinearGradient(colors:[activeAccent.withOpacity(0.2), activeAccent.withOpacity(0.1)])
+                                            : const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors:[AppTheme.fhBgMedium, AppTheme.fhBgDark]),
+                                          border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor, width: 1),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          isActive ? "PAUSE" : "START",
+                                          style: TextStyle(
+                                            color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                              ],
+                            )
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Corner Accents if active
+              if (isActive) ...[
+                Positioned(top: 0, left: 15, child: _buildCornerAccent(activeAccent)),
+                Positioned(bottom: 0, right: 15, child: _buildCornerAccent(activeAccent)),
+              ]
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCornerAccent(Color color) {
+    return Container(
+      width: 8, height: 8,
+      decoration: BoxDecoration(
+        color: color,
+        boxShadow:[BoxShadow(color: color, blurRadius: 10)]
+      ),
+    );
+  }
+
+  Widget _buildSwipeAction({required Alignment alignment, required Color color, required IconData icon, required String label}) {
+    return Container(
+      color: color,
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: alignment == Alignment.centerLeft 
+          ?[Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
+          :[Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirm(BuildContext context) async {
+    return await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: const Text("DELETE MISSION?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("DELETE")
+          ),
+        ],
+      )
+    ) ?? false;
+  }
+}
+--- END OF FILE lib/src/widgets/cards/submission_card.dart ---

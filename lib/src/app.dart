@@ -25,6 +25,18 @@ class _MyAppState extends State<MyApp> {
       title: 'Arcane',
       theme: AppTheme.getThemeData(primaryAccent: currentTaskColor),
       debugShowCheckedModeBanner: false,
+      // Apply the global max width constraint of 720px
+      builder: (context, child) {
+        return Container(
+          color: Colors.black, // Background for the pillarboxing
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: child,
+            ),
+          ),
+        );
+      },
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
           if (appProvider.authLoading) {
@@ -43,19 +55,6 @@ class _MyAppState extends State<MyApp> {
           return Stack(
             children: [
               const HomeScreen(),
-
-              // Floating Sync Indicator - HIDDEN per user request
-              /*
-              Positioned(
-                top: 100,
-                right: 0,
-                child: SyncIndicator(
-                  isVisible: appProvider.isSyncing &&
-                      !appProvider.isManuallySaving &&
-                      !appProvider.isManuallyLoading,
-                ),
-              ),
-              */
 
               // Blocking loading overlay for critical manual operations remains
               if (appProvider.isManuallySaving || appProvider.isManuallyLoading)
