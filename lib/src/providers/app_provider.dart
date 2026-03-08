@@ -349,6 +349,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
+  // --- Gratitude Actions ---
+  void updateGratitudeList(List<GratitudeItem> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.gratitudeList = newList;
+    setChatbotMemory(newMemory);
+  }
+
   // --- Reports Logic ---
   Map<String, dynamic> getLast7DaysData() { 
     final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
@@ -454,7 +461,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
             return SubTask(
               id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
               completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
-              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
             );
           }
           return sub;
@@ -489,7 +496,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
                  subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
                  sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
-                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
                );
              }
           }

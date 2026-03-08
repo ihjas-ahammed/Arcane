@@ -4,10 +4,13 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
 import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
+import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -29,7 +32,6 @@ class _ScheduleViewState extends State<ScheduleView> {
   void _shiftDate(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
-      // Clear predictions on date change to avoid confusion (or keep if specific logic)
       _predictedEntries.clear(); 
     });
   }
@@ -61,65 +63,18 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
-  // --- Hero Data ---
-  Map<String, dynamic> _getHeroStats(AppProvider provider) {
-    // 1. Latest Task
-    String latest = "NONE";
-    DateTime? lastTime;
-    
-    // 2. Most Spent Today
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final dayData = provider.completedByDay[todayStr];
-    String mostName = "NONE";
-    int mostSeconds = 0;
-
-    // Check sessions for latest
-    for(var t in provider.mainTasks) {
-      for(var s in t.subTasks) {
-        for(var sess in s.sessions) {
-          if (lastTime == null || sess.endTime.isAfter(lastTime)) {
-            lastTime = sess.endTime;
-            latest = s.name;
-          }
-        }
-      }
-    }
-
-    if (dayData != null && dayData['taskTimes'] != null) {
-      final times = dayData['taskTimes'] as Map<String, dynamic>;
-      times.forEach((tid, secs) {
-        final t = provider.mainTasks.firstWhereOrNull((mt) => mt.id == tid);
-        if (t != null && (secs as int) > mostSeconds) {
-          mostSeconds = secs;
-          mostName = t.name;
-        }
-      });
-    }
-
-    return {
-      'latest': latest,
-      'mostName': mostName,
-      'mostTime': mostSeconds,
-    };
-  }
-
   // --- Prediction ---
   Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
-    // Only predict for today
     if (!_isSameDay(_selectedDate, DateTime.now())) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
       return;
     }
-
     setState(() => _isPredicting = true);
-
     try {
       final newEntries = await provider.scheduleActions.predictSchedule();
-      
       setState(() {
         _predictedEntries = newEntries;
       });
-
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
     } finally {
@@ -133,7 +88,6 @@ class _ScheduleViewState extends State<ScheduleView> {
     final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
-    // 1. Real Sessions
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
@@ -156,9 +110,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
-    // 2. Predicted Sessions (Filter overlaps)
     for (var pred in _predictedEntries) {
-      // Check for overlap with REAL sessions
       bool overlaps = false;
       for (var real in entries) {
         if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
@@ -166,9 +118,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           break;
         }
       }
-      if (!overlaps) {
-        entries.add(pred);
-      }
+      if (!overlaps) entries.add(pred);
     }
 
     return entries;
@@ -261,9 +211,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               itemCount: provider.mainTasks.length,
               itemBuilder: (context, index) {
                 final task = provider.mainTasks[index];
-                // Filter incomplete subtasks
                 final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
-                
                 if (activeSubtasks.isEmpty) return const SizedBox.shrink();
 
                 return ExpansionTile(
@@ -274,7 +222,6 @@ class _ScheduleViewState extends State<ScheduleView> {
                       onTap: () {
                         provider.addSessionToSubtask(task.id, sub.id, start, end);
                         Navigator.pop(ctx);
-                        // On successful add, check overlaps with predictions (auto-handled by rebuild)
                       },
                     );
                   }).toList(),
@@ -289,7 +236,6 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
     if (entry.isPredicted) {
-      // Handle predicted entry tap (Convert or Delete)
       _handlePredictedEntryTap(context, provider, entry);
       return;
     }
@@ -297,10 +243,8 @@ class _ScheduleViewState extends State<ScheduleView> {
     if (entry.originalObject is! TaskSession) return;
     final session = entry.originalObject as TaskSession;
     
-    // ... (Existing edit logic)
     String? mainTaskId;
     String? subTaskId;
-    
     for (var m in provider.mainTasks) {
       for (var s in m.subTasks) {
         if (s.sessions.any((sess) => sess.id == session.id)) {
@@ -350,7 +294,6 @@ class _ScheduleViewState extends State<ScheduleView> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // Trigger Add Session flow pre-filled
               _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
             }, 
             child: const Text("LOG REAL SESSION")
@@ -369,16 +312,54 @@ class _ScheduleViewState extends State<ScheduleView> {
     final provider = Provider.of<AppProvider>(context);
     final entries = _buildEntries(provider);
     final isToday = _isSameDay(_selectedDate, DateTime.now());
-    final heroStats = _getHeroStats(provider);
+
+    // Resolve Next Task from Day Plan
+    SubTask? nextSubTask;
+    MainTask? nextMainTask;
+    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+    
+    for (String idPair in plan) {
+      final parts = idPair.split('|');
+      if (parts.length >= 2) {
+        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+        
+        // We only care about the parent SubTask for the Hero Timer
+        if (sTask != null && !sTask.completed) {
+          nextSubTask = sTask;
+          nextMainTask = mTask;
+          break; // Found the first incomplete task in the plan
+        }
+      }
+    }
+
+    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
 
     return Column(
       children: [
         // HERO SECTION
         ScheduleHeroWidget(
-          latestTaskName: heroStats['latest'],
-          mostSpentTaskName: heroStats['mostName'],
-          mostSpentTimeSeconds: heroStats['mostTime'],
+          nextTaskName: nextMainTask?.name ?? "NO PLAN SET",
+          nextSubTaskName: nextSubTask?.name ?? "NONE",
+          nextTaskColor: nextMainTask?.taskColor ?? AppTheme.fhTextDisabled,
+          isRunning: isRunning,
+          onOpenPlan: () {
+             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
+          },
+          onPlayPause: () {
+            if (nextSubTask == null || nextMainTask == null) return;
+            if (isRunning) {
+              provider.pauseTimer(nextSubTask!.id);
+              provider.logTimerAndReset(nextSubTask!.id);
+            } else {
+              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+            }
+          },
         ),
+        
+        // --- NEW QUEUE DASHBOARD ---
+        if (isToday)
+          const DayPlanDashboardWidget(),
 
         // CONTROLS
         Container(

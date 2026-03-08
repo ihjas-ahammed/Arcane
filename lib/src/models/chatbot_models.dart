@@ -2,7 +2,6 @@
 import 'package:uuid/uuid.dart';
 
 enum MessageSender { user, bot }
-
 enum DynamicUiType { graph, unknown }
 
 class DynamicUiPayload {
@@ -81,7 +80,7 @@ class NoraSession {
   DateTime endDate;
   List<ChatbotMessage> messages;
   final DateTime createdAt;
-  String? customContext; // Added for simulations
+  String? customContext; 
 
   NoraSession({
     required this.id,
@@ -165,18 +164,58 @@ class PersonInfo {
   }
 }
 
+class GratitudeItem {
+  String id;
+  String type; // 'skill', 'object', 'person', 'resource'
+  String name;
+  String why;
+  String how;
+  String what;
+
+  GratitudeItem({
+    required this.id,
+    required this.type,
+    required this.name,
+    this.why = '',
+    this.how = '',
+    this.what = '',
+  });
+
+  factory GratitudeItem.fromJson(Map<String, dynamic> json) {
+    return GratitudeItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      type: json['type'] as String? ?? 'resource',
+      name: json['name'] as String? ?? 'Unknown',
+      why: json['why'] as String? ?? '',
+      how: json['how'] as String? ?? '',
+      what: json['what'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'name': name,
+      'why': why,
+      'how': how,
+      'what': what,
+    };
+  }
+}
+
 class ChatbotMemory {
   List<ChatbotMessage> conversationHistory;
   String? lastWeeklySummary;
   List<String> dailyCompletedGoals;
   List<String> userRememberedItems;
 
-  // Features for Nora
   List<NoraSession> noraSessions;
   String? activeNoraSessionId;
 
-  // New features for advanced tools
   List<PersonInfo> people;
+  
+  List<GratitudeItem> gratitudeList; 
 
   ChatbotMemory({
     List<ChatbotMessage>? conversationHistory,
@@ -186,11 +225,13 @@ class ChatbotMemory {
     List<NoraSession>? noraSessions,
     this.activeNoraSessionId,
     List<PersonInfo>? people,
+    List<GratitudeItem>? gratitudeList,
   })  : conversationHistory = conversationHistory ?? [],
         dailyCompletedGoals = dailyCompletedGoals ?? [],
         userRememberedItems = userRememberedItems ?? [],
         noraSessions = noraSessions ?? [],
-        people = people ?? [];
+        people = people ?? [],
+        gratitudeList = gratitudeList ?? [];
 
   factory ChatbotMemory.fromJson(Map<String, dynamic> json) {
     return ChatbotMemory(
@@ -219,6 +260,18 @@ class ChatbotMemory {
                   PersonInfo.fromJson(personJson as Map<String, dynamic>))
               .toList() ??
           [],
+      gratitudeList: (json['gratitudeList'] as List<dynamic>?)
+              ?.map((item) {
+                // Handle legacy strings from older versions
+                if (item is String) {
+                  return GratitudeItem(id: const Uuid().v4(), type: 'resource', name: item);
+                } else if (item is Map<String, dynamic>) {
+                  return GratitudeItem.fromJson(item);
+                }
+                return GratitudeItem(id: const Uuid().v4(), type: 'resource', name: 'Unknown');
+              })
+              .toList() ??
+          [],
     );
   }
 
@@ -231,6 +284,7 @@ class ChatbotMemory {
       'noraSessions': noraSessions.map((session) => session.toJson()).toList(),
       'activeNoraSessionId': activeNoraSessionId,
       'people': people.map((person) => person.toJson()).toList(),
+      'gratitudeList': gratitudeList.map((item) => item.toJson()).toList(),
     };
   }
 }

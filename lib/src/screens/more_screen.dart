@@ -4,6 +4,7 @@ import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
 import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
+import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -38,6 +39,18 @@ class MoreScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const QuickTherapyScreen()));
+          }),
+          
+          _buildMenuTile(context,
+              icon: MdiIcons.heartPulse,
+              title: "Gratitude Log",
+              subtitle: "Track people, resources, and things you appreciate",
+              colorOverride: AppTheme.fhAccentGreen,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const GratitudeListScreen()));
           }),
 
           _buildMenuTile(context,

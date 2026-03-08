@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
 
-// ... [TaskSession and MainTask classes remain unchanged] ...
 class TaskSession {
   String id;
   DateTime startTime;
@@ -164,7 +163,8 @@ class SubTask {
   List<TaskSession> sessions;
   
   String why; 
-  String what; 
+  String what;
+  String resources; // NEW: Added resources field
 
   bool isRecurring;
   DateTime? lastCompletedDate; 
@@ -185,6 +185,7 @@ class SubTask {
     List<TaskSession>? sessions,
     this.why = '',
     this.what = '',
+    this.resources = '',
     this.isRecurring = false,
     this.lastCompletedDate,
     DateTime? createdAt,
@@ -207,6 +208,7 @@ class SubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
+      resources: json['resources'] as String? ?? '', // Parse resources
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -243,6 +245,7 @@ class SubTask {
       'currentCount': currentCount,
       'why': why,
       'what': what,
+      'resources': resources, // Serialize resources
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
@@ -262,9 +265,8 @@ class SubSubTask {
   int currentCount;
   String? completionTimestamp;
   String type; // 'check' or 'info'
-  List<SubSubTask> substeps; // Recursive Sub-Checkpoints
+  List<SubSubTask> substeps; 
   
-  // New Fields
   String why;
   String what;
 
@@ -324,7 +326,6 @@ class SubSubTask {
   }
 }
 
-// ... [MainTaskTemplate remains unchanged] ...
 class MainTaskTemplate {
   final String id;
   final String name;

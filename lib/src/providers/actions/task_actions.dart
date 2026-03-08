@@ -85,6 +85,26 @@ class TaskActions {
     return newNodes;
   }
 
+  // --- Day Plan Management ---
+  List<String> getDayPlan(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return [];
+    return List<String>.from(dayData['dailyPlan'] ?? []);
+  }
+
+  void updateDayPlan(String dateStr, List<String> plan) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[dateStr]['dailyPlan'] = plan;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
   // --- SubSubTask Actions ---
 
   String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) {
@@ -96,7 +116,7 @@ class TaskActions {
               return SubTask(
                 id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
                 completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount, 
+                currentCount: st.currentCount, resources: st.resources,
                 subSubTasks: _recursiveNodeOperation(st.subSubTasks, parentCheckpointId, 'add_child', subSubtaskData),
                 sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
               );
@@ -126,7 +146,7 @@ class TaskActions {
               return SubTask(
                 id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
                 completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
+                currentCount: st.currentCount, resources: st.resources, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
                 isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
               );
             }
@@ -148,7 +168,7 @@ class TaskActions {
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, 
+              currentCount: st.currentCount, resources: st.resources,
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'update', updates),
               sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
             );
@@ -169,7 +189,7 @@ class TaskActions {
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, 
+              currentCount: st.currentCount, resources: st.resources,
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'delete', null),
               sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
             );
@@ -190,7 +210,7 @@ class TaskActions {
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, 
+              currentCount: st.currentCount, resources: st.resources,
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'duplicate', null),
               sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
             );
@@ -209,7 +229,6 @@ class TaskActions {
     if (!fromSync) {
       _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
     }
-    // Optionally log to daily summary
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
@@ -233,6 +252,7 @@ class TaskActions {
       subSubTasks: [],
       why: subtaskData['why'] as String? ?? '',
       what: subtaskData['what'] as String? ?? '',
+      resources: subtaskData['resources'] as String? ?? '', // Parse resources
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -260,6 +280,7 @@ class TaskActions {
     if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
+    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; // Update resources
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -295,7 +316,6 @@ class TaskActions {
 
     if (subTask.isCountable && subTask.currentCount < subTask.targetCount) return false;
 
-    // Check time or sub-tasks
     bool hasTime = subTask.currentTimeSpent > 0;
     if (subTask.isRecurring) {
       hasTime = TaskCalculations.getHistoricalTodaySeconds(subTask) > 0;
@@ -323,7 +343,7 @@ class TaskActions {
                   currentTimeSpent: st.currentTimeSpent,
                   isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
                   subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring,
-                  lastCompletedDate: DateTime.now(), createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+                  lastCompletedDate: DateTime.now(), createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
               );
             }
             return st;
@@ -359,7 +379,7 @@ class TaskActions {
                   currentTimeSpent: st.currentTimeSpent,
                   isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
                   subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring,
-                  lastCompletedDate: null, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+                  lastCompletedDate: null, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
               );
             }
             return st;
@@ -385,14 +405,6 @@ class TaskActions {
       return task;
     }).toList();
 
-    // Copy the active timers map (which is Map<String, ActiveTimerInfo>)
-    // To remove an item, we can just use the new map in setProviderState
-    // However, setProviderState expects Map<String, dynamic> for raw compatibility or we need to update the mixin logic slightly.
-    // The AppProvider setProviderState bridge handles the type conversion or assignment.
-    // Ideally, we pass the typed map if the provider accepts it, or a casted one.
-    // TaskMixin in previous step accepts Map<String, dynamic> OR ActiveTimerInfo values logic.
-    // Let's rely on the Mixin's setter which rebuilds the internal typed map.
-    
     final newActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
     newActiveTimers.remove(subtaskId);
     
@@ -413,7 +425,7 @@ class TaskActions {
         id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
         name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null, type: sss.type
       )).toList(), sessions: [],
-      isRecurring: subTaskToDuplicate.isRecurring, why: subTaskToDuplicate.why, what: subTaskToDuplicate.what,
+      isRecurring: subTaskToDuplicate.isRecurring, why: subTaskToDuplicate.why, what: subTaskToDuplicate.what, resources: subTaskToDuplicate.resources,
       createdAt: DateTime.now(), updatedAt: DateTime.now(),
     );
 
@@ -460,7 +472,7 @@ class TaskActions {
                 return SubTask(
                   id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
                   completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks, sessions: newSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+                  subSubTasks: st.subSubTasks, sessions: newSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
                 );
               }
               return st;
@@ -470,9 +482,6 @@ class TaskActions {
     }).toList();
     
     _provider.setProviderState(mainTasks: newMainTasks);
-    // Explicitly call recalibrate to fix history maps if needed, or rely on _syncDate logic (which is cleaner).
-    // Let's assume recalibrate handles the heavy lifting of history synchronization.
-    // A quick recalibrate call here ensures consistency.
     recalibrateTimeLogs(silent: true);
     return true; 
   }
@@ -494,7 +503,7 @@ class TaskActions {
               id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
               subSubTasks: st.subSubTasks, sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
             );
           }
           return st;
@@ -523,7 +532,7 @@ class TaskActions {
             return SubTask(
               id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
               completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks, sessions: remainingSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              subSubTasks: st.subSubTasks, sessions: remainingSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
             );
           }
           return st;
@@ -540,27 +549,17 @@ class TaskActions {
   Future<void> recalibrateTimeLogs({bool silent = false}) async {
     if (!silent) _provider.setLoadingTask("RECALIBRATING...");
 
-    // 1. Prepare to rebuild History Map
-    // We start with a fresh copy of existing history to keep metadata, but we'll rebuild times.
-    // Actually, safer to rebuild times completely from sessions to ensure accuracy.
     final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
-    
-    // Create a temporary accumulation map: Date -> TaskID -> Seconds
     final Map<String, Map<String, int>> calculatedHistory = {};
 
-    // 2. Iterate ALL sessions
     for (var task in _provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          // Calculate seconds per day for this session (handling midnight crossing)
           DateTime cursor = session.startTime;
           while (cursor.isBefore(session.endTime)) {
             final dateStr = DateFormat('yyyy-MM-dd').format(cursor);
-            
-            // End of this day segment
             final endOfDay = DateTime(cursor.year, cursor.month, cursor.day, 23, 59, 59, 999);
             final segmentEnd = session.endTime.isBefore(endOfDay) ? session.endTime : endOfDay;
-            
             final seconds = segmentEnd.difference(cursor).inSeconds;
             
             if (seconds > 0) {
@@ -569,21 +568,19 @@ class TaskActions {
               }
               calculatedHistory[dateStr]![task.id] = (calculatedHistory[dateStr]![task.id] ?? 0) + seconds;
             }
-            
-            // Move cursor to start of next day
             cursor = DateTime(cursor.year, cursor.month, cursor.day).add(const Duration(days: 1));
           }
         }
       }
     }
 
-    // 3. Update History Map with calculated times
     calculatedHistory.forEach((date, taskMap) {
       if (!newCompletedByDay.containsKey(date)) {
         newCompletedByDay[date] = {
           'taskTimes': <String, int>{},
           'subtasksCompleted': <Map<String, dynamic>>[],
           'checkpointsCompleted': <Map<String, dynamic>>[],
+          'dailyPlan': <String>[],
         };
       }
       final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
@@ -591,31 +588,26 @@ class TaskActions {
       newCompletedByDay[date] = dayData;
     });
 
-    // 4. Update MainTasks total/daily time
-    // For 'currentTimeSpent' on SubTasks, it should be total lifetime duration.
-    // For 'dailyTimeSpent' on MainTasks, it should be TODAY's duration.
     final todayStr = getTodayDateString();
     final todayTimes = calculatedHistory[todayStr] ?? {};
 
     final newMainTasks = _provider.mainTasks.map((task) {
-      // Recalculate SubTask totals (Lifetime)
       final updatedSubtasks = task.subTasks.map((st) {
         final totalSeconds = st.sessions.fold(0, (sum, s) => sum + s.durationSeconds);
         return SubTask(
           id: st.id, name: st.name, description: st.description, completed: st.completed, 
-          currentTimeSpent: totalSeconds, // Correct total lifetime
+          currentTimeSpent: totalSeconds,
           completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-          subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: st.updatedAt, why: st.why, what: st.what,
+          subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: st.updatedAt, why: st.why, what: st.what, resources: st.resources,
         );
       }).toList();
 
       return task.copyWith(
         subTasks: updatedSubtasks, 
-        dailyTimeSpent: todayTimes[task.id] ?? 0 // Correct today's time
+        dailyTimeSpent: todayTimes[task.id] ?? 0 
       );
     }).toList();
 
-    // 5. Commit
     _provider.setProviderState(
       completedByDay: newCompletedByDay,
       mainTasks: newMainTasks
@@ -648,10 +640,9 @@ class TaskActions {
   void logToDailySummary(String type, Map<String, dynamic> data) {
     final today = getTodayDateString();
     final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[]});
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[], 'dailyPlan': <String>[]});
 
     if (type == 'taskTime') {
-      // Recalibrate handles complex time logic now, this is a fallback for quick UI updates if needed
       final taskTimes = Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
       taskTimes[data['taskId'] as String] = (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
       dayData['taskTimes'] = taskTimes;

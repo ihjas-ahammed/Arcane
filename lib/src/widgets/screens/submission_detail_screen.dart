@@ -11,8 +11,10 @@ import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
 import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_resources_card.dart';
 import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -292,7 +294,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           
                           const SizedBox(height: 24),
                           
-                          // Why & What
+                          // Why & What & Resources
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
@@ -303,6 +305,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'what': val}),
+                          ),
+                          const SizedBox(height: 16),
+                          ActionPlanResourcesCard(
+                            initialResources: liveSubTask.resources,
+                            accentColor: activeAccent,
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -322,7 +330,16 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             decoration: BoxDecoration(
                               border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
                             ),
-                            child: const Text("SESSION TIMELINE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text("SESSION TIMELINE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                                InkWell(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionSessionsScreen(parentTask: widget.parentTask, subTask: liveSubTask!))),
+                                  child: Text("VIEW ALL", style: TextStyle(color: activeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                                )
+                              ],
+                            ),
                           ),
                           Container(
                             height: 200, 
