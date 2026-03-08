@@ -99,14 +99,12 @@ class FinanceActions {
   }
 
   void deleteSavingsGoal(String id) {
-    // When deleting a goal, we could theoretically return the money to balance.
-    // To do so, we add an income transaction.
     final goal = _provider.savingsGoals.firstWhere((g) => g.id == id);
     if (goal.currentAmount > 0) {
        addTransaction(
          goal.currentAmount, 
          true, 
-         'system_savings_return', // Needs handling in UI to map to generic if missing
+         'system_savings_return', 
          'Returned from deleted goal: ${goal.name}', 
          DateTime.now()
        );
@@ -122,7 +120,6 @@ class FinanceActions {
       throw Exception("Insufficient balance to allocate to savings.");
     }
 
-    // 1. Update Goal
     final newLog = SavingsLog(id: const Uuid().v4(), amount: amount, timestamp: DateTime.now());
     final newGoals = _provider.savingsGoals.map((g) {
       if (g.id == goalId) {
@@ -133,7 +130,6 @@ class FinanceActions {
       return g;
     }).toList();
 
-    // 2. Subtract from balance via system expense
     addTransaction(
       amount, 
       false, 
@@ -154,7 +150,6 @@ class FinanceActions {
           g.currentAmount -= amt;
           g.logs.removeAt(logIndex);
 
-          // Return to balance
           addTransaction(
             amt, 
             true, 

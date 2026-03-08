@@ -8,23 +8,20 @@ class SyncIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We use an AnimatedOpacity for smooth appearance/disappearance
-    // ensuring layout doesn't jump.
     return AnimatedOpacity(
       opacity: isVisible ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 300),
       child: IgnorePointer(
         ignoring: !isVisible,
         child: Container(
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+            color: AppTheme.fhBgDark.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withOpacity(0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               )
@@ -34,14 +31,24 @@ class SyncIndicator extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 14,
-                height: 14,
+                width: 12,
+                height: 12,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: AppTheme.fhAccentTeal,
                 ),
               ),
-              
+              const SizedBox(width: 12),
+              const Text(
+                "SYNCING CLOUD...",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  fontFamily: AppTheme.fontDisplay
+                ),
+              ),
             ],
           ),
         ),

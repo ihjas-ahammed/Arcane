@@ -16,19 +16,13 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    final appProvider = context.watch<AppProvider>();
-
-    final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
-
     return MaterialApp(
       title: 'Arcane',
-      theme: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-      debugShowCheckedModeBanner: false,
-      // Apply the global max width constraint of 720px
+      // We use a builder to inject the theme based on the provider state
       builder: (context, child) {
-        return Container(
-          color: Colors.black, // Background for the pillarboxing
+        // Pillarbox constraint for desktop/web
+        final constrainedApp = Container(
+          color: Colors.black, 
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
@@ -36,7 +30,16 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         );
+
+        // We need to listen to the provider for theme changes
+        // Since we can't access context.watch above MaterialApp, we do it here inside builder
+        // However, standard practice is wrapping MaterialApp with Consumer or using a stateful parent.
+        // Given the structure, we pass the child (Home/Login) which will have the correct theme context below.
+        return constrainedApp;
       },
+      // Default theme, will be overridden by local Theme widgets in screens
+      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+      debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
           if (appProvider.authLoading) {
@@ -52,38 +55,52 @@ class _MyAppState extends State<MyApp> {
             return const LoginScreen();
           }
 
-          return Stack(
-            children: [
-              const HomeScreen(),
+          // Apply dynamic theme based on selected task
+          final Color currentTaskColor =
+              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
 
-              // Blocking loading overlay for critical manual operations remains
-              if (appProvider.isManuallySaving || appProvider.isManuallyLoading)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black54,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(
-                              color: AppTheme.fhAccentTeal),
-                          const SizedBox(height: 16),
-                          Text(
-                            appProvider.isManuallyLoading
-                                ? "LOADING DATA..."
-                                : "SYNCING...",
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontFamily: AppTheme.fontDisplay,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.bold),
-                          )
-                        ],
+          return Theme(
+            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
+            child: Stack(
+              children: [
+                const HomeScreen(),
+
+                // Non-blocking Sync Indicator (Bottom Center)
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: SyncIndicator(isVisible: appProvider.isSyncing),
+                  ),
+                ),
+
+                // Blocking overlay ONLY for critical manual loads (Restore/Import)
+                if (appProvider.isManuallyLoading)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black87,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: AppTheme.fhAccentTeal),
+                            SizedBox(height: 16),
+                            Text(
+                              "RESTORING DATABASE...",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: AppTheme.fontDisplay,
+                                  letterSpacing: 1.5,
+                                  fontWeight: FontWeight.bold),
+                            )
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                )
-            ],
+                  )
+              ],
+            ),
           );
         },
       ),

@@ -219,152 +219,106 @@ class _SettingsViewState extends State<SettingsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.cloudSyncOutline,
-              title: 'Cloud Synchronization',
-              children: [
-                SwitchListTile.adaptive(
-                  title: const Text('Real-Time Sync'),
-                  subtitle: const Text(
-                      'Automatically sync changes to cloud immediately (Recommended).'),
-                  value: appProvider.settings.autoSaveEnabled,
-                  activeTrackColor: AppTheme.fhAccentTeal,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (bool value) {
-                    appProvider.setSettings(
-                        appProvider.settings..autoSaveEnabled = value);
-                  },
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: appProvider.isManuallySaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.cloudUploadOutline, size: 18),
-                  label: const Text('SAVE TO CLOUD NOW'),
-                  onPressed: appProvider.isManuallySaving ||
-                          appProvider.isManuallyLoading
-                      ? null
-                      : () async {
-                          try {
-                             appProvider.manuallySaveToCloud();
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Data saved to cloud.'),
-                                    backgroundColor: AppTheme.fhAccentGreen));
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content:
-                                    Text('Cloud save failed: ${e.toString()}'),
-                                backgroundColor: AppTheme.fhAccentRed));
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      backgroundColor:
-                          (appProvider.getSelectedTask()?.taskColor ??
-                              AppTheme.fhAccentTealFixed),
-                      foregroundColor: AppTheme.fhBgDark),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: appProvider.isManuallyLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.cloudDownloadOutline, size: 18),
-                  label: const Text('LOAD FROM CLOUD NOW'),
-                  onPressed: appProvider.isManuallySaving ||
-                          appProvider.isManuallyLoading
-                      ? null
-                      : () async {
-                          final confirm = await showDialog<bool>(
+          // 1. CLOUD SYNC
+          Card(
+            margin: const EdgeInsets.only(bottom: 24),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cloudSyncOutline,
+                          color: AppTheme.fhAccentTealFixed, size: 22),
+                      const SizedBox(width: 10),
+                      Text('Cloud Synchronization',
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                  
+                  SwitchListTile.adaptive(
+                    title: const Text('Real-Time Sync'),
+                    subtitle: const Text('Automatically sync changes to cloud immediately.'),
+                    value: appProvider.settings.autoSaveEnabled,
+                    activeTrackColor: AppTheme.fhAccentTeal,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      appProvider.setSettings(appProvider.settings..autoSaveEnabled = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  ElevatedButton.icon(
+                    icon: appProvider.isSyncing 
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                        : Icon(MdiIcons.cloudUploadOutline, size: 18),
+                    label: const Text('FORCE CLOUD SYNC'),
+                    onPressed: appProvider.isSyncing ? null : () => appProvider.manuallySaveToCloud(),
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhAccentTealFixed,
+                        foregroundColor: AppTheme.fhBgDark),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
+                    label: const Text('RESTORE FROM CLOUD (OVERWRITE)'),
+                    onPressed: appProvider.isSyncing || appProvider.isManuallyLoading ? null : () async {
+                       final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Row(children: [
-                                Icon(MdiIcons.cloudQuestionOutline,
-                                    color: AppTheme.fhAccentOrange),
-                                const SizedBox(width: 10),
-                                const Text('Confirm Load')
-                              ]),
+                              title: const Text('Confirm Restore'),
                               content: const Text(
-                                  'This will overwrite any local unsaved changes with data from the cloud. Are you sure?'),
-                              actionsAlignment: MainAxisAlignment.spaceBetween,
+                                  'This will overwrite local data with cloud data. Continue?'),
                               actions: [
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(false),
-                                    child: const Text('CANCEL')),
-                                ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(true),
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppTheme.fhAccentOrange),
-                                    child: const Text('CONFIRM LOAD')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+                                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESTORE')),
                               ],
                             ),
                           );
-                          if (confirm == true) {
-                            try {
-                               appProvider.manuallyLoadFromCloud();
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Data loaded from cloud.'),
-                                      backgroundColor: AppTheme.fhAccentGreen));
-                            } catch (e) {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Cloud load failed: ${e.toString()}'),
-                                      backgroundColor: AppTheme.fhAccentRed));
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      backgroundColor:
-                          (appProvider.getSelectedTask()?.taskColor ??
-                              AppTheme.fhAccentTealFixed),
-                      foregroundColor: AppTheme.fhBgDark),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  icon: Icon(MdiIcons.backupRestore, size: 18),
-                  label: const Text('DATA RECOVERY & BACKUPS'),
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const DataRecoveryScreen()));
-                  },
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      side: BorderSide(
-                          color:
-                              AppTheme.fhTextSecondary.withValues(alpha: 0.5))),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    lastSavedString,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic),
+                       if (confirm == true) appProvider.manuallyLoadFromCloud();
+                    },
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: const BorderSide(color: AppTheme.fhAccentTealFixed)),
                   ),
-                ),
-              ]),
+                  
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: Icon(MdiIcons.backupRestore, size: 18),
+                    label: const Text('DATA RECOVERY & BACKUPS'),
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const DataRecoveryScreen()));
+                    },
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhTextSecondary.withOpacity(0.5))),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      lastSavedString,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppTheme.fhTextSecondary.withOpacity(0.8),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
-          // SECURITY & PRIVACY
+          // 2. SECURITY
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.shieldLockOutline,
               title: 'Security & Nora Privacy',
@@ -401,7 +355,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // AI CONFIGURATION (Modularized)
+          // 3. AI MODELS
           ModelConfigurationWidget(
             appProvider: appProvider,
             availableModels: _availableModels,
@@ -409,6 +363,7 @@ class _SettingsViewState extends State<SettingsView> {
             onFetch: () => _fetchModels(appProvider),
           ),
 
+          // 4. ADVANCED AI
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.keyVariant,
               title: 'Advanced AI Settings',
@@ -442,6 +397,7 @@ class _SettingsViewState extends State<SettingsView> {
               ]
           ),
 
+          // 5. WEEKLY PROGRESS
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
@@ -470,6 +426,8 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
               ]),
+
+          // 6. USER PROFILE
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.accountEditOutline,
               title: 'User Profile',
@@ -520,6 +478,8 @@ class _SettingsViewState extends State<SettingsView> {
                       minimumSize: const Size(double.infinity, 44)),
                 ),
               ]),
+
+          // 7. UI CONFIG
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.eyeSettingsOutline,
               title: 'User Interface Config',
@@ -537,7 +497,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // NEW SECTION: SYSTEM DIAGNOSTICS
+          // 8. DIAGNOSTICS
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.tools,
               title: 'System Diagnostics',
@@ -571,7 +531,7 @@ class _SettingsViewState extends State<SettingsView> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 44),
                     foregroundColor: AppTheme.fhAccentOrange,
-                    side: BorderSide(color: AppTheme.fhAccentOrange.withValues(alpha: 0.5))
+                    side: BorderSide(color: AppTheme.fhAccentOrange.withOpacity(0.5))
                   ),
                 ),
                 const Padding(
@@ -583,6 +543,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
+          // 9. CREDENTIALS
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
@@ -661,6 +622,8 @@ class _SettingsViewState extends State<SettingsView> {
                         minimumSize: const Size(double.infinity, 44)),
                   ),
                 ]),
+
+          // 10. DATA RESET
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
@@ -746,7 +709,7 @@ class _SettingsViewState extends State<SettingsView> {
             Divider(
                 height: 24,
                 thickness: 0.5,
-                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+                color: AppTheme.fhBorderColor.withOpacity(0.5)),
             ...children,
           ],
         ),

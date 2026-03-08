@@ -1,29 +1,31 @@
 Make the following changes:
 
-    - Update submisison, checkpoint screen based on the html:
+    - From now on Use Pro Models, to generate daily breifing, startup note, person info 
+    - Update person info,
+        - Make it compact, as given in the html below, update prompt in the same way
+     
+Person Info
 
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PRIMUS // HEAT EDITION</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Character Profile: Ayisha</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* NFS HEAT PALETTE */
-            --neon-red: #ff0055;
-            --neon-cyan: #00f0ff;
-            --neon-purple: #bd00ff;
-            --bg-dark: #050508;
-            --bg-panel: rgba(20, 20, 30, 0.85);
-            --text-white: #ffffff;
-            --text-dim: #889;
-            --grid-color: rgba(255, 255, 255, 0.1);
+            --spidey-red: #d02b3e;
+            --spidey-cyan: #00f0ff;
+            --spidey-cyan-dim: #006b72;
+            --bg-dark: #08111a;
+            --bg-panel: #0b1623;
+            --text-white: #e6e6e6;
+            --text-grey: #8a9ba8;
+            --border-glow: 0 0 5px rgba(0, 240, 255, 0.4);
         }
 
         * {
@@ -33,899 +35,367 @@ Make the following changes:
         }
 
         body {
-            background-color: var(--bg-dark);
-            /* The Dotted Grid Background from Image 1 */
-            background-image: radial-gradient(var(--grid-color) 1px, transparent 1px);
-            background-size: 6px 6px;
-            font-family: 'Chakra Petch', sans-serif;
+            background-color: #000;
             color: var(--text-white);
+            font-family: 'Rajdhani', sans-serif;
+            height: 100vh;
+            /* Use dvh for mobile browsers to handle address bars correctly */
+            height: 100dvh; 
             display: flex;
             justify-content: center;
-            min-height: 100vh;
-            overflow-x: hidden;
+            align-items: center;
+            overflow: hidden;
+            background-image: radial-gradient(circle at center, #132030 0%, #000000 100%);
         }
 
-        /* Mobile Container */
-        .app-container {
+        /* Main Container */
+        .ui-container {
             width: 100%;
-            max-width: 420px;
-            background: linear-gradient(180deg, rgba(10,10,15,0.9) 0%, rgba(20,20,25,0.95) 100%);
+            max-width: 600px;
+            height: 85vh;
+            background-color: var(--bg-panel);
+            border: 1px solid #1f2f40;
             display: flex;
             flex-direction: column;
             position: relative;
-            border-left: 1px solid rgba(255,255,255,0.1);
-            border-right: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 0 50px rgba(0, 240, 255, 0.1);
-            padding-bottom: 20px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
         }
 
-        /* --- HEADER --- */
-        header {
-            padding: 20px;
+        /* --- Header Section --- */
+        .header {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            height: 70px; /* Slightly shorter for cleaner look without portrait */
+            border-bottom: 1px solid #1f2f40;
+            flex-shrink: 0;
         }
 
-        .back-btn {
-            font-size: 1.2rem;
-            color: var(--text-dim);
-            cursor: pointer;
+        .header-red {
+            background-color: var(--spidey-red);
+            width: 15px; /* Minimal red strip */
+            height: 100%;
+            position: relative;
         }
 
-        .title-block {
-            text-align: left;
+        .header-stats {
             flex-grow: 1;
-            padding-left: 20px;
-        }
-
-        .sub-label {
-            font-size: 0.7rem;
-            color: var(--neon-cyan);
-            letter-spacing: 2px;
-            font-weight: 700;
-            text-transform: uppercase;
-            text-shadow: 0 0 5px var(--neon-cyan);
-        }
-
-        h1 {
-            font-size: 2rem;
-            font-style: italic;
-            font-weight: 900;
-            text-transform: uppercase;
-            line-height: 0.9;
-            letter-spacing: 1px;
-        }
-
-        /* --- TIMER SECTION --- */
-        .dashboard-stats {
-            padding: 20px;
-            position: relative;
-        }
-
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--neon-red);
-            font-weight: 700;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .timer-display-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .big-timer {
-            font-size: 3.5rem;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -2px;
-            text-shadow: 2px 2px 0px rgba(255,0,85,0.2);
-        }
-
-        .play-btn {
-            width: 50px;
-            height: 50px;
-            background: var(--neon-red);
-            border: none;
-            color: white;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
-            cursor: pointer;
-            box-shadow: 0 0 15px var(--neon-red);
-            transition: transform 0.1s;
-        }
-        .play-btn:active { transform: scale(0.95); }
-
-        /* The Hazard Stripe Bar */
-        .hazard-bar {
-            height: 12px;
-            width: 100%;
-            margin-top: 10px;
-            background: repeating-linear-gradient(
-                -45deg,
-                #000,
-                #000 10px,
-                var(--neon-cyan) 10px,
-                var(--neon-cyan) 20px
-            );
-            border: 1px solid white;
-            position: relative;
-        }
-        
-        .hazard-text {
-            position: absolute;
-            top: -20px;
-            right: 0;
-            font-size: 0.6rem;
-            background: white;
-            color: black;
-            padding: 2px 4px;
-            font-weight: bold;
-            transform: skewX(-10deg);
-        }
-
-        /* --- LIST SECTION --- */
-        .section-header {
-            padding: 10px 20px;
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .task-list {
-            padding: 10px 20px;
-        }
-
-        .task-card {
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 4px solid var(--text-dim);
-            padding: 15px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            /* Angled corners similar to NFS UI */
-            clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%); 
-        }
-
-        .task-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-left-color: var(--neon-cyan);
-        }
-
-        .task-card.active {
-            border-left-color: var(--neon-cyan);
-            box-shadow: -10px 0 20px -10px rgba(0, 240, 255, 0.3);
-        }
-
-        .task-card.completed {
-            opacity: 0.5;
-            text-decoration: line-through;
-            border-left-color: #333;
-        }
-
-        .task-content {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .status-icon {
-            width: 12px;
-            height: 12px;
-            transform: rotate(45deg);
-            background: var(--text-dim);
-            box-shadow: 0 0 5px var(--text-dim);
-        }
-
-        .task-card.active .status-icon {
-            background: var(--neon-cyan);
-            box-shadow: 0 0 8px var(--neon-cyan);
-        }
-
-        .task-text {
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        /* --- INPUTS --- */
-        .input-group {
-            padding: 0 20px 20px 20px;
-        }
-        
-        .add-step-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        input[type="text"], textarea {
-            width: 100%;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid #333;
-            color: white;
-            padding: 12px;
-            font-family: 'Chakra Petch', sans-serif;
-            text-transform: uppercase;
-            outline: none;
-            transition: 0.3s;
-        }
-
-        input[type="text"]:focus, textarea:focus {
-            border-color: var(--neon-cyan);
-            background: rgba(0, 240, 255, 0.05);
-        }
-
-        .ghost-label {
-            border-left: 2px solid var(--neon-cyan);
-            padding-left: 10px;
-            margin-bottom: 5px;
-            margin-top: 15px;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-        }
-
-        textarea {
-            resize: none;
-            height: 80px;
-            border-top: 2px solid rgba(255,255,255,0.1);
-        }
-
-        .timeline-box {
-            height: 100px;
-            border: 1px solid #333;
-            background: rgba(0,0,0,0.5);
-            position: relative;
-        }
-        
-        .timeline-line {
-            position: absolute;
-            top: 50%;
-            left: 10px;
-            right: 10px;
-            height: 1px;
-            background: #333;
-        }
-
-        /* --- FOOTER BUTTONS --- */
-        .footer-actions {
-            display: flex;
-            gap: 10px;
-            padding: 20px;
-            margin-top: auto;
-        }
-
-        .action-btn {
-            flex: 1;
-            padding: 15px;
-            font-family: 'Chakra Petch', sans-serif;
-            font-weight: 800;
-            text-transform: uppercase;
-            font-size: 1.1rem;
-            border: none;
-            cursor: pointer;
-            position: relative;
-            /* Heavy slant for NFS look */
-            transform: skewX(-10deg); 
-            transition: 0.2s;
-        }
-
-        /* Un-skew text inside buttons */
-        .action-btn span {
-            display: block;
-            transform: skewX(10deg); 
-        }
-
-        .btn-complete {
-            background: rgba(0, 240, 255, 0.1);
-            border: 2px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-        }
-
-        .btn-complete:hover {
-            background: var(--neon-cyan);
-            color: black;
-            box-shadow: 0 0 20px var(--neon-cyan);
-        }
-
-        .btn-terminate {
-            background: rgba(255, 0, 85, 0.1);
-            border: 2px solid var(--neon-red);
-            color: var(--neon-red);
-        }
-
-        .btn-terminate:hover {
-            background: var(--neon-red);
-            color: white;
-            box-shadow: 0 0 20px var(--neon-red);
-        }
-
-        /* Glitch Decor on active item */
-        .glitch-deco {
-            position: absolute;
-            right: 10px;
-            top: 10px;
-            color: rgba(255,255,255,0.2);
-            font-size: 2rem;
-            font-weight: 900;
-            opacity: 0.1;
-            pointer-events: none;
-        }
-
-    </style>
-</head>
-<body>
-
-    <div class="app-container">
-        <!-- Header -->
-        <header>
-            <div class="back-btn">&#8592;</div>
-            <div class="title-block">
-                <div class="sub-label">PASSION</div>
-                <h1>PRIMUS</h1>
-            </div>
-            <div class="back-btn">&#9998;</div> <!-- Pencil Icon -->
-        </header>
-
-        <!-- Timer Area -->
-        <section class="dashboard-stats">
-            <div class="stat-label">TIME LOGGED TODAY</div>
-            <div class="stat-label" style="color:white; opacity:0.7">CURRENT SESSION</div>
-            
-            <div class="timer-display-row">
-                <div class="big-timer" id="timer">08:32</div>
-                <button class="play-btn" id="toggleBtn">
-                    <span style="font-size: 1.5rem;">&#10074;&#10074;</span>
-                </button>
-            </div>
-
-            <!-- Stylized Hazard Bar -->
-            <div class="hazard-bar">
-                <div class="hazard-text">OVERFLOW 5.0 PX</div>
-            </div>
-        </section>
-
-        <!-- List Section -->
-        <div class="section-header">Tactical Execution (How)</div>
-        <section class="task-list">
-            
-            <!-- Active Item -->
-            <div class="task-card active" onclick="toggleTask(this)">
-                <div class="task-content">
-                    <div class="status-icon"></div>
-                    <span class="task-text">Update Task Card</span>
-                </div>
-                <div style="color:var(--text-dim)">&#8942;</div>
-                <div class="glitch-deco">A+</div>
-            </div>
-
-            <!-- Normal Item -->
-            <div class="task-card" onclick="toggleTask(this)">
-                <div class="task-content">
-                    <div class="status-icon"></div>
-                    <span class="task-text">Update Task Info</span>
-                </div>
-                <div style="color:var(--text-dim)">&#8942;</div>
-            </div>
-
-             <!-- Normal Item -->
-             <div class="task-card" onclick="toggleTask(this)">
-                <div class="task-content">
-                    <div class="status-icon"></div>
-                    <span class="task-text">Fix Why Edit</span>
-                </div>
-                <div style="color:var(--text-dim)">&#8942;</div>
-            </div>
-
-             <!-- Completed Item -->
-             <div class="task-card completed" onclick="toggleTask(this)">
-                <div class="task-content">
-                    <div class="status-icon"></div>
-                    <span class="task-text">Fix Data</span>
-                </div>
-                <div style="color:var(--text-dim)">&#8942;</div>
-            </div>
-
-        </section>
-
-        <!-- Inputs Section -->
-        <div class="input-group">
-            <div class="add-step-row">
-                <div style="display:flex; align-items:center; border:1px solid #333; padding:10px; color:#555;">&#9745;</div>
-                <input type="text" placeholder="ADD STEP...">
-                <button style="background:var(--neon-cyan); border:none; width:40px; color:black; font-weight:bold;">+</button>
-            </div>
-
-            <div class="ghost-label">Strategic Intent (Why)</div>
-            <textarea placeholder="Reason for action..."></textarea>
-
-            <div class="ghost-label">Expected Outcome (What)</div>
-            <textarea placeholder="Result or Reward..."></textarea>
-        </div>
-
-        <div class="section-header">Session Timeline</div>
-        <div style="padding: 0 20px 20px;">
-            <div class="timeline-box">
-                <div class="timeline-line"></div>
-                <div style="position:absolute; bottom:5px; left:10px; font-size:0.6rem; color:#555;">11:00</div>
-            </div>
-        </div>
-
-        <!-- Footer Buttons -->
-        <footer class="footer-actions">
-            <button class="action-btn btn-complete">
-                <span>&#128190; Complete</span>
-            </button>
-            <button class="action-btn btn-terminate">
-                <span>&#128465; Terminate</span>
-            </button>
-        </footer>
-
-    </div>
-
-    <script>
-        // Simple functionality for prototype feel
-
-        // 1. Timer logic
-        let isRunning = true;
-        let seconds = 32;
-        let minutes = 8;
-        const timerEl = document.getElementById('timer');
-        const toggleBtn = document.getElementById('toggleBtn');
-
-        setInterval(() => {
-            if(isRunning) {
-                seconds++;
-                if(seconds > 59) {
-                    seconds = 0;
-                    minutes++;
-                }
-                // Format with leading zeros
-                const m = minutes < 10 ? '0' + minutes : minutes;
-                const s = seconds < 10 ? '0' + seconds : seconds;
-                timerEl.innerText = `${m}:${s}`;
-            }
-        }, 1000);
-
-        toggleBtn.addEventListener('click', () => {
-            isRunning = !isRunning;
-            if(isRunning) {
-                toggleBtn.innerHTML = '<span style="font-size: 1.5rem;">&#10074;&#10074;</span>'; // Pause Icon
-                toggleBtn.style.background = 'var(--neon-red)';
-            } else {
-                toggleBtn.innerHTML = '<span style="font-size: 1.5rem;">&#9658;</span>'; // Play Icon
-                toggleBtn.style.background = '#444';
-            }
-        });
-
-        // 2. Task toggling styling
-        function toggleTask(element) {
-            // Simply toggle active state for visual demo
-            // In a real app, this would handle completion logic
-            
-            // If it's already completed, do nothing or undo
-            if(element.classList.contains('completed')) return;
-
-            // Remove active from others
-            document.querySelectorAll('.task-card').forEach(el => {
-                if(el !== element) el.classList.remove('active');
-            });
-
-            element.classList.toggle('active');
-        }
-
-    </script>
-</body>
-</html>
-```
-
-Make sure to give the exact design and fonts
-
-    - Update task card based on this html, in a similar way:
-
-```html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Active Contracts // HEX-HEAT</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700;900&family=Beaufort+for+LOL:wght@700&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            /* LOL HEXTECH PALETTE */
-            --hex-gold: #C8AA6E;
-            --hex-gold-dim: #785a28;
-            --hex-cyan: #0AC8B9;
-            --hex-cyan-glow: #00FFEA;
-            --hex-dark: #010A13;
-            --hex-panel: #1E2328;
-            --hex-border: #463714;
-            
-            /* NFS ACCENTS */
-            --nfs-bg: #050508;
-            
-            --card-height: 100px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--nfs-bg);
-            /* Grid texture from previous step */
-            background-image: 
-                radial-gradient(rgba(200, 170, 110, 0.1) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(0,10,20,0.9));
-            background-size: 20px 20px, 100% 100%;
-            font-family: 'Chakra Petch', sans-serif;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 480px;
-            padding: 20px;
-        }
-
-        /* --- HEADER --- */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-left: 10px;
-            border-left: 3px solid var(--hex-cyan);
-        }
-
-        .header-title {
-            font-size: 0.9rem;
-            letter-spacing: 2px;
-            font-weight: 700;
-            color: var(--hex-gold);
-            text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(200, 170, 110, 0.3);
-        }
-
-        .add-btn {
-            color: var(--hex-cyan);
-            font-size: 1.5rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            text-shadow: 0 0 10px var(--hex-cyan);
-        }
-
-        /* --- CARD STYLES --- */
-        .contract-card {
-            position: relative;
-            height: var(--card-height);
-            margin-bottom: 20px;
+            background: linear-gradient(90deg, #162433 0%, var(--bg-panel) 100%);
             display: flex;
             align-items: center;
             padding: 0 20px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            
-            /* The Background & Border Logic */
-            background: linear-gradient(90deg, rgba(30,35,40,0.9) 0%, rgba(10,10,15,0.8) 100%);
-            
-            /* Complex shape: Chamfered corners like LoL UI */
-            clip-path: polygon(
-                15px 0, 100% 0, 
-                100% calc(100% - 15px), calc(100% - 15px) 100%, 
-                0 100%, 0 15px
-            );
+            gap: 15px;
         }
 
-        /* To create the border effect with clip-path, we use a pseudo element or box-shadow trick. 
-           Here we use an inner shadow to simulate the border since clip-path cuts off real borders */
-        .contract-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            box-shadow: inset 0 0 0 1px var(--hex-border);
-            pointer-events: none;
-            z-index: 1;
+        .level-box {
+            text-align: center;
+            min-width: 40px;
+        }
+        .level-label {
+            font-size: 10px;
+            color: var(--spidey-cyan);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .level-num {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--spidey-cyan);
+            line-height: 1;
+            text-shadow: var(--border-glow);
         }
 
-        /* --- INACTIVE CARD --- */
-        .contract-card.inactive .icon-container {
-            border-color: var(--hex-gold-dim);
-        }
-        
-        .contract-card.inactive .card-title {
-            color: #aaa;
-        }
-
-        /* --- ACTIVE CARD (THE PRIMUS) --- */
-        .contract-card.active {
-            background: linear-gradient(90deg, rgba(1, 20, 30, 0.95) 0%, rgba(5, 10, 15, 0.9) 100%);
-        }
-
-        /* The glowing border for active card */
-        .contract-card.active::before {
-            box-shadow: inset 0 0 0 2px var(--hex-cyan), inset 0 0 20px rgba(10, 200, 185, 0.2);
-        }
-
-        /* Corner accents for the active card */
-        .corner-accent {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: var(--hex-cyan);
-            z-index: 2;
-            box-shadow: 0 0 10px var(--hex-cyan);
-        }
-        .tl { top: 0; left: 15px; } /* Top Left near cut */
-        .br { bottom: 0; right: 15px; } /* Bottom Right near cut */
-
-
-        /* --- ICON / RING AREA --- */
-        .icon-wrapper {
-            position: relative;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-        }
-
-        /* The League "Match Found" Ring */
-        .progress-ring {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 60px;
-            height: 60px;
-            transform: rotate(-90deg);
-        }
-
-        .progress-ring circle {
-            fill: transparent;
-            stroke-width: 3;
-        }
-
-        .ring-bg {
-            stroke: rgba(255,255,255,0.1);
-        }
-
-        .ring-active {
-            stroke: var(--hex-cyan);
-            stroke-dasharray: 175; /* approx Circumference of r=28 */
-            stroke-dashoffset: 40; /* Partial fill */
-            stroke-linecap: round;
-            filter: drop-shadow(0 0 5px var(--hex-cyan));
-            animation: spinLoad 4s linear infinite;
-        }
-
-        @keyframes spinLoad {
-            0% { stroke-dashoffset: 175; }
-            50% { stroke-dashoffset: 0; }
-            100% { stroke-dashoffset: -175; }
-        }
-
-        .contract-icon {
-            font-size: 1.2rem;
-            color: white;
-            z-index: 2;
-        }
-
-        /* --- TEXT CONTENT --- */
-        .card-content {
+        .xp-bar-container {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            z-index: 2;
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        .active .card-title {
-            color: white;
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
-        }
-
-        .status-text {
-            font-size: 0.7rem;
-            color: var(--hex-gold);
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
         
-        .active .status-text {
-            color: var(--hex-cyan);
-        }
-
-        /* --- ACTIONS / BUTTON --- */
-        .action-area {
-            text-align: right;
-            z-index: 2;
-        }
-
-        .timer {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 8px;
-            font-family: monospace;
+        .xp-bar-bg {
+            height: 6px;
+            width: 100%;
+            background-color: #1f2f40;
+            margin-bottom: 5px;
+            position: relative;
         }
         
-        .active .timer {
-            color: var(--hex-cyan);
-            text-shadow: 0 0 5px var(--hex-cyan);
+        .xp-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 75%;
+            background-color: var(--spidey-cyan);
+            box-shadow: var(--border-glow);
         }
 
-        /* The "Accept" Button Style */
-        .hex-btn {
-            background: linear-gradient(to bottom, #1e2328, #13171a);
-            border: 1px solid var(--hex-gold-dim);
-            color: var(--hex-gold);
-            width: 80px;
-            height: 30px;
+        .xp-text {
+            font-size: 11px;
+            color: var(--text-white);
+            letter-spacing: 0.5px;
+        }
+
+        /* --- Name Band --- */
+        /* Adjusted margin since portrait is gone */
+        .name-band {
+            margin: 20px 0 10px 0;
+            padding: 12px 0;
+            text-align: center;
+            position: relative;
+            border-top: 1px solid var(--spidey-cyan-dim);
+            border-bottom: 1px solid var(--spidey-cyan-dim);
+            background: rgba(0, 240, 255, 0.05);
+            flex-shrink: 0;
+        }
+
+        .name-band::before, .name-band::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, var(--spidey-cyan) 50%, transparent 100%);
+            left: 0;
+            opacity: 0.5;
+        }
+        .name-band::before { top: -1px; }
+        .name-band::after { bottom: -1px; }
+
+        .char-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--spidey-cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+        }
+
+        /* --- Info Content --- */
+        .content-area {
+            flex-grow: 1; /* Fills remaining space */
+            padding: 10px 30px 30px 30px;
+            overflow-y: auto;
+            /* Smooth scrolling for mobile */
+            -webkit-overflow-scrolling: touch; 
+            scrollbar-width: thin;
+            scrollbar-color: var(--spidey-cyan-dim) var(--bg-panel);
+        }
+
+        /* Custom scrollbar */
+        .content-area::-webkit-scrollbar {
+            width: 4px;
+        }
+        .content-area::-webkit-scrollbar-track {
+            background: #0b1623;
+        }
+        .content-area::-webkit-scrollbar-thumb {
+            background-color: var(--spidey-cyan-dim);
+            border-radius: 2px;
+        }
+
+        .section-header {
+            font-size: 16px;
+            color: var(--spidey-cyan);
+            margin-bottom: 15px;
+            margin-top: 10px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
+            text-transform: uppercase;
             font-weight: 700;
             letter-spacing: 1px;
-            cursor: pointer;
+        }
+
+        .section-header::after {
+            content: '';
+            flex-grow: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--spidey-cyan-dim), transparent);
+            margin-left: 10px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .data-row {
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 4px;
+        }
+
+        .label {
+            color: var(--text-grey);
+            font-weight: 500;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .value {
+            color: var(--text-white);
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .long-text {
+            color: var(--text-white);
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            opacity: 0.9;
+            text-align: justify;
+        }
+
+        .highlight {
+            color: var(--spidey-cyan);
+            font-weight: 700;
+        }
+
+        .sub-header {
+            color: var(--text-grey);
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            font-weight: 700;
+            border-left: 3px solid var(--spidey-red);
+            padding-left: 10px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 5px;
+        }
+        
+        li {
+            margin-bottom: 12px;
+            font-size: 15px;
+            color: #ccc;
+            line-height: 1.4;
             position: relative;
-            
-            /* The specific "Accept" button shape */
-            clip-path: polygon(
-                10% 0, 90% 0, 
-                100% 50%, 90% 100%, 
-                10% 100%, 0% 50%
-            );
-            transition: 0.2s;
+            padding-left: 15px;
         }
 
-        .hex-btn:hover {
-            filter: brightness(1.2);
-            color: white;
-            border-color: var(--hex-gold);
-        }
-
-        /* Active "Pause" Button Styling (Cyan) */
-        .hex-btn.active-btn {
-            background: rgba(10, 200, 185, 0.15);
-            border: 1px solid var(--hex-cyan);
-            color: var(--hex-cyan);
-            box-shadow: 0 0 10px rgba(10, 200, 185, 0.2);
-        }
-
-        .hex-btn.active-btn:hover {
-            background: var(--hex-cyan);
-            color: #000;
-            box-shadow: 0 0 15px var(--hex-cyan);
-        }
-
-        /* --- DECORATIONS --- */
-        /* Smoke/Mist Effect behind the active card */
-        .mist-fx {
+        li::before {
+            content: '>';
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 120%;
-            height: 150%;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle, rgba(10, 200, 185, 0.1) 0%, transparent 70%);
-            z-index: 0;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s;
+            left: 0;
+            color: var(--spidey-cyan-dim);
+            font-weight: bold;
         }
 
-        .contract-card.active .mist-fx {
-            opacity: 1;
-        }
+        /* --- Mobile Optimization --- */
+        @media (max-width: 600px) {
+            body {
+                background: var(--bg-panel); /* Remove radial gradient on mobile for performance/clean look */
+            }
 
+            .ui-container {
+                height: 100dvh; /* Full screen height */
+                max-width: 100%;
+                border: none;
+                box-shadow: none;
+            }
+
+            .header {
+                height: 60px;
+            }
+
+            .level-num {
+                font-size: 24px;
+            }
+
+            .char-name {
+                font-size: 20px;
+            }
+
+            .content-area {
+                padding: 10px 20px 40px 20px; /* Extra bottom padding for touch scrolling */
+            }
+            
+            .long-text, li {
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- Header -->
-        <div class="section-header">
-            <div class="header-title">Active Contracts</div>
-            <button class="add-btn">+</button>
-        </div>
-
-        <!-- Inactive Card: Furiously Happy -->
-        <div class="contract-card inactive">
-            <div class="icon-wrapper">
-                <!-- Static Ring for inactive -->
-                <svg class="progress-ring">
-                    <circle class="ring-bg" stroke="#444" stroke-width="2" fill="transparent" r="26" cx="30" cy="30" />
-                </svg>
-                <div class="contract-icon" style="color: #666;">&#9876;</div>
-            </div>
-
-            <div class="card-content">
-                <div class="card-title">Furiously Happy</div>
-                <div class="status-text">Pending</div>
-            </div>
-
-            <div class="action-area">
-                <div class="timer">00:00</div>
-                <button class="hex-btn">
-                    START
-                </button>
+    <div class="ui-container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-red"></div>
+            <div class="header-stats">
+                <div class="level-box">
+                    <div class="level-label">LVL</div>
+                    <div class="level-num">2</div>
+                </div>
+                <div class="xp-bar-container">
+                    <div class="xp-bar-bg">
+                        <div class="xp-bar-fill"></div>
+                    </div>
+                    <div class="xp-text">NEET PREP / 2650 XP</div>
+                </div>
             </div>
         </div>
 
-        <!-- Active Card: PRIMUS (Matches Image 1 Style) -->
-        <div class="contract-card active">
-            <!-- Decoration Accents -->
-            <div class="corner-accent tl"></div>
-            <div class="corner-accent br"></div>
-            <div class="mist-fx"></div>
-
-            <div class="icon-wrapper">
-                <!-- Animated Ring (The "Match Found" Circle) -->
-                <svg class="progress-ring">
-                    <circle class="ring-bg" r="26" cx="30" cy="30" />
-                    <circle class="ring-active" r="26" cx="30" cy="30" />
-                </svg>
-                <!-- Flame Icon -->
-                <div class="contract-icon" style="text-shadow: 0 0 10px var(--hex-cyan);">&#128293;</div>
-            </div>
-
-            <div class="card-content">
-                <div class="card-title">PRIMUS</div>
-                <div class="status-text">In Progress</div>
-            </div>
-
-            <div class="action-area">
-                <div class="timer">46:44</div>
-                <!-- Styled like the "ACCEPT!" button -->
-                <button class="hex-btn active-btn">
-                    RESUME
-                </button>
-            </div>
+        <!-- MAIN TITLE -->
+        <div class="name-band">
+            <div class="char-name">Ayisha / The Realist</div>
         </div>
 
+        <!-- INFO BODY -->
+        <div class="content-area">
+            <div class="section-header">Core Stats</div>
+            
+            <div class="data-grid">
+                <div class="data-row">
+                    <span class="label">Relation</span>
+                    <span class="value">Emotional Anchor</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Status</span>
+                    <span class="value">Calibration Phase</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Updated</span>
+                    <span class="value">Mar 05, 2026</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Role</span>
+                    <span class="value">Student (NEET)</span>
+                </div>
+            </div>
+
+            <div class="section-header">Dossier</div>
+
+            <div class="sub-header">PSYCHOLOGICAL PROFILE</div>
+            <div class="long-text">
+                Pragmatic, supportive, and emotionally intelligent. Serves as a grounding force. Highly goal-oriented (NEET preparation). Unlike 'Fathima', Ayisha is characterized by reliability and belief in user's potential. Possesses strong self-worth; becomes distant if efforts are overlooked.
+            </div>
+
+            <div class="sub-header">INTERACTION HISTORY</div>
+            <ul>
+                <li><span class="highlight">The Reliable Second:</span> Consistent study partner. Managed Duolingo account during NSS camp.</li>
+                <li><span class="highlight">The Anchor (2025-26):</span> Primary confidante regarding Fathima. Provided "therapist-like" perspective.</li>
+                <li><span class="highlight">The Realization (Feb 26):</span> User breakthrough; prioritized Ayisha over unreciprocated connections.</li>
+            </ul>
+
+            <div class="sub-header">COMMUNICATION TIPS</div>
+            <ul>
+                <li><span class="highlight">Limit 'Fathima-Talk':</span> Focus on shared projects and *her* goals. Avoid romantic drama dumping.</li>
+                <li><span class="highlight">Respect Boundaries:</span> Keep daytime interactions brief (Focus Mode). Do not disturb study time.</li>
+                <li><span class="highlight">Value Directness:</span> Take her advice ("stop chasing shadows") seriously.</li>
+            </ul>
+        </div>
     </div>
 
 </body>
 </html>
 ```
-
-    - In analytics, add a button newr WEEKLY REPORT to get the list of archived weekly reports and review them
-    - Update screensize limit:
-        - Limit the max width for app screen so that it will work in desktop as same as phone with a max width
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

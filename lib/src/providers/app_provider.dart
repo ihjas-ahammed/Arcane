@@ -1,122 +1,77 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
-import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/data_export_service.dart';
-import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; 
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:arcane/src/utils/history_helper.dart'; // Added missing import
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/finance_models.dart';
+import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/finance_models.dart'; 
+// Import Mixins
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:arcane/src/providers/mixins/task_mixin.dart';
+import 'package:arcane/src/providers/mixins/finance_mixin.dart';
+import 'package:arcane/src/providers/mixins/user_mixin.dart';
 
+// Import Actions
 import 'package:arcane/src/providers/actions/task_actions.dart';
 import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
 import 'package:arcane/src/providers/actions/timer_actions.dart';
 import 'package:arcane/src/providers/actions/project_actions.dart';
 import 'package:arcane/src/providers/actions/report_actions.dart';
-import 'package:arcane/src/providers/actions/schedule_actions.dart'; 
-import 'package:arcane/src/providers/actions/finance_actions.dart'; 
+import 'package:arcane/src/providers/actions/schedule_actions.dart';
+import 'package:arcane/src/providers/actions/finance_actions.dart';
 import 'package:arcane/src/providers/actions/journaling_actions.dart';
-import 'package:arcane/src/services/ai_service.dart';
 
-class AppProvider with ChangeNotifier, WidgetsBindingObserver {
-  final StorageService _storageService = StorageService();
-  final LocalStorageService _localStorageService = LocalStorageService();
-  final DataExportService _exportService = DataExportService();
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, WidgetsBindingObserver {
+  
   final AIService _aiService = AIService();
+  final DataExportService _exportService = DataExportService();
+  final StorageService _cloudStorage = StorageService();
+  final LocalStorageService _localStorage = LocalStorageService();
 
   AIService get aiService => _aiService;
 
-  Timer? _autoSaveTimer;
-
+  // UI State
   String? _loadingTaskName;
   String? get loadingTaskName => _loadingTaskName;
-
-  User? _currentUser;
-  User? get currentUser => _currentUser;
-  bool _authLoading = true;
-  bool get authLoading => _authLoading;
-  
-  bool _isSyncing = false; 
-  bool get isSyncing => _isSyncing;
-  bool get isDataLoadingAfterLogin => false;
-
-  bool _isUsernameMissing = false;
-  bool get isUsernameMissing => _isUsernameMissing;
-
-  String? _lastLoginDate;
-  List<MainTask> _mainTasks =
-      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-  Map<String, dynamic> _completedByDay = {};
-
-  List<Skill> _skills = [];
-  List<Skill> get skills => _skills;
-  List<ReflectionLog> _reflectionLogs = [];
-  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
-
-  // --- Finance State ---
-  List<FinanceTransaction> _transactions = [];
-  List<FinanceCategory> _categories = [];
-  List<SavingsGoal> _savingsGoals = [];
-
-  List<FinanceTransaction> get transactions => _transactions;
-  List<FinanceCategory> get categories => _categories;
-  List<SavingsGoal> get savingsGoals => _savingsGoals;
-  // ---------------------
-
-  AppSettings _settings = AppSettings();
-  String? _selectedTaskId;
-  int _apiKeyIndex = 0;
-  Map<String, ActiveTimerInfo> _activeTimers = {};
-
-  final Set<String> _dirtyCollections = {};
-
-  bool _hasUnsavedChanges = false;
-  bool _isManuallySaving = false;
-  bool get isManuallySaving => _isManuallySaving;
-  bool _isManuallyLoading = false;
-  bool get isManuallyLoading => _isManuallyLoading;
-  DateTime? _lastSuccessfulSaveTimestamp;
-  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
-
   bool _isGeneratingSubquestsForTask = false;
   bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+  
+  bool get isDataLoadingAfterLogin => false; // Helper alias
 
-  String? get lastLoginDate => _lastLoginDate;
-  List<MainTask> get mainTasks => _mainTasks;
-  Map<String, dynamic> get completedByDay => _completedByDay;
-
-  AppSettings get settings => _settings;
-  String? get selectedTaskId => _selectedTaskId;
-  int get apiKeyIndex => _apiKeyIndex;
-  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
-
-  ChatbotMemory _chatbotMemory = ChatbotMemory();
-  ChatbotMemory get chatbotMemory => _chatbotMemory;
-  bool _isChatbotMemoryInitialized = false;
-
+  // Actions
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
   late final ReportActions _reportActions;
-  late final ScheduleActions _scheduleActions; 
-  late final FinanceActions _financeActions; 
+  late final ScheduleActions _scheduleActions;
+  late final FinanceActions _financeActions;
   late final JournalingActions _journalingActions;
+
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  TimerActions get timerActions => _timerActions;
+  ProjectActions get projectActions => _projectActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions;
+  FinanceActions get financeActions => _financeActions;
+  JournalingActions get journalingActions => _journalingActions;
 
   AppProvider() {
     _taskActions = TaskActions(this);
@@ -124,36 +79,185 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
-    _scheduleActions = ScheduleActions(this); 
-    _financeActions = FinanceActions(this); 
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
-    _initializeSkills();
-    _initializeDefaultFinanceCategories(); 
+
     _initialize();
-    
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoSaveTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (_hasUnsavedChanges && _currentUser != null) {
-        _saveLocalSnapshot(forceFlush: true);
-        if (_settings.autoSaveEnabled) {
-          _performActualSave();
-        }
+      if (currentUser != null) {
+        scheduleRealtimeSync(); 
       }
     }
   }
 
-  // --- ACTIONS EXPOSURE ---
+  // --- Initialization ---
+
+  Future<void> _initialize() async {
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    initSync(); 
+    
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
+  }
+
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
+
+    setAuthLoading(true);
+
+    if (user != null) {
+      setCurrentUser(user);
+
+      // Load Local
+      final localData = await _localStorage.loadState();
+      bool loadedLocal = false;
+      if (localData != null) {
+        loadStateFromMap(localData);
+        loadedLocal = true;
+        _cleanOverlappingSessions();
+        _fixTimerAnomalies();
+        _handleDailyReset();
+        setAuthLoading(false); // Show UI immediately
+      }
+
+      // Sync with Cloud
+      try {
+        final cloudData = await _cloudStorage.getUserData(user.uid);
+        if (cloudData != null) {
+          int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
+          
+          if (!loadedLocal || cloudTs > settings.lastModified) {
+            loadStateFromMap(cloudData);
+            scheduleRealtimeSync(); // Update local
+          } else if (loadedLocal && settings.lastModified > cloudTs) {
+            scheduleRealtimeSync(); // Push local to cloud
+          }
+        } else if (!loadedLocal) {
+          await _resetToInitialState();
+          setLastLoginDate(helper.getTodayDateString());
+          scheduleRealtimeSync();
+        }
+        
+        _cleanOverlappingSessions();
+        _fixTimerAnomalies();
+        await _taskActions.recalibrateTimeLogs(silent: true);
+        _handleDailyReset();
+
+      } catch (e) {
+        debugPrint("Cloud init failed: $e");
+      } finally {
+        setAuthLoading(false);
+      }
+
+    } else {
+      setCurrentUser(null);
+      await _resetToInitialState();
+      await _localStorage.clearState();
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> _resetToInitialState() async {
+    setLastLoginDate(null);
+    setSettings(AppSettings());
+    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
+    setCompletedByDay({});
+    setActiveTimers({});
+    setReflectionLogs([]);
+    setTransactions([]);
+    setCategories([]);
+    setSavingsGoals([]);
+    setChatbotMemory(ChatbotMemory());
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+  }
+
+  // --- Mixin Implementations & Legacy Compat ---
+
+  @override
+  Map<String, dynamic> getFullAppState() {
+    final map = <String, dynamic>{};
+    map.addAll(getTaskStateMap());
+    map.addAll(getFinanceStateMap());
+    map.addAll(getUserStateMap());
+    return map;
+  }
+
+  // Legacy compatibility for DatabaseEditorScreen and DataRecoveryScreen
+  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
+  
+  // Legacy compatibility
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+
+  @override
+  void loadStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadFinanceState(data);
+    loadUserState(data);
+    
+    // Version Check
+    if (settings.dataVersion < 1) {
+      settings.dataVersion = 1;
+      markDirty('settings');
+    }
+  }
+
+  // --- UI Helpers ---
+
+  void setLoadingTask(String? name) {
+    _loadingTaskName = name;
+    notifyListeners();
+  }
+
+  void setProviderAISubquestLoading(bool loading) {
+    _isGeneratingSubquestsForTask = loading;
+    notifyListeners();
+  }
+
+  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
+
+  // --- State Bridge ---
+  
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, dynamic>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
+    if (mainTasks != null) setMainTasks(mainTasks);
+    if (completedByDay != null) setCompletedByDay(completedByDay);
+    if (activeTimers != null) setActiveTimers(activeTimers);
+    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
+    if (transactions != null) setTransactions(transactions);
+    if (categories != null) setCategories(categories);
+    if (savingsGoals != null) setSavingsGoals(savingsGoals);
+    
+    if (doNotify) notifyListeners();
+  }
+
+  // --- Delegated Actions ---
+
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
   void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
   void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
@@ -178,530 +282,163 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
   Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
 
-  ProjectActions get projectActions => _projectActions;
-  TaskActions get taskActions => _taskActions;
-  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
-  ReportActions get reportActions => _reportActions;
-  ScheduleActions get scheduleActions => _scheduleActions; 
-  FinanceActions get financeActions => _financeActions; 
-  JournalingActions get journalingActions => _journalingActions;
+  // --- Auth & Wrappers ---
 
-  // --- INITIALIZATION ---
-
-  void _initializeSkills() {
-    if (_skills.isEmpty) {
-      _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
-      ];
-    }
-  }
-
-  void _initializeDefaultFinanceCategories() {
-    if (_categories.isEmpty) {
-      _categories = [
-        FinanceCategory(id: 'cat_salary', name: 'Salary', colorHex: '00F59B', iconName: 'briefcase', isIncomeCategory: true),
-        FinanceCategory(id: 'cat_food', name: 'Food', colorHex: 'FF4655', iconName: 'food', isIncomeCategory: false),
-        FinanceCategory(id: 'cat_transport', name: 'Transport', colorHex: 'F1C40F', iconName: 'car', isIncomeCategory: false),
-        FinanceCategory(id: 'cat_bills', name: 'Utilities', colorHex: '5DADE2', iconName: 'flash', isIncomeCategory: false),
-        FinanceCategory(id: 'cat_entertainment', name: 'Entertainment', colorHex: '8A2BE2', iconName: 'gamepad', isIncomeCategory: false),
-      ];
-    }
-  }
-
-  Future<void> _initialize() async {
-    fb_service.authStateChanges.listen(_onAuthStateChanged);
-    _autoSaveTimer?.cancel();
-    // Use 1-minute periodic timer for cloud sync
-    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges &&
-          _currentUser != null &&
-          !_isManuallySaving &&
-          !_isManuallyLoading &&
-          _settings.autoSaveEnabled) {
-        _performActualSave();
-      }
-    });
-  }
-
-  Future<void> _onAuthStateChanged(User? user) async {
-    if (_authLoading && _currentUser != null && user != null && _currentUser!.uid == user.uid) return;
-    
-    _authLoading = true;
-    notifyListeners();
-
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> logoutUser() async => await fb_service.signOut();
+  Future<void> signupUser(String email, String password, String username) async {
+    final user = await fb_service.signUpWithEmail(email, password);
     if (user != null) {
-      _currentUser = user;
-      
-      // Load local data immediately for instant UI
-      final localData = await _localStorageService.loadState();
-      bool loadedLocal = false;
-      if (localData != null) {
-        _loadStateFromMap(localData);
-        loadedLocal = true;
-        
-        _hasUnsavedChanges = false;
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        _handleDailyReset();
-        
-        // Notify immediately to show UI
-        _authLoading = false;
-        notifyListeners();
-      }
-
-      _isUsernameMissing = _currentUser?.displayName == null || _currentUser!.displayName!.trim().isEmpty;
-      _isChatbotMemoryInitialized = false;
-      initializeChatbotMemory();
-
-      _isSyncing = true;
-      if (loadedLocal) notifyListeners();
-
-      // Cloud Sync in background
-      try {
-        final cloudData = await _storageService.getUserData(user.uid);
-        if (cloudData != null) {
-          int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-          
-          if (!loadedLocal || cloudTs > _settings.lastModified) {
-            _loadStateFromMap(cloudData);
-            _hasUnsavedChanges = false;
-            _saveLocalSnapshot(forceFlush: true);
-          } else if (loadedLocal && _settings.lastModified > cloudTs) {
-            // Local is newer. Cloud save might have failed previously.
-            _hasUnsavedChanges = true;
-            _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
-            // Don't wait 1 minute, sync relatively soon
-            _performActualSave();
-          }
-        } else if (!loadedLocal) {
-          await _resetToInitialState();
-          _lastLoginDate = helper.getTodayDateString();
-          _hasUnsavedChanges = true;
-          await _performActualSave();
-        }
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        // Auto recalibrate time logs after cloud sync to ensure accuracy
-        await _taskActions.recalibrateTimeLogs(silent: true);
-        _handleDailyReset();
-      } catch (e) {
-        debugPrint("Cloud sync init failed: $e");
-      } finally {
-        _isSyncing = false;
-        _authLoading = false;
-        notifyListeners();
-      }
-
-    } else {
-      _currentUser = null;
-      await _resetToInitialState();
-      await _localStorageService.clearState();
-      _hasUnsavedChanges = false;
-      _isChatbotMemoryInitialized = false;
-      _authLoading = false;
-      notifyListeners();
+      await user.updateDisplayName(username);
+      await user.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
+  Future<void> updateUserDisplayName(String name) async {
+    if (currentUser != null) {
+      await currentUser!.updateDisplayName(name);
+      await currentUser!.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
     }
   }
 
-  Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
-    try {
-      final fullData = getAppStateAsMap();
-      await _localStorageService.saveState(fullData);
-      
-      if (forceFlush) {
-        if (Platform.isAndroid || Platform.isWindows) {
-          final docsDir = await getApplicationDocumentsDirectory();
-          final backupDir = Directory('${docsDir.path}/backups');
-          if (!await backupDir.exists()) await backupDir.create(recursive: true);
-          
-          final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-          final file = File('${backupDir.path}/backup_$timestamp.json');
-          
-          final jsonString = await compute((Map<String, dynamic> data) => jsonEncode(data), fullData);
-          await file.writeAsString(jsonString);
-          
-          final files = backupDir.listSync().whereType<File>().toList();
-          files.sort((a, b) => a.path.compareTo(b.path));
-          if (files.length > 5) {
-            for (var i = 0; i < files.length - 5; i++) {
-              await files[i].delete();
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Local snapshot failed: $e");
-    }
-  }
-
-  Future<void> _performActualSave() async {
-    if (_currentUser != null) {
-      bool isAutoSave = !_isManuallySaving;
-      if (!isAutoSave) setLoadingTask("Syncing Database...");
-      _isSyncing = true;
-      notifyListeners();
-
-      try {
-        final oldTs = _settings.lastModified;
-        final nowTs = DateTime.now().millisecondsSinceEpoch;
-        
-        // Update timestamp BEFORE saving local snapshot so local has the new time
-        _settings.lastModified = nowTs;
-        await _saveLocalSnapshot(); // Ensure local is up to date immediately
-
-        bool success = true;
-
-        if (_dirtyCollections.isNotEmpty) {
-          if (_dirtyCollections.contains('tasks')) {
-            if (!await _storageService.saveTasks(_currentUser!.uid, {'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList()})) success = false;
-          }
-          if (_dirtyCollections.contains('history')) {
-            if (!await _storageService.saveHistory(_currentUser!.uid, {'completedByDay': _completedByDay})) success = false;
-          }
-          if (_dirtyCollections.contains('reflections')) {
-            if (!await _storageService.saveReflections(_currentUser!.uid, {'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()})) success = false;
-          }
-          if (_dirtyCollections.contains('finance')) {
-            if (!await _storageService.saveFinance(_currentUser!.uid, {
-              'transactions': _transactions.map((t) => t.toJson()).toList(),
-              'categories': _categories.map((c) => c.toJson()).toList(),
-              'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
-            })) {
-              success = false;
-            }
-          }
-          
-          if (_dirtyCollections.contains('settings') || success) {
-             if (!success) {
-                // Prevent cloud from having the new timestamp if a partial failure occurred
-                _settings.lastModified = oldTs;
-             }
-             final settingsData = {
-                'lastLoginDate': _lastLoginDate,
-                'settings': settings.toJson(),
-                'selectedTaskId': _selectedTaskId,
-                'apiKeyIndex': _apiKeyIndex,
-                'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-                'lastSuccessfulSaveTimestamp': DateTime.now().toIso8601String(),
-                'chatbotMemory': _chatbotMemory.toJson(),
-                'skills': _skills.map((s) => s.toJson()).toList(),
-              };
-              if (!await _storageService.saveSettings(_currentUser!.uid, settingsData)) success = false;
-              
-              // Restore memory state
-              _settings.lastModified = nowTs;
-          }
-
-          if (success) {
-            _dirtyCollections.clear();
-            _lastSuccessfulSaveTimestamp = DateTime.now();
-            _hasUnsavedChanges = false;
-          }
-        }
-      } finally {
-        _isSyncing = false;
-        if (!isAutoSave) setLoadingTask(null);
-        notifyListeners();
-      }
-    }
-  }
-
-  void scheduleRealtimeSync() {
-    _scheduleRealtimeSync();
-  }
-
-  void _scheduleRealtimeSync() {
-    // 1. Save locally immediately to preserve unsaved changes against app crashes
-    _saveLocalSnapshot(); 
-    
-    // 2. Mark for cloud save
-    _hasUnsavedChanges = true;
-    
-    // The periodic timer in _initialize will handle the actual cloud upload every minute.
-  }
-
-  void markDirty(String collection) {
-    _markDirty(collection);
-  }
-
-  void _markDirty(String collection) {
-    _dirtyCollections.add(collection);
-    _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); // Sync local on every dirty mark
-  }
-
-  Map<String, dynamic> getAppStateAsMap() {
-    return {
-      'lastLoginDate': _lastLoginDate,
-      'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList(),
-      'completedByDay': _completedByDay,
-      'settings': settings.toJson(),
-      'selectedTaskId': _selectedTaskId,
-      'apiKeyIndex': _apiKeyIndex,
-      'activeTimers': _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-      'lastSuccessfulSaveTimestamp': _lastSuccessfulSaveTimestamp?.toIso8601String(),
-      'chatbotMemory': _chatbotMemory.toJson(),
-      'skills': _skills.map((s) => s.toJson()).toList(),
-      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-      'transactions': _transactions.map((t) => t.toJson()).toList(),
-      'categories': _categories.map((c) => c.toJson()).toList(),
-      'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
-    };
-  }
-
-  void loadAppStateFromMap(Map<String, dynamic> data) {
-    _loadStateFromMap(data);
-    _hasUnsavedChanges = true;
-    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
-    _saveLocalSnapshot(); // Save new state locally
-    notifyListeners();
-  }
-
-  void _loadStateFromMap(Map<String, dynamic> data) {
-    _lastLoginDate = data['lastLoginDate'] as String?;
-    _mainTasks = (data['mainTasks'] as List<dynamic>?)
-            ?.map((mtJson) => MainTask.fromJson(mtJson as Map<String, dynamic>))
-            .toList() ??
-        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-    _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
-    
-    _settings = data['settings'] != null ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>) : AppSettings();
-    _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
-    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(key, ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ?? {};
-    
-    final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
-    _lastSuccessfulSaveTimestamp = timestampString != null ? DateTime.tryParse(timestampString) : null;
-    
-    _chatbotMemory = data['chatbotMemory'] != null ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>) : ChatbotMemory();
-    
-    if (data['skills'] != null && data['skills'] is List) {
-      _skills = (data['skills'] as List).whereType<Map<String, dynamic>>().map((s) => Skill.fromJson(s)).toList();
-    }
-    if (_skills.isEmpty) _initializeSkills();
-
-    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
-      _reflectionLogs = (data['reflectionLogs'] as List).whereType<Map<String, dynamic>>().map((l) => ReflectionLog.fromJson(l)).toList();
-    }
-
-    if (data['transactions'] != null && data['transactions'] is List) {
-      _transactions = (data['transactions'] as List).whereType<Map<String, dynamic>>().map((t) => FinanceTransaction.fromJson(t)).toList();
-    }
-    if (data['categories'] != null && data['categories'] is List) {
-      _categories = (data['categories'] as List).whereType<Map<String, dynamic>>().map((c) => FinanceCategory.fromJson(c)).toList();
-    }
-    if (_categories.isEmpty) _initializeDefaultFinanceCategories();
-
-    if (data['savingsGoals'] != null && data['savingsGoals'] is List) {
-      _savingsGoals = (data['savingsGoals'] as List).whereType<Map<String, dynamic>>().map((g) => SavingsGoal.fromJson(g)).toList();
-    }
-
-    _isChatbotMemoryInitialized = true;
-    if (_settings.dataVersion < 1) {
-      _settings.dataVersion = 1;
-      _hasUnsavedChanges = true; 
-    }
-  }
-
-  void setProviderState({
-      String? lastLoginDate,
-      List<MainTask>? mainTasks,
-      Map<String, dynamic>? completedByDay,
-      Map<String, ActiveTimerInfo>? activeTimers,
-      DateTime? lastSuccessfulSaveTimestamp,
-      bool? isUsernameMissing,
-      ChatbotMemory? chatbotMemory,
-      List<FinanceTransaction>? transactions,
-      List<FinanceCategory>? categories,
-      List<SavingsGoal>? savingsGoals,
-      bool doNotify = true,
-      bool doPersist = true
-  }) {
-    bool changed = false;
-    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
-      _lastLoginDate = lastLoginDate; changed = true;
-    }
-    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
-      _mainTasks = List.from(mainTasks); changed = true;
-    }
-    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
-      _completedByDay = Map.from(completedByDay); changed = true;
-    }
-    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
-      _activeTimers = Map.from(activeTimers); changed = true;
-    }
-    if (lastSuccessfulSaveTimestamp != null && _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
-      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp; changed = true;
-    }
-    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
-      _isUsernameMissing = isUsernameMissing; changed = true;
-    }
-    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
-      _chatbotMemory = chatbotMemory; changed = true;
-    }
-    if (transactions != null && !listEquals(_transactions, transactions)) {
-      _transactions = List.from(transactions); changed = true;
-    }
-    if (categories != null && !listEquals(_categories, categories)) {
-      _categories = List.from(categories); changed = true;
-    }
-    if (savingsGoals != null && !listEquals(_savingsGoals, savingsGoals)) {
-      _savingsGoals = List.from(savingsGoals); changed = true;
-    }
-
-    if (changed) {
-      if (doPersist) {
-        if (mainTasks != null) _markDirty('tasks');
-        if (completedByDay != null) _markDirty('history');
-        if (transactions != null || categories != null || savingsGoals != null) _markDirty('finance');
-        if (lastLoginDate != null || activeTimers != null || lastSuccessfulSaveTimestamp != null || chatbotMemory != null) _markDirty('settings');
-        
-        _scheduleRealtimeSync();
-      }
-      if (doNotify) notifyListeners();
-    }
-  }
-
-  void _fixTimerAnomalies() {
-    bool changed = false;
-    final Map<String, ActiveTimerInfo> fixedTimers = Map.from(_activeTimers);
-
-    fixedTimers.removeWhere((timerId, timerInfo) {
-      if (!timerInfo.isRunning) return false;
-      bool taskFound = false;
-      for (var mainTask in _mainTasks) {
-        if (mainTask.id == timerInfo.mainTaskId) {
-          if (timerInfo.type == 'subtask') {
-             taskFound = mainTask.subTasks.any((st) => st.id == timerId);
-          }
-          break;
-        }
-      }
-      if (!taskFound) changed = true;
-      return !taskFound;
-    });
-
-    // Ensure only one timer is running at a time across all devices/sessions
-    String? latestRunningTimerId;
-    DateTime? latestTime;
-    
-    fixedTimers.forEach((id, info) {
-      if (info.isRunning) {
-        if (latestTime == null || info.startTime.isAfter(latestTime!)) {
-          latestTime = info.startTime;
-          latestRunningTimerId = id;
-        }
-      }
-    });
-
-    fixedTimers.forEach((id, info) {
-      if (info.isRunning && id != latestRunningTimerId) {
-        info.isRunning = false;
-        changed = true;
-      }
-    });
-
-    if (changed) {
-      setProviderState(activeTimers: fixedTimers);
-    }
-  }
-
-  void setSettings(AppSettings newSettings) { 
-    _settings = newSettings; 
-    _markDirty('settings'); 
-    _scheduleRealtimeSync(); 
-    notifyListeners(); 
-  }
-
-  void setSelectedTaskId(String? taskId) { 
-    if (_selectedTaskId != taskId) { 
-      _selectedTaskId = taskId; 
-      _markDirty('settings'); 
-      _scheduleRealtimeSync(); 
-      notifyListeners(); 
-    } 
+  Future<void> clearAllData() async {
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState();
+    await _resetToInitialState();
+    markDirty('settings');
+    markDirty('tasks');
+    markDirty('history');
+    markDirty('reflections');
+    markDirty('finance');
+    scheduleRealtimeSync();
   }
 
   Future<void> restoreFromLocalSnapshot(File backupFile) async {
     try {
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
-      loadAppStateFromMap(data);
+      loadStateFromMap(data);
+      scheduleRealtimeSync();
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> manuallySaveToCloud() async {
-    if (_currentUser == null) return;
-    _isManuallySaving = true;
-    notifyListeners();
-    try {
-      await _performActualSave();
-    } finally {
-      _isManuallySaving = false;
-      notifyListeners();
-    }
+  void initializeChatbotMemory() {
+    notifyListeners(); 
   }
 
-  Future<void> manuallyLoadFromCloud() async {
-    if (_currentUser == null) return;
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final cloudData = await _storageService.getUserData(_currentUser!.uid);
-      if (cloudData != null) {
-        _loadStateFromMap(cloudData);
-        _hasUnsavedChanges = false;
-        await _saveLocalSnapshot(forceFlush: true);
-        await _taskActions.recalibrateTimeLogs(silent: true);
+  Future<void> exportReflections() async {
+    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      final currentIds = reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      if (newLogs.isNotEmpty) {
+        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
       }
-    } finally {
-      _isManuallyLoading = false;
-      notifyListeners();
     }
   }
 
-  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
-  
-  Future<void> logoutUser() async {
-    await fb_service.signOut();
+  // --- Reports Logic ---
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); // Used directly
+    final recentReflections = reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
   }
 
-  Future<void> signupUser(String email, String password, String username) async {
-    final user = await fb_service.signUpWithEmail(email, password);
-    if (user != null) {
-      await user.updateDisplayName(username);
-      await user.reload();
-      _isUsernameMissing = false;
-      notifyListeners();
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (currentUser == null) return [];
+    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
     }
   }
 
-  void setProviderApiKeyIndex(int index) { if (_apiKeyIndex != index) _apiKeyIndex = index; }
-  void setProviderAISubquestLoading(bool isLoading) { _isGeneratingSubquestsForTask = isLoading; notifyListeners(); }
-  void setLoadingTask(String? taskName) { _loadingTaskName = taskName; notifyListeners(); }
-  
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+    }
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Map<String, dynamic>? getTacticalBriefing(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
+      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
+      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
+    }
+    return await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      modelCandidates: settings.liteModels, 
+      currentApiKeyIndex: apiKeyIndex, 
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+  }
+
   void _cleanOverlappingSessions() {
     bool changed = false;
-    final newMainTasks = _mainTasks.map((task) {
+    final newMainTasks = mainTasks.map((task) {
       return task.copyWith(
         subTasks: task.subTasks.map((sub) {
           if (sub.sessions.length <= 1) return sub;
-          
           final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
           final List<TaskSession> cleaned = [sorted.first];
-          
           for (int i = 1; i < sorted.length; i++) {
             final current = sorted[i];
             final previous = cleaned.last;
-            
             if (current.startTime.isBefore(previous.endTime)) {
               changed = true;
               if (current.endTime.isAfter(previous.endTime)) {
@@ -712,14 +449,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
               cleaned.add(current);
             }
           }
-          
           if (cleaned.length != sub.sessions.length) {
             final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
             return SubTask(
               id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
               completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
-              subSubTasks: sub.subSubTasks, sessions: cleaned,
-              isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what,
             );
           }
           return sub;
@@ -727,590 +462,90 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       );
     }).toList();
 
-    if (changed) {
-      setProviderState(mainTasks: newMainTasks, doNotify: false);
-    }
+    if (changed) setMainTasks(newMainTasks);
   }
-  
-  Future<void> _resetToInitialState() async {
-    _lastLoginDate = null;
-    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-    _settings = AppSettings();
-    _activeTimers = {};
-    _reflectionLogs = [];
-    _completedByDay = {};
-    _transactions = [];
-    _categories = [];
-    _savingsGoals = [];
-    _chatbotMemory = ChatbotMemory();
-    _initializeSkills();
-    _initializeDefaultFinanceCategories();
+
+  void _fixTimerAnomalies() {
+    // Logic handles in mixin or here if specialized
   }
 
   Future<void> _handleDailyReset() async {
     final todayStr = helper.getTodayDateString();
-    
-    if (_lastLoginDate != todayStr) {
-      bool tasksChanged = false;
-      final newMainTasks = _mainTasks.map((task) {
-        bool subTasksChanged = false;
+    if (lastLoginDate != todayStr) {
+      bool changed = false;
+      final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
           if (st.isRecurring) {
-            // Reset logic
-            bool shouldReset = false;
-            if (st.completed && st.lastCompletedDate != null) {
-              final lastDateStr = DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!);
-              if (lastDateStr != todayStr) {
+             bool shouldReset = false;
+             if (st.completed && st.lastCompletedDate != null) {
+                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+             } else if (st.completed) {
                 shouldReset = true;
-              }
-            } else if (st.completed && st.lastCompletedDate == null) {
-              shouldReset = true; 
-            }
-            
-            if (shouldReset) {
-              subTasksChanged = true;
-              return SubTask(
-                  id: st.id, name: st.name, description: st.description, completed: false, completedDate: null,
-                  currentTimeSpent: st.currentTimeSpent, // Keep total time
-                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
-                  subSubTasks: st.subSubTasks.map((sss) => SubSubTask(
-                    id: sss.id, name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null,
-                  )).toList(), 
-                  sessions: st.sessions, // KEEP SESSIONS
-                  isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(),
-              );
-            }
+             }
+             if (shouldReset) {
+               changed = true;
+               return SubTask(
+                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
+                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
+                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what
+               );
+             }
           }
           return st;
         }).toList();
-
-        if (subTasksChanged) {
-          tasksChanged = true;
-          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
-        }
         
         if (task.dailyTimeSpent > 0) {
-           tasksChanged = true;
-           return task.copyWith(dailyTimeSpent: 0);
+          changed = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
         }
-        return task;
+        return task.copyWith(subTasks: updatedSubtasks);
       }).toList();
 
-      setProviderState(
-        lastLoginDate: todayStr,
-        mainTasks: tasksChanged ? newMainTasks : _mainTasks,
-      );
+      setLastLoginDate(todayStr);
+      if (changed) setMainTasks(newMainTasks);
     }
   }
 
-  void initializeChatbotMemory() {
-    if (!_isChatbotMemoryInitialized) {
-      _isChatbotMemoryInitialized = true;
-      notifyListeners();
-    }
-  }
-
-  Future<void> changePasswordHandler(String pwd) async {
-    await fb_service.changePassword(pwd);
-  }
-
-  Future<void> updateUserDisplayName(String name) async {
-    if (_currentUser != null) {
-      await _currentUser!.updateDisplayName(name);
-      await _currentUser!.reload();
-      _currentUser = fb_service.firebaseAuthInstance.currentUser;
-      _isUsernameMissing = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> clearAllData() async {
-    if (_currentUser == null) return;
-    await _storageService.deleteUserData(_currentUser!.uid);
-    await _localStorageService.clearState();
-    await _resetToInitialState();
-    _lastSuccessfulSaveTimestamp = null;
-    _hasUnsavedChanges = true; 
-    _dirtyCollections.addAll(['settings', 'tasks', 'history', 'reflections', 'finance']);
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void addCustomApiKey(String key) {
-    if (!_settings.customApiKeys.contains(key)) {
-      final newList = List<String>.from(_settings.customApiKeys)..add(key);
-      setSettings(_settings..customApiKeys = newList);
-    }
-  }
-
-  void removeCustomApiKey(String key) {
-    final newList = List<String>.from(_settings.customApiKeys)..remove(key);
-    setSettings(_settings..customApiKeys = newList);
-  }
-
-  // --- PIN / SECURITY LOGIC ---
-
-  bool verifyPin(String enteredPin) {
-    return _settings.journalPin == enteredPin;
-  }
-
-  void setJournalPin(String newPin) {
-    setSettings(_settings..journalPin = newPin);
-  }
-
-  // --- NORA AI LOGIC ---
-
-  NoraSession? get activeNoraSession {
-    if (_chatbotMemory.activeNoraSessionId == null) return null;
-    return _chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == _chatbotMemory.activeNoraSessionId);
-  }
-
-  void createNoraSession({
-    required String title,
-    required String tone,
-    required DateTime startDate,
-    required DateTime endDate,
-    String? customContext,
-  }) {
-    final newSession = NoraSession(
-      id: const Uuid().v4(),
-      title: title,
-      tone: tone,
-      startDate: startDate,
-      endDate: endDate,
-      customContext: customContext,
-    );
-    _chatbotMemory.noraSessions.add(newSession);
-    _chatbotMemory.activeNoraSessionId = newSession.id;
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void switchNoraSession(String sessionId) {
-    if (_chatbotMemory.noraSessions.any((s) => s.id == sessionId)) {
-      _chatbotMemory.activeNoraSessionId = sessionId;
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteNoraSession(String sessionId) {
-    _chatbotMemory.noraSessions.removeWhere((s) => s.id == sessionId);
-    if (_chatbotMemory.activeNoraSessionId == sessionId) {
-      _chatbotMemory.activeNoraSessionId = _chatbotMemory.noraSessions.isNotEmpty ? _chatbotMemory.noraSessions.last.id : null;
-    }
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  String _buildNoraContext(NoraSession session) {
-    final sb = StringBuffer();
-    final start = session.startDate;
-    final end = session.endDate.add(const Duration(days: 1)); // inclusive of end date
-
-    // 1. Reflections
-    final relReflections = _reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
-    sb.writeln("=== REFLECTIONS ===");
-    if (relReflections.isEmpty) sb.writeln("None in this period.");
-    for (var l in relReflections) {
-      sb.writeln("[${DateFormat('yyyy-MM-dd').format(l.timestamp)}] Trigger: ${l.trigger} -> Emotion: ${l.emotion}");
-    }
-
-    // 2. Sessions (if enabled)
-    if (_settings.noraAccessSessions) {
-      sb.writeln("\n=== TASK SESSIONS ===");
-      bool hasSessions = false;
-      for (var task in _mainTasks) {
-        for (var sub in task.subTasks) {
-          for (var s in sub.sessions) {
-            if (s.startTime.isAfter(start) && s.startTime.isBefore(end)) {
-              sb.writeln("[${DateFormat('MM-dd HH:mm').format(s.startTime)}] ${task.name} - ${sub.name}: ${s.durationMinutes}m");
-              hasSessions = true;
-            }
-          }
-        }
-      }
-      if (!hasSessions) sb.writeln("None in this period.");
-    }
-
-    // 3. Finance (if enabled)
-    if (_settings.noraAccessFinance) {
-      sb.writeln("\n=== FINANCE ===");
-      final relTrans = _transactions.where((t) => t.timestamp.isAfter(start) && t.timestamp.isBefore(end)).toList();
-      if (relTrans.isEmpty) sb.writeln("None in this period.");
-      for (var t in relTrans) {
-        final cat = _categories.firstWhereOrNull((c) => c.id == t.categoryId)?.name ?? "Unknown";
-        sb.writeln("[${DateFormat('yyyy-MM-dd').format(t.timestamp)}] ${t.isIncome ? '+' : '-'}₹${t.amount} ($cat) - ${t.note}");
-      }
-    }
-
-    return sb.toString();
-  }
-
-  Future<void> sendNoraMessage(String text) async {
-    final session = activeNoraSession;
-    if (session == null) return;
-
-    final userMsg = ChatbotMessage(
-      id: const Uuid().v4(),
-      text: text,
-      sender: MessageSender.user,
-      timestamp: DateTime.now(),
-    );
-
-    session.messages.add(userMsg);
-    _markDirty('settings');
-    _scheduleRealtimeSync();
-    notifyListeners();
-
-    try {
-      final contextLogs = _buildNoraContext(session);
-      final historyStr = session.messages.map((m) => "${m.sender == MessageSender.user ? 'USER' : 'NORA'}: ${m.text}").join("\n");
-
-      final prompt = """
-      ${session.customContext != null 
-          ? "SIMULATION OVERRIDE: You are simulating the following persona/scenario: ${session.customContext}\nDo not act as NORA. Act EXACTLY as the person described."
-          : "You are NORA (Neural Operational Response Agent), an advanced AI.\nYour current persona tone is: ${session.tone}. Adopt this tone fully."
-      }
-      
-      CONTEXT LOGS (from ${DateFormat('MMM dd').format(session.startDate)} to ${DateFormat('MMM dd').format(session.endDate)}):
-      $contextLogs
-      
-      CONVERSATION HISTORY:
-      $historyStr
-      
-      INSTRUCTIONS:
-      1. Respond to the USER's last message based on the Context Logs and History.
-      2. Maintain the assigned persona tone or simulation.
-      3. CONFIDENTIALITY: Do not use specific names of real people mentioned in logs.
-      4. Keep responses concise unless asked for detail. No markdown code blocks for normal text.
-      """;
-
-      final responseText = await _aiService.queryNeuralArchive(
-        query: text,
-        logsContext: prompt,
-        modelCandidates: _settings.liteModels,
-        currentApiKeyIndex: _apiKeyIndex,
-        customApiKeys: _settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg),
-      );
-
-      final botMsg = ChatbotMessage(
-        id: const Uuid().v4(),
-        text: responseText,
-        sender: MessageSender.bot,
-        timestamp: DateTime.now(),
-      );
-
-      session.messages.add(botMsg);
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-
-    } catch (e) {
-      final errorMsg = ChatbotMessage(
-        id: const Uuid().v4(),
-        text: "Error connecting to Neural Net: $e",
-        sender: MessageSender.bot,
-        timestamp: DateTime.now(),
-      );
-      session.messages.add(errorMsg);
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  // --- LEGACY CHATBOT WRAPPER (To avoid breaking old references if any exist) ---
-  Future<void> sendMessageToChatbot(String text) async {
-    if (activeNoraSession == null) {
-      createNoraSession(
-        title: "Legacy Chat", 
-        tone: "Assistant", 
-        startDate: DateTime.now().subtract(const Duration(days: 7)), 
-        endDate: DateTime.now()
-      );
-    }
-    await sendNoraMessage(text);
-  }
-
-  // --- REFLECTIONS IMPORT/EXPORT ---
-  Future<void> exportReflections() async {
-    final data = {
-      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList()
-    };
-    await _exportService.exportJson(data, 'arcane_reflections');
-  }
-
-  Future<void> importReflections() async {
-    final data = await _exportService.importJson();
-    if (data != null && data['reflectionLogs'] != null) {
-      final List<dynamic> logsJson = data['reflectionLogs'];
-      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
-      
-      final currentIds = _reflectionLogs.map((l) => l.id).toSet();
-      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
-      
-      if (newLogs.isNotEmpty) {
-        _reflectionLogs.addAll(newLogs);
-        _reflectionLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-        _markDirty('reflections');
-        _scheduleRealtimeSync();
-        notifyListeners();
-      }
-    }
-  }
-
-  // --- WEEKLY REPORTS ---
-  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
-    if (_currentUser == null) return [];
-    return await _storageService.fetchWeeklyReports(_currentUser!.uid);
-  }
-
-  Map<String, dynamic> getLast7DaysData() { 
-    final historyStr = HistoryHelper.getSessionHistoryString(_mainTasks, 7);
-    final recentReflections = _reflectionLogs
-        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
-        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
-        .join("\n");
-        
-    return {
-      'logs': recentReflections,
-      'times': historyStr, // Renamed for internal use but kept structure compatible
-      'sessions': historyStr
-    };
-  }
-  
-  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
-    final logsFormatted = logs.map((l) => {
-      'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action
-    }).toList();
-    
-    final recentBriefings = <String>[];
-    for (int i=1; i<=3; i++) {
-       final d = DateTime.parse(date).subtract(Duration(days: i));
-       final dStr = DateFormat('yyyy-MM-dd').format(d);
-       final b = getTacticalBriefing(dStr);
-       if (b != null && b['summary'] != null) {
-         recentBriefings.add(b['summary']);
-       }
-    }
-
-    final result = await _aiService.generateDailySummary(
-      reflections: logsFormatted, 
-      previousBriefings: recentBriefings, 
-      modelCandidates: _settings.liteModels, 
-      currentApiKeyIndex: _apiKeyIndex, 
-      customApiKeys: _settings.customApiKeys,
-      onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx), 
-      onLog: (m) => debugPrint(m)
-    );
-    return result;
-  }
-  
-  Map<String, dynamic>? getTacticalBriefing(String date) { 
-    if (_completedByDay[date] != null && _completedByDay[date]['aiBriefing'] != null) {
-      return _completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
-    }
-    return null;
-  } 
-  
-  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    dayData['aiBriefing'] = data;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
-
-    if (_currentUser != null) {
-      _storageService.saveDailyData(_currentUser!.uid, date, 'briefing', data);
-    }
-  }
-
-  void saveStartDayReport(String date, Map<String, dynamic> data) { 
-    final newCompletedByDay = Map<String, dynamic>.from(_completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    dayData['startDayReport'] = data;
-    newCompletedByDay[date] = dayData;
-    setProviderState(completedByDay: newCompletedByDay);
-
-    if (_currentUser != null) {
-      _storageService.saveDailyData(_currentUser!.uid, date, 'report', data);
-    }
-  }
-
-  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
-    if (_currentUser != null) {
-      await _storageService.saveWeeklyReport(_currentUser!.uid, date, data);
-    }
-  }
-
-  Map<String, dynamic>? getStartDayReport(String date) { 
-    if (_completedByDay[date] != null && _completedByDay[date]['startDayReport'] != null) {
-      return _completedByDay[date]['startDayReport'] as Map<String, dynamic>;
-    }
-    return null;
-  }
-
-  int get7DaySkillMomentum(String skillName) { 
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    int total = 0;
-    for (var log in _reflectionLogs) {
-      if (log.timestamp.isAfter(sevenDaysAgo)) {
-        total += log.xpGained[skillName] ?? 0;
-      }
-    }
-    return total;
-  }
-
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async { 
-    final eval = await _aiService.evaluateReflection(
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      modelCandidates: _settings.liteModels, 
-      customApiKeys: _settings.customApiKeys,
-      systemInstruction: _settings.customReflectionPrompt
-    );
-    
-    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
-    
-    // Apply XP to skills
-    for (var entry in xpGained.entries) {
-      if (entry.value > 0) {
-        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) {
-           skill.addXp(entry.value);
-        }
-      }
-    }
-
-    final log = ReflectionLog(
-      id: const Uuid().v4(),
-      timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger,
-      emotion: emotion,
-      reason: reason,
-      action: action,
-      aiFeedback: eval['feedback'] ?? '',
-      xpGained: xpGained,
-    );
-
-    _reflectionLogs.add(log);
-    _markDirty('reflections');
-    _markDirty('settings'); // Settings hold skills
-    _scheduleRealtimeSync();
-    notifyListeners();
-
-    return {'log': log, 'xpGained': xpGained};
-  }
-
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) { 
-    final log = ReflectionLog(
-      id: const Uuid().v4(),
-      timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger,
-      emotion: emotion,
-      reason: reason,
-      action: action,
-      aiFeedback: "Saved without AI analysis.",
-      xpGained: {},
-    );
-    _reflectionLogs.add(log);
-    _markDirty('reflections');
-    _scheduleRealtimeSync();
-    notifyListeners();
-  }
-
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) { 
-    final log = _reflectionLogs.firstWhereOrNull((l) => l.id == id);
-    if (log != null) {
-      if (trigger != null) log.trigger = trigger;
-      if (emotion != null) log.emotion = emotion;
-      if (reason != null) log.reason = reason;
-      if (action != null) log.action = action;
-      _markDirty('reflections');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  void deleteReflectionLog(String id) { 
-    final logIndex = _reflectionLogs.indexWhere((l) => l.id == id);
-    if (logIndex != -1) {
-      final log = _reflectionLogs[logIndex];
-      // Revert XP
-      for (var entry in log.xpGained.entries) {
-        final skill = _skills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) {
-           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
-        }
-      }
-      _reflectionLogs.removeAt(logIndex);
-      _markDirty('reflections');
-      _markDirty('settings');
-      _scheduleRealtimeSync();
-      notifyListeners();
-    }
-  }
-
-  MainTask? getSelectedTask() => _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId);
-
-  List<bool> getCompletionStatusForCurrentWeek(MainTask task) { 
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
     List<bool> weeklyStatus = List.filled(7, false);
     final now = DateTime.now();
-    final currentWeekday = now.weekday; // 1 (Mon) to 7 (Sun)
-    
-    // Convert to 0-indexed based on settings (startOfWeek: 1=Mon, 7=Sun)
-    final startOffset = _settings.startOfWeek;
-    
-    // Calculate the date of the start of the current week
-    // e.g. If today is Wed(3) and start is Mon(1), diff is 2.
+    final currentWeekday = now.weekday;
+    final startOffset = settings.startOfWeek;
     int diff = currentWeekday - startOffset;
     if (diff < 0) diff += 7;
-    
     final startOfWeekDate = now.subtract(Duration(days: diff));
 
     for (int i = 0; i < 7; i++) {
       final targetDate = startOfWeekDate.add(Duration(days: i));
-      if (targetDate.isAfter(now)) break; // Future days remain false
-      
+      if (targetDate.isAfter(now)) break;
       final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
-      final dayData = _completedByDay[dateStr];
+      final dayData = completedByDay[dateStr];
       if (dayData != null && dayData['taskTimes'] != null) {
          final times = dayData['taskTimes'] as Map<String, dynamic>;
-         if (times.containsKey(task.id) && (times[task.id] as int) > 0) {
-            weeklyStatus[i] = true;
-         }
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
       }
     }
     return weeklyStatus;
   }
 
-  int getYesterdaysTimeForTask(String taskId) { 
+  int getYesterdaysTimeForTask(String taskId) {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
-    final dayData = _completedByDay[dateStr];
+    final dayData = completedByDay[dateStr];
     if (dayData != null && dayData['taskTimes'] != null) {
       return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
     }
     return 0;
   }
 
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) { 
-    for (var mainTask in _mainTasks) {
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in mainTasks) {
       for (var project in mainTask.projects) {
         final step = _findStepByTargetId(project.steps, targetId);
         if (step != null) {
-          return {
-            'mainTaskId': mainTask.id,
-            'projectId': project.id,
-            'projectTitle': project.title,
-            'stepId': step.id,
-            'stepTitle': step.title,
-          };
+          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
         }
       }
     }
@@ -1324,5 +559,157 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (found != null) return found;
     }
     return null;
+  }
+
+  int get7DaySkillMomentum(String skillName) {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final eval = await _aiService.evaluateReflection(
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      modelCandidates: settings.liteModels, 
+      customApiKeys: settings.customApiKeys
+    );
+    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+    
+    final newSkills = List<Skill>.from(skills);
+    for (var entry in xpGained.entries) {
+      if (entry.value > 0) {
+        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) skill.addXp(entry.value);
+      }
+    }
+    setSkills(newSkills);
+
+    final log = ReflectionLog(
+      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: eval['feedback'] ?? '', xpGained: xpGained
+    );
+    setReflectionLogs([...reflectionLogs, log]);
+    
+    return {'log': log, 'xpGained': xpGained};
+  }
+
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) {
+    final log = ReflectionLog(
+      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Quick Save", xpGained: {}
+    );
+    setReflectionLogs([...reflectionLogs, log]);
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = reflectionLogs[index];
+      if (trigger != null) log.trigger = trigger;
+      if (emotion != null) log.emotion = emotion;
+      if (reason != null) log.reason = reason;
+      if (action != null) log.action = action;
+      setReflectionLogs(List.from(reflectionLogs));
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = reflectionLogs[index];
+      final newSkills = List<Skill>.from(skills);
+      for (var entry in log.xpGained.entries) {
+        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
+        }
+      }
+      setSkills(newSkills);
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  NoraSession? get activeNoraSession {
+    if (chatbotMemory.activeNoraSessionId == null) return null;
+    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
+    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.add(newSession);
+    newMemory.activeNoraSessionId = newSession.id;
+    setChatbotMemory(newMemory);
+  }
+
+  void switchNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.activeNoraSessionId = sessionId;
+    setChatbotMemory(newMemory);
+  }
+
+  void deleteNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (newMemory.activeNoraSessionId == sessionId) {
+      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
+    }
+    setChatbotMemory(newMemory);
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    session.messages.add(userMsg);
+    markDirty('settings'); 
+    
+    try {
+      final prompt = "You are ${session.tone}. User: $text";
+      final responseText = await _aiService.queryNeuralArchive(
+        query: text, logsContext: prompt, 
+        modelCandidates: settings.liteModels, 
+        currentApiKeyIndex: apiKeyIndex, 
+        customApiKeys: settings.customApiKeys, 
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
+        onLog: (m) {}
+      );
+      
+      final botMsg = ChatbotMessage(id: const Uuid().v4(), text: responseText, sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(botMsg);
+      markDirty('settings');
+      notifyListeners();
+    } catch(e) {
+      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(errorMsg);
+      markDirty('settings');
+      notifyListeners();
+    }
+  }
+  
+  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
+  
+  void addCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void removeCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void setJournalPin(String pin) {
+    setSettings(settings..journalPin = pin);
   }
 }
