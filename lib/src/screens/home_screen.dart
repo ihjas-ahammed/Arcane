@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
@@ -8,6 +7,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/more_screen.dart'; 
 import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> widgetOptions = <Widget>[
       // 0: MISSIONS
       Align(
-        alignment: Alignment.topCenter, // Fixed: Top alignment instead of Center
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const TaskDetailsView(),
@@ -233,7 +233,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: BottomNavigationBar(
             backgroundColor: AppTheme.fhBgDeepDark,
-            selectedItemColor: AppTheme.fhAccentRed,
+            // Updated: Use Agent Color for selected items
+            selectedItemColor: currentTaskColor,
             unselectedItemColor: AppTheme.fhTextSecondary,
             selectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,

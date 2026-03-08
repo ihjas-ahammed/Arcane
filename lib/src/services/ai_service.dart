@@ -7,7 +7,6 @@ import 'package:arcane/src/utils/json_utils.dart';
 
 class AIService {
   
-  // ... [Existing _executeWithModelAndKeyRotation and makeAICall methods remain unchanged] ...
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -120,7 +119,6 @@ class AIService {
         onLog: onLog);
   }
 
-  // ... [Other methods like generateSchedulePrediction, queryNeuralArchive, etc. remain unchanged] ...
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
@@ -518,9 +516,20 @@ class AIService {
     Logs:
     $logsText
     
-    Output JSON ONLY:
+    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
     {
-      "details": "string (multiline formatted text)"
+      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
+      "level": int (1-100 based on relationship depth),
+      "xp": int (total arbitrary xp based on significance, e.g. 2650),
+      "role": "Their inferred role (e.g. Student, Colleague)",
+      "status": "Current relationship status (e.g. Calibration Phase, Active)",
+      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
+      "interaction_history": [
+        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
+      ],
+      "communication_tips": [
+        {"highlight": "Tip Name:", "text": "Description of the tip."}
+      ]
     }
     """;
 

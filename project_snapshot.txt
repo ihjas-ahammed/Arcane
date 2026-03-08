@@ -1,2237 +1,403 @@
---- START OF FILE lib/src/services/ai_service.dart ---
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/utils/json_utils.dart';
+To fix the background of the Insight Dialog and ensure it covers the entire screen properly with the blur effect (instead of being clipped to the dialog's default margins), I will update `lib/src/widgets/dialogs/xp_gain_dialog.dart`.
 
-class AIService {
-  
-  Future<T> _executeWithModelAndKeyRotation<T>({
-    required List<String> modelCandidates,
-    required Future<T> Function(String apiKey, String modelName) requestFn,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final List<String> apiKeysToTry = <String>{
-      ...geminiApiKeys,
-      if (customApiKeys != null) ...customApiKeys
-    }.toList();
+This change sets `insetPadding` to zero and uses a `Stack` to manage the backdrop and the centered card independently, creating a true full-screen overlay feel consistent with the Spider-Man 2 aesthetic.
 
-    if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
-    }
+--- START OF FILE project_snapshot_out.txt ---
 
-    for (final model in modelCandidates) {
-      for (int i = 0; i < apiKeysToTry.length; i++) {
-        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
-        String effectiveKey = apiKeysToTry[effectiveIndex];
-
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
-
-        try {
-          if (kDebugMode) {
-            onLog("Trying Model: $model with Key Index: $effectiveIndex");
-          }
-          final result = await requestFn(effectiveKey, model);
-          onNewApiKeyIndex(effectiveIndex);
-          return result;
-        } catch (e) {
-          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
-             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
-             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
-          }
-          onLog(
-              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
-        }
-      }
-    }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
-  }
-
-  Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
-        }
-        
-        return JsonUtils.tryDecode(rawResponseText);
-      },
-    );
-  }
-
-  // --- New Method for Action Plan Generation ---
-  Future<Map<String, dynamic>> generateActionPlanSteps({
-    required String taskName,
-    required String why,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Create a tactical action plan (How) and expected outcome (What) for the following objective:
-    
-    OBJECTIVE: $taskName
-    STRATEGIC INTENT (WHY): $why
-    
-    Task:
-    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
-    2. Define the expected result/reward ("What") upon completion.
-    
-    Output JSON ONLY:
-    {
-      "steps": [
-        {"name": "Step description"}
-      ],
-      "what": "Description of the result or reward"
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
-    required String sessionHistory, 
-    required String currentTime,
-    required String availableTasksContext, 
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
-    
-    HISTORY:
-    $sessionHistory
-    
-    AVAILABLE TASKS (Map prediction to these if possible):
-    $availableTasksContext
-    
-    INSTRUCTIONS:
-    1. Analyze patterns (time of day, duration, sequence).
-    2. Suggest 1-10 likely sessions for the remainder of the day.
-    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
-    4. CONFIDENTIALITY: Do not use specific names of real people.
-    
-    CRITICAL OUTPUT FORMATTING:
-    - Return ONLY valid JSON.
-    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
-    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
-    
-    OUTPUT JSON ARRAY STRUCTURE:
-    [
-      {
-        "taskName": "Exact Name from Available Tasks or New Name",
-        "subTaskName": "Specific Activity",
-        "startOffsetMinutes": int (minutes from Now to start),
-        "durationMinutes": int
-      }
-    ]
-    """;
-
-    final result = await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        String? raw = response.text;
-        if (raw == null) throw Exception("Empty AI response");
-        return JsonUtils.tryDecode(raw);
-      },
-    );
-
-    if (result is List) {
-      return result.map((e) => e as Map<String, dynamic>).toList();
-    }
-    return [];
-  }
-
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    $logsContext
-    
-    USER: "$query"
-    """;
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
-  }
-
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
-    required String parentStepTitle,
-    required String parentStepDescription,
-    required List<String> existingSubsteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateAISubquests({
-    required List<String> modelCandidates,
-    required String mainTaskName,
-    required String mainTaskDescription,
-    String? mainTaskTheme,
-    required String generationMode,
-    required String userInput,
-    required int numSubquests,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
-    required String subtaskName,
-    required String parentTaskName,
-    required List<String> existingCheckpoints,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<Map<String, dynamic>> evaluateReflection({
-    required String trigger,
-    required String emotion,
-    required String reason,
-    required String action,
-    required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
-    List<String>? customApiKeys,
-    String? systemInstruction,
-  }) async {
-    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
-    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
-    
-    final prompt = """
-    Analyze this reflection log.
-    Situation: $trigger
-    Feeling: $emotion
-    Reason: $reason
-    Action Planned: $action
-    
-    1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-
-    Output JSON: {
-      "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...}
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: 0,
-        onNewApiKeyIndex: (_) {},
-        onLog: (_) {});
-  }
-
-  Future<Map<String, dynamic>> generateDailySummary({
-    required List<Map<String, String>> reflections,
-    required List<String> previousBriefings,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a Tactical Briefing based on today's reflections.
-    Current Logs: ${jsonEncode(reflections)}
-    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    
-    Tone: Empathetic, psychologically wise, therapist.
-    
-    Task:
-    1. Create a concise summary focusing purely on GRATITUDE. Highlight everything the user should be grateful for based on today's reflections.
-    2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
-    
-    Output JSON: {
-      "summary": "string (max 120 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> generateWeeklyReport({
-    required String logsText,
-    required String timeStatsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
-    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
-    3. Output JSON: 
-    { 
-      "summary": "string", 
-      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
-      "time_insight": "string",
-      "grateful_people": [ {"name": "string", "reason": "string"} ]
-    } 
-    Logs: $logsText. 
-    Time: $timeStatsText. 
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
-    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-    
-    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
-      throw Exception("No valid API Key found to fetch models.");
-    }
-
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['models'] != null && data['models'] is List) {
-        final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
-          if (methods.contains('generateContent')) {
-            return (m['name'] as String).replaceFirst('models/', '');
-          }
-          return null;
-        }).whereType<String>().toList();
-        return models;
-      }
-      return [];
-    } else {
-      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
-    }
-  }
-
-  Future<Map<String, dynamic>> generateStartDayReport({
-    required String reflectionsList,
-    required String sessionsList,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Generate a 'System Start-Up Sequence' for the user based on their recent history.
-    Context:
-    Reflections (Last 7 days): $reflectionsList
-    Sessions (Last 7 days): $sessionsList
-    
-    Tone: A supportive, insightful human friend having a morning coffee with the user. Friendly, warm, but highly practical and focused on their growth.
-    
-    Task:
-    1. Analyze the user's momentum.
-    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today based on yesterday's logs).
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
-    
-    Output JSON ONLY:
-    {
-      "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
-      "directives": ["string", "string", "string"]
-    }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
-    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
-    Create a list of upto 50 people
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY:
-    {
-      "people": [
-        {
-          "name": "string",
-          "relation": "string"
-        }
-      ]
-    }
-    """;
-
-    final result = await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
-  }
-
-  Future<Map<String, dynamic>> generatePersonDetails({
-    required String personName,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
-    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
-    
-    Logs:
-    $logsText
-    
-    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
-    {
-      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
-      "level": int (1-100 based on relationship depth),
-      "xp": int (total arbitrary xp based on significance, e.g. 2650),
-      "role": "Their inferred role (e.g. Student, Colleague)",
-      "status": "Current relationship status (e.g. Calibration Phase, Active)",
-      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
-      "interaction_history": [
-        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
-      ],
-      "communication_tips": [
-        {"highlight": "Tip Name:", "text": "Description of the tip."}
-      ]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> runQuickTherapy({
-    required String reason,
-    required String feeling,
-    required String action,
-    required String logsText,
-    required String peopleContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    User needs immediate psychological assistance.
-    Current Situation / Reason: $reason
-    Current Feeling: $feeling
-    Planned Action: $action
-    
-    Past Context (Reflections): $logsText
-    Known People: $peopleContext
-    
-    Task:
-    1. Provide a concise, empathetic, and tactical action plan for right now.
-    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
-    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
-    
-    Output JSON ONLY:
-    {
-      "action_plan": "string",
-      "suggested_person": "string or null",
-      "conversation_map": ["step 1", "step 2"]
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-
-  Future<Map<String, dynamic>> simulateEvent({
-    required String situation,
-    required String logsText,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
-    
-    Proposed Situation: $situation
-    
-    Past Context (Reflections): $logsText
-    
-    Task:
-    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
-    
-    Output JSON ONLY:
-    {
-      "simulation": "string"
-    }
-    """;
-
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-  }
-}
---- END OF FILE lib/src/services/ai_service.dart ---
-
---- START OF FILE lib/src/providers/app_provider.dart ---
+--- START OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/services/firebase_service.dart' as fb_service;
-import 'package:arcane/src/services/local_storage_service.dart';
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/data_export_service.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; 
-import 'package:arcane/src/utils/constants.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:intl/intl.dart';
-import 'package:collection/collection.dart';
-import 'package:uuid/uuid.dart';
-import 'dart:io';
-import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:ui';
+import 'dart:math';
 
-// Import Mixins
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
-import 'package:arcane/src/providers/mixins/task_mixin.dart';
-import 'package:arcane/src/providers/mixins/finance_mixin.dart';
-import 'package:arcane/src/providers/mixins/user_mixin.dart';
+class XpGainDialog extends StatefulWidget {
+  final Map<String, int> xpGained;
+  final String? insightText;
 
-// Import Actions
-import 'package:arcane/src/providers/actions/task_actions.dart';
-import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
-import 'package:arcane/src/providers/actions/timer_actions.dart';
-import 'package:arcane/src/providers/actions/project_actions.dart';
-import 'package:arcane/src/providers/actions/report_actions.dart';
-import 'package:arcane/src/providers/actions/schedule_actions.dart';
-import 'package:arcane/src/providers/actions/finance_actions.dart';
-import 'package:arcane/src/providers/actions/journaling_actions.dart';
+  const XpGainDialog({super.key, required this.xpGained, this.insightText});
 
-class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, WidgetsBindingObserver {
-  
-  final AIService _aiService = AIService();
-  final DataExportService _exportService = DataExportService();
-  final StorageService _cloudStorage = StorageService();
-  final LocalStorageService _localStorage = LocalStorageService();
+  @override
+  State<XpGainDialog> createState() => _XpGainDialogState();
+}
 
-  AIService get aiService => _aiService;
+class _XpGainDialogState extends State<XpGainDialog>
+    with TickerProviderStateMixin {
+  late AnimationController _mainController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
-  // UI State
-  String? _loadingTaskName;
-  String? get loadingTaskName => _loadingTaskName;
-  bool _isGeneratingSubquestsForTask = false;
-  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
-  
-  bool get isDataLoadingAfterLogin => false; 
+  late AnimationController _counterController;
+  late Animation<int> _xpCounterAnimation;
 
-  // Actions
-  late final TaskActions _taskActions;
-  late final AIGenerationActions _aiGenerationActions;
-  late final TimerActions _timerActions;
-  late final ProjectActions _projectActions;
-  late final ReportActions _reportActions;
-  late final ScheduleActions _scheduleActions;
-  late final FinanceActions _financeActions;
-  late final JournalingActions _journalingActions;
+  @override
+  void initState() {
+    super.initState();
+    _mainController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
 
-  TaskActions get taskActions => _taskActions;
-  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
-  TimerActions get timerActions => _timerActions;
-  ProjectActions get projectActions => _projectActions;
-  ReportActions get reportActions => _reportActions;
-  ScheduleActions get scheduleActions => _scheduleActions;
-  FinanceActions get financeActions => _financeActions;
-  JournalingActions get journalingActions => _journalingActions;
+    _scaleAnimation = CurvedAnimation(
+      parent: _mainController,
+      curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
+    );
 
-  AppProvider() {
-    _taskActions = TaskActions(this);
-    _aiGenerationActions = AIGenerationActions(this);
-    _timerActions = TimerActions(this);
-    _projectActions = ProjectActions(this);
-    _reportActions = ReportActions(this);
-    _scheduleActions = ScheduleActions(this);
-    _financeActions = FinanceActions(this);
-    _journalingActions = JournalingActions(this);
+    _fadeAnimation = CurvedAnimation(
+      parent: _mainController,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+    );
 
-    _initialize();
-    WidgetsBinding.instance.addObserver(this);
+    final totalXp = widget.xpGained.values.fold(0, (a, b) => a + b);
+
+    _counterController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500));
+
+    _xpCounterAnimation = IntTween(begin: 0, end: totalXp).animate(
+      CurvedAnimation(parent: _counterController, curve: Curves.easeOutExpo),
+    );
+
+    _mainController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _counterController.forward();
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _mainController.dispose();
+    _counterController.dispose();
     super.dispose();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (currentUser != null) {
-        scheduleRealtimeSync(); 
-      }
-    }
-  }
-
-  // --- Initialization ---
-
-  Future<void> _initialize() async {
-    initializeSkills();
-    initializeDefaultFinanceCategories();
-    initSync(); 
-    
-    fb_service.authStateChanges.listen(_onAuthStateChanged);
-  }
-
-  Future<void> _onAuthStateChanged(User? user) async {
-    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
-
-    setAuthLoading(true);
-
-    if (user != null) {
-      setCurrentUser(user);
-
-      // Load Local
-      final localData = await _localStorage.loadState();
-      bool loadedLocal = false;
-      if (localData != null) {
-        loadStateFromMap(localData);
-        loadedLocal = true;
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        _handleDailyReset();
-        setAuthLoading(false); // Show UI immediately
-      }
-
-      // Sync with Cloud
-      try {
-        final cloudData = await _cloudStorage.getUserData(user.uid);
-        if (cloudData != null) {
-          int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-          
-          if (!loadedLocal || cloudTs > settings.lastModified) {
-            loadStateFromMap(cloudData);
-            scheduleRealtimeSync(); // Update local
-          } else if (loadedLocal && settings.lastModified > cloudTs) {
-            scheduleRealtimeSync(); // Push local to cloud
-          }
-        } else if (!loadedLocal) {
-          await _resetToInitialState();
-          setLastLoginDate(helper.getTodayDateString());
-          scheduleRealtimeSync();
-        }
-        
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        await _taskActions.recalibrateTimeLogs(silent: true);
-        _handleDailyReset();
-
-      } catch (e) {
-        debugPrint("Cloud init failed: $e");
-      } finally {
-        setAuthLoading(false);
-      }
-
-    } else {
-      setCurrentUser(null);
-      await _resetToInitialState();
-      await _localStorage.clearState();
-      setAuthLoading(false);
-    }
-  }
-
-  Future<void> _resetToInitialState() async {
-    setLastLoginDate(null);
-    setSettings(AppSettings());
-    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
-    setCompletedByDay({});
-    setActiveTimers({});
-    setReflectionLogs([]);
-    setTransactions([]);
-    setCategories([]);
-    setSavingsGoals([]);
-    setChatbotMemory(ChatbotMemory());
-    initializeSkills();
-    initializeDefaultFinanceCategories();
-  }
-
-  // --- Mixin Implementations & Legacy Compat ---
-
-  @override
-  Map<String, dynamic> getFullAppState() {
-    final map = <String, dynamic>{};
-    map.addAll(getTaskStateMap());
-    map.addAll(getFinanceStateMap());
-    map.addAll(getUserStateMap());
-    return map;
-  }
-
-  // Legacy compatibility for DatabaseEditorScreen and DataRecoveryScreen
-  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
-  
-  // Legacy compatibility
-  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
-
-  @override
-  void loadStateFromMap(Map<String, dynamic> data) {
-    loadTaskState(data);
-    loadFinanceState(data);
-    loadUserState(data);
-    
-    // Version Check
-    if (settings.dataVersion < 1) {
-      settings.dataVersion = 1;
-      markDirty('settings');
-    }
-  }
-
-  // --- UI Helpers ---
-
-  void setLoadingTask(String? name) {
-    _loadingTaskName = name;
-    notifyListeners();
-  }
-
-  void setProviderAISubquestLoading(bool loading) {
-    _isGeneratingSubquestsForTask = loading;
-    notifyListeners();
-  }
-
-  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
-
-  // --- State Bridge ---
-  
-  void setProviderState({
-      String? lastLoginDate,
-      List<MainTask>? mainTasks,
-      Map<String, dynamic>? completedByDay,
-      Map<String, dynamic>? activeTimers,
-      DateTime? lastSuccessfulSaveTimestamp,
-      bool? isUsernameMissing,
-      ChatbotMemory? chatbotMemory,
-      List<FinanceTransaction>? transactions,
-      List<FinanceCategory>? categories,
-      List<SavingsGoal>? savingsGoals,
-      bool doNotify = true,
-      bool doPersist = true
-  }) {
-    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
-    if (mainTasks != null) setMainTasks(mainTasks);
-    if (completedByDay != null) setCompletedByDay(completedByDay);
-    if (activeTimers != null) setActiveTimers(activeTimers);
-    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
-    if (transactions != null) setTransactions(transactions);
-    if (categories != null) setCategories(categories);
-    if (savingsGoals != null) setSavingsGoals(savingsGoals);
-    
-    if (doNotify) notifyListeners();
-  }
-
-  // --- Delegated Actions ---
-
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
-  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
-  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
-  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
-  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
-  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
-  void pauseTimer(String id) => _timerActions.pauseTimer(id);
-  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
-  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
-
-  // --- Auth & Wrappers ---
-
-  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
-  Future<void> logoutUser() async => await fb_service.signOut();
-  Future<void> signupUser(String email, String password, String username) async {
-    final user = await fb_service.signUpWithEmail(email, password);
-    if (user != null) {
-      await user.updateDisplayName(username);
-      await user.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
-    }
-  }
-  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
-  Future<void> updateUserDisplayName(String name) async {
-    if (currentUser != null) {
-      await currentUser!.updateDisplayName(name);
-      await currentUser!.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
-    }
-  }
-
-  Future<void> clearAllData() async {
-    if (currentUser == null) return;
-    await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState();
-    await _resetToInitialState();
-    markDirty('settings');
-    markDirty('tasks');
-    markDirty('history');
-    markDirty('reflections');
-    markDirty('finance');
-    scheduleRealtimeSync();
-  }
-
-  Future<void> restoreFromLocalSnapshot(File backupFile) async {
-    try {
-      final contents = await backupFile.readAsString();
-      final data = jsonDecode(contents) as Map<String, dynamic>;
-      loadStateFromMap(data);
-      scheduleRealtimeSync();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  void initializeChatbotMemory() {
-    notifyListeners(); 
-  }
-
-  Future<void> exportReflections() async {
-    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
-    await _exportService.exportJson(data, 'arcane_reflections');
-  }
-
-  Future<void> importReflections() async {
-    final data = await _exportService.importJson();
-    if (data != null && data['reflectionLogs'] != null) {
-      final List<dynamic> logsJson = data['reflectionLogs'];
-      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
-      final currentIds = reflectionLogs.map((l) => l.id).toSet();
-      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
-      if (newLogs.isNotEmpty) {
-        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
-      }
-    }
-  }
-
-  // --- Reports Logic ---
-  Map<String, dynamic> getLast7DaysData() { 
-    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
-    final recentReflections = reflectionLogs
-        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
-        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
-        .join("\n");
-    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
-  }
-
-  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
-    if (currentUser == null) return [];
-    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
-  }
-
-  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
-    if (currentUser != null) {
-      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
-    }
-  }
-
-  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
-    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    dayData['aiBriefing'] = data;
-    newCompletedByDay[date] = dayData;
-    setCompletedByDay(newCompletedByDay);
-
-    if (currentUser != null) {
-      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
-    }
-  }
-
-  void saveStartDayReport(String date, Map<String, dynamic> data) { 
-    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    dayData['startDayReport'] = data;
-    newCompletedByDay[date] = dayData;
-    setCompletedByDay(newCompletedByDay);
-
-    if (currentUser != null) {
-      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
-    }
-  }
-
-  Map<String, dynamic>? getTacticalBriefing(String date) {
-    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
-      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getStartDayReport(String date) {
-    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
-      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
-    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
-    final recentBriefings = <String>[];
-    for (int i=1; i<=3; i++) {
-       final d = DateTime.parse(date).subtract(Duration(days: i));
-       final dStr = DateFormat('yyyy-MM-dd').format(d);
-       final b = getTacticalBriefing(dStr);
-       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
-    }
-    return await _aiService.generateDailySummary(
-      reflections: logsFormatted, 
-      previousBriefings: recentBriefings, 
-      modelCandidates: settings.heavyModels, // Using Pro Models
-      currentApiKeyIndex: apiKeyIndex, 
-      customApiKeys: settings.customApiKeys,
-      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
-      onLog: (m) => debugPrint(m)
-    );
-  }
-
-  void _cleanOverlappingSessions() {
-    bool changed = false;
-    final newMainTasks = mainTasks.map((task) {
-      return task.copyWith(
-        subTasks: task.subTasks.map((sub) {
-          if (sub.sessions.length <= 1) return sub;
-          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
-          final List<TaskSession> cleaned = [sorted.first];
-          for (int i = 1; i < sorted.length; i++) {
-            final current = sorted[i];
-            final previous = cleaned.last;
-            if (current.startTime.isBefore(previous.endTime)) {
-              changed = true;
-              if (current.endTime.isAfter(previous.endTime)) {
-                cleaned.removeLast();
-                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
-              }
-            } else {
-              cleaned.add(current);
-            }
-          }
-          if (cleaned.length != sub.sessions.length) {
-            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
-            return SubTask(
-              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
-              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
-              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what,
-            );
-          }
-          return sub;
-        }).toList()
-      );
-    }).toList();
-
-    if (changed) setMainTasks(newMainTasks);
-  }
-
-  void _fixTimerAnomalies() {
-    // Logic handles in mixin or here if specialized
-  }
-
-  Future<void> _handleDailyReset() async {
-    final todayStr = helper.getTodayDateString();
-    if (lastLoginDate != todayStr) {
-      bool changed = false;
-      final newMainTasks = mainTasks.map((task) {
-        final updatedSubtasks = task.subTasks.map((st) {
-          if (st.isRecurring) {
-             bool shouldReset = false;
-             if (st.completed && st.lastCompletedDate != null) {
-                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
-             } else if (st.completed) {
-                shouldReset = true;
-             }
-             if (shouldReset) {
-               changed = true;
-               return SubTask(
-                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
-                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
-                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
-                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
-                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what
-               );
-             }
-          }
-          return st;
-        }).toList();
-        
-        if (task.dailyTimeSpent > 0) {
-          changed = true;
-          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
-        }
-        return task.copyWith(subTasks: updatedSubtasks);
-      }).toList();
-
-      setLastLoginDate(todayStr);
-      if (changed) setMainTasks(newMainTasks);
-    }
-  }
-
-  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
-    List<bool> weeklyStatus = List.filled(7, false);
-    final now = DateTime.now();
-    final currentWeekday = now.weekday;
-    final startOffset = settings.startOfWeek;
-    int diff = currentWeekday - startOffset;
-    if (diff < 0) diff += 7;
-    final startOfWeekDate = now.subtract(Duration(days: diff));
-
-    for (int i = 0; i < 7; i++) {
-      final targetDate = startOfWeekDate.add(Duration(days: i));
-      if (targetDate.isAfter(now)) break;
-      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
-      final dayData = completedByDay[dateStr];
-      if (dayData != null && dayData['taskTimes'] != null) {
-         final times = dayData['taskTimes'] as Map<String, dynamic>;
-         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
-      }
-    }
-    return weeklyStatus;
-  }
-
-  int getYesterdaysTimeForTask(String taskId) {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
-    final dayData = completedByDay[dateStr];
-    if (dayData != null && dayData['taskTimes'] != null) {
-      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
-    }
-    return 0;
-  }
-
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
-    for (var mainTask in mainTasks) {
-      for (var project in mainTask.projects) {
-        final step = _findStepByTargetId(project.steps, targetId);
-        if (step != null) {
-          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
-        }
-      }
-    }
-    return null;
-  }
-  
-  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
-    for (var step in steps) {
-      if (step.linkedTaskId == targetId) return step;
-      final found = _findStepByTargetId(step.substeps, targetId);
-      if (found != null) return found;
-    }
-    return null;
-  }
-
-  int get7DaySkillMomentum(String skillName) {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    int total = 0;
-    for (var log in reflectionLogs) {
-      if (log.timestamp.isAfter(sevenDaysAgo)) {
-        total += log.xpGained[skillName] ?? 0;
-      }
-    }
-    return total;
-  }
-
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
-    final eval = await _aiService.evaluateReflection(
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      modelCandidates: settings.liteModels, 
-      customApiKeys: settings.customApiKeys
-    );
-    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
-    
-    final newSkills = List<Skill>.from(skills);
-    for (var entry in xpGained.entries) {
-      if (entry.value > 0) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) skill.addXp(entry.value);
-      }
-    }
-    setSkills(newSkills);
-
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: eval['feedback'] ?? '', xpGained: xpGained
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-    
-    return {'log': log, 'xpGained': xpGained};
-  }
-
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) {
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: "Quick Save", xpGained: {}
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-  }
-
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) {
-    final index = reflectionLogs.indexWhere((l) => l.id == id);
-    if (index != -1) {
-      final log = reflectionLogs[index];
-      if (trigger != null) log.trigger = trigger;
-      if (emotion != null) log.emotion = emotion;
-      if (reason != null) log.reason = reason;
-      if (action != null) log.action = action;
-      setReflectionLogs(List.from(reflectionLogs));
-    }
-  }
-
-  void deleteReflectionLog(String id) {
-    final index = reflectionLogs.indexWhere((l) => l.id == id);
-    if (index != -1) {
-      final log = reflectionLogs[index];
-      final newSkills = List<Skill>.from(skills);
-      for (var entry in log.xpGained.entries) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) {
-           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
-        }
-      }
-      setSkills(newSkills);
-      
-      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
-      setReflectionLogs(newLogs);
-    }
-  }
-
-  NoraSession? get activeNoraSession {
-    if (chatbotMemory.activeNoraSessionId == null) return null;
-    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
-  }
-
-  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
-    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
-    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
-    newMemory.noraSessions.add(newSession);
-    newMemory.activeNoraSessionId = newSession.id;
-    setChatbotMemory(newMemory);
-  }
-
-  void switchNoraSession(String sessionId) {
-    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
-    newMemory.activeNoraSessionId = sessionId;
-    setChatbotMemory(newMemory);
-  }
-
-  void deleteNoraSession(String sessionId) {
-    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
-    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
-    if (newMemory.activeNoraSessionId == sessionId) {
-      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
-    }
-    setChatbotMemory(newMemory);
-  }
-
-  Future<void> sendNoraMessage(String text) async {
-    final session = activeNoraSession;
-    if (session == null) return;
-
-    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
-    session.messages.add(userMsg);
-    markDirty('settings'); 
-    
-    try {
-      final prompt = "You are ${session.tone}. User: $text";
-      final responseText = await _aiService.queryNeuralArchive(
-        query: text, logsContext: prompt, 
-        modelCandidates: settings.liteModels, 
-        currentApiKeyIndex: apiKeyIndex, 
-        customApiKeys: settings.customApiKeys, 
-        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
-        onLog: (m) {}
-      );
-      
-      final botMsg = ChatbotMessage(id: const Uuid().v4(), text: responseText, sender: MessageSender.bot, timestamp: DateTime.now());
-      session.messages.add(botMsg);
-      markDirty('settings');
-      notifyListeners();
-    } catch(e) {
-      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
-      session.messages.add(errorMsg);
-      markDirty('settings');
-      notifyListeners();
-    }
-  }
-  
-  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
-  
-  void addCustomApiKey(String key) {
-    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
-    setSettings(settings..customApiKeys = newKeys);
-  }
-  
-  void removeCustomApiKey(String key) {
-    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
-    setSettings(settings..customApiKeys = newKeys);
-  }
-  
-  void setJournalPin(String pin) {
-    setSettings(settings..journalPin = pin);
-  }
-}
---- END OF FILE lib/src/providers/app_provider.dart ---
-
---- START OF FILE lib/src/providers/actions/report_actions.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:intl/intl.dart';
-
-class ReportActions {
-  final AppProvider _provider;
-  final AIService _aiService;
-
-  ReportActions(this._provider) : _aiService = _provider.aiService;
-
-  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    
-    // Gather Reflections Context
-    final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
-    final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
-
-    // Gather Sessions Context
-    final sessionsStrBuffer = StringBuffer();
-    for (var task in _provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isAfter(sevenDaysAgo)) {
-            sessionsStrBuffer.writeln("[${DateFormat('MM-dd').format(session.startTime)}] ${task.name} - ${sub.name}: ${session.durationMinutes}m");
-          }
-        }
-      }
-    }
-
-    _provider.setLoadingTask("Generating Startup Report...");
-    
-    try {
-      final result = await _aiService.generateStartDayReport(
-        reflectionsList: reflectionsStr,
-        sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ReportAI] $msg"),
-      );
-
-      // Save report to today's history via Provider method
-      final today = getTodayDateString();
-      _provider.saveStartDayReport(today, result);
-
-      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
-
-    } catch (e) {
-      debugPrint("Error generating start day report: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-}
---- END OF FILE lib/src/providers/actions/report_actions.dart ---
-
---- START OF FILE lib/src/providers/actions/journaling_actions.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:uuid/uuid.dart';
-import 'dart:convert';
-
-class JournalingActions {
-  final AppProvider _provider;
-
-  JournalingActions(this._provider);
-
-  String _getLogsText() {
-    return _provider.reflectionLogs
-        .map((l) => "[${l.timestamp.toIso8601String()}] ${l.trigger}: ${l.emotion} - ${l.reason}")
-        .join('\n');
-  }
-
-  Future<void> extractAndSavePeople() async {
-    final logsText = _getLogsText();
-    if (logsText.isEmpty) return;
-
-    _provider.setLoadingTask("Extracting Entities...");
-
-    try {
-      // Intentionally using liteModels for extraction per prompt instructions
-      final results = await _provider.aiService.extractPeopleFromReflections(
-        logsText: logsText,
-        modelCandidates: _provider.settings.liteModels, 
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[PeopleExtraction] $msg"),
-      );
-
-      final currentPeople = List<PersonInfo>.from(_provider.chatbotMemory.people);
-
-      for (var data in results) {
-        final name = data['name'] as String?;
-        final relation = data['relation'] as String?;
-        if (name == null || name.isEmpty) continue;
-
-        final existingIndex = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
-        if (existingIndex != -1) {
-          if (relation != null) {
-            currentPeople[existingIndex].relation = relation;
-          }
-        } else {
-          currentPeople.add(PersonInfo(
-            id: const Uuid().v4(),
-            name: name,
-            relation: relation ?? 'Acquaintance',
-          ));
-        }
-      }
-
-      _provider.chatbotMemory.people = currentPeople;
-      _provider.markDirty('settings');
-      _provider.scheduleRealtimeSync();
-      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
-      _provider.notifyListeners();
-
-    } catch (e) {
-      debugPrint("Error extracting people: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-
-  Future<void> generatePersonDetails(String personId) async {
-    final personIndex = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
-    if (personIndex == -1) return;
-
-    final person = _provider.chatbotMemory.people[personIndex];
-    final logsText = _getLogsText();
-
-    _provider.setLoadingTask("Analyzing Profile...");
-
-    try {
-      final result = await _provider.aiService.generatePersonDetails(
-        personName: person.name,
-        logsText: logsText,
-        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[PersonDetails] $msg"),
-      );
-
-      // Save the entire JSON structure as a string so UI can parse it
-      _provider.chatbotMemory.people[personIndex].details = jsonEncode(result);
-      _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
-      _provider.markDirty('settings');
-      _provider.scheduleRealtimeSync();
-      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
-      _provider.notifyListeners();
-      
-    } catch (e) {
-      debugPrint("Error generating person details: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-
-  Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action) async {
-    final logsText = _getLogsText();
-    final peopleContext = _provider.chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(', ');
-
-    _provider.setLoadingTask("Formulating Strategy...");
-
-    try {
-      final result = await _provider.aiService.runQuickTherapy(
-        reason: reason,
-        feeling: feeling,
-        action: action,
-        logsText: logsText,
-        peopleContext: peopleContext.isEmpty ? "None" : peopleContext,
-        modelCandidates: _provider.settings.liteModels,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[QuickTherapy] $msg"),
-      );
-
-      return result;
-    } catch (e) {
-      debugPrint("Error running quick therapy: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-
-  Future<String> simulateEvent(String situation) async {
-    final logsText = _getLogsText();
-
-    _provider.setLoadingTask("Simulating Event...");
-
-    try {
-      final result = await _provider.aiService.simulateEvent(
-        situation: situation,
-        logsText: logsText,
-        modelCandidates: _provider.settings.liteModels,
-        currentApiKeyIndex: _provider.apiKeyIndex,
-        customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[EventSim] $msg"),
-      );
-
-      return result['simulation'] as String? ?? "Simulation failed to generate usable data.";
-    } catch (e) {
-      debugPrint("Error simulating event: $e");
-      rethrow;
-    } finally {
-      _provider.setLoadingTask(null);
-    }
-  }
-
-  void simulateTalk(PersonInfo person, String? customChatHistory) {
-    final customContext = """
-    You are roleplaying as ${person.name}, who is my ${person.relation}.
-    Do NOT break character. Do not refer to yourself as an AI.
-    Here is a psychological profile based on my past logs:
-    ${person.details ?? 'No additional details available.'}
-    
-    ${customChatHistory != null && customChatHistory.isNotEmpty ? "Here is a recent chat history for context to understand their speech pattern:\n$customChatHistory" : ""}
-    """;
-
-    _provider.createNoraSession(
-      title: "SIM: ${person.name}",
-      tone: "Simulated",
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
-      customContext: customContext,
-    );
-  }
-}
---- END OF FILE lib/src/providers/actions/journaling_actions.dart ---
-
---- START OF FILE lib/src/theme/person_info_theme.dart ---
-import 'package:flutter/material.dart';
-
-/// Theme constants mapped precisely to the requested HTML/CSS variables
-/// for the Person Profile Dossier screens.
-class PersonInfoTheme {
-  static const Color spideyRed = Color(0xFFd02b3e);
-  static const Color spideyCyan = Color(0xFF00f0ff);
-  static const Color spideyCyanDim = Color(0xFF006b72);
-  static const Color bgDark = Color(0xFF08111a);
-  static const Color bgPanel = Color(0xFF0b1623);
-  static const Color textWhite = Color(0xFFe6e6e6);
-  static const Color textGrey = Color(0xFF8a9ba8);
-  static const Color headerGradientStart = Color(0xFF162433);
-}
---- END OF FILE lib/src/theme/person_info_theme.dart ---
-
---- START OF FILE lib/src/widgets/journaling/person_info_header.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class PersonInfoHeader extends StatelessWidget {
-  final int level;
-  final int xp;
-  final String role;
-  final String titleName;
-
-  const PersonInfoHeader({
-    super.key,
-    required this.level,
-    required this.xp,
-    required this.role,
-    required this.titleName,
-  });
-
-  @override
   Widget build(BuildContext context) {
-    // XP Bar Width Calculation (Mock logic: Assuming 3000 max XP for display scaling)
-    final double xpProgress = (xp / 3000).clamp(0.0, 1.0);
+    final entries = widget.xpGained.entries.where((e) => e.value > 0).toList();
 
-    return Column(
-      children: [
-        // --- Header Section ---
-        Container(
-          height: 70,
-          decoration: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Color(0xFF1f2f40)),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero, // KEY FIX: Allow full screen layout
+      child: Stack(
+        children: [
+          // 1. Full Screen Backdrop Blur
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.85),
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              // Red Strip
-              Container(
-                width: 15,
-                height: double.infinity,
-                color: PersonInfoTheme.spideyRed,
-              ),
-              // Stats Area
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [PersonInfoTheme.headerGradientStart, PersonInfoTheme.bgPanel],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+
+          // 2. Dismiss tap handler (optional)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+
+          // 3. Main Dialog Card
+          Center(
+            child: GestureDetector(
+              onTap: () {}, // Prevent taps on card from dismissing
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.85,
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    // Gradient Border Wrapper
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.fhAccentGold,
+                          AppTheme.fhBgDeepDark,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
+                          blurRadius: 50,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Level Box
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F1720),
+                        borderRadius: BorderRadius.circular(19),
+                        // Inner Radial Gradient for depth
+                        gradient: RadialGradient(
+                          center: Alignment.topCenter,
+                          radius: 1.2,
+                          colors: [
+                            const Color(0xFF1A2634),
+                            const Color(0xFF0F1720),
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            "LVL",
-                            style: GoogleFonts.rajdhani(
-                              color: PersonInfoTheme.spideyCyan,
-                              fontSize: 10,
-                              letterSpacing: 1.0,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            "$level",
-                            style: GoogleFonts.rajdhani(
-                              color: PersonInfoTheme.spideyCyan,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              height: 1.0,
-                              shadows: [
-                                const Shadow(
-                                  color: Color(0x6600f0ff),
-                                  blurRadius: 5.0,
+                          // --- HEADER ---
+                          Padding(
+                            padding: const EdgeInsets.only(top: 32, bottom: 20),
+                            child: Column(
+                              children: [
+                                _buildShimmerIcon(),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "INSIGHT ACQUIRED",
+                                  style: TextStyle(
+                                    color: AppTheme.fhAccentGold,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2.0,
+                                    shadows: [
+                                      Shadow(
+                                        color: AppTheme.fhAccentGold.withValues(alpha: 0.3),
+                                        blurRadius: 10
+                                      )
+                                    ]
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                AnimatedBuilder(
+                                  animation: _counterController,
+                                  builder: (context, child) {
+                                    return Text(
+                                      "+${_xpCounterAnimation.value} XP",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 48,
+                                        fontWeight: FontWeight.w900,
+                                        fontFamily: AppTheme.fontDisplay,
+                                        height: 1.0,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(width: 15),
-                      // XP Bar Container
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              height: 6,
-                              width: double.infinity,
-                              color: const Color(0xFF1f2f40),
-                              margin: const EdgeInsets.only(bottom: 5),
-                              alignment: Alignment.centerLeft,
-                              child: FractionallySizedBox(
-                                widthFactor: xpProgress,
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: PersonInfoTheme.spideyCyan,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Color(0x6600f0ff),
-                                        blurRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              "${role.toUpperCase()} / $xp XP",
-                              style: GoogleFonts.rajdhani(
-                                color: PersonInfoTheme.textWhite,
-                                fontSize: 11,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
 
-        // --- Name Band ---
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(top: 20, bottom: 10),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: const BoxDecoration(
-            color: Color(0x0D00f0ff), // rgba(0, 240, 255, 0.05)
-            border: Border(
-              top: BorderSide(color: PersonInfoTheme.spideyCyanDim),
-              bottom: BorderSide(color: PersonInfoTheme.spideyCyanDim),
-            ),
-          ),
-          child: Text(
-            titleName.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.spideyCyan,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-              shadows: [
-                const Shadow(
-                  color: Color(0x6600f0ff),
-                  blurRadius: 10.0,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/journaling/person_info_header.dart ---
-
---- START OF FILE lib/src/widgets/journaling/person_core_stats.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class PersonCoreStats extends StatelessWidget {
-  final String relation;
-  final String status;
-  final String updatedStr;
-  final String role;
-
-  const PersonCoreStats({
-    super.key,
-    required this.relation,
-    required this.status,
-    required this.updatedStr,
-    required this.role,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader("Core Stats"),
-        _buildDataRow("Relation", relation),
-        _buildDataRow("Status", status),
-        _buildDataRow("Updated", updatedStr),
-        _buildDataRow("Role", role),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10.0, bottom: 15.0),
-      child: Row(
-        children: [
-          Text(
-            text.toUpperCase(),
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.spideyCyan,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 1,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDataRow(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      margin: const EdgeInsets.only(bottom: 8.0),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0x0DFFFFFF)), // rgba(255,255,255,0.05)
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.textGrey,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.textWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/journaling/person_core_stats.dart ---
-
---- START OF FILE lib/src/widgets/journaling/person_dossier_section.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class PersonDossierSection extends StatelessWidget {
-  final String profile;
-  final List<dynamic> interactionHistory;
-  final List<dynamic> communicationTips;
-
-  const PersonDossierSection({
-    super.key,
-    required this.profile,
-    required this.interactionHistory,
-    required this.communicationTips,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader("Dossier"),
-        
-        _buildSubHeader("PSYCHOLOGICAL PROFILE"),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 20.0),
-          child: Text(
-            profile,
-            textAlign: TextAlign.justify,
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.textWhite.withValues(alpha: 0.9),
-              fontSize: 15,
-              height: 1.6,
-            ),
-          ),
-        ),
-
-        if (interactionHistory.isNotEmpty) ...[
-          _buildSubHeader("INTERACTION HISTORY"),
-          _buildList(interactionHistory),
-          const SizedBox(height: 10),
-        ],
-
-        if (communicationTips.isNotEmpty) ...[
-          _buildSubHeader("COMMUNICATION TIPS"),
-          _buildList(communicationTips),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10.0, bottom: 15.0),
-      child: Row(
-        children: [
-          Text(
-            text.toUpperCase(),
-            style: GoogleFonts.rajdhani(
-              color: PersonInfoTheme.spideyCyan,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 1,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubHeader(String text) {
-    return Container(
-      margin: const EdgeInsets.only(top: 15, bottom: 10), // Adjust top margin slightly from CSS 25px for flutter flow
-      padding: const EdgeInsets.only(left: 10),
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 3)),
-      ),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.rajdhani(
-          color: PersonInfoTheme.textGrey,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildList(List<dynamic> items) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 5.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: items.map((item) {
-          String highlight = item['highlight'] ?? '';
-          String text = item['text'] ?? '';
-          
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ">",
-                  style: GoogleFonts.rajdhani(
-                    color: PersonInfoTheme.spideyCyanDim,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      style: GoogleFonts.rajdhani(
-                        color: const Color(0xFFCCCCCC),
-                        fontSize: 15,
-                        height: 1.4,
-                      ),
-                      children: [
-                        if (highlight.isNotEmpty)
-                          TextSpan(
-                            text: "$highlight ",
-                            style: const TextStyle(
-                              color: PersonInfoTheme.spideyCyan,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        TextSpan(text: text),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/journaling/person_dossier_section.dart ---
-
---- START OF FILE lib/src/screens/journaling/person_detail_screen.dart ---
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/journaling/person_info_header.dart';
-import 'package:arcane/src/widgets/journaling/person_core_stats.dart';
-import 'package:arcane/src/widgets/journaling/person_dossier_section.dart';
-import 'package:intl/intl.dart';
-
-class PersonDetailScreen extends StatelessWidget {
-  final String personId;
-
-  const PersonDetailScreen({super.key, required this.personId});
-
-  Future<void> _generateProfile(BuildContext context, AppProvider provider) async {
-    try {
-      await provider.journalingActions.generatePersonDetails(personId);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final personIndex = provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
-    
-    if (personIndex == -1) {
-      return Scaffold(
-        backgroundColor: PersonInfoTheme.bgDark,
-        appBar: AppBar(title: const Text("NOT FOUND"), backgroundColor: Colors.transparent),
-      );
-    }
-
-    final person = provider.chatbotMemory.people[personIndex];
-    
-    // Parse the JSON details if available
-    Map<String, dynamic>? parsedDetails;
-    String? legacyText;
-
-    if (person.details != null && person.details!.isNotEmpty) {
-      try {
-        parsedDetails = jsonDecode(person.details!);
-      } catch (e) {
-        legacyText = person.details; // Fallback for old plain text profiles
-      }
-    }
-
-    return Scaffold(
-      // The background gradient matching HTML body
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.center,
-            colors: [Color(0xFF132030), Color(0xFF000000)],
-            radius: 1.0,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600), // Max width from CSS
-              child: Column(
-                children: [
-                  // App Bar override
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: PersonInfoTheme.textWhite),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                  
-                  // Main UI Container
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: PersonInfoTheme.bgPanel,
-                        border: Border.all(color: const Color(0xFF1f2f40)),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black,
-                            blurRadius: 30,
-                          )
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          if (parsedDetails != null) ...[
-                            // Structured View
-                            PersonInfoHeader(
-                              level: parsedDetails['level'] ?? 1,
-                              xp: parsedDetails['xp'] ?? 0,
-                              role: parsedDetails['role'] ?? person.relation,
-                              titleName: "${person.name} / ${parsedDetails['title'] ?? 'Entity'}",
-                            ),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(30, 10, 30, 30),
-                                child: Column(
-                                  children: [
-                                    PersonCoreStats(
-                                      relation: person.relation,
-                                      status: parsedDetails['status'] ?? "Unknown",
-                                      updatedStr: person.lastUpdated != null ? DateFormat('MMM dd, yyyy').format(person.lastUpdated!) : "N/A",
-                                      role: parsedDetails['role'] ?? "Unknown",
+                          // --- SCROLLABLE CONTENT ---
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                children: [
+                                  // Skills List
+                                  if (entries.isNotEmpty) ...[
+                                    Container(
+                                      height: 1, 
+                                      width: double.infinity,
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      margin: const EdgeInsets.only(bottom: 16),
                                     ),
-                                    PersonDossierSection(
-                                      profile: parsedDetails['psychological_profile'] ?? "No profile generated.",
-                                      interactionHistory: parsedDetails['interaction_history'] ?? [],
-                                      communicationTips: parsedDetails['communication_tips'] ?? [],
-                                    ),
+                                    ...List.generate(entries.length, (index) {
+                                      final entry = entries[index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: _buildCompactSkillRow(entry.key, entry.value)
+                                            .animate(delay: (100 * index).ms)
+                                            .fadeIn()
+                                            .slideX(begin: -0.1, end: 0),
+                                      );
+                                    }),
+                                    const SizedBox(height: 16),
                                   ],
-                                ),
-                              ),
-                            ),
-                          ] else if (legacyText != null) ...[
-                            // Legacy View
-                            PersonInfoHeader(
-                              level: 1, xp: 0, role: person.relation, titleName: person.name,
-                            ),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(30),
-                                child: Text(
-                                  legacyText,
-                                  style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 15, height: 1.6),
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            // Empty State / Initial Generation
-                            PersonInfoHeader(
-                              level: 0, xp: 0, role: person.relation, titleName: person.name,
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(30.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text(
-                                        "Profile not yet analyzed. Click below to generate dossier.", 
-                                        style: TextStyle(color: PersonInfoTheme.textGrey), 
-                                        textAlign: TextAlign.center
-                                      ),
-                                      const SizedBox(height: 24),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ValorantButton(
-                                          label: provider.loadingTaskName == "Analyzing Profile..." ? "ANALYZING..." : "ANALYZE PROFILE",
-                                          isPrimary: false,
-                                          color: PersonInfoTheme.spideyCyan,
-                                          onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+
+                                  // Insight / Log Analysis Text
+                                  if (widget.insightText != null && widget.insightText!.isNotEmpty) ...[
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        border: Border(
+                                          left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)
                                         ),
+                                        borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(8),
+                                          bottomRight: Radius.circular(8)
+                                        )
                                       ),
-                                    ],
-                                  ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(MdiIcons.consoleLine, size: 14, color: AppTheme.fhAccentTeal),
+                                              const SizedBox(width: 8),
+                                              const Text(
+                                                "LOG ANALYSIS", 
+                                                style: TextStyle(
+                                                  color: AppTheme.fhAccentTeal, 
+                                                  fontSize: 10, 
+                                                  fontWeight: FontWeight.bold, 
+                                                  letterSpacing: 1.5
+                                                )
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            widget.insightText!,
+                                            style: const TextStyle(
+                                              color: AppTheme.fhTextSecondary,
+                                              fontSize: 13,
+                                              height: 1.5,
+                                              fontFamily: "RobotoCondensed"
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ).animate(delay: 400.ms).fadeIn(),
+                                    const SizedBox(height: 24),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // --- FOOTER BUTTON ---
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentGold,
+                                  foregroundColor: const Color(0xFF0F1720),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: const BeveledRectangleBorder(
+                                      borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                                child: const Text(
+                                  "CONTINUE",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: AppTheme.fontDisplay,
+                                      fontSize: 18,
+                                      letterSpacing: 1.5),
                                 ),
                               ),
                             ),
-                          ]
+                          ),
                         ],
                       ),
                     ),
                   ),
-
-                  // Regenerate button at bottom if already populated
-                  if (parsedDetails != null || legacyText != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0, left: 16, right: 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: PersonInfoTheme.textGrey,
-                            side: const BorderSide(color: Color(0xFF1f2f40)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                          ),
-                          child: Text(
-                            provider.loadingTaskName == "Analyzing Profile..." ? "RECALCULATING..." : "REFRESH DOSSIER",
-                            style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
+
+  Widget _buildShimmerIcon() {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(seconds: 2),
+      builder: (context, value, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.fhAccentGold.withValues(alpha: 0.2 * (1 - value)),
+                    Colors.transparent
+                  ],
+                  stops: const [0.5, 1.0],
+                ),
+              ),
+            ),
+            Icon(MdiIcons.starFourPoints,
+                size: 28, color: AppTheme.fhAccentGold),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCompactSkillRow(String skillName, int xp) {
+    Color color = _getVirtueColor(skillName);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Icon(_getSkillIcon(skillName), color: color, size: 16),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              skillName.toUpperCase(),
+              style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 1.0),
+            ),
+          ),
+          Text(
+            "+$xp",
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getVirtueColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getSkillIcon(String name) {
+    switch (name.toLowerCase()) {
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circleSmall;
+    }
+  }
 }
---- END OF FILE lib/src/screens/journaling/person_detail_screen.dart ---
+--- END OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
+
+--- END OF FILE project_snapshot_out.txt ---

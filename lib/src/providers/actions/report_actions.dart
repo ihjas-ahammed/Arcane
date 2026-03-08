@@ -36,7 +36,7 @@ class ReportActions {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),

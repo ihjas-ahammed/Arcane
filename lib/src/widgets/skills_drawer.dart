@@ -77,10 +77,10 @@ class SkillsDrawer extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, // Changed to 3 columns (3x2 grid)
-                    crossAxisSpacing: 8, // Slightly tighter spacing
+                    crossAxisCount: 3, 
+                    crossAxisSpacing: 8, 
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.65, // Taller aspect ratio for narrower cards
+                    childAspectRatio: 0.65, 
                   ),
                   itemCount: layoutConfig.length,
                   itemBuilder: (context, index) {
@@ -126,6 +126,8 @@ class SkillsDrawer extends StatelessWidget {
                         label: "LOG INSIGHT",
                         icon: MdiIcons.notebookEditOutline,
                         onPressed: () {
+                          // Close drawer before navigating
+                          Navigator.pop(context);
                           Navigator.push(context, MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: todayStr)));
                         },
                         isPrimary: false,

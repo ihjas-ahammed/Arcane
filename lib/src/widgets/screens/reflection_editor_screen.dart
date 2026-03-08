@@ -124,9 +124,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         reason: _reasonController.text.trim(),
         action: _actionController.text.trim(),
       );
-      // Currently, date modification for existing logs isn't fully supported in update method,
-      // but UI-wise we allow it. For true date change, we'd need to update timestamp in model.
-      // To keep it simple, we focus on content updates.
       Navigator.pop(context);
       return;
     }
@@ -157,15 +154,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         final xpGained = result['xpGained'] as Map<String, int>;
+        final log = result['log'] as ReflectionLog?;
+        final feedback = log?.aiFeedback ?? "";
 
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP Dialog
+          // Show XP + Insight Dialog
           await showDialog(
             context: context,
-            barrierColor: Colors.black.withValues(alpha: 0.8),
-            builder: (ctx) => XpGainDialog(xpGained: xpGained),
+            barrierColor: Colors.black.withValues(alpha: 0.85),
+            builder: (ctx) => XpGainDialog(
+              xpGained: xpGained,
+              insightText: feedback, // Pass feedback text
+            ),
           );
         }
       } catch (e) {

@@ -6,7 +6,7 @@ import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; // Added missing import
+import 'package:arcane/src/utils/history_helper.dart'; 
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/task_models.dart';
@@ -52,7 +52,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   bool _isGeneratingSubquestsForTask = false;
   bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
   
-  bool get isDataLoadingAfterLogin => false; // Helper alias
+  bool get isDataLoadingAfterLogin => false; 
 
   // Actions
   late final TaskActions _taskActions;
@@ -351,7 +351,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   // --- Reports Logic ---
   Map<String, dynamic> getLast7DaysData() { 
-    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); // Used directly
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
     final recentReflections = reflectionLogs
         .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
@@ -420,7 +420,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
-      modelCandidates: settings.liteModels, 
+      modelCandidates: settings.heavyModels, // Using Pro Models
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 

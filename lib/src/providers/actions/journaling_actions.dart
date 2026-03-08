@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
 class JournalingActions {
   final AppProvider _provider;
@@ -21,9 +22,10 @@ class JournalingActions {
     _provider.setLoadingTask("Extracting Entities...");
 
     try {
+      // Intentionally using liteModels for extraction per prompt instructions
       final results = await _provider.aiService.extractPeopleFromReflections(
         logsText: logsText,
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.liteModels, 
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -78,22 +80,21 @@ class JournalingActions {
       final result = await _provider.aiService.generatePersonDetails(
         personName: person.name,
         logsText: logsText,
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[PersonDetails] $msg"),
       );
 
-      final details = result['details'] as String?;
-      if (details != null) {
-        _provider.chatbotMemory.people[personIndex].details = details;
-        _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
-        _provider.markDirty('settings');
-        _provider.scheduleRealtimeSync();
-        // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
-        _provider.notifyListeners();
-      }
+      // Save the entire JSON structure as a string so UI can parse it
+      _provider.chatbotMemory.people[personIndex].details = jsonEncode(result);
+      _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
+      _provider.markDirty('settings');
+      _provider.scheduleRealtimeSync();
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
+      
     } catch (e) {
       debugPrint("Error generating person details: $e");
       rethrow;

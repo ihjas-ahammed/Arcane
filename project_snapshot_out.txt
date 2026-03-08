@@ -4311,7 +4311,7 @@ import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; // Added missing import
+import 'package:arcane/src/utils/history_helper.dart'; 
 import 'package:arcane/src/utils/constants.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/task_models.dart';
@@ -4357,7 +4357,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   bool _isGeneratingSubquestsForTask = false;
   bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
   
-  bool get isDataLoadingAfterLogin => false; // Helper alias
+  bool get isDataLoadingAfterLogin => false; 
 
   // Actions
   late final TaskActions _taskActions;
@@ -4656,7 +4656,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   // --- Reports Logic ---
   Map<String, dynamic> getLast7DaysData() { 
-    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); // Used directly
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
     final recentReflections = reflectionLogs
         .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
@@ -4725,7 +4725,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
-      modelCandidates: settings.liteModels, 
+      modelCandidates: settings.heavyModels, // Using Pro Models
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
@@ -5953,7 +5953,7 @@ class ReportActions {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -7003,6 +7003,7 @@ import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
 class JournalingActions {
   final AppProvider _provider;
@@ -7022,9 +7023,10 @@ class JournalingActions {
     _provider.setLoadingTask("Extracting Entities...");
 
     try {
+      // Intentionally using liteModels for extraction per prompt instructions
       final results = await _provider.aiService.extractPeopleFromReflections(
         logsText: logsText,
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.liteModels, 
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -7079,22 +7081,21 @@ class JournalingActions {
       final result = await _provider.aiService.generatePersonDetails(
         personName: person.name,
         logsText: logsText,
-        modelCandidates: _provider.settings.liteModels,
+        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[PersonDetails] $msg"),
       );
 
-      final details = result['details'] as String?;
-      if (details != null) {
-        _provider.chatbotMemory.people[personIndex].details = details;
-        _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
-        _provider.markDirty('settings');
-        _provider.scheduleRealtimeSync();
-        // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
-        _provider.notifyListeners();
-      }
+      // Save the entire JSON structure as a string so UI can parse it
+      _provider.chatbotMemory.people[personIndex].details = jsonEncode(result);
+      _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
+      _provider.markDirty('settings');
+      _provider.scheduleRealtimeSync();
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
+      
     } catch (e) {
       debugPrint("Error generating person details: $e");
       rethrow;
@@ -8780,7 +8781,6 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
 --- START OF FILE lib/src/screens/home_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/skills_drawer.dart';
@@ -8788,6 +8788,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/more_screen.dart'; 
 import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -8945,7 +8946,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> widgetOptions = <Widget>[
       // 0: MISSIONS
       Align(
-        alignment: Alignment.topCenter, // Fixed: Top alignment instead of Center
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: const TaskDetailsView(),
@@ -9013,7 +9014,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: BottomNavigationBar(
             backgroundColor: AppTheme.fhBgDeepDark,
-            selectedItemColor: AppTheme.fhAccentRed,
+            // Updated: Use Agent Color for selected items
+            selectedItemColor: currentTaskColor,
             unselectedItemColor: AppTheme.fhTextSecondary,
             selectedLabelStyle: const TextStyle(
               fontFamily: AppTheme.fontDisplay,
@@ -11326,11 +11328,16 @@ class PeopleInfoScreen extends StatelessWidget {
 --- END OF FILE lib/src/screens/journaling/people_info_screen.dart ---
 
 --- START OF FILE lib/src/screens/journaling/person_detail_screen.dart ---
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/journaling/person_info_header.dart';
+import 'package:arcane/src/widgets/journaling/person_core_stats.dart';
+import 'package:arcane/src/widgets/journaling/person_dossier_section.dart';
 import 'package:intl/intl.dart';
 
 class PersonDetailScreen extends StatelessWidget {
@@ -11355,65 +11362,173 @@ class PersonDetailScreen extends StatelessWidget {
     
     if (personIndex == -1) {
       return Scaffold(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        appBar: AppBar(title: const Text("NOT FOUND")),
+        backgroundColor: PersonInfoTheme.bgDark,
+        appBar: AppBar(title: const Text("NOT FOUND"), backgroundColor: Colors.transparent),
       );
     }
 
     final person = provider.chatbotMemory.people[personIndex];
+    
+    // Parse the JSON details if available
+    Map<String, dynamic>? parsedDetails;
+    String? legacyText;
+
+    if (person.details != null && person.details!.isNotEmpty) {
+      try {
+        parsedDetails = jsonDecode(person.details!);
+      } catch (e) {
+        legacyText = person.details; // Fallback for old plain text profiles
+      }
+    }
 
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        title: Text(person.name.toUpperCase()),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("RELATION: ${person.relation.toUpperCase()}", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            const SizedBox(height: 24),
-            
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: provider.loadingTaskName == "Analyzing Profile..." ? "ANALYZING..." : "ANALYZE PROFILE",
-                isPrimary: false,
-                color: AppTheme.fhAccentTeal,
-                onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+      // The background gradient matching HTML body
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.center,
+            colors: [Color(0xFF132030), Color(0xFF000000)],
+            radius: 1.0,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600), // Max width from CSS
+              child: Column(
+                children: [
+                  // App Bar override
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: PersonInfoTheme.textWhite),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                  
+                  // Main UI Container
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: PersonInfoTheme.bgPanel,
+                        border: Border.all(color: const Color(0xFF1f2f40)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black,
+                            blurRadius: 30,
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          if (parsedDetails != null) ...[
+                            // Structured View
+                            PersonInfoHeader(
+                              level: parsedDetails['level'] ?? 1,
+                              xp: parsedDetails['xp'] ?? 0,
+                              role: parsedDetails['role'] ?? person.relation,
+                              titleName: "${person.name} / ${parsedDetails['title'] ?? 'Entity'}",
+                            ),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(30, 10, 30, 30),
+                                child: Column(
+                                  children: [
+                                    PersonCoreStats(
+                                      relation: person.relation,
+                                      status: parsedDetails['status'] ?? "Unknown",
+                                      updatedStr: person.lastUpdated != null ? DateFormat('MMM dd, yyyy').format(person.lastUpdated!) : "N/A",
+                                      role: parsedDetails['role'] ?? "Unknown",
+                                    ),
+                                    PersonDossierSection(
+                                      profile: parsedDetails['psychological_profile'] ?? "No profile generated.",
+                                      interactionHistory: parsedDetails['interaction_history'] ?? [],
+                                      communicationTips: parsedDetails['communication_tips'] ?? [],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ] else if (legacyText != null) ...[
+                            // Legacy View
+                            PersonInfoHeader(
+                              level: 1, xp: 0, role: person.relation, titleName: person.name,
+                            ),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.all(30),
+                                child: Text(
+                                  legacyText,
+                                  style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 15, height: 1.6),
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            // Empty State / Initial Generation
+                            PersonInfoHeader(
+                              level: 0, xp: 0, role: person.relation, titleName: person.name,
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(30.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        "Profile not yet analyzed. Click below to generate dossier.", 
+                                        style: TextStyle(color: PersonInfoTheme.textGrey), 
+                                        textAlign: TextAlign.center
+                                      ),
+                                      const SizedBox(height: 24),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ValorantButton(
+                                          label: provider.loadingTaskName == "Analyzing Profile..." ? "ANALYZING..." : "ANALYZE PROFILE",
+                                          isPrimary: false,
+                                          color: PersonInfoTheme.spideyCyan,
+                                          onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ]
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Regenerate button at bottom if already populated
+                  if (parsedDetails != null || legacyText != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0, left: 16, right: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: PersonInfoTheme.textGrey,
+                            side: const BorderSide(color: Color(0xFF1f2f40)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                          ),
+                          child: Text(
+                            provider.loadingTaskName == "Analyzing Profile..." ? "RECALCULATING..." : "REFRESH DOSSIER",
+                            style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            
-            const SizedBox(height: 32),
-
-            if (person.details != null) ...[
-              const Text("PSYCHOLOGICAL PROFILE & COMMS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark.withOpacity(0.5),
-                  border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 2)),
-                ),
-                child: Text(
-                  person.details!,
-                  style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
-                ),
-              ),
-              if (person.lastUpdated != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text("Last updated: ${DateFormat('MMM dd, yyyy HH:mm').format(person.lastUpdated!)}", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
-                )
-            ] else 
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Text("Profile not yet analyzed. Click above to generate.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
-                ),
-              )
-          ],
+          ),
         ),
       ),
     );
@@ -11998,7 +12113,6 @@ import 'package:arcane/src/utils/json_utils.dart';
 
 class AIService {
   
-  // ... [Existing _executeWithModelAndKeyRotation and makeAICall methods remain unchanged] ...
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -12111,7 +12225,6 @@ class AIService {
         onLog: onLog);
   }
 
-  // ... [Other methods like generateSchedulePrediction, queryNeuralArchive, etc. remain unchanged] ...
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
@@ -12509,9 +12622,20 @@ class AIService {
     Logs:
     $logsText
     
-    Output JSON ONLY:
+    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
     {
-      "details": "string (multiline formatted text)"
+      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
+      "level": int (1-100 based on relationship depth),
+      "xp": int (total arbitrary xp based on significance, e.g. 2650),
+      "role": "Their inferred role (e.g. Student, Colleague)",
+      "status": "Current relationship status (e.g. Calibration Phase, Active)",
+      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
+      "interaction_history": [
+        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
+      ],
+      "communication_tips": [
+        {"highlight": "Tip Name:", "text": "Description of the tip."}
+      ]
     }
     """;
 
@@ -13326,6 +13450,23 @@ class AppTheme {
 
 --- END OF FILE lib/src/theme/app_theme.dart ---
 
+--- START OF FILE lib/src/theme/person_info_theme.dart ---
+import 'package:flutter/material.dart';
+
+/// Theme constants mapped precisely to the requested HTML/CSS variables
+/// for the Person Profile Dossier screens.
+class PersonInfoTheme {
+  static const Color spideyRed = Color(0xFFd02b3e);
+  static const Color spideyCyan = Color(0xFF00f0ff);
+  static const Color spideyCyanDim = Color(0xFF006b72);
+  static const Color bgDark = Color(0xFF08111a);
+  static const Color bgPanel = Color(0xFF0b1623);
+  static const Color textWhite = Color(0xFFe6e6e6);
+  static const Color textGrey = Color(0xFF8a9ba8);
+  static const Color headerGradientStart = Color(0xFF162433);
+}
+--- END OF FILE lib/src/theme/person_info_theme.dart ---
+
 --- START OF FILE lib/src/utils/chart_data_helper.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
@@ -14069,10 +14210,10 @@ class SkillsDrawer extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, // Changed to 3 columns (3x2 grid)
-                    crossAxisSpacing: 8, // Slightly tighter spacing
+                    crossAxisCount: 3, 
+                    crossAxisSpacing: 8, 
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.65, // Taller aspect ratio for narrower cards
+                    childAspectRatio: 0.65, 
                   ),
                   itemCount: layoutConfig.length,
                   itemBuilder: (context, index) {
@@ -14118,6 +14259,8 @@ class SkillsDrawer extends StatelessWidget {
                         label: "LOG INSIGHT",
                         icon: MdiIcons.notebookEditOutline,
                         onPressed: () {
+                          // Close drawer before navigating
+                          Navigator.pop(context);
                           Navigator.push(context, MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: todayStr)));
                         },
                         isPrimary: false,
@@ -14831,6 +14974,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class TaskHeaderCard extends StatelessWidget {
   final MainTask task;
@@ -14844,121 +14988,216 @@ class TaskHeaderCard extends StatelessWidget {
     required this.weeklyCompletion,
   });
 
-  String _formatMinutesToHHMM(int totalMinutes) {
-    final hours = (totalMinutes / 3600).floor().round();
-    final minutes = ((totalMinutes/60) % 60).floor().round();
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 60.0;
-    final double progress = task.dailyTimeSpent / maxTime;
-    final String timeSpentFormatted = _formatMinutesToHHMM(task.dailyTimeSpent);
-    final String maxTimeFormatted = _formatMinutesToHHMM(maxTime.toInt());
+    // Spider-Man 2 Gadget Menu aesthetic
+    // Dark background, tech grid overlay, sharp angles
+    
+    final int hours = (task.dailyTimeSpent / 3600).floor();
+    final int minutes = ((task.dailyTimeSpent / 60) % 60).floor();
+    final String timeDisplay = '${hours}H ${minutes}M';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        image: const DecorationImage(
-          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
-          fit: BoxFit.cover,
-          opacity: 0.05,
-        ),
+        // Dark metallic background
+        color: const Color(0xFF0A0F14),
         border: Border(
-          bottom: BorderSide(color: task.taskColor, width: 2),
+          top: BorderSide(color: task.taskColor.withOpacity(0.5), width: 1),
+          bottom: BorderSide(color: task.taskColor.withOpacity(0.2), width: 1),
+          left: BorderSide(color: task.taskColor, width: 4),
+          right: BorderSide(color: task.taskColor.withOpacity(0.2), width: 1),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                color: task.taskColor.withOpacity(0.2),
-                child: Text(
-                  task.theme.toUpperCase(),
-                  style: TextStyle(
-                    color: task.taskColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 2.0
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary, size: 18),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Resized Main Title for better wrapping
-          Text(
-            task.name.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontSize: 32, // Reduced from 48
-              height: 1.0,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.fhTextPrimary,
-              letterSpacing: 1.2
-            ),
-            softWrap: true,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            task.description,
-            style: const TextStyle(
-              color: AppTheme.fhTextSecondary,
-              fontSize: 13,
-              height: 1.4,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 24),
-          
-          // Stat Bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("SESSION DURATION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                    "$timeSpentFormatted / $maxTimeFormatted",
-                    style: const TextStyle(
-                      fontFamily: "RobotoMono",
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold
-                    ),
-                  ),
-                ],
-              ),
-              // Progress Bar Visual
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 24, bottom: 6),
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    backgroundColor: AppTheme.fhBgMedium,
-                    color: task.taskColor,
-                    minHeight: 4,
-                  ),
-                ),
-              )
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: task.taskColor.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           )
         ],
       ),
-    );
+      child: Stack(
+        children: [
+          // Background Tech Pattern
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.05,
+              child: Image.network(
+                "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80",
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Label and Icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: task.taskColor.withOpacity(0.15),
+                        border: Border.all(color: task.taskColor.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        "ACTIVE PROTOCOL",
+                        style: TextStyle(
+                          color: task.taskColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2.0,
+                          fontFamily: AppTheme.fontDisplay,
+                        ),
+                      ),
+                    ),
+                    Icon(MdiIcons.targetAccount, color: task.taskColor, size: 20)
+                        .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                        .fade(duration: 1000.ms, begin: 0.5, end: 1.0),
+                  ],
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Mission Name
+                Text(
+                  task.name.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontDisplay,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 0.9,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                
+                const SizedBox(height: 8),
+                
+                // Description with a tech line
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 2,
+                      height: 40,
+                      color: AppTheme.fhTextSecondary.withOpacity(0.3),
+                      margin: const EdgeInsets.only(right: 12, top: 2),
+                    ),
+                    Expanded(
+                      child: Text(
+                        task.description,
+                        style: const TextStyle(
+                          color: AppTheme.fhTextSecondary,
+                          fontSize: 12,
+                          height: 1.4,
+                          fontFamily: "RobotoCondensed"
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Bottom Stats Row (Spider-Man Gadget style stats)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      // Time Stat
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("SESSION TIME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text(
+                            timeDisplay,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: AppTheme.fontDisplay,
+                              letterSpacing: 1.0
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Theme/Class
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text("CLASS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text(
+                            task.theme.toUpperCase(),
+                            style: TextStyle(
+                              color: task.taskColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: AppTheme.fontDisplay,
+                              letterSpacing: 1.0
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Decorative Corner accent
+          Positioned(
+            top: 0,
+            right: 0,
+            child: CustomPaint(
+              painter: _CornerPainter(color: task.taskColor),
+              size: const Size(20, 20),
+            ),
+          )
+        ],
+      ),
+    ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.1, end: 0);
   }
+}
+
+class _CornerPainter extends CustomPainter {
+  final Color color;
+  _CornerPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    final path = Path();
+    path.moveTo(size.width, 0);
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, 0);
+    path.close();
+    
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 --- END OF FILE lib/src/widgets/cards/task_header_card.dart ---
 
@@ -15767,6 +16006,7 @@ import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SubmissionCard extends StatelessWidget {
   final MainTask parentTask;
@@ -15808,32 +16048,33 @@ class SubmissionCard extends StatelessWidget {
         ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
         : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
-    // Calculate 7-Day Average to feed progress bar
+    // Calculate 7-Day Average Total Time for THIS Submission
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     double total7Days = 0;
 
+    // Filter sessions belonging to this specific subtask in the last 7 days
     for (var session in currentSubTask.sessions) {
       if (session.startTime.isAfter(sevenDaysAgo)) {
         total7Days += session.durationSeconds;
       }
     }
     
+    // Average calculation (prevent div by zero)
     double avgSeconds = total7Days / 7.0;
-    if (avgSeconds < 60) avgSeconds = 60; // minimum 1 minute average for scaling visual
+    // Minimum 5 minutes baseline to show progress visual if avg is too low
+    if (avgSeconds < 300) avgSeconds = 300; 
     
+    // Calculate current total time spent today
     final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    
+    // Progress relative to 7-day average
     double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
 
-    // Style Constants mapped to AppTheme
+    // Style Constants
     final Color activeAccent = parentTask.taskColor;
     final bool isActive = isRunning; 
     
-    // Background Gradients
-    final Gradient bgGradient = isActive 
-      ? LinearGradient(colors:[activeAccent.withOpacity(0.15), AppTheme.fhBgDark.withOpacity(0.9)])
-      : LinearGradient(colors:[AppTheme.fhBgDark.withOpacity(0.8), AppTheme.fhBgDeepDark.withOpacity(0.9)]);
-
     // Text Colors
     final Color titleColor = isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary;
     final Color statusColor = isCompleted ? AppTheme.fhTextDisabled : (isActive ? activeAccent : AppTheme.fhTextSecondary);
@@ -15874,204 +16115,207 @@ class SubmissionCard extends StatelessWidget {
         },
         child: GestureDetector(
           onTap: () => _openDetailScreen(context),
-          child: Stack(
-            children:[
-              // Main Card Shape
-              ClipPath(
-                clipper: HexCardClipper(),
-                child: Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    gradient: bgGradient,
-                  ),
-                  child: Stack(
-                    children:[
-                      // Simulated Border via inner shadow if active
-                      if (isActive)
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: activeAccent, width: 2),
-                            boxShadow:[
-                              BoxShadow(color: activeAccent.withOpacity(0.1), blurRadius: 20)
-                            ]
-                          ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: 100,
+            decoration: BoxDecoration(
+              // Gradient changes based on state
+              gradient: LinearGradient(
+                colors: isActive 
+                  ? [activeAccent.withOpacity(0.2), AppTheme.fhBgDark.withOpacity(0.95)]
+                  : [AppTheme.fhBgDark.withOpacity(0.9), AppTheme.fhBgDeepDark.withOpacity(0.95)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              border: Border.all(
+                color: isActive ? activeAccent : AppTheme.fhBorderColor.withOpacity(0.3),
+                width: isActive ? 1.5 : 1
+              ),
+              // Beveled corners like Valorant cards
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                bottomRight: Radius.circular(16)
+              ),
+              boxShadow: isActive ? [BoxShadow(color: activeAccent.withOpacity(0.15), blurRadius: 12)] : null,
+            ),
+            child: Stack(
+              children: [
+                // Progress Bar Background Fill (Horizontal from left)
+                if (isActive || usageProgress > 0)
+                  FractionallySizedBox(
+                    widthFactor: usageProgress,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [activeAccent.withOpacity(0.1), Colors.transparent],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight
                         )
-                      else
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.fhBorderColor, width: 1),
-                          ),
-                        ),
-                      
-                      // Mist Effect if active
-                      if (isActive)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: RadialGradient(
-                                colors:[activeAccent.withOpacity(0.1), Colors.transparent],
-                                radius: 0.7
-                              )
-                            ),
-                          ),
-                        ),
+                      ),
+                    ),
+                  ).animate().fadeIn(),
 
-                      // Card Content
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                        child: Row(
-                          children:[
-                            // Icon / Ring Area
-                            SizedBox(
-                              width: 60, height: 60,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children:[
-                                  HexProgressRing(
-                                    progress: usageProgress, 
-                                    color: activeAccent
-                                  ),
-                                  Icon(
-                                    isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
-                                    color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
-                                    size: 24,
-                                    shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            const SizedBox(width: 16),
-
-                            // Text Content
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children:[
-                                  Text(
-                                    currentSubTask.name.toUpperCase(),
-                                    style: GoogleFonts.cinzel(
-                                      color: titleColor,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.0,
-                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                    ),
-                                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children:[
-                                      Text(
-                                        isCompleted ? "ARCHIVED" : (isActive ? "IN PROGRESS" : "PENDING"),
-                                        style: TextStyle(
-                                          color: statusColor,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.0,
-                                        ),
-                                      ),
-                                      if (currentSubTask.isRecurring)
-                                        Padding(
-                                          padding: const EdgeInsets.only(left: 4.0),
-                                          child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
-                                        ),
-                                    ],
-                                  ),
-                                  if (linkedInfo != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4.0),
-                                      child: LinkedTaskIndicator(
-                                        label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
-                                        onUnlink: () => provider.projectActions.unlinkStep(
-                                            linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
-                                          ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-
-                            // Actions
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children:[
-                                ValorantTimerText(
-                                  isRunning: isRunning,
-                                  startTime: timerState?.startTime,
-                                  accumulatedTime: displayBaseTime,
-                                  style: TextStyle(
-                                    fontFamily: "RobotoMono",
-                                    color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                                    fontSize: 12,
-                                    shadows: isActive ?[Shadow(color: activeAccent, blurRadius: 5)] : null
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                
-                                if (!isCompleted)
-                                  GestureDetector(
-                                    onTap: () {
-                                      if (isRunning) {
-                                        provider.pauseTimer(subTask.id); 
-                                        provider.logTimerAndReset(subTask.id); 
-                                      } else {
-                                        provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                                      }
-                                    },
-                                    child: ClipPath(
-                                      clipper: HexButtonClipper(),
-                                      child: Container(
-                                        width: 80, height: 30,
-                                        decoration: BoxDecoration(
-                                          gradient: isActive 
-                                            ? LinearGradient(colors:[activeAccent.withOpacity(0.2), activeAccent.withOpacity(0.1)])
-                                            : const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors:[AppTheme.fhBgMedium, AppTheme.fhBgDark]),
-                                          border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor, width: 1),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          isActive ? "PAUSE" : "START",
-                                          style: TextStyle(
-                                            color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                              ],
-                            )
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    children: [
+                      // Leading Visual (Hexagon or Icon)
+                      SizedBox(
+                        width: 50, height: 50,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (!isCompleted)
+                              HexProgressRing(
+                                progress: usageProgress, 
+                                color: activeAccent,
+                                size: 48,
+                              ).animate().fade(duration: 500.ms),
+                            Icon(
+                              isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
+                              color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
+                              size: 22,
+                              shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
+                            ).animate(target: isActive ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.1,1.1), duration: 1.seconds, curve: Curves.easeInOut).then().scale(begin: const Offset(1.1,1.1), end: const Offset(1,1)),
                           ],
                         ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+
+                      // Text Content
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Flexible text to show full name
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                currentSubTask.name.toUpperCase(),
+                                style: GoogleFonts.chakraPetch(
+                                  color: titleColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  color: statusColor.withOpacity(0.1),
+                                  child: Text(
+                                    isCompleted ? "ARCHIVED" : (isActive ? "ENGAGED" : "PENDING"),
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ),
+                                if (currentSubTask.isRecurring)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6.0),
+                                    child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
+                                  ),
+                              ],
+                            ),
+                            if (linkedInfo != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6.0),
+                                child: LinkedTaskIndicator(
+                                  label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
+                                  onUnlink: () => provider.projectActions.unlinkStep(
+                                      linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
+                                    ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      // Right Action / Timer
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          ValorantTimerText(
+                            isRunning: isRunning,
+                            startTime: timerState?.startTime,
+                            accumulatedTime: displayBaseTime,
+                            style: TextStyle(
+                              fontFamily: "RobotoMono",
+                              color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 8)] : null
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (!isCompleted)
+                            GestureDetector(
+                              onTap: () {
+                                if (isRunning) {
+                                  provider.pauseTimer(subTask.id); 
+                                  provider.logTimerAndReset(subTask.id); 
+                                } else {
+                                  provider.startTimer(subTask.id, 'subtask', parentTask.id);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor),
+                                  color: isActive ? activeAccent.withOpacity(0.1) : Colors.transparent,
+                                ),
+                                child: Text(
+                                  isActive ? "HALT" : "EXECUTE",
+                                  style: TextStyle(
+                                    color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ),
+                            )
+                        ],
                       )
                     ],
                   ),
                 ),
-              ),
-              
-              // Corner Accents if active
-              if (isActive) ...[
-                Positioned(top: 0, left: 15, child: _buildCornerAccent(activeAccent)),
-                Positioned(bottom: 0, right: 15, child: _buildCornerAccent(activeAccent)),
-              ]
-            ],
+                
+                // Bottom decorative line showing 7-day average relation
+                if (!isCompleted)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutExpo,
+                        height: 2,
+                        width: MediaQuery.of(context).size.width * 0.9 * usageProgress, // Approximate width relative to card
+                        decoration: BoxDecoration(
+                          color: activeAccent,
+                          boxShadow: [BoxShadow(color: activeAccent, blurRadius: 6)]
+                        ),
+                      ),
+                    ),
+                  )
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCornerAccent(Color color) {
-    return Container(
-      width: 8, height: 8,
-      decoration: BoxDecoration(
-        color: color,
-        boxShadow:[BoxShadow(color: color, blurRadius: 10)]
       ),
     );
   }
@@ -16084,8 +16328,8 @@ class SubmissionCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: alignment == Alignment.centerLeft 
-          ?[Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
-          :[Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
+          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
+          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
       ),
     );
   }
@@ -16097,7 +16341,7 @@ class SubmissionCard extends StatelessWidget {
         backgroundColor: AppTheme.fhBgDark,
         title: const Text("DELETE MISSION?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
         content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
-        actions:[
+        actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
@@ -17448,13 +17692,15 @@ class SkillDetailDialog extends StatelessWidget {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 import 'dart:math';
 
 class XpGainDialog extends StatefulWidget {
   final Map<String, int> xpGained;
+  final String? insightText;
 
-  const XpGainDialog({super.key, required this.xpGained});
+  const XpGainDialog({super.key, required this.xpGained, this.insightText});
 
   @override
   State<XpGainDialog> createState() => _XpGainDialogState();
@@ -17474,17 +17720,17 @@ class _XpGainDialogState extends State<XpGainDialog>
     super.initState();
     _mainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
     );
 
     _scaleAnimation = CurvedAnimation(
       parent: _mainController,
-      curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
     );
 
     _fadeAnimation = CurvedAnimation(
       parent: _mainController,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
     );
 
     final totalXp = widget.xpGained.values.fold(0, (a, b) => a + b);
@@ -17496,7 +17742,6 @@ class _XpGainDialogState extends State<XpGainDialog>
       CurvedAnimation(parent: _counterController, curve: Curves.easeOutExpo),
     );
 
-    // Start sequence
     _mainController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _counterController.forward();
@@ -17512,150 +17757,217 @@ class _XpGainDialogState extends State<XpGainDialog>
 
   @override
   Widget build(BuildContext context) {
-    // Filter only virtues with XP gain
     final entries = widget.xpGained.entries.where((e) => e.value > 0).toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero, // KEY FIX: Allow full screen layout
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          // Blur Background
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.6),
+          // 1. Full Screen Backdrop Blur
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0),
+              ),
             ),
           ),
 
-          // Main Card
-          ScaleTransition(
-            scale: _scaleAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.9,
-                constraints: const BoxConstraints(maxWidth: 320),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDeepDark,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: AppTheme.fhAccentGold.withValues(alpha: 0.5),
-                      width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                        color: AppTheme.fhAccentGold.withValues(alpha: 0.2),
-                        blurRadius: 30,
-                        spreadRadius: 5),
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 15,
-                        offset: const Offset(0, 10)),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header Icon
-                    _buildShimmerIcon(),
-                    const SizedBox(height: 16),
+          // 2. Dismiss tap handler (optional)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
 
-                    Text(
-                      "INSIGHT ACQUIRED",
-                      style: TextStyle(
-                        color: AppTheme.fhAccentGold,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                        shadows: [
-                          Shadow(
-                              color:
-                                  AppTheme.fhAccentGold.withValues(alpha: 0.5),
-                              blurRadius: 10)
+          // 3. Main Dialog Card
+          Center(
+            child: GestureDetector(
+              onTap: () {}, // Prevent taps on card from dismissing
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.85,
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    // Gradient Border Wrapper
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(0),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.fhAccentTeal,
+                          AppTheme.fhBgDeepDark,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
+                          blurRadius: 50,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F1720),
+                        borderRadius: BorderRadius.circular(0),
+                        // Inner Radial Gradient for depth
+                        gradient: RadialGradient(
+                          center: Alignment.topCenter,
+                          radius: 1.2,
+                          colors: [
+                            const Color(0xFF1A2634),
+                            const Color(0xFF0F1720),
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // --- HEADER ---
+                          Padding(
+                            padding: const EdgeInsets.only(top: 20, bottom: 20),
+                            child: Column(
+                              children: [
+                                Text(
+                                  "INSIGHT ACQUIRED",
+                                  style: TextStyle(
+                                    color: AppTheme.fhAccentTeal,
+                                    fontFamily: AppTheme.fontDisplay,
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2.0,
+                                    shadows: [
+                                      Shadow(
+                                        color: AppTheme.fhAccentGold.withValues(alpha: 0.3),
+                                        blurRadius: 10
+                                      )
+                                    ]
+                                  ),
+                                ),
+                                
+                              ],
+                            ),
+                          ),
+
+                          // --- SCROLLABLE CONTENT ---
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              child: Column(
+                                children: [
+                                  // Skills List
+                                  if (entries.isNotEmpty) ...[
+                                    Container(
+                                      height: 1, 
+                                      width: double.infinity,
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      margin: const EdgeInsets.only(bottom: 16),
+                                    ),
+                                    ...List.generate(entries.length, (index) {
+                                      final entry = entries[index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: _buildCompactSkillRow(entry.key, entry.value)
+                                            .animate(delay: (100 * index).ms)
+                                            .fadeIn()
+                                            .slideX(begin: -0.1, end: 0),
+                                      );
+                                    }),
+                                    const SizedBox(height: 16),
+                                  ],
+
+                                  // Insight / Log Analysis Text
+                                  if (widget.insightText != null && widget.insightText!.isNotEmpty) ...[
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        border: Border(
+                                          left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)
+                                        ),
+                                        borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(8),
+                                          bottomRight: Radius.circular(8)
+                                        )
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(MdiIcons.consoleLine, size: 14, color: AppTheme.fhAccentTeal),
+                                              const SizedBox(width: 8),
+                                              const Text(
+                                                "LOG ANALYSIS", 
+                                                style: TextStyle(
+                                                  color: AppTheme.fhAccentTeal, 
+                                                  fontSize: 10, 
+                                                  fontWeight: FontWeight.bold, 
+                                                  letterSpacing: 1.5
+                                                )
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            widget.insightText!,
+                                            style: const TextStyle(
+                                              color: AppTheme.fhTextSecondary,
+                                              fontSize: 13,
+                                              height: 1.5,
+                                              fontFamily: "RobotoCondensed"
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ).animate(delay: 400.ms).fadeIn(),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // --- FOOTER BUTTON ---
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentTeal,
+                                  foregroundColor: const Color(0xFF0F1720),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: const BeveledRectangleBorder(
+                                      borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                                child: const Text(
+                                  "CONTINUE",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: AppTheme.fontDisplay,
+                                      fontSize: 18,
+                                      letterSpacing: 1.5),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-
-                    // Total XP Counter
-                    AnimatedBuilder(
-                      animation: _counterController,
-                      builder: (context, child) {
-                        return Text(
-                          "+${_xpCounterAnimation.value} XP",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 42,
-                            fontWeight: FontWeight.w900,
-                            fontFamily:
-                                'Inter', // Assuming Inter is available, or default
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Skills List
-                    ...List.generate(entries.length, (index) {
-                      final entry = entries[index];
-                      // Staggered fade in for items
-                      final start = 0.5 + (index * 0.1);
-                      final end = start + 0.2;
-                      final itemAnim = CurvedAnimation(
-                        parent: _mainController,
-                        curve: Interval(min(start, 0.9), min(end, 1.0),
-                            curve: Curves.easeOut),
-                      );
-
-                      return FadeTransition(
-                        opacity: itemAnim,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                                  begin: const Offset(0, 0), end: Offset.zero)
-                              .animate(itemAnim),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 3.0),
-                            child: _buildSkillRow(entry.key, entry.value),
-                          ),
-                        ),
-                      );
-                    }),
-
-                    const SizedBox(height: 8),
-
-                    // Button
-                    ScaleTransition(
-                      scale: CurvedAnimation(
-                          parent: _mainController,
-                          curve: const Interval(0.8, 1.0,
-                              curve: Curves.elasticOut)),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.fhAccentGold,
-                            foregroundColor: Colors.black,
-                            elevation: 8,
-                            shadowColor:
-                                AppTheme.fhAccentGold.withValues(alpha: 0.4),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text(
-                            "CONTINUE JOURNEY",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -17674,8 +17986,8 @@ class _XpGainDialogState extends State<XpGainDialog>
           alignment: Alignment.center,
           children: [
             Container(
-              width: 60,
-              height: 60,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
@@ -17688,35 +18000,41 @@ class _XpGainDialogState extends State<XpGainDialog>
               ),
             ),
             Icon(MdiIcons.starFourPoints,
-                size: 48, color: AppTheme.fhAccentGold),
+                size: 28, color: AppTheme.fhAccentGold),
           ],
         );
       },
     );
   }
 
-  Widget _buildSkillRow(String skillName, int xp) {
+  Widget _buildCompactSkillRow(String skillName, int xp) {
     Color color = _getVirtueColor(skillName);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.1)),
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         children: [
-          Icon(_getSkillIcon(skillName), color: color, size: 20),
+          Icon(_getSkillIcon(skillName), color: color, size: 16),
           const SizedBox(width: 12),
-          Text(skillName,
-              style: const TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontWeight: FontWeight.w500)),
-          const Spacer(),
-          Text("+$xp",
+          Expanded(
+            child: Text(
+              skillName.toUpperCase(),
               style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+                  color: AppTheme.fhTextSecondary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 1.0),
+            ),
+          ),
+          Text(
+            "+$xp",
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 14),
+          ),
         ],
       ),
     );
@@ -17724,43 +18042,28 @@ class _XpGainDialogState extends State<XpGainDialog>
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return Colors.grey;
+      case 'wisdom': return Colors.blueAccent;
+      case 'courage': return AppTheme.fhAccentRed;
+      case 'humanity': return const Color(0xFFE91E63);
+      case 'justice': return AppTheme.fhAccentGold;
+      case 'temperance': return AppTheme.fhAccentTeal;
+      case 'transcendence': return AppTheme.fhAccentPurple;
+      default: return Colors.grey;
     }
   }
 
   IconData _getSkillIcon(String name) {
     switch (name.toLowerCase()) {
-      case 'wisdom':
-        return MdiIcons.brain;
-      case 'courage':
-        return MdiIcons.sword;
-      case 'humanity':
-        return MdiIcons.handHeart;
-      case 'justice':
-        return MdiIcons.scaleBalance;
-      case 'temperance':
-        return MdiIcons.yinYang;
-      case 'transcendence':
-        return MdiIcons.starFourPoints;
-      default:
-        return MdiIcons.circleSmall;
+      case 'wisdom': return MdiIcons.brain;
+      case 'courage': return MdiIcons.sword;
+      case 'humanity': return MdiIcons.handHeart;
+      case 'justice': return MdiIcons.scaleBalance;
+      case 'temperance': return MdiIcons.yinYang;
+      case 'transcendence': return MdiIcons.starFourPoints;
+      default: return MdiIcons.circleSmall;
     }
   }
 }
-
 --- END OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/add_session_dialog.dart ---
@@ -19330,9 +19633,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         reason: _reasonController.text.trim(),
         action: _actionController.text.trim(),
       );
-      // Currently, date modification for existing logs isn't fully supported in update method,
-      // but UI-wise we allow it. For true date change, we'd need to update timestamp in model.
-      // To keep it simple, we focus on content updates.
       Navigator.pop(context);
       return;
     }
@@ -19363,15 +19663,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         );
 
         final xpGained = result['xpGained'] as Map<String, int>;
+        final log = result['log'] as ReflectionLog?;
+        final feedback = log?.aiFeedback ?? "";
 
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP Dialog
+          // Show XP + Insight Dialog
           await showDialog(
             context: context,
-            barrierColor: Colors.black.withValues(alpha: 0.8),
-            builder: (ctx) => XpGainDialog(xpGained: xpGained),
+            barrierColor: Colors.black.withValues(alpha: 0.85),
+            builder: (ctx) => XpGainDialog(
+              xpGained: xpGained,
+              insightText: feedback, // Pass feedback text
+            ),
           );
         }
       } catch (e) {
@@ -30053,6 +30358,433 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   }
 }
 --- END OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
+
+--- START OF FILE lib/src/widgets/journaling/person_info_header.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class PersonInfoHeader extends StatelessWidget {
+  final int level;
+  final int xp;
+  final String role;
+  final String titleName;
+
+  const PersonInfoHeader({
+    super.key,
+    required this.level,
+    required this.xp,
+    required this.role,
+    required this.titleName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // XP Bar Width Calculation (Mock logic: Assuming 3000 max XP for display scaling)
+    final double xpProgress = (xp / 3000).clamp(0.0, 1.0);
+
+    return Column(
+      children: [
+        // --- Header Section ---
+        Container(
+          height: 70,
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Color(0xFF1f2f40)),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Red Strip
+              Container(
+                width: 15,
+                height: double.infinity,
+                color: PersonInfoTheme.spideyRed,
+              ),
+              // Stats Area
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [PersonInfoTheme.headerGradientStart, PersonInfoTheme.bgPanel],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Level Box
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "LVL",
+                            style: GoogleFonts.rajdhani(
+                              color: PersonInfoTheme.spideyCyan,
+                              fontSize: 10,
+                              letterSpacing: 1.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            "$level",
+                            style: GoogleFonts.rajdhani(
+                              color: PersonInfoTheme.spideyCyan,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                              shadows: [
+                                const Shadow(
+                                  color: Color(0x6600f0ff),
+                                  blurRadius: 5.0,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 15),
+                      // XP Bar Container
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 6,
+                              width: double.infinity,
+                              color: const Color(0xFF1f2f40),
+                              margin: const EdgeInsets.only(bottom: 5),
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: xpProgress,
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: PersonInfoTheme.spideyCyan,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Color(0x6600f0ff),
+                                        blurRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              "${role.toUpperCase()} / $xp XP",
+                              style: GoogleFonts.rajdhani(
+                                color: PersonInfoTheme.textWhite,
+                                fontSize: 11,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // --- Name Band ---
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 20, bottom: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: const BoxDecoration(
+            color: Color(0x0D00f0ff), // rgba(0, 240, 255, 0.05)
+            border: Border(
+              top: BorderSide(color: PersonInfoTheme.spideyCyanDim),
+              bottom: BorderSide(color: PersonInfoTheme.spideyCyanDim),
+            ),
+          ),
+          child: Text(
+            titleName.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.spideyCyan,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+              shadows: [
+                const Shadow(
+                  color: Color(0x6600f0ff),
+                  blurRadius: 10.0,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/journaling/person_info_header.dart ---
+
+--- START OF FILE lib/src/widgets/journaling/person_core_stats.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class PersonCoreStats extends StatelessWidget {
+  final String relation;
+  final String status;
+  final String updatedStr;
+  final String role;
+
+  const PersonCoreStats({
+    super.key,
+    required this.relation,
+    required this.status,
+    required this.updatedStr,
+    required this.role,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader("Core Stats"),
+        _buildDataRow("Relation", relation),
+        _buildDataRow("Status", status),
+        _buildDataRow("Updated", updatedStr),
+        _buildDataRow("Role", role),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10.0, bottom: 15.0),
+      child: Row(
+        children: [
+          Text(
+            text.toUpperCase(),
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.spideyCyan,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataRow(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      margin: const EdgeInsets.only(bottom: 8.0),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0x0DFFFFFF)), // rgba(255,255,255,0.05)
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.textGrey,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.textWhite,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/journaling/person_core_stats.dart ---
+
+--- START OF FILE lib/src/widgets/journaling/person_dossier_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class PersonDossierSection extends StatelessWidget {
+  final String profile;
+  final List<dynamic> interactionHistory;
+  final List<dynamic> communicationTips;
+
+  const PersonDossierSection({
+    super.key,
+    required this.profile,
+    required this.interactionHistory,
+    required this.communicationTips,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader("Dossier"),
+        
+        _buildSubHeader("PSYCHOLOGICAL PROFILE"),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20.0),
+          child: Text(
+            profile,
+            textAlign: TextAlign.justify,
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.textWhite.withValues(alpha: 0.9),
+              fontSize: 15,
+              height: 1.6,
+            ),
+          ),
+        ),
+
+        if (interactionHistory.isNotEmpty) ...[
+          _buildSubHeader("INTERACTION HISTORY"),
+          _buildList(interactionHistory),
+          const SizedBox(height: 10),
+        ],
+
+        if (communicationTips.isNotEmpty) ...[
+          _buildSubHeader("COMMUNICATION TIPS"),
+          _buildList(communicationTips),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10.0, bottom: 15.0),
+      child: Row(
+        children: [
+          Text(
+            text.toUpperCase(),
+            style: GoogleFonts.rajdhani(
+              color: PersonInfoTheme.spideyCyan,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubHeader(String text) {
+    return Container(
+      margin: const EdgeInsets.only(top: 15, bottom: 10), // Adjust top margin slightly from CSS 25px for flutter flow
+      padding: const EdgeInsets.only(left: 10),
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 3)),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.rajdhani(
+          color: PersonInfoTheme.textGrey,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildList(List<dynamic> items) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 5.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: items.map((item) {
+          String highlight = item['highlight'] ?? '';
+          String text = item['text'] ?? '';
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ">",
+                  style: GoogleFonts.rajdhani(
+                    color: PersonInfoTheme.spideyCyanDim,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.rajdhani(
+                        color: const Color(0xFFCCCCCC),
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
+                      children: [
+                        if (highlight.isNotEmpty)
+                          TextSpan(
+                            text: "$highlight ",
+                            style: const TextStyle(
+                              color: PersonInfoTheme.spideyCyan,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        TextSpan(text: text),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/journaling/person_dossier_section.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';
