@@ -2,20 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class AddGratitudeDialog extends StatefulWidget {
-  const AddGratitudeDialog({super.key});
+  final GratitudeItem? initialItem;
+  const AddGratitudeDialog({super.key, this.initialItem});
 
   @override
   State<AddGratitudeDialog> createState() => _AddGratitudeDialogState();
 }
 
 class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
-  final _nameController = TextEditingController();
-  final _whyController = TextEditingController();
-  final _howController = TextEditingController();
-  final _whatController = TextEditingController();
-  String _selectedType = 'resource';
+  late TextEditingController _nameController;
+  late TextEditingController _whyController;
+  late TextEditingController _howController;
+  late TextEditingController _whatController;
+  late String _selectedType;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialItem?.name ?? '');
+    _whyController = TextEditingController(text: widget.initialItem?.why ?? '');
+    _howController = TextEditingController(text: widget.initialItem?.how ?? '');
+    _whatController = TextEditingController(text: widget.initialItem?.what ?? '');
+    
+    _selectedType = widget.initialItem?.type ?? 'resource';
+    
+    // Validate type against allowed list just in case
+    if (!['resource', 'skill', 'person', 'object'].contains(_selectedType)) {
+      _selectedType = 'resource';
+    }
+  }
 
   @override
   void dispose() {
@@ -30,7 +48,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
     if (_nameController.text.trim().isEmpty) return;
 
     final item = GratitudeItem(
-      id: '', // Will be assigned in constructor
+      id: widget.initialItem?.id ?? const Uuid().v4(), // Use existing ID or generate new
       type: _selectedType,
       name: _nameController.text.trim(),
       why: _whyController.text.trim(),
@@ -57,7 +75,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                "NEW ASSET ENTRY",
+                widget.initialItem != null ? "EDIT ASSET" : "NEW ASSET ENTRY",
                 style: GoogleFonts.rajdhani(
                   color: PersonInfoTheme.spideyCyan,
                   fontSize: 20,
@@ -144,7 +162,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
                         shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                       ),
                       onPressed: _submit,
-                      child: Text("LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      child: Text(widget.initialItem != null ? "UPDATE" : "LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                     ),
                   ),
                 ],

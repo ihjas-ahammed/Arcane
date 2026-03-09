@@ -370,7 +370,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         children:[
                           Expanded(
                             child: ValorantButton(
-                              label: "Complete",
+                              label: "FINISH",
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
@@ -382,7 +382,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: ValorantButton(
-                              label: "Terminate",
+                              label: "DELETE",
                               icon: MdiIcons.deleteOutline,
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,

@@ -3,7 +3,6 @@ import 'package:arcane/src/screens/home_screen.dart';
 import 'package:arcane/src/screens/login_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/sync_indicator.dart';
 import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {
@@ -20,7 +19,7 @@ class _MyAppState extends State<MyApp> {
       title: 'Arcane',
       // We use a builder to inject the theme based on the provider state
       builder: (context, child) {
-        // Pillarbox constraint for desktop/web
+        // Pillarbox constraint for desktop/web and ideal screen 720x1520 constraint
         final constrainedApp = Container(
           color: Colors.black, 
           child: Center(
@@ -31,10 +30,6 @@ class _MyAppState extends State<MyApp> {
           ),
         );
 
-        // We need to listen to the provider for theme changes
-        // Since we can't access context.watch above MaterialApp, we do it here inside builder
-        // However, standard practice is wrapping MaterialApp with Consumer or using a stateful parent.
-        // Given the structure, we pass the child (Home/Login) which will have the correct theme context below.
         return constrainedApp;
       },
       // Default theme, will be overridden by local Theme widgets in screens
@@ -65,15 +60,7 @@ class _MyAppState extends State<MyApp> {
               children: [
                 const HomeScreen(),
 
-                // Non-blocking Sync Indicator (Bottom Center)
-                Positioned(
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SyncIndicator(isVisible: appProvider.isSyncing),
-                  ),
-                ),
+                // Sync indicator has been entirely removed to hide the background sync note
 
                 // Blocking overlay ONLY for critical manual loads (Restore/Import)
                 if (appProvider.isManuallyLoading)

@@ -77,7 +77,7 @@ class _XpGainDialogState extends State<XpGainDialog>
           // 1. Full Screen Backdrop Blur
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
               child: Container(
                 color: Colors.black.withValues(alpha: 0),
               ),
@@ -103,7 +103,7 @@ class _XpGainDialogState extends State<XpGainDialog>
                   opacity: _fadeAnimation,
                   child: Container(
                     width: MediaQuery.of(context).size.width * 0.85,
-                    constraints: const BoxConstraints(maxWidth: 360),
+                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 500),
                     // Gradient Border Wrapper
                     padding: const EdgeInsets.all(1.5),
                     decoration: BoxDecoration(
@@ -182,16 +182,22 @@ class _XpGainDialogState extends State<XpGainDialog>
                                       color: Colors.white.withValues(alpha: 0.1),
                                       margin: const EdgeInsets.only(bottom: 16),
                                     ),
-                                    ...List.generate(entries.length, (index) {
+                                    GridView.count(
+                                      crossAxisCount: 3,
+                                      shrinkWrap: true,
+                                      childAspectRatio: 2.2,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      children: List.generate(entries.length, (index) {
                                       final entry = entries[index];
                                       return Padding(
-                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        padding: const EdgeInsets.all(8.0),
                                         child: _buildCompactSkillRow(entry.key, entry.value)
                                             .animate(delay: (100 * index).ms)
                                             .fadeIn()
                                             .slideX(begin: -0.1, end: 0),
                                       );
                                     }),
+                                    ),
                                     const SizedBox(height: 16),
                                   ],
 
@@ -316,38 +322,42 @@ class _XpGainDialogState extends State<XpGainDialog>
     );
   }
 
-  Widget _buildCompactSkillRow(String skillName, int xp) {
-    Color color = _getVirtueColor(skillName);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          Icon(_getSkillIcon(skillName), color: color, size: 16),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              skillName.toUpperCase(),
-              style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                  letterSpacing: 1.0),
-            ),
+ Widget _buildCompactSkillRow(String skillName, int xp) {
+  Color color = _getVirtueColor(skillName);
+
+  return Container(
+    height: 36, // set fixed height
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    alignment: Alignment.centerLeft,
+    decoration: BoxDecoration(
+      color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(
+          _getSkillIcon(skillName),
+          color: color,
+          size: 16,
+        ),
+
+        const SizedBox(width: 8),
+
+        Text(
+          "+$xp",
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
-          Text(
-            "+$xp",
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Color _getVirtueColor(String name) {
     switch (name.toLowerCase()) {

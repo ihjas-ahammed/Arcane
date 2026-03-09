@@ -21,11 +21,19 @@ class SelectResourceDialog extends StatefulWidget {
 
 class _SelectResourceDialogState extends State<SelectResourceDialog> {
   late Set<String> _currentSelection;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _currentSelection = Set<String>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _toggleSelection(String id) {
@@ -51,7 +59,13 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final items = provider.chatbotMemory.gratitudeList;
+    
+    // Filter and Sort
+    var items = provider.chatbotMemory.gratitudeList.toList();
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     return Dialog(
       backgroundColor: AppTheme.fhBgMedium,
@@ -74,11 +88,30 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
             ),
           ),
           
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: "SEARCH...",
+                hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
+                filled: true,
+                fillColor: AppTheme.fhBgDark,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: const OutlineInputBorder(borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          
           Flexible(
             child: items.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: Text("No assets available. Add them in the Gratitude Log.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
+                  child: Text("No matching assets found.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
                 )
               : ListView.builder(
                   shrinkWrap: true,

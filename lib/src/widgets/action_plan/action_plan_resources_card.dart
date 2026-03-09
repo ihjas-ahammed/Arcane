@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/widgets/dialogs/select_resource_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/asset_info_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-
-// Helper to grab the item details from provider
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 
@@ -49,16 +47,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
 
     if (result != null) {
       onChanged(jsonEncode(result));
-    }
-  }
-
-  IconData _getIconForType(String type) {
-    switch(type.toLowerCase()) {
-      case 'skill': return MdiIcons.lightningBolt;
-      case 'person': return MdiIcons.accountHeart;
-      case 'object': return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default: return MdiIcons.starFourPoints;
     }
   }
 
@@ -117,9 +105,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: selectedIds.map((id) {
-                  // Normally we'd fetch the actual item from provider to display Name & Icon
-                  // For pure UI speed, we'll extract provider here if needed, but we can just use Consumer 
-                  // or pass provider from parent. Let's use a nested Consumer to be safe.
                   return _ResourceChipBuilder(id: id, accentColor: accentColor);
                 }).toList(),
               )
@@ -152,23 +137,31 @@ class _ResourceChipBuilder extends StatelessWidget {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); // Hide if deleted
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.1),
-            border: Border.all(color: accentColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_getIconForType(item.type), size: 14, color: accentColor),
-              const SizedBox(width: 6),
-              Text(
-                item.name.toUpperCase(),
-                style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
+        return InkWell(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => AssetInfoDialog(item: item)
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              border: Border.all(color: accentColor.withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getIconForType(item.type), size: 14, color: accentColor),
+                const SizedBox(width: 6),
+                Text(
+                  item.name.toUpperCase(),
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         );
       }

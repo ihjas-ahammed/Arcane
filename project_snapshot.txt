@@ -1,11 +1,8 @@
-Here are the updates to make the gratitude list more powerful, revamp the submission view with a compact session list and resource linker, and supercharge the day planner with dashboard execution capabilities.
+Here are the exact changes needed to fix the asset assignment bug, implement the new AI logic with the Pro model, and introduce the compact search interfaces. 
 
-### Changes Made:
-1. **Gratitude Items**: Upgraded to support `type` (Skill, Object, Person, Resource), `name`, `why`, `how`, and `what`. Uses a sleek dialog for entry.
-2. **Submission View**: Removed the timeline, replacing it with a compact list of recent sessions and a "VIEW ALL" button. Added a Resource selector that links directly to your Gratitude/Resource items.
-3. **Day Planner**: Now supports adding individual `Checkpoints` alongside `Missions`. Added a sleek horizontal "Queue" on the Schedule Dashboard where you can check off tasks directly.
+The bug causing all assets to be selected at once was due to legacy or fast-created items saving with an empty ID string (`''`). When one was selected, the system thought *all* items with `id == ''` were selected. I've added a self-healing mechanism to regenerate unique IDs for any corrupted data upon load.
 
---- START OF FILE project_snapshot_out.txt ---
+### File Modifications
 
 --- START OF FILE lib/src/models/chatbot_models.dart ---
 // lib/src/models/chatbot_models.dart
@@ -192,8 +189,14 @@ class GratitudeItem {
   });
 
   factory GratitudeItem.fromJson(Map<String, dynamic> json) {
+    // FIX: Self-healing ID for legacy corrupted items that used empty strings
+    String parsedId = json['id'] as String? ?? '';
+    if (parsedId.trim().isEmpty) {
+      parsedId = const Uuid().v4();
+    }
+
     return GratitudeItem(
-      id: json['id'] as String? ?? const Uuid().v4(),
+      id: parsedId,
       type: json['type'] as String? ?? 'resource',
       name: json['name'] as String? ?? 'Unknown',
       why: json['why'] as String? ?? '',
@@ -272,7 +275,6 @@ class ChatbotMemory {
           [],
       gratitudeList: (json['gratitudeList'] as List<dynamic>?)
               ?.map((item) {
-                // Handle legacy strings from older versions
                 if (item is String) {
                   return GratitudeItem(id: const Uuid().v4(), type: 'resource', name: item);
                 } else if (item is Map<String, dynamic>) {
@@ -299,6 +301,672 @@ class ChatbotMemory {
   }
 }
 --- END OF FILE lib/src/models/chatbot_models.dart ---
+
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/utils/json_utils.dart';
+
+class AIService {
+  
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final List<String> apiKeysToTry = <String>{
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    }.toList();
+
+    if (apiKeysToTry.isEmpty) {
+      throw Exception("No valid Gemini API keys found.");
+    }
+
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
+
+        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
+
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+        }
+      }
+    }
+    throw Exception(
+        "All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+
+        String? rawResponseText = response.text;
+        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+          throw Exception("AI response was empty.");
+        }
+        
+        return JsonUtils.tryDecode(rawResponseText);
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> generateActionPlanSteps({
+    required String taskName,
+    required String why,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a tactical action plan (How) and expected outcome (What) for the following objective:
+    
+    OBJECTIVE: $taskName
+    STRATEGIC INTENT (WHY): $why
+    
+    Task:
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
+    2. Define the expected result/reward ("What") upon completion.
+    
+    Output JSON ONLY:
+    {
+      "steps": [
+        {"name": "Step description"}
+      ],
+      "what": "Description of the result or reward"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, 
+    required String currentTime,
+    required String availableTasksContext, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-10 likely sessions for the remainder of the day.
+    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:
+    [
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    final result = await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        String? raw = response.text;
+        if (raw == null) throw Exception("Empty AI response");
+        return JsonUtils.tryDecode(raw);
+      },
+    );
+
+    if (result is List) {
+      return result.map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+  Future<String> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+    """;
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        return response.text ?? "Archive data corrupted or empty.";
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    required List<String> modelCandidates,
+    List<Map<String, String>>? dailyReflections,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
+    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
+    
+    final prompt = """
+    Analyze this reflection log.
+    Situation: $trigger
+    Feeling: $emotion
+    Reason: $reason
+    Action Planned: $action
+    
+    1. Provide constructive feedback. ($instruction)
+    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+
+    Output JSON: {
+      "feedback": "string", 
+      "xp_allocation": {"Wisdom": int, ...}
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a Tactical Briefing based on today's reflections.
+    Current Logs: ${jsonEncode(reflections)}
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    
+    Tone: Empathetic, psychologically wise, therapist.
+    
+    Task:
+    1. Create a concise summary.
+    2. Identify specific ability improvements or growth by comparing with previous context.
+    3. Extract people to be grateful for based on today's logs.
+    4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    
+    Output JSON: {
+      "summary": "string (max 120 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
+      "grateful_assets": [ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Task:
+    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
+    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
+    3. Output JSON: 
+    { 
+      "summary": "string", 
+      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
+      "time_insight": "string",
+      "grateful_people": [ {"name": "string", "reason": "string"} ]
+    } 
+    Logs: $logsText. 
+    Time: $timeStatsText. 
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
+    }
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          if (methods.contains('generateContent')) {
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return [];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
+  }
+
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    Tone: A supportive, insightful human friend having a morning coffee with the user. Friendly, warm, but highly practical and focused on their growth.
+    
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today based on yesterday's logs).
+    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
+    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "directives": ["string", "string", "string"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Create a list of upto 50 people
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people": [
+        {
+          "name": "string",
+          "relation": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
+    Create a comprehensive list based purely on the logs.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "assets": [
+        {
+          "name": "string",
+          "type": "skill|person|object|resource",
+          "why": "string (Strategic value or why it is important)",
+          "what": "string (Expected yield or what it does)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generatePersonDetails({
+    required String personName,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
+    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
+    {
+      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
+      "level": int (1-100 based on relationship depth),
+      "xp": int (total arbitrary xp based on significance, e.g. 2650),
+      "role": "Their inferred role (e.g. Student, Colleague)",
+      "status": "Current relationship status (e.g. Calibration Phase, Active)",
+      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
+      "interaction_history": [
+        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
+      ],
+      "communication_tips": [
+        {"highlight": "Tip Name:", "text": "Description of the tip."}
+      ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy({
+    required String reason,
+    required String feeling,
+    required String action,
+    required String logsText,
+    required String peopleContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    User needs immediate psychological assistance.
+    Current Situation / Reason: $reason
+    Current Feeling: $feeling
+    Planned Action: $action
+    
+    Past Context (Reflections): $logsText
+    Known People: $peopleContext
+    
+    Task:
+    1. Provide a concise, empathetic, and tactical action plan for right now.
+    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
+    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
+    
+    Output JSON ONLY:
+    {
+      "action_plan": "string",
+      "suggested_person": "string or null",
+      "conversation_map": ["step 1", "step 2"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> simulateEvent({
+    required String situation,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
+    
+    Proposed Situation: $situation
+    
+    Past Context (Reflections): $logsText
+    
+    Task:
+    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
+    
+    Output JSON ONLY:
+    {
+      "simulation": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+}
+--- END OF FILE lib/src/services/ai_service.dart ---
 
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
@@ -402,7 +1070,18 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (currentUser != null) {
         scheduleRealtimeSync(); 
       }
+    } else if (state == AppLifecycleState.resumed) {
+      if (currentUser != null) {
+        // Recover any daily reports generated by other devices to prevent overwrite
+        fetchDailyReportsFromCloud();
+      }
     }
+  }
+
+  @override
+  Future<void> manuallyLoadFromCloud() async {
+    await super.manuallyLoadFromCloud();
+    await fetchDailyReportsFromCloud();
   }
 
   // --- Initialization ---
@@ -457,6 +1136,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         _fixTimerAnomalies();
         await _taskActions.recalibrateTimeLogs(silent: true);
         _handleDailyReset();
+        
+        // Fetch specific daily subcollections to avoid cross-device history overwrite
+        await fetchDailyReportsFromCloud();
 
       } catch (e) {
         debugPrint("Cloud init failed: $e");
@@ -469,6 +1151,30 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       await _resetToInitialState();
       await _localStorage.clearState();
       setAuthLoading(false);
+    }
+  }
+
+  Future<void> fetchDailyReportsFromCloud() async {
+    if (currentUser == null) return;
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    if (recentDaily.isNotEmpty) {
+      final newHistory = Map<String, dynamic>.from(completedByDay);
+      recentDaily.forEach((date, data) {
+        final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
+        bool changed = false;
+        if (data.containsKey('briefing')) {
+          dayData['aiBriefing'] = data['briefing'];
+          changed = true;
+        }
+        if (data.containsKey('report')) {
+          dayData['startDayReport'] = data['report'];
+          changed = true;
+        }
+        if (changed) {
+          newHistory[date] = dayData;
+        }
+      });
+      setCompletedByDay(newHistory);
     }
   }
 
@@ -659,6 +1365,17 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(newMemory);
   }
 
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+
   // --- Reports Logic ---
   Map<String, dynamic> getLast7DaysData() { 
     final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
@@ -727,15 +1444,73 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        final b = getTacticalBriefing(dStr);
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
-    return await _aiService.generateDailySummary(
+    
+    final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
-      modelCandidates: settings.heavyModels, // Using Pro Models
+      modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
       onLog: (m) => debugPrint(m)
     );
+
+    // Auto-capture newly identified grateful assets
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    // Auto-capture newly identified grateful people
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+        scheduleRealtimeSync();
+      }
+    }
+
+    return result;
   }
 
   void _cleanOverlappingSessions() {
@@ -1025,174 +1800,285 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 }
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
---- START OF FILE lib/src/screens/journaling/gratitude_list_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
+--- START OF FILE lib/src/providers/actions/journaling_actions.dart ---
+import 'package:flutter/foundation.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/widgets/dialogs/add_gratitude_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
-class GratitudeListScreen extends StatelessWidget {
-  const GratitudeListScreen({super.key});
+class JournalingActions {
+  final AppProvider _provider;
 
-  void _showAddDialog(BuildContext context, AppProvider provider) {
-    showDialog(
-      context: context,
-      builder: (_) => const AddGratitudeDialog()
-    ).then((newItem) {
-      if (newItem != null && newItem is GratitudeItem) {
-        final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
-        currentList.insert(0, newItem); 
-        provider.updateGratitudeList(currentList);
+  JournalingActions(this._provider);
+
+  String _getLogsText() {
+    return _provider.reflectionLogs
+        .map((l) => "[${l.timestamp.toIso8601String()}] ${l.trigger}: ${l.emotion} - ${l.reason}")
+        .join('\n');
+  }
+
+  Future<void> extractAndSavePeople() async {
+    final logsText = _getLogsText();
+    if (logsText.isEmpty) return;
+
+    _provider.setLoadingTask("Extracting Entities...");
+
+    try {
+      // Intentionally using liteModels for extraction per prompt instructions
+      final results = await _provider.aiService.extractPeopleFromReflections(
+        logsText: logsText,
+        modelCandidates: _provider.settings.liteModels, 
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[PeopleExtraction] $msg"),
+      );
+
+      final currentPeople = List<PersonInfo>.from(_provider.chatbotMemory.people);
+
+      for (var data in results) {
+        final name = data['name'] as String?;
+        final relation = data['relation'] as String?;
+        if (name == null || name.isEmpty) continue;
+
+        final existingIndex = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIndex != -1) {
+          if (relation != null) {
+            currentPeople[existingIndex].relation = relation;
+          }
+        } else {
+          currentPeople.add(PersonInfo(
+            id: const Uuid().v4(),
+            name: name,
+            relation: relation ?? 'Acquaintance',
+          ));
+        }
       }
-    });
-  }
 
-  void _removeItem(AppProvider provider, String id) {
-    final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
-    currentList.removeWhere((item) => item.id == id);
-    provider.updateGratitudeList(currentList);
-  }
+      _provider.chatbotMemory.people = currentPeople;
+      _provider.markDirty('settings');
+      _provider.scheduleRealtimeSync();
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
 
-  IconData _getIconForType(String type) {
-    switch(type.toLowerCase()) {
-      case 'skill': return MdiIcons.lightningBolt;
-      case 'person': return MdiIcons.accountHeart;
-      case 'object': return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default: return MdiIcons.starFourPoints;
+    } catch (e) {
+      debugPrint("Error extracting people: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final items = provider.chatbotMemory.gratitudeList;
+  Future<void> extractAndSaveAssets() async {
+    final logsText = _getLogsText();
+    if (logsText.isEmpty) return;
 
-    return Scaffold(
-      backgroundColor: PersonInfoTheme.bgDark,
-      appBar: AppBar(
-        title: Text("GRATITUDE & ASSETS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
-        actions: [
-          IconButton(
-            icon: const Icon(MdiIcons.plusBox, color: PersonInfoTheme.spideyCyan),
-            onPressed: () => _showAddDialog(context, provider),
-          )
-        ],
-      ),
-      body: SafeArea(
-        child: items.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withOpacity(0.2)),
-                  const SizedBox(height: 16),
-                  Text("NO ENTRIES YET", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 20, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return Dismissible(
-                  key: ValueKey(item.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: PersonInfoTheme.spideyRed,
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (_) => _removeItem(provider, item.id),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: PersonInfoTheme.bgPanel,
-                      border: Border(left: BorderSide(color: PersonInfoTheme.spideyCyan, width: 4)),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]
-                    ),
-                    child: ExpansionTile(
-                      iconColor: PersonInfoTheme.spideyCyan,
-                      collapsedIconColor: PersonInfoTheme.textGrey,
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: PersonInfoTheme.spideyCyan.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4)
-                        ),
-                        child: Icon(_getIconForType(item.type), color: PersonInfoTheme.spideyCyan, size: 20),
-                      ),
-                      title: Text(
-                        item.name.toUpperCase(), 
-                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.0)
-                      ),
-                      subtitle: Text(
-                        item.type.toUpperCase(),
-                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyanDim, fontSize: 12, fontWeight: FontWeight.w600)
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (item.why.isNotEmpty) _buildDetailRow("WHY", item.why),
-                        if (item.how.isNotEmpty) _buildDetailRow("HOW", item.how),
-                        if (item.what.isNotEmpty) _buildDetailRow("WHAT", item.what),
-                        if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
-                          const Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic))
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-      ),
-    );
+    _provider.setLoadingTask("Extracting Assets...");
+
+    try {
+      final results = await _provider.aiService.extractAssetsFromReflections(
+        logsText: logsText,
+        modelCandidates: _provider.settings.heavyModels, 
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[AssetExtraction] $msg"),
+      );
+
+      final currentAssets = List<GratitudeItem>.from(_provider.chatbotMemory.gratitudeList);
+      bool changed = false;
+
+      for (var data in results) {
+        final name = data['name'] as String?;
+        final type = data['type'] as String? ?? 'resource';
+        final why = data['why'] as String? ?? '';
+        final what = data['what'] as String? ?? '';
+        if (name == null || name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(
+            id: const Uuid().v4(),
+            type: type,
+            name: name,
+            why: why,
+            what: what,
+          ));
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        _provider.updateGratitudeList(currentAssets);
+        _provider.scheduleRealtimeSync();
+      }
+
+    } catch (e) {
+      debugPrint("Error extracting assets: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
   }
 
-  Widget _buildDetailRow(String label, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0)),
-          const SizedBox(height: 4),
-          Text(text, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13, height: 1.4)),
-        ],
-      ),
+  Future<void> generatePersonDetails(String personId) async {
+    final personIndex = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
+    if (personIndex == -1) return;
+
+    final person = _provider.chatbotMemory.people[personIndex];
+    final logsText = _getLogsText();
+
+    _provider.setLoadingTask("Analyzing Profile...");
+
+    try {
+      final result = await _provider.aiService.generatePersonDetails(
+        personName: person.name,
+        logsText: logsText,
+        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[PersonDetails] $msg"),
+      );
+
+      // Save the entire JSON structure as a string so UI can parse it
+      _provider.chatbotMemory.people[personIndex].details = jsonEncode(result);
+      _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
+      _provider.markDirty('settings');
+      _provider.scheduleRealtimeSync();
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
+      
+    } catch (e) {
+      debugPrint("Error generating person details: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action) async {
+    final logsText = _getLogsText();
+    final peopleContext = _provider.chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(', ');
+
+    _provider.setLoadingTask("Formulating Strategy...");
+
+    try {
+      final result = await _provider.aiService.runQuickTherapy(
+        reason: reason,
+        feeling: feeling,
+        action: action,
+        logsText: logsText,
+        peopleContext: peopleContext.isEmpty ? "None" : peopleContext,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[QuickTherapy] $msg"),
+      );
+
+      return result;
+    } catch (e) {
+      debugPrint("Error running quick therapy: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<String> simulateEvent(String situation) async {
+    final logsText = _getLogsText();
+
+    _provider.setLoadingTask("Simulating Event...");
+
+    try {
+      final result = await _provider.aiService.simulateEvent(
+        situation: situation,
+        logsText: logsText,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[EventSim] $msg"),
+      );
+
+      return result['simulation'] as String? ?? "Simulation failed to generate usable data.";
+    } catch (e) {
+      debugPrint("Error simulating event: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  void simulateTalk(PersonInfo person, String? customChatHistory) {
+    final customContext = """
+    You are roleplaying as ${person.name}, who is my ${person.relation}.
+    Do NOT break character. Do not refer to yourself as an AI.
+    Here is a psychological profile based on my past logs:
+    ${person.details ?? 'No additional details available.'}
+    
+    ${customChatHistory != null && customChatHistory.isNotEmpty ? "Here is a recent chat history for context to understand their speech pattern:\n$customChatHistory" : ""}
+    """;
+
+    _provider.createNoraSession(
+      title: "SIM: ${person.name}",
+      tone: "Simulated",
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      customContext: customContext,
     );
   }
 }
---- END OF FILE lib/src/screens/journaling/gratitude_list_screen.dart ---
+--- END OF FILE lib/src/providers/actions/journaling_actions.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/add_gratitude_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class AddGratitudeDialog extends StatefulWidget {
-  const AddGratitudeDialog({super.key});
+  final GratitudeItem? initialItem;
+  const AddGratitudeDialog({super.key, this.initialItem});
 
   @override
   State<AddGratitudeDialog> createState() => _AddGratitudeDialogState();
 }
 
 class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
-  final _nameController = TextEditingController();
-  final _whyController = TextEditingController();
-  final _howController = TextEditingController();
-  final _whatController = TextEditingController();
-  String _selectedType = 'resource';
+  late TextEditingController _nameController;
+  late TextEditingController _whyController;
+  late TextEditingController _howController;
+  late TextEditingController _whatController;
+  late String _selectedType;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialItem?.name ?? '');
+    _whyController = TextEditingController(text: widget.initialItem?.why ?? '');
+    _howController = TextEditingController(text: widget.initialItem?.how ?? '');
+    _whatController = TextEditingController(text: widget.initialItem?.what ?? '');
+    
+    _selectedType = widget.initialItem?.type ?? 'resource';
+    
+    // Validate type against allowed list just in case
+    if (!['resource', 'skill', 'person', 'object'].contains(_selectedType)) {
+      _selectedType = 'resource';
+    }
+  }
 
   @override
   void dispose() {
@@ -1207,7 +2093,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
     if (_nameController.text.trim().isEmpty) return;
 
     final item = GratitudeItem(
-      id: '', // Will be assigned in constructor
+      id: widget.initialItem?.id ?? const Uuid().v4(), // Use existing ID or generate new
       type: _selectedType,
       name: _nameController.text.trim(),
       why: _whyController.text.trim(),
@@ -1234,7 +2120,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                "NEW ASSET ENTRY",
+                widget.initialItem != null ? "EDIT ASSET" : "NEW ASSET ENTRY",
                 style: GoogleFonts.rajdhani(
                   color: PersonInfoTheme.spideyCyan,
                   fontSize: 20,
@@ -1321,7 +2207,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
                         shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                       ),
                       onPressed: _submit,
-                      child: Text("LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      child: Text(widget.initialItem != null ? "UPDATE" : "LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                     ),
                   ),
                 ],
@@ -1357,184 +2243,233 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/add_gratitude_dialog.dart ---
 
---- START OF FILE lib/src/widgets/action_plan/action_plan_resources_card.dart ---
-import 'dart:convert';
+--- START OF FILE lib/src/screens/journaling/gratitude_list_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/widgets/dialogs/select_resource_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_gratitude_dialog.dart';
+import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class ActionPlanResourcesCard extends StatelessWidget {
-  final String initialResources;
-  final ValueChanged<String> onChanged;
-  final Color accentColor;
+class GratitudeListScreen extends StatefulWidget {
+  const GratitudeListScreen({super.key});
 
-  const ActionPlanResourcesCard({
-    super.key,
-    required this.initialResources,
-    required this.onChanged,
-    required this.accentColor,
-  });
+  @override
+  State<GratitudeListScreen> createState() => _GratitudeListScreenState();
+}
 
-  List<String> _getSelectedIds() {
-    if (initialResources.isEmpty) return [];
-    try {
-      final decoded = jsonDecode(initialResources);
-      if (decoded is List) {
-        return decoded.map((e) => e.toString()).toList();
-      }
-    } catch (_) {
-      // Fallback for old comma-separated strings if any
-      return initialResources.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    }
-    return [];
+class _GratitudeListScreenState extends State<GratitudeListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _openSelector(BuildContext context) async {
-    final currentIds = _getSelectedIds();
-    final result = await showDialog<List<String>>(
+  void _showAddOrEditDialog(BuildContext context, AppProvider provider, [GratitudeItem? item]) {
+    showDialog(
       context: context,
-      builder: (_) => SelectResourceDialog(
-        selectedIds: currentIds,
-        accentColor: accentColor,
+      builder: (_) => AddGratitudeDialog(initialItem: item)
+    ).then((updatedItem) {
+      if (updatedItem != null && updatedItem is GratitudeItem) {
+        provider.updateGratitudeItem(updatedItem);
+      }
+    });
+  }
+
+  void _removeItem(AppProvider provider, String id) {
+    final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
+    currentList.removeWhere((item) => item.id == id);
+    provider.updateGratitudeList(currentList);
+  }
+
+  Future<void> _scanLogsForAssets(BuildContext context, AppProvider provider) async {
+    try {
+      await provider.journalingActions.extractAndSaveAssets();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Asset Scan Complete.")));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
+  IconData _getIconForType(String type) {
+    switch(type.toLowerCase()) {
+      case 'skill': return MdiIcons.lightningBolt;
+      case 'person': return MdiIcons.accountHeart;
+      case 'object': return MdiIcons.cubeOutline;
+      case 'resource': return MdiIcons.bookOpenVariant;
+      default: return MdiIcons.starFourPoints;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    
+    // Filter and Sort
+    var items = provider.chatbotMemory.gratitudeList.toList();
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    return Scaffold(
+      backgroundColor: PersonInfoTheme.bgDark,
+      appBar: AppBar(
+        title: Text("GRATITUDE & ASSETS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
+        actions: [
+          provider.loadingTaskName == "Extracting Assets..." 
+            ? const Center(child: Padding(padding: EdgeInsets.only(right: 16.0), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))))
+            : IconButton(
+                icon: Icon(MdiIcons.databaseSearchOutline, color: AppTheme.fhAccentPurple),
+                tooltip: "Scan Logs for Assets",
+                onPressed: () => _scanLogsForAssets(context, provider),
+              ),
+          IconButton(
+            icon: Icon(MdiIcons.plusBox, color: PersonInfoTheme.spideyCyan),
+            onPressed: () => _showAddOrEditDialog(context, provider),
+          )
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Search Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: PersonInfoTheme.bgDark,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) => setState(() => _searchQuery = val),
+                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: "SEARCH ASSETS...",
+                  hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                  prefixIcon: const Icon(Icons.search, color: PersonInfoTheme.spideyCyan, size: 20),
+                  filled: true,
+                  fillColor: PersonInfoTheme.bgPanel,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
+                ),
+              ),
+            ),
+            
+            Expanded(
+              child: items.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withOpacity(0.2)),
+                        const SizedBox(height: 16),
+                        Text(_searchQuery.isEmpty ? "NO ENTRIES YET" : "NO MATCHES FOUND", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 20, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return Dismissible(
+                        key: ValueKey(item.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: PersonInfoTheme.spideyRed,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (_) => _removeItem(provider, item.id),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: PersonInfoTheme.bgPanel,
+                            border: Border(left: BorderSide(color: PersonInfoTheme.spideyCyan, width: 4)),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]
+                          ),
+                          child: ExpansionTile(
+                            iconColor: PersonInfoTheme.spideyCyan,
+                            collapsedIconColor: PersonInfoTheme.textGrey,
+                            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: PersonInfoTheme.spideyCyan.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4)
+                              ),
+                              child: Icon(_getIconForType(item.type), color: PersonInfoTheme.spideyCyan, size: 20),
+                            ),
+                            title: Text(
+                              item.name.toUpperCase(), 
+                              style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                            ),
+                            subtitle: Text(
+                              item.type.toUpperCase(),
+                              style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyanDim, fontSize: 12, fontWeight: FontWeight.w600)
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (item.why.isNotEmpty) _buildDetailRow("WHY", item.why),
+                              if (item.how.isNotEmpty) _buildDetailRow("HOW", item.how),
+                              if (item.what.isNotEmpty) _buildDetailRow("WHAT", item.what),
+                              if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
+                                const Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic)),
+                              
+                              const SizedBox(height: 16),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _showAddOrEditDialog(context, provider, item),
+                                  icon: Icon(MdiIcons.pencil, size: 14),
+                                  label: const Text("EDIT DATA"),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: PersonInfoTheme.textGrey,
+                                    side: const BorderSide(color: Color(0xFF1f2f40)),
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+            ),
+          ],
+        ),
       ),
     );
-
-    if (result != null) {
-      onChanged(jsonEncode(result));
-    }
   }
 
-  IconData _getIconForType(String type) {
-    switch(type.toLowerCase()) {
-      case 'skill': return MdiIcons.lightningBolt;
-      case 'person': return MdiIcons.accountHeart;
-      case 'object': return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default: return MdiIcons.starFourPoints;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedIds = _getSelectedIds();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children:[
-        Container(
-          margin: const EdgeInsets.only(top: 15, bottom: 5),
-          padding: const EdgeInsets.only(left: 10),
-          decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: accentColor, width: 2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "REQUIRED ASSETS",
-                style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              InkWell(
-                onTap: () => _openSelector(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
-                  child: Text(
-                    "ASSIGN ASSET",
-                    style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-        
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
-            border: Border.all(color: AppTheme.fhBorderColor),
-          ),
-          child: selectedIds.isEmpty
-            ? const Text(
-                "No assets assigned.", 
-                style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic, fontSize: 12)
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: selectedIds.map((id) {
-                  // Normally we'd fetch the actual item from provider to display Name & Icon
-                  // For pure UI speed, we'll extract provider here if needed, but we can just use Consumer 
-                  // or pass provider from parent. Let's use a nested Consumer to be safe.
-                  return _ResourceChipBuilder(id: id, accentColor: accentColor);
-                }).toList(),
-              )
-        )
-      ],
+  Widget _buildDetailRow(String label, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0)),
+          const SizedBox(height: 4),
+          Text(text, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13, height: 1.4)),
+        ],
+      ),
     );
   }
 }
-
-// Helper to grab the item details from provider
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-
-class _ResourceChipBuilder extends StatelessWidget {
-  final String id;
-  final Color accentColor;
-
-  const _ResourceChipBuilder({required this.id, required this.accentColor});
-
-  IconData _getIconForType(String type) {
-    switch(type.toLowerCase()) {
-      case 'skill': return MdiIcons.lightningBolt;
-      case 'person': return MdiIcons.accountHeart;
-      case 'object': return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default: return MdiIcons.starFourPoints;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, provider, _) {
-        final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
-        if (item == null) return const SizedBox.shrink(); // Hide if deleted
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.1),
-            border: Border.all(color: accentColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_getIconForType(item.type), size: 14, color: accentColor),
-              const SizedBox(width: 6),
-              Text(
-                item.name.toUpperCase(),
-                style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        );
-      }
-    );
-  }
-}
---- END OF FILE lib/src/widgets/action_plan/action_plan_resources_card.dart ---
+--- END OF FILE lib/src/screens/journaling/gratitude_list_screen.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/select_resource_dialog.dart ---
 import 'package:flutter/material.dart';
@@ -1560,11 +2495,19 @@ class SelectResourceDialog extends StatefulWidget {
 
 class _SelectResourceDialogState extends State<SelectResourceDialog> {
   late Set<String> _currentSelection;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _currentSelection = Set<String>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _toggleSelection(String id) {
@@ -1590,7 +2533,13 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final items = provider.chatbotMemory.gratitudeList;
+    
+    // Filter and Sort
+    var items = provider.chatbotMemory.gratitudeList.toList();
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     return Dialog(
       backgroundColor: AppTheme.fhBgMedium,
@@ -1613,11 +2562,30 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
             ),
           ),
           
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: "SEARCH...",
+                hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
+                filled: true,
+                fillColor: AppTheme.fhBgDark,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: const OutlineInputBorder(borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          
           Flexible(
             child: items.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: Text("No assets available. Add them in the Gratitude Log.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
+                  child: Text("No matching assets found.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
                 )
               : ListView.builder(
                   shrinkWrap: true,
@@ -1696,422 +2664,223 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/select_resource_dialog.dart ---
 
---- START OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
+--- START OF FILE lib/src/widgets/cards/tactical_briefing_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class DayPlanScreen extends StatefulWidget {
-  const DayPlanScreen({super.key});
+class TacticalBriefingCard extends StatelessWidget {
+  final Map<String, dynamic> briefingData;
+  final VoidCallback? onSave;
+  final bool isSaved;
 
-  @override
-  State<DayPlanScreen> createState() => _DayPlanScreenState();
-}
+  const TacticalBriefingCard({
+    super.key,
+    required this.briefingData,
+    this.onSave,
+    this.isSaved = false,
+  });
 
-class _DayPlanScreenState extends State<DayPlanScreen> {
-  List<String> _currentPlan = [];
-  bool _isInit = true;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_isInit) {
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      _currentPlan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-      _isInit = false;
+  IconData _getIconForAssetType(String type) {
+    switch(type.toLowerCase()) {
+      case 'skill': return MdiIcons.lightningBolt;
+      case 'person': return MdiIcons.accountHeart;
+      case 'object': return MdiIcons.cubeOutline;
+      case 'resource': return MdiIcons.bookOpenVariant;
+      default: return MdiIcons.starFourPoints;
     }
-  }
-
-  void _savePlan() {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    provider.taskActions.updateDayPlan(helper.getTodayDateString(), _currentPlan);
-    Navigator.pop(context);
-  }
-
-  void _addToPlan(String compoundId) {
-    if (!_currentPlan.contains(compoundId)) {
-      setState(() => _currentPlan.add(compoundId));
-    }
-  }
-
-  void _removeFromPlan(String compoundId) {
-    setState(() => _currentPlan.remove(compoundId));
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
+    final summary = briefingData['summary'] as String? ?? "No intel available.";
+    final improvements = briefingData['improvements'] as List<dynamic>? ?? [];
+    final gratefulPeople = briefingData['grateful_people'] as List<dynamic>? ?? [];
+    final gratefulAssets = briefingData['grateful_assets'] as List<dynamic>? ?? [];
 
-    // Build available list
-    List<Widget> availableWidgets = [];
-    for (var task in provider.mainTasks) {
-      final activeSubs = task.subTasks.where((s) => !s.completed).toList();
-      if (activeSubs.isEmpty) continue;
-
-      availableWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
-          child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
-        )
-      );
-
-      for (var sub in activeSubs) {
-        final subId = "${task.id}|${sub.id}";
-        
-        // Add SubTask itself
-        if (!_currentPlan.contains(subId)) {
-          availableWidgets.add(
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark.withOpacity(0.5),
-                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-              ),
-              child: ListTile(
-                leading: Icon(MdiIcons.targetAccount, color: task.taskColor, size: 20),
-                title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14)),
-                trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
-                onTap: () => _addToPlan(subId),
-              ),
-            )
-          );
-        }
-
-        // Add Checkpoints inside the SubTask
-        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
-        for (var cp in activeCheckpoints) {
-          final cpId = "${task.id}|${sub.id}|${cp.id}";
-          if (!_currentPlan.contains(cpId)) {
-            availableWidgets.add(
-              Container(
-                margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark.withOpacity(0.3),
-                  border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
-                ),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
-                  trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
-                  onTap: () => _addToPlan(cpId),
-                ),
-              )
-            );
-          }
-        }
-      }
-    }
-
-    return Scaffold(
-      backgroundColor: PersonInfoTheme.bgDark,
-      appBar: AppBar(
-        title: Text("STARTUP PLAN MAKER", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check, color: AppTheme.fhAccentGreen),
-            onPressed: _savePlan,
-            tooltip: "Save Plan",
-          )
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Selected Plan (Reorderable)
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    color: PersonInfoTheme.bgPanel,
-                    child: Text("TODAY'S QUEUE", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
-                  ),
-                  Expanded(
-                    child: _currentPlan.isEmpty
-                      ? const Center(child: Text("QUEUE EMPTY", style: TextStyle(color: AppTheme.fhTextDisabled)))
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _currentPlan.length,
-                          onReorder: (oldIndex, newIndex) {
-                            if (oldIndex < newIndex) newIndex -= 1;
-                            setState(() {
-                              final item = _currentPlan.removeAt(oldIndex);
-                              _currentPlan.insert(newIndex, item);
-                            });
-                          },
-                          proxyDecorator: (child, index, animation) => Material(color: Colors.transparent, child: child),
-                          itemBuilder: (context, index) {
-                            final compId = _currentPlan[index];
-                            final parts = compId.split('|');
-                            if (parts.length < 2) return const SizedBox.shrink();
-                            
-                            final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-                            final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-                            
-                            if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
-
-                            // Determine if it's a checkpoint or subtask
-                            final isCheckpoint = parts.length == 3;
-                            String title = sub.name;
-                            String subtitle = task.name;
-                            IconData leadingIcon = MdiIcons.targetAccount;
-
-                            if (isCheckpoint) {
-                              final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
-                              if (cp == null) return SizedBox.shrink(key: ValueKey(compId));
-                              title = cp.name;
-                              subtitle = "${task.name} > ${sub.name}";
-                              leadingIcon = MdiIcons.rhombusOutline;
-                            }
-
-                            return Container(
-                              key: ValueKey(compId),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: PersonInfoTheme.bgPanel,
-                                border: Border(left: BorderSide(color: task.taskColor, width: 4)),
-                              ),
-                              child: ListTile(
-                                leading: Icon(leadingIcon, color: task.taskColor, size: 20),
-                                title: Text(title, style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                                subtitle: Text(subtitle, style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.close, color: AppTheme.fhAccentRed, size: 18),
-                                      onPressed: () => _removeFromPlan(compId),
-                                    ),
-                                    const Icon(Icons.drag_handle, color: AppTheme.fhTextSecondary, size: 18),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                  )
-                ],
-              ),
-            ),
-            
-            Container(height: 2, color: PersonInfoTheme.spideyRed.withOpacity(0.5)),
-
-            // Available Tasks
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    color: PersonInfoTheme.bgPanel,
-                    child: Text("AVAILABLE MISSIONS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      children: availableWidgets,
-                    ),
-                  )
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
-
---- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:provider/provider.dart';
-import 'package:collection/collection.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class DayPlanDashboardWidget extends StatelessWidget {
-  const DayPlanDashboardWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-
-    if (plan.isEmpty) return const SizedBox.shrink();
-
-    // Map IDs to actual active widgets for the horizontal list
-    List<Widget> queueItems = [];
-
-    for (String compId in plan) {
-      final parts = compId.split('|');
-      if (parts.length < 2) continue;
-
-      final mainId = parts[0];
-      final subId = parts[1];
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
-
-      if (task == null || sub == null) continue;
-
-      final isCheckpoint = parts.length == 3;
-      bool isCompleted = false;
-      String title = sub.name;
-      String typeLabel = "MISSION";
-
-      if (isCheckpoint) {
-        final cpId = parts[2];
-        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
-        if (cp == null) continue;
-        
-        isCompleted = cp.completed;
-        title = cp.name;
-        typeLabel = "CHECKPOINT";
-
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: sub.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubSubtask(mainId, subId, cpId);
-            } else {
-              provider.taskActions.completeSubSubtask(mainId, subId, cpId);
-            }
-          }
-        ));
-
-      } else {
-        isCompleted = sub.completed;
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: task.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(mainId, subId);
-            } else {
-              provider.taskActions.completeSubtask(mainId, subId);
-            }
-          }
-        ));
-      }
-    }
-
-    if (queueItems.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              Icon(MdiIcons.formatListChecks, size: 16, color: AppTheme.fhTextSecondary),
-              const SizedBox(width: 8),
-              const Text("TODAY'S QUEUE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 100, // Compact horizontal card height
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: queueItems.length,
-            separatorBuilder: (c, i) => const SizedBox(width: 12),
-            itemBuilder: (c, i) => queueItems[i],
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  Widget _buildCard(
-    BuildContext context, AppProvider provider, {
-    required String title,
-    required String parentName,
-    required Color color,
-    required String typeLabel,
-    required bool isCompleted,
-    required VoidCallback onToggle,
-  }) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isCompleted ? AppTheme.fhBorderColor : color.withOpacity(0.5)),
-        boxShadow: isCompleted ? null : [BoxShadow(color: color.withOpacity(0.1), blurRadius: 10)]
-      ),
-      child: Row(
+    return ValorantCard(
+      borderColor: AppTheme.fhAccentGold.withValues(alpha: 0.6),
+      padding: EdgeInsets.zero,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: RhombusCheckbox(
-              checked: isCompleted,
-              onChanged: (_) => onToggle(),
-              size: CheckboxSize.small,
+          // Header Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.fhAccentGold.withOpacity(0.1),
+              border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.3))),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(MdiIcons.clipboardTextOutline, color: AppTheme.fhAccentGold, size: 20),
+                    const SizedBox(width: 8),
+                    const Text("TACTICAL BRIEFING", style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay, 
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 16,
+                      color: AppTheme.fhTextPrimary
+                    )),
+                  ],
+                ),
+                if (!isSaved && onSave != null)
+                  InkWell(
+                    onTap: onSave,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.fhAccentTeal),
+                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)
+                      ),
+                      child: const Text("SAVE TO LOG", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  )
+                else if (isSaved)
+                   Icon(MdiIcons.checkBold, color: AppTheme.fhAccentTeal, size: 18)
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Summary Text
                 Text(
-                  typeLabel,
-                  style: TextStyle(color: isCompleted ? AppTheme.fhTextDisabled : color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title.toUpperCase(),
-                  style: GoogleFonts.chakraPetch(
-                    color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary, 
-                    fontSize: 14, 
-                    fontWeight: FontWeight.bold,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  summary,
+                  style: const TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    height: 1.5,
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  parentName,
-                  style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ).animate().fadeIn(duration: 500.ms),
+
+                // Improvements Section
+                if (improvements.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Text(
+                    "ABILITY IMPROVEMENTS",
+                    style: TextStyle(
+                      color: AppTheme.fhAccentGold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...improvements.map((imp) {
+                    final map = imp as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(MdiIcons.arrowUpBold, size: 14, color: AppTheme.fhAccentGreen),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: "${map['ability']}: ",
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontSize: 12)
+                                  ),
+                                  TextSpan(
+                                    text: map['insight'] ?? '',
+                                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)
+                                  )
+                                ]
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+
+                // Grateful People
+                if (gratefulPeople.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildSpideyHeader("ALLIES DETECTED", const Color(0xFF00f0ff)),
+                  const SizedBox(height: 8),
+                  ...gratefulPeople.map((person) {
+                    final pMap = person as Map<String, dynamic>;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0b1623), // Dark spidey panel
+                        border: Border(left: BorderSide(color: const Color(0xFF00f0ff), width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(pMap['name']?.toUpperCase() ?? 'UNKNOWN', style: GoogleFonts.chakraPetch(fontWeight: FontWeight.bold, color: const Color(0xFF00f0ff))),
+                          const SizedBox(height: 4),
+                          Text(pMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, height: 1.4)),
+                        ],
+                      ),
+                    ).animate().slideX(begin: 0.1, end: 0).fadeIn();
+                  }),
+                ],
+
+                // Grateful Assets
+                if (gratefulAssets.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildSpideyHeader("ASSETS IDENTIFIED", const Color(0xFFd02b3e)),
+                  const SizedBox(height: 8),
+                  ...gratefulAssets.map((asset) {
+                    final aMap = asset as Map<String, dynamic>;
+                    final type = aMap['type']?.toString() ?? 'resource';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0b1623), // Dark spidey panel
+                        border: Border(left: BorderSide(color: const Color(0xFFd02b3e), width: 3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(_getIconForAssetType(type), size: 16, color: const Color(0xFFd02b3e)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(aMap['name']?.toUpperCase() ?? 'UNKNOWN', style: GoogleFonts.chakraPetch(fontWeight: FontWeight.bold, color: const Color(0xFFd02b3e))),
+                                if ((aMap['why'] ?? '').toString().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text("WHY: ${aMap['why']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, height: 1.4)),
+                                ],
+                                if ((aMap['what'] ?? '').toString().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text("WHAT: ${aMap['what']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, height: 1.4)),
+                                ],
+                                // Fallback reason if why/what aren't present
+                                if ((aMap['reason'] ?? '').toString().isNotEmpty && (aMap['why'] ?? '').toString().isEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(aMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, height: 1.4)),
+                                ]
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().slideX(begin: 0.1, end: 0).fadeIn();
+                  }),
+                ],
+
               ],
             ),
           )
@@ -2119,468 +2888,298 @@ class DayPlanDashboardWidget extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildSpideyHeader(String title, Color color) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.rajdhani(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.5), Colors.transparent],
+                begin: Alignment.centerLeft, end: Alignment.centerRight
+              )
+            ),
+          ),
+        )
+      ],
+    );
+  }
 }
---- END OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
+--- END OF FILE lib/src/widgets/cards/tactical_briefing_card.dart ---
 
---- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+--- START OF FILE lib/src/widgets/action_plan/action_plan_resources_card.dart ---
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
-import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
-import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/widgets/dialogs/select_resource_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/asset_info_dialog.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 
-class ScheduleView extends StatefulWidget {
-  const ScheduleView({super.key});
+class ActionPlanResourcesCard extends StatelessWidget {
+  final String initialResources;
+  final ValueChanged<String> onChanged;
+  final Color accentColor;
+
+  const ActionPlanResourcesCard({
+    super.key,
+    required this.initialResources,
+    required this.onChanged,
+    required this.accentColor,
+  });
+
+  List<String> _getSelectedIds() {
+    if (initialResources.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(initialResources);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).toList();
+      }
+    } catch (_) {
+      // Fallback for old comma-separated strings if any
+      return initialResources.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return [];
+  }
+
+  void _openSelector(BuildContext context) async {
+    final currentIds = _getSelectedIds();
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (_) => SelectResourceDialog(
+        selectedIds: currentIds,
+        accentColor: accentColor,
+      ),
+    );
+
+    if (result != null) {
+      onChanged(jsonEncode(result));
+    }
+  }
 
   @override
-  State<ScheduleView> createState() => _ScheduleViewState();
+  Widget build(BuildContext context) {
+    final selectedIds = _getSelectedIds();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:[
+        Container(
+          margin: const EdgeInsets.only(top: 15, bottom: 5),
+          padding: const EdgeInsets.only(left: 10),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: accentColor, width: 2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "REQUIRED ASSETS",
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              InkWell(
+                onTap: () => _openSelector(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                  child: Text(
+                    "ASSIGN ASSET",
+                    style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
+        
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark.withOpacity(0.5),
+            border: Border.all(color: AppTheme.fhBorderColor),
+          ),
+          child: selectedIds.isEmpty
+            ? const Text(
+                "No assets assigned.", 
+                style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic, fontSize: 12)
+              )
+            : Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: selectedIds.map((id) {
+                  return _ResourceChipBuilder(id: id, accentColor: accentColor);
+                }).toList(),
+              )
+        )
+      ],
+    );
+  }
 }
 
-class _ScheduleViewState extends State<ScheduleView> {
-  DateTime _selectedDate = DateTime.now();
-  List<TimelineEntry> _predictedEntries = [];
-  bool _isPredicting = false;
+class _ResourceChipBuilder extends StatelessWidget {
+  final String id;
+  final Color accentColor;
 
-  // --- Date Control ---
-  void _shiftDate(int days) {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: days));
-      _predictedEntries.clear(); 
-    });
-  }
+  const _ResourceChipBuilder({required this.id, required this.accentColor});
 
-  Future<void> _pickDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTeal,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _predictedEntries.clear();
-      });
+  IconData _getIconForType(String type) {
+    switch(type.toLowerCase()) {
+      case 'skill': return MdiIcons.lightningBolt;
+      case 'person': return MdiIcons.accountHeart;
+      case 'object': return MdiIcons.cubeOutline;
+      case 'resource': return MdiIcons.bookOpenVariant;
+      default: return MdiIcons.starFourPoints;
     }
   }
 
-  // --- Prediction ---
-  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
-    if (!_isSameDay(_selectedDate, DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
-      return;
-    }
-    setState(() => _isPredicting = true);
-    try {
-      final newEntries = await provider.scheduleActions.predictSchedule();
-      setState(() {
-        _predictedEntries = newEntries;
-      });
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isPredicting = false);
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, provider, _) {
+        final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
+        if (item == null) return const SizedBox.shrink(); // Hide if deleted
 
-  // --- Entries Merging ---
-  List<TimelineEntry> _buildEntries(AppProvider provider) {
-    final List<TimelineEntry> entries = [];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-
-    for (var pred in _predictedEntries) {
-      bool overlaps = false;
-      for (var real in entries) {
-        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (!overlaps) entries.add(pred);
-    }
-
-    return entries;
-  }
-
-  // --- Handlers ---
-  void _openProtocolControl(BuildContext context, AppProvider provider) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.85,
-        child: ProtocolControlPanel(
-          protocols: provider.mainTasks,
-          selectedProtocolId: provider.selectedTaskId,
-          onSelect: (id) => provider.setSelectedTaskId(id),
-          onAdd: () => _showAddProtocolDialog(context, provider),
-          onEdit: (updatedTask) {
-            provider.editMainTask(
-              updatedTask.id,
-              name: updatedTask.name,
-              description: updatedTask.description,
-              theme: updatedTask.theme,
-              colorHex: updatedTask.colorHex,
+        return InkWell(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => AssetInfoDialog(item: item)
             );
           },
-        ),
-      ),
-    );
-  }
-
-  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("NEW PROTOCOL"),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: "NAME"),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty) {
-                provider.addMainTask(
-                  name: nameCtrl.text,
-                  description: "New Protocol",
-                  theme: "general",
-                  colorHex: "FF00F8F8" 
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text("CREATE"),
-          )
-        ],
-      )
-    );
-  }
-
-  void _handleAddSession(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
-    );
-
-    if (result != null && mounted) {
-      final start = result['start']!;
-      final end = result['end']!;
-      _showTaskSelectorAndAdd(context, provider, start, end);
-    }
-  }
-
-  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppTheme.fhBgMedium,
-          title: const Text("SELECT MISSION"),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: provider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = provider.mainTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
-                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
-
-                return ExpansionTile(
-                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
-                  children: activeSubtasks.map((sub) {
-                    return ListTile(
-                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
-                      onTap: () {
-                        provider.addSessionToSubtask(task.id, sub.id, start, end);
-                        Navigator.pop(ctx);
-                      },
-                    );
-                  }).toList(),
-                );
-              },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              border: Border.all(color: accentColor.withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getIconForType(item.type), size: 14, color: accentColor),
+                const SizedBox(width: 6),
+                Text(
+                  item.name.toUpperCase(),
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ),
         );
       }
     );
   }
+}
+--- END OF FILE lib/src/widgets/action_plan/action_plan_resources_card.dart ---
 
-  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
-    if (entry.isPredicted) {
-      _handlePredictedEntryTap(context, provider, entry);
-      return;
-    }
+--- START OF FILE lib/src/widgets/dialogs/asset_info_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-    if (entry.originalObject is! TaskSession) return;
-    final session = entry.originalObject as TaskSession;
-    
-    String? mainTaskId;
-    String? subTaskId;
-    for (var m in provider.mainTasks) {
-      for (var s in m.subTasks) {
-        if (s.sessions.any((sess) => sess.id == session.id)) {
-          mainTaskId = m.id;
-          subTaskId = s.id;
-          break;
-        }
-      }
-      if (mainTaskId != null) break;
-    }
+class AssetInfoDialog extends StatelessWidget {
+  final GratitudeItem item;
 
-    if (mainTaskId == null || subTaskId == null) return;
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-        initialStart: session.startTime,
-        initialEnd: session.endTime,
-      ),
-    );
-
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
-      }
-    }
-  }
-
-  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(entry.title),
-        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _predictedEntries.removeWhere((e) => e.id == entry.id);
-              });
-              Navigator.pop(ctx);
-            }, 
-            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
-            }, 
-            child: const Text("LOG REAL SESSION")
-          )
-        ],
-      )
-    );
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
+  const AssetInfoDialog({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final entries = _buildEntries(provider);
-    final isToday = _isSameDay(_selectedDate, DateTime.now());
-
-    // Resolve Next Task from Day Plan
-    SubTask? nextSubTask;
-    MainTask? nextMainTask;
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-    
-    for (String idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-        
-        // We only care about the parent SubTask for the Hero Timer
-        if (sTask != null && !sTask.completed) {
-          nextSubTask = sTask;
-          nextMainTask = mTask;
-          break; // Found the first incomplete task in the plan
-        }
-      }
-    }
-
-    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
-
-    return Column(
-      children: [
-        // HERO SECTION
-        ScheduleHeroWidget(
-          nextTaskName: nextMainTask?.name ?? "NO PLAN SET",
-          nextSubTaskName: nextSubTask?.name ?? "NONE",
-          nextTaskColor: nextMainTask?.taskColor ?? AppTheme.fhTextDisabled,
-          isRunning: isRunning,
-          onOpenPlan: () {
-             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
-          },
-          onPlayPause: () {
-            if (nextSubTask == null || nextMainTask == null) return;
-            if (isRunning) {
-              provider.pauseTimer(nextSubTask!.id);
-              provider.logTimerAndReset(nextSubTask!.id);
-            } else {
-              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
-            }
-          },
-        ),
-        
-        // --- NEW QUEUE DASHBOARD ---
-        if (isToday)
-          const DayPlanDashboardWidget(),
-
-        // CONTROLS
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(-1),
-                  ),
-                  InkWell(
-                    onTap: () => _pickDate(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTeal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(1),
-                  ),
-                ],
+    return Dialog(
+      backgroundColor: PersonInfoTheme.bgPanel,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.name.toUpperCase(),
+              style: GoogleFonts.rajdhani(
+                color: PersonInfoTheme.spideyCyan,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.0
               ),
-              Row(
-                children: [
-                  if (isToday)
-                    IconButton(
-                      icon: _isPredicting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
-                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
-                      tooltip: "PREDICT SCHEDULE",
-                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
-                    ),
-                  IconButton(
-                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
-                    tooltip: "PROTOCOL CONTROL",
-                    onPressed: () => _openProtocolControl(context, provider),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: Stack(
-            children: [
-              ScheduleTimeline(
-                entries: entries,
-                onAddSession: () => _handleAddSession(context, provider),
-                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
-                initialScrollOffset: 0,
+            ),
+            Text(
+              "TYPE: ${item.type.toUpperCase()}",
+              style: GoogleFonts.rajdhani(
+                color: PersonInfoTheme.spideyCyanDim,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
-              Positioned(
-                right: 20,
-                bottom: 20,
-                child: FloatingActionButton(
-                  backgroundColor: AppTheme.fhAccentRed,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                  onPressed: () => _handleAddSession(context, provider),
+            ),
+            const SizedBox(height: 24),
+
+            if (item.why.isNotEmpty) _buildSection("STRATEGIC VALUE (WHY)", item.why),
+            if (item.how.isNotEmpty) _buildSection("USAGE METHOD (HOW)", item.how),
+            if (item.what.isNotEmpty) _buildSection("EXPECTED YIELD (WHAT)", item.what),
+            
+            if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
+              const Text("No detailed intelligence available for this asset.", style: TextStyle(color: PersonInfoTheme.textGrey, fontStyle: FontStyle.italic)),
+
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PersonInfoTheme.textGrey,
+                  side: const BorderSide(color: Color(0xFF1f2f40)),
+                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                 ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CLOSE DATA"),
               ),
-            ],
-          ),
+            )
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.only(left: 8),
+            decoration: const BoxDecoration(border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 2))),
+            child: Text(
+              title,
+              style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(content, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14, height: 1.5)),
+        ],
+      ),
     );
   }
 }
---- END OF FILE lib/src/widgets/views/schedule_view.dart ---
+--- END OF FILE lib/src/widgets/dialogs/asset_info_dialog.dart ---

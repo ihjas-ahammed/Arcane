@@ -182,8 +182,14 @@ class GratitudeItem {
   });
 
   factory GratitudeItem.fromJson(Map<String, dynamic> json) {
+    // FIX: Self-healing ID for legacy corrupted items that used empty strings
+    String parsedId = json['id'] as String? ?? '';
+    if (parsedId.trim().isEmpty) {
+      parsedId = const Uuid().v4();
+    }
+
     return GratitudeItem(
-      id: json['id'] as String? ?? const Uuid().v4(),
+      id: parsedId,
       type: json['type'] as String? ?? 'resource',
       name: json['name'] as String? ?? 'Unknown',
       why: json['why'] as String? ?? '',
@@ -262,7 +268,6 @@ class ChatbotMemory {
           [],
       gratitudeList: (json['gratitudeList'] as List<dynamic>?)
               ?.map((item) {
-                // Handle legacy strings from older versions
                 if (item is String) {
                   return GratitudeItem(id: const Uuid().v4(), type: 'resource', name: item);
                 } else if (item is Map<String, dynamic>) {

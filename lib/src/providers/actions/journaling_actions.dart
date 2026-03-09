@@ -67,6 +67,67 @@ class JournalingActions {
     }
   }
 
+  Future<void> extractAndSaveAssets() async {
+    final logsText = _getLogsText();
+    if (logsText.isEmpty) return;
+
+    _provider.setLoadingTask("Extracting Assets...");
+
+    try {
+      final results = await _provider.aiService.extractAssetsFromReflections(
+        logsText: logsText,
+        modelCandidates: _provider.settings.heavyModels, 
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[AssetExtraction] $msg"),
+      );
+
+      final currentAssets = List<GratitudeItem>.from(_provider.chatbotMemory.gratitudeList);
+      bool changed = false;
+
+      for (var data in results) {
+        final name = data['name'] as String?;
+        final type = data['type'] as String? ?? 'resource';
+        final why = data['why'] as String? ?? '';
+        final what = data['what'] as String? ?? '';
+        if (name == null || name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(
+            id: const Uuid().v4(),
+            type: type,
+            name: name,
+            why: why,
+            what: what,
+          ));
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        _provider.updateGratitudeList(currentAssets);
+        _provider.scheduleRealtimeSync();
+      }
+
+    } catch (e) {
+      debugPrint("Error extracting assets: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+
   Future<void> generatePersonDetails(String personId) async {
     final personIndex = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
     if (personIndex == -1) return;

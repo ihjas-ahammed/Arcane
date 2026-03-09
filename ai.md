@@ -1,16 +1,18 @@
 Make the following changes:
 
-    - Restore the session list screen we had in submission view :)
-
-    - Update schedule dashboard:
-        Add gratitude list:
-            It should have everything we have, things, skills, people (can be selected from poepl or added manually), even resources, this list is shown in system & uitilities
-        Add startup plan maker:
-            It will help user make a day plan from existing tasks, its like I can add tasks and order them so I can know which one I should do first, I can edit it any time
-            Just like now, the next task is shown in the scehdule dashboard also the button to start and stop (based on running status of that specific task) so I dont have to manualy use that task
-        In submission view:
-            - Add a place where I can specify this things, skills and people, reources which we make use of to complete to submission, like that will give me better clarity :)
-            
+    - Fix assigning of assets:
+        - While assigning assets to task, all of them are selected instead I cant select one by one and also only the first one was added
+        - Also add something like, when I click on the assigned asset, it will show its info
+    - Add auto capture:
+        It is to capture assets automatically, instead of making user write about it, this happens same as how we had added each person in personal list, but here there will be two ways:
+            1. Mass auto capture, which capture assets by scanning to all of the reflection logs
+            2. Reflection auto capture, this will capture new assets whenever i click Generate Briefing, make sure its okay to captaure nothing on a dumb day, also it is okay to update info (by appending) to existing asseys but never generate same thing twice and also give any new other than that day's reflection
+    - Update daily breifing prompt:
+        - Update the widget:
+            Make it show gratitude to people and also of assets on a different way like a widget item list
+    - Make gratitde items editable
+    
+    
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of spider man games

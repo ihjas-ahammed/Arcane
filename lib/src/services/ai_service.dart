@@ -80,7 +80,6 @@ class AIService {
     );
   }
 
-  // --- New Method for Action Plan Generation ---
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
@@ -345,13 +344,17 @@ class AIService {
     Tone: Empathetic, psychologically wise, therapist.
     
     Task:
-    1. Create a concise summary focusing purely on GRATITUDE. Highlight everything the user should be grateful for based on today's reflections.
+    1. Create a concise summary.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    3. Extract people to be grateful for based on today's logs.
+    4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 120 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
+      "grateful_assets": [ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -498,6 +501,45 @@ class AIService {
         onLog: onLog);
 
     return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
+    Create a comprehensive list based purely on the logs.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "assets": [
+        {
+          "name": "string",
+          "type": "skill|person|object|resource",
+          "why": "string (Strategic value or why it is important)",
+          "what": "string (Expected yield or what it does)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<Map<String, dynamic>> generatePersonDetails({
