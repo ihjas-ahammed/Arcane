@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 import 'dart:math';
+
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class XpGainDialog extends StatefulWidget {
   final Map<String, int> xpGained;
@@ -71,7 +73,7 @@ class _XpGainDialogState extends State<XpGainDialog>
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: EdgeInsets.zero, // KEY FIX: Allow full screen layout
+      insetPadding: EdgeInsets.zero, 
       child: Stack(
         children: [
           // 1. Full Screen Backdrop Blur
@@ -84,7 +86,7 @@ class _XpGainDialogState extends State<XpGainDialog>
             ),
           ),
 
-          // 2. Dismiss tap handler (optional)
+          // 2. Dismiss tap handler
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
@@ -96,7 +98,7 @@ class _XpGainDialogState extends State<XpGainDialog>
           // 3. Main Dialog Card
           Center(
             child: GestureDetector(
-              onTap: () {}, // Prevent taps on card from dismissing
+              onTap: () {}, 
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: FadeTransition(
@@ -104,7 +106,6 @@ class _XpGainDialogState extends State<XpGainDialog>
                   child: Container(
                     width: MediaQuery.of(context).size.width * 0.85,
                     constraints: const BoxConstraints(maxWidth: 360, maxHeight: 500),
-                    // Gradient Border Wrapper
                     padding: const EdgeInsets.all(1.5),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(0),
@@ -118,7 +119,7 @@ class _XpGainDialogState extends State<XpGainDialog>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
+                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.15),
                           blurRadius: 50,
                           spreadRadius: 1,
                         ),
@@ -128,7 +129,6 @@ class _XpGainDialogState extends State<XpGainDialog>
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1720),
                         borderRadius: BorderRadius.circular(0),
-                        // Inner Radial Gradient for depth
                         gradient: RadialGradient(
                           center: Alignment.topCenter,
                           radius: 1.2,
@@ -157,13 +157,12 @@ class _XpGainDialogState extends State<XpGainDialog>
                                     letterSpacing: 2.0,
                                     shadows: [
                                       Shadow(
-                                        color: AppTheme.fhAccentGold.withValues(alpha: 0.3),
+                                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
                                         blurRadius: 10
                                       )
                                     ]
                                   ),
                                 ),
-                                
                               ],
                             ),
                           ),
@@ -183,20 +182,19 @@ class _XpGainDialogState extends State<XpGainDialog>
                                       margin: const EdgeInsets.only(bottom: 16),
                                     ),
                                     GridView.count(
-                                      crossAxisCount: 3,
+                                      crossAxisCount: 4,
                                       shrinkWrap: true,
-                                      childAspectRatio: 2.2,
-                                      physics: NeverScrollableScrollPhysics(),
+                                      childAspectRatio: 1.6,
+                                      mainAxisSpacing: 8,
+                                      crossAxisSpacing: 8,
+                                      physics: const NeverScrollableScrollPhysics(),
                                       children: List.generate(entries.length, (index) {
                                       final entry = entries[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: _buildCompactSkillRow(entry.key, entry.value)
+                                      return _buildCompactSkillRow(entry.key, entry.value)
                                             .animate(delay: (100 * index).ms)
                                             .fadeIn()
-                                            .slideX(begin: -0.1, end: 0),
-                                      );
-                                    }),
+                                            .slideX(begin: -0.1, end: 0);
+                                      }),
                                     ),
                                     const SizedBox(height: 16),
                                   ],
@@ -292,94 +290,37 @@ class _XpGainDialogState extends State<XpGainDialog>
     );
   }
 
-  Widget _buildShimmerIcon() {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(seconds: 2),
-      builder: (context, value, child) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.fhAccentGold.withValues(alpha: 0.2 * (1 - value)),
-                    Colors.transparent
-                  ],
-                  stops: const [0.5, 1.0],
-                ),
-              ),
-            ),
-            Icon(MdiIcons.starFourPoints,
-                size: 28, color: AppTheme.fhAccentGold),
-          ],
-        );
-      },
-    );
-  }
-
  Widget _buildCompactSkillRow(String skillName, int xp) {
-  Color color = _getVirtueColor(skillName);
+  Color color = WellbeingTheme.getColor(skillName);
 
   return Container(
-    height: 36, // set fixed height
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    alignment: Alignment.center,
     decoration: BoxDecoration(
       color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
     ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(
-          _getSkillIcon(skillName),
+          WellbeingTheme.getIcon(skillName),
           color: color,
           size: 16,
         ),
-
-        const SizedBox(width: 8),
-
+        const SizedBox(height: 2),
         Text(
           "+$xp",
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: 11,
           ),
         ),
       ],
     ),
   );
-}
-
-  Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
-    }
-  }
-
-  IconData _getSkillIcon(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return MdiIcons.brain;
-      case 'courage': return MdiIcons.sword;
-      case 'humanity': return MdiIcons.handHeart;
-      case 'justice': return MdiIcons.scaleBalance;
-      case 'temperance': return MdiIcons.yinYang;
-      case 'transcendence': return MdiIcons.starFourPoints;
-      default: return MdiIcons.circleSmall;
-    }
-  }
+ }
 }

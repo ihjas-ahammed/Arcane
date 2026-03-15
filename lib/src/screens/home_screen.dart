@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/skills_drawer.dart';
+import 'package:arcane/src/widgets/drawers/wellbeing_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(),
+        endDrawer: const WellbeingDrawer(),
         body: Row(
           children: [
             if (isLargeScreen)

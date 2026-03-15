@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -97,7 +98,7 @@ class ChartDataHelper {
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+        dominantVirtueColor = WellbeingTheme.getCategoryColor(WellbeingTheme.getCategory(maxVirtue.key));
       }
       virtueColors[i] = dominantVirtueColor;
     }
@@ -156,24 +157,5 @@ class ChartDataHelper {
       }
     }
     return totalMinutes;
-  }
-
-  static Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return Colors.grey;
-    }
   }
 }

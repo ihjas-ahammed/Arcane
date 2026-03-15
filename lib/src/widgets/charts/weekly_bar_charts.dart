@@ -115,6 +115,6 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     // Similar logic, just different data
     return WeeklyActivityBarChart(
-        weeklyData: weeklyXp, dominantColors: dominantVirtueColors,isVirtue: true);
+        weeklyData: weeklyXp, dominantColors: dominantVirtueColors, isVirtue: true);
   }
 }

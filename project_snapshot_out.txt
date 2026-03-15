@@ -3141,8 +3141,14 @@ class GratitudeItem {
   });
 
   factory GratitudeItem.fromJson(Map<String, dynamic> json) {
+    // FIX: Self-healing ID for legacy corrupted items that used empty strings
+    String parsedId = json['id'] as String? ?? '';
+    if (parsedId.trim().isEmpty) {
+      parsedId = const Uuid().v4();
+    }
+
     return GratitudeItem(
-      id: json['id'] as String? ?? const Uuid().v4(),
+      id: parsedId,
       type: json['type'] as String? ?? 'resource',
       name: json['name'] as String? ?? 'Unknown',
       why: json['why'] as String? ?? '',
@@ -3221,7 +3227,6 @@ class ChatbotMemory {
           [],
       gratitudeList: (json['gratitudeList'] as List<dynamic>?)
               ?.map((item) {
-                // Handle legacy strings from older versions
                 if (item is String) {
                   return GratitudeItem(id: const Uuid().v4(), type: 'resource', name: item);
                 } else if (item is Map<String, dynamic>) {
@@ -4741,6 +4746,17 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(newMemory);
   }
 
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+
   // --- Reports Logic ---
   Map<String, dynamic> getLast7DaysData() { 
     final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
@@ -4809,15 +4825,73 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        final b = getTacticalBriefing(dStr);
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
-    return await _aiService.generateDailySummary(
+    
+    final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
-      modelCandidates: settings.heavyModels, // Using Pro Models
+      modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
       onLog: (m) => debugPrint(m)
     );
+
+    // Auto-capture newly identified grateful assets
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    // Auto-capture newly identified grateful people
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+        scheduleRealtimeSync();
+      }
+    }
+
+    return result;
   }
 
   void _cleanOverlappingSessions() {
@@ -4953,7 +5027,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return null;
   }
 
-  int get7DaySkillMomentum(String skillName) {
+  int get7DayWellbeingMomentum(String skillName) {
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
     int total = 0;
     for (var log in reflectionLogs) {
@@ -4962,6 +5036,72 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       }
     }
     return total;
+  }
+
+  Future<void> syncWeeklyWellbeing() async {
+    setLoadingTask("Analyzing Weekly Wellbeing...");
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+      if (recentLogs.isEmpty) {
+        throw Exception("No reflection logs in the past 7 days to analyze.");
+      }
+      
+      final logsPayload = recentLogs.map((l) => {
+        "log_id": l.id,
+        "trigger": l.trigger,
+        "emotion": l.emotion,
+        "action": l.action,
+      }).toList();
+      
+      final updates = await aiService.evaluateBatchReflections(
+        logsPayload: logsPayload,
+        modelCandidates: settings.heavyModels, 
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      // Update the logs with new XP
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      bool logsChanged = false;
+      for (var update in updates) {
+        final logId = update['log_id'];
+        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final idx = newLogs.indexWhere((l) => l.id == logId);
+        if (idx != -1) {
+          newLogs[idx] = ReflectionLog(
+            id: newLogs[idx].id,
+            timestamp: newLogs[idx].timestamp,
+            trigger: newLogs[idx].trigger,
+            emotion: newLogs[idx].emotion,
+            reason: newLogs[idx].reason,
+            action: newLogs[idx].action,
+            aiFeedback: newLogs[idx].aiFeedback,
+            xpGained: xpMap, // Replaced entirely
+          );
+          logsChanged = true;
+        }
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+        
+        // Recalculate ALL skill XP to ensure perfect state
+        final freshSkills = getBaseWellbeingSkills();
+        for (var log in newLogs) {
+          log.xpGained.forEach((trait, xp) {
+             final s = freshSkills.firstWhereOrNull((x) => x.name.toLowerCase() == trait.toLowerCase());
+             if (s != null) s.addXp(xp);
+          });
+        }
+        setSkills(freshSkills);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
   }
 
   Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
@@ -7146,6 +7286,67 @@ class JournalingActions {
     }
   }
 
+  Future<void> extractAndSaveAssets() async {
+    final logsText = _getLogsText();
+    if (logsText.isEmpty) return;
+
+    _provider.setLoadingTask("Extracting Assets...");
+
+    try {
+      final results = await _provider.aiService.extractAssetsFromReflections(
+        logsText: logsText,
+        modelCandidates: _provider.settings.heavyModels, 
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[AssetExtraction] $msg"),
+      );
+
+      final currentAssets = List<GratitudeItem>.from(_provider.chatbotMemory.gratitudeList);
+      bool changed = false;
+
+      for (var data in results) {
+        final name = data['name'] as String?;
+        final type = data['type'] as String? ?? 'resource';
+        final why = data['why'] as String? ?? '';
+        final what = data['what'] as String? ?? '';
+        if (name == null || name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(
+            id: const Uuid().v4(),
+            type: type,
+            name: name,
+            why: why,
+            what: what,
+          ));
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        _provider.updateGratitudeList(currentAssets);
+        _provider.scheduleRealtimeSync();
+      }
+
+    } catch (e) {
+      debugPrint("Error extracting assets: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+
   Future<void> generatePersonDetails(String personId) async {
     final personIndex = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
     if (personIndex == -1) return;
@@ -7715,16 +7916,29 @@ mixin UserMixin on ChangeNotifier {
     sync.markDirty('settings');
   }
 
+  List<Skill> getBaseWellbeingSkills() {
+    return [
+      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in one’s daily life.'),
+      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in one’s daily life.'),
+      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of one’s life overall.'),
+      Skill(id: 'vit', name: 'Vitality', description: 'Vitality: a positive subjective sense of physical health and energy.'),
+      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit one’s needs and desires.'),
+      Skill(id: 'rel', name: 'Relationships', description: 'Positive relationships: feeling loved, supported, and valued by others.'),
+      Skill(id: 'acc', name: 'Self-Acceptance', description: 'Self-acceptance: positive attitudes toward self; a sense of self-worth.'),
+      Skill(id: 'mas', name: 'Mastery', description: 'Mastery: feelings of competence in accomplishing challenging tasks.'),
+      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make one’s own choices in life.'),
+      Skill(id: 'gro', name: 'Growth', description: 'Personal growth: continually seeking development and improvement.'),
+      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in one’s daily activities.'),
+      Skill(id: 'mea', name: 'Meaning', description: 'Meaning: feeling that life has purpose and direction.'),
+    ];
+  }
+
   void initializeSkills() {
-    if (_skills.isEmpty) {
-      _skills = [
-        Skill(id: 'wis', name: 'Wisdom', description: 'Good judgment, learning, perspective.'),
-        Skill(id: 'cou', name: 'Courage', description: 'Bravery, persistence, integrity.'),
-        Skill(id: 'hum', name: 'Humanity', description: 'Love, kindness, social intelligence.'),
-        Skill(id: 'jus', name: 'Justice', description: 'Teamwork, fairness, leadership.'),
-        Skill(id: 'tem', name: 'Temperance', description: 'Forgiveness, humility, self-regulation.'),
-        Skill(id: 'tra', name: 'Transcendence', description: 'Appreciation of beauty, gratitude, hope.'),
-      ];
+    // Check if empty OR if it contains the legacy "Wisdom" virtue or missing Meaning to force an override to the 12 wellbeing traits
+    bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
+    
+    if (_skills.isEmpty || hasLegacy) {
+      _skills = getBaseWellbeingSkills();
     }
   }
 
@@ -8861,7 +9075,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/skills_drawer.dart';
+import 'package:arcane/src/widgets/drawers/wellbeing_drawer.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
@@ -9060,7 +9274,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
-        endDrawer: const SkillsDrawer(),
+        endDrawer: const WellbeingDrawer(),
         body: Row(
           children: [
             if (isLargeScreen)
@@ -12121,18 +12335,30 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class GratitudeListScreen extends StatelessWidget {
+class GratitudeListScreen extends StatefulWidget {
   const GratitudeListScreen({super.key});
 
-  void _showAddDialog(BuildContext context, AppProvider provider) {
+  @override
+  State<GratitudeListScreen> createState() => _GratitudeListScreenState();
+}
+
+class _GratitudeListScreenState extends State<GratitudeListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _showAddOrEditDialog(BuildContext context, AppProvider provider, [GratitudeItem? item]) {
     showDialog(
       context: context,
-      builder: (_) => const AddGratitudeDialog()
-    ).then((newItem) {
-      if (newItem != null && newItem is GratitudeItem) {
-        final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
-        currentList.insert(0, newItem); 
-        provider.updateGratitudeList(currentList);
+      builder: (_) => AddGratitudeDialog(initialItem: item)
+    ).then((updatedItem) {
+      if (updatedItem != null && updatedItem is GratitudeItem) {
+        provider.updateGratitudeItem(updatedItem);
       }
     });
   }
@@ -12141,6 +12367,19 @@ class GratitudeListScreen extends StatelessWidget {
     final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
     currentList.removeWhere((item) => item.id == id);
     provider.updateGratitudeList(currentList);
+  }
+
+  Future<void> _scanLogsForAssets(BuildContext context, AppProvider provider) async {
+    try {
+      await provider.journalingActions.extractAndSaveAssets();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Asset Scan Complete.")));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
   }
 
   IconData _getIconForType(String type) {
@@ -12156,7 +12395,13 @@ class GratitudeListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final items = provider.chatbotMemory.gratitudeList;
+    
+    // Filter and Sort
+    var items = provider.chatbotMemory.gratitudeList.toList();
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     return Scaffold(
       backgroundColor: PersonInfoTheme.bgDark,
@@ -12165,80 +12410,128 @@ class GratitudeListScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
         actions: [
+          provider.loadingTaskName == "Extracting Assets..." 
+            ? const Center(child: Padding(padding: EdgeInsets.only(right: 16.0), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))))
+            : IconButton(
+                icon: Icon(MdiIcons.databaseSearchOutline, color: AppTheme.fhAccentPurple),
+                tooltip: "Scan Logs for Assets",
+                onPressed: () => _scanLogsForAssets(context, provider),
+              ),
           IconButton(
-            icon:  Icon(MdiIcons.plusBox, color: PersonInfoTheme.spideyCyan),
-            onPressed: () => _showAddDialog(context, provider),
+            icon: Icon(MdiIcons.plusBox, color: PersonInfoTheme.spideyCyan),
+            onPressed: () => _showAddOrEditDialog(context, provider),
           )
         ],
       ),
       body: SafeArea(
-        child: items.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withOpacity(0.2)),
-                  const SizedBox(height: 16),
-                  Text("NO ENTRIES YET", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 20, fontWeight: FontWeight.bold)),
-                ],
+        child: Column(
+          children: [
+            // Search Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: PersonInfoTheme.bgDark,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) => setState(() => _searchQuery = val),
+                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: "SEARCH ASSETS...",
+                  hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                  prefixIcon: const Icon(Icons.search, color: PersonInfoTheme.spideyCyan, size: 20),
+                  filled: true,
+                  fillColor: PersonInfoTheme.bgPanel,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
+                ),
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return Dismissible(
-                  key: ValueKey(item.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: PersonInfoTheme.spideyRed,
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (_) => _removeItem(provider, item.id),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: PersonInfoTheme.bgPanel,
-                      border: Border(left: BorderSide(color: PersonInfoTheme.spideyCyan, width: 4)),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]
-                    ),
-                    child: ExpansionTile(
-                      iconColor: PersonInfoTheme.spideyCyan,
-                      collapsedIconColor: PersonInfoTheme.textGrey,
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: PersonInfoTheme.spideyCyan.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4)
-                        ),
-                        child: Icon(_getIconForType(item.type), color: PersonInfoTheme.spideyCyan, size: 20),
-                      ),
-                      title: Text(
-                        item.name.toUpperCase(), 
-                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.0)
-                      ),
-                      subtitle: Text(
-                        item.type.toUpperCase(),
-                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyanDim, fontSize: 12, fontWeight: FontWeight.w600)
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            
+            Expanded(
+              child: items.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (item.why.isNotEmpty) _buildDetailRow("WHY", item.why),
-                        if (item.how.isNotEmpty) _buildDetailRow("HOW", item.how),
-                        if (item.what.isNotEmpty) _buildDetailRow("WHAT", item.what),
-                        if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
-                          const Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic))
+                        Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withOpacity(0.2)),
+                        const SizedBox(height: 16),
+                        Text(_searchQuery.isEmpty ? "NO ENTRIES YET" : "NO MATCHES FOUND", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
                     ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return Dismissible(
+                        key: ValueKey(item.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: PersonInfoTheme.spideyRed,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (_) => _removeItem(provider, item.id),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: PersonInfoTheme.bgPanel,
+                            border: Border(left: BorderSide(color: PersonInfoTheme.spideyCyan, width: 4)),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]
+                          ),
+                          child: ExpansionTile(
+                            iconColor: PersonInfoTheme.spideyCyan,
+                            collapsedIconColor: PersonInfoTheme.textGrey,
+                            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: PersonInfoTheme.spideyCyan.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4)
+                              ),
+                              child: Icon(_getIconForType(item.type), color: PersonInfoTheme.spideyCyan, size: 20),
+                            ),
+                            title: Text(
+                              item.name.toUpperCase(), 
+                              style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                            ),
+                            subtitle: Text(
+                              item.type.toUpperCase(),
+                              style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyanDim, fontSize: 12, fontWeight: FontWeight.w600)
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (item.why.isNotEmpty) _buildDetailRow("WHY", item.why),
+                              if (item.how.isNotEmpty) _buildDetailRow("HOW", item.how),
+                              if (item.what.isNotEmpty) _buildDetailRow("WHAT", item.what),
+                              if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
+                                const Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic)),
+                              
+                              const SizedBox(height: 16),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _showAddOrEditDialog(context, provider, item),
+                                  icon: Icon(MdiIcons.pencil, size: 14),
+                                  label: const Text("EDIT DATA"),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: PersonInfoTheme.textGrey,
+                                    side: const BorderSide(color: Color(0xFF1f2f40)),
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
             ),
+          ],
+        ),
       ),
     );
   }
@@ -12668,7 +12961,6 @@ class AIService {
     );
   }
 
-  // --- New Method for Action Plan Generation ---
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
@@ -12897,12 +13189,25 @@ class AIService {
     Action Planned: $action
     
     1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    2. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
 
     Output JSON: {
       "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...}
+      "xp_allocation": {
+        "Positivity": int,
+        "Resilience": int,
+        "Satisfaction": int,
+        "Vitality": int,
+        "Env. Mastery": int,
+        "Relationships": int,
+        "Self-Acceptance": int,
+        "Mastery": int,
+        "Autonomy": int,
+        "Growth": int,
+        "Engagement": int,
+        "Meaning": int
+      }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -12914,6 +13219,61 @@ class AIService {
         currentApiKeyIndex: 0,
         onNewApiKeyIndex: (_) {},
         onLog: (_) {});
+  }
+
+  Future<List<Map<String, dynamic>>> evaluateBatchReflections({
+    required List<Map<String, dynamic>> logsPayload,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following array of reflection logs. 
+    For each log, evaluate the user's progress across these 12 Sources of Well-Being:
+    1. Positivity 2. Resilience 3. Satisfaction 4. Vitality 5. Env. Mastery 6. Relationships 
+    7. Self-Acceptance 8. Mastery 9. Autonomy 10. Growth 11. Engagement 12. Meaning
+
+    Award XP (0 to 50) for each category based on evidence in the specific log. If no evidence, award 0.
+
+    Logs to evaluate:
+    ${jsonEncode(logsPayload)}
+
+    Output EXACTLY valid JSON matching this structure:
+    {
+      "updates": [
+        {
+          "log_id": "id_string_from_input",
+          "xp_allocation": {
+            "Positivity": int,
+            "Resilience": int,
+            "Satisfaction": int,
+            "Vitality": int,
+            "Env. Mastery": int,
+            "Relationships": int,
+            "Self-Acceptance": int,
+            "Mastery": int,
+            "Autonomy": int,
+            "Growth": int,
+            "Engagement": int,
+            "Meaning": int
+          }
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<Map<String, dynamic>> generateDailySummary({
@@ -12933,13 +13293,17 @@ class AIService {
     Tone: Empathetic, psychologically wise, therapist.
     
     Task:
-    1. Create a concise summary focusing purely on GRATITUDE. Highlight everything the user should be grateful for based on today's reflections.
+    1. Create a concise summary.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
+    3. Extract people to be grateful for based on today's logs.
+    4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
+    5. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 120 words)",
-      "improvements": [ {"ability": "string", "insight": "string"} ]
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
+      "grateful_assets": [ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -13086,6 +13450,45 @@ class AIService {
         onLog: onLog);
 
     return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
+    Create a comprehensive list based purely on the logs.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "assets": [
+        {
+          "name": "string",
+          "type": "skill|person|object|resource",
+          "why": "string (Strategic value or why it is important)",
+          "what": "string (Expected yield or what it does)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<Map<String, dynamic>> generatePersonDetails({
@@ -13975,10 +14378,118 @@ class PersonInfoTheme {
 }
 --- END OF FILE lib/src/theme/person_info_theme.dart ---
 
+--- START OF FILE lib/src/theme/wellbeing_theme.dart ---
+import 'package:flutter/material.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class WellbeingTheme {
+  static Color getColor(String trait) {
+    switch (trait.toLowerCase()) {
+      case 'positivity':
+        return const Color(0xFFFFD700); // Yellow
+      case 'resilience':
+        return const Color(0xFF1E90FF); // Dodger Blue
+      case 'satisfaction':
+        return const Color(0xFF00FFFF); // Cyan
+      case 'vitality':
+        return const Color(0xFF32CD32); // Lime Green
+      case 'env. mastery':
+        return const Color(0xFFFFA500); // Orange
+      case 'relationships':
+        return const Color(0xFFFF69B4); // Hot Pink
+      case 'self-acceptance':
+        return const Color(0xFF9370DB); // Medium Purple
+      case 'mastery':
+        return const Color(0xFFFF4500); // Orange Red
+      case 'autonomy':
+        return const Color(0xFF20B2AA); // Light Sea Green
+      case 'growth':
+        return const Color(0xFF7CFC00); // Lawn Green
+      case 'engagement':
+        return const Color(0xFFF8F8FF); // Ghost White
+      case 'meaning':
+        return const Color(0xFFFFD700); // Amber/Gold
+      default:
+        return Colors.grey;
+    }
+  }
+
+  static IconData getIcon(String trait) {
+    switch (trait.toLowerCase()) {
+      case 'positivity':
+        return MdiIcons.emoticonHappyOutline;
+      case 'resilience':
+        return MdiIcons.shieldHalfFull;
+      case 'satisfaction':
+        return MdiIcons.checkDecagramOutline;
+      case 'vitality':
+        return MdiIcons.heartPulse;
+      case 'env. mastery':
+        return MdiIcons.earth;
+      case 'relationships':
+        return MdiIcons.accountHeartOutline;
+      case 'self-acceptance':
+        return MdiIcons.accountCheckOutline;
+      case 'mastery':
+        return MdiIcons.starShootingOutline;
+      case 'autonomy':
+        return MdiIcons.accountKeyOutline;
+      case 'growth':
+        return MdiIcons.sproutOutline;
+      case 'engagement':
+        return MdiIcons.fire;
+      case 'meaning':
+        return MdiIcons.compassOutline;
+      default:
+        return MdiIcons.circleSmall;
+    }
+  }
+
+  static String getCategory(String trait) {
+    switch (trait.toLowerCase()) {
+      case 'positivity':
+      case 'resilience':
+      case 'satisfaction':
+        return 'Emotional';
+      case 'autonomy':
+      case 'env. mastery':
+      case 'self-acceptance':
+        return 'Psychological';
+      case 'relationships':
+      case 'engagement':
+      case 'meaning':
+        return 'Social & Purpose';
+      case 'vitality':
+      case 'mastery':
+      case 'growth':
+        return 'Vitality & Growth';
+      default:
+        return 'Other';
+    }
+  }
+
+  static Color getCategoryColor(String category) {
+    switch (category) {
+      case 'Emotional':
+        return const Color(0xFFFFD700); // Gold/Yellow
+      case 'Psychological':
+        return const Color(0xFF00F59B); // Teal
+      case 'Social & Purpose':
+        return const Color(0xFF8A2BE2); // Purple
+      case 'Vitality & Growth':
+        return const Color(0xFFFF4655); // Red
+      default:
+        return Colors.grey;
+    }
+  }
+}
+--- END OF FILE lib/src/theme/wellbeing_theme.dart ---
+
 --- START OF FILE lib/src/utils/chart_data_helper.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -14075,7 +14586,7 @@ class ChartDataHelper {
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+        dominantVirtueColor = WellbeingTheme.getCategoryColor(WellbeingTheme.getCategory(maxVirtue.key));
       }
       virtueColors[i] = dominantVirtueColor;
     }
@@ -14135,27 +14646,7 @@ class ChartDataHelper {
     }
     return totalMinutes;
   }
-
-  static Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return Colors.grey;
-    }
-  }
 }
-
 --- END OF FILE lib/src/utils/chart_data_helper.dart ---
 
 --- START OF FILE lib/src/utils/constants.dart ---
@@ -14637,159 +15128,6 @@ class _KeepAliveWrapperState extends State<KeepAliveWrapper>
 }
 
 --- END OF FILE lib/src/widgets/middle_panel_widget.dart ---
-
---- START OF FILE lib/src/widgets/skills_drawer.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/ui/virtue_card.dart';
-import 'package:arcane/src/widgets/dialogs/skill_detail_dialog.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-
-class SkillsDrawer extends StatelessWidget {
-  const SkillsDrawer({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
-    final todayStr = helper.getTodayDateString();
-
-    final List<Map<String, dynamic>> layoutConfig = [
-      {'name': 'Wisdom', 'color': Colors.blueAccent, 'icon': MdiIcons.brain},
-      {'name': 'Courage', 'color': AppTheme.fhAccentRed, 'icon': MdiIcons.sword},
-      {'name': 'Humanity', 'color': AppTheme.fhAccentPurple, 'icon': MdiIcons.handHeart},
-      {'name': 'Justice', 'color': AppTheme.fhAccentGold, 'icon': MdiIcons.scaleBalance},
-      {'name': 'Temperance', 'color': AppTheme.fhAccentTeal, 'icon': MdiIcons.yinYang},
-      {'name': 'Transcendence', 'color': AppTheme.fhAccentOrange, 'icon': MdiIcons.starFourPoints},
-    ];
-
-    Skill? getSkill(String name) {
-      try {
-        return appProvider.skills.firstWhere(
-          (s) => s.name.toLowerCase() == name.toLowerCase()
-        );
-      } catch (e) {
-        return null;
-      }
-    }
-
-    return Drawer(
-      width: 360,
-      backgroundColor: AppTheme.fhBgDeepDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                colors: [Color(0xFF1F2731), AppTheme.fhBgDeepDark]
-              )
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(MdiIcons.shieldAccountOutline, color: AppTheme.fhAccentGold, size: 28),
-                    const SizedBox(width: 12),
-                    Text("VIRTUE", style: theme.textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text("// INTERNAL ATTRIBUTES", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: "RobotoCondensed", letterSpacing: 2.0, fontSize: 12)),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, 
-                    crossAxisSpacing: 8, 
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.65, 
-                  ),
-                  itemCount: layoutConfig.length,
-                  itemBuilder: (context, index) {
-                    final config = layoutConfig[index];
-                    final skill = getSkill(config['name']);
-                    
-                    if (skill == null) return const SizedBox.shrink();
-
-                    return VirtueCard(
-                      skill: skill,
-                      color: config['color'],
-                      icon: config['icon'],
-                      onTap: () {
-                        final xpToday = appProvider.get7DaySkillMomentum(skill.name) ~/ 7; 
-                        showDialog(
-                          context: context, 
-                          builder: (_) => SkillDetailDialog(
-                            skill: skill, 
-                            xpGainedToday: xpToday,
-                            color: config['color'], 
-                            icon: config['icon']
-                          )
-                        );
-                      },
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 32),
-                
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("COMBAT LOG", style: theme.textTheme.labelLarge?.copyWith(color: AppTheme.fhAccentTeal)),
-                      const SizedBox(height: 12),
-                      ValorantButton(
-                        label: "LOG INSIGHT",
-                        icon: MdiIcons.notebookEditOutline,
-                        onPressed: () {
-                          // Close drawer before navigating
-                          Navigator.pop(context);
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: todayStr)));
-                        },
-                        isPrimary: false,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "Past logs are encrypted. Access via Analytics -> Secure Archives.",
-                        style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic, fontSize: 12)
-                      )
-                    ],
-                  ),
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/skills_drawer.dart ---
 
 --- START OF FILE lib/src/widgets/header_widget.dart ---
 import 'package:flutter/material.dart';
@@ -16306,6 +16644,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class TacticalBriefingCard extends StatelessWidget {
   final Map<String, dynamic> briefingData;
@@ -16319,108 +16658,236 @@ class TacticalBriefingCard extends StatelessWidget {
     this.isSaved = false,
   });
 
+  IconData _getIconForAssetType(String type) {
+    switch(type.toLowerCase()) {
+      case 'skill': return MdiIcons.lightningBolt;
+      case 'person': return MdiIcons.accountHeart;
+      case 'object': return MdiIcons.cubeOutline;
+      case 'resource': return MdiIcons.bookOpenVariant;
+      default: return MdiIcons.starFourPoints;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary = briefingData['summary'] as String? ?? "No intel available.";
     final improvements = briefingData['improvements'] as List<dynamic>? ?? [];
+    final gratefulPeople = briefingData['grateful_people'] as List<dynamic>? ?? [];
+    final gratefulAssets = briefingData['grateful_assets'] as List<dynamic>? ?? [];
 
     return ValorantCard(
       borderColor: AppTheme.fhAccentGold.withValues(alpha: 0.6),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(MdiIcons.clipboardTextOutline, color: AppTheme.fhAccentGold, size: 20),
-                  const SizedBox(width: 8),
-                  const Text("TACTICAL BRIEFING", style: TextStyle(
-                    fontFamily: AppTheme.fontDisplay, 
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                    fontSize: 16,
-                    color: AppTheme.fhTextPrimary
-                  )),
-                ],
-              ),
-              if (!isSaved && onSave != null)
-                InkWell(
-                  onTap: onSave,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhAccentTeal),
-                      color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)
-                    ),
-                    child: const Text("SAVE TO LOG", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                )
-              else if (isSaved)
-                 Icon(MdiIcons.checkBold, color: AppTheme.fhAccentTeal, size: 18)
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Summary Text
-          Text(
-            summary,
-            style: const TextStyle(
-              color: AppTheme.fhTextSecondary,
-              height: 1.5,
-              fontSize: 13,
-              fontStyle: FontStyle.italic
+          // Header Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.fhAccentGold.withOpacity(0.1),
+              border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withOpacity(0.3))),
             ),
-          ).animate().fadeIn(duration: 500.ms),
-
-          if (improvements.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(color: Colors.white10),
-            const SizedBox(height: 8),
-            const Text(
-              "ABILITY IMPROVEMENTS",
-              style: TextStyle(
-                color: AppTheme.fhAccentGold,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...improvements.map((imp) {
-              final map = imp as Map<String, dynamic>;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Icon(MdiIcons.arrowUpBold, size: 14, color: AppTheme.fhAccentGreen),
+                    Icon(MdiIcons.clipboardTextOutline, color: AppTheme.fhAccentGold, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: "${map['ability']}: ",
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontSize: 12)
-                            ),
-                            TextSpan(
-                              text: map['insight'] ?? '',
-                              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)
-                            )
-                          ]
-                        ),
-                      ),
-                    ),
+                    const Text("TACTICAL BRIEFING", style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay, 
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 16,
+                      color: AppTheme.fhTextPrimary
+                    )),
                   ],
                 ),
-              );
-            }),
-          ]
+                if (!isSaved && onSave != null)
+                  InkWell(
+                    onTap: onSave,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.fhAccentTeal),
+                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)
+                      ),
+                      child: const Text("SAVE TO LOG", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  )
+                else if (isSaved)
+                   Icon(MdiIcons.checkBold, color: AppTheme.fhAccentTeal, size: 18)
+              ],
+            ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Summary Text
+                Text(
+                  summary,
+                  style: const TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    height: 1.5,
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic
+                  ),
+                ).animate().fadeIn(duration: 500.ms),
+
+                // Improvements Section
+                if (improvements.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Text(
+                    "ABILITY IMPROVEMENTS",
+                    style: TextStyle(
+                      color: AppTheme.fhAccentGold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...improvements.map((imp) {
+                    final map = imp as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(MdiIcons.arrowUpBold, size: 14, color: AppTheme.fhAccentGreen),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: "${map['ability']}: ",
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontSize: 12)
+                                  ),
+                                  TextSpan(
+                                    text: map['insight'] ?? '',
+                                    style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)
+                                  )
+                                ]
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+
+                // Grateful People
+                if (gratefulPeople.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildSpideyHeader("ALLIES DETECTED", const Color(0xFF00f0ff)),
+                  const SizedBox(height: 8),
+                  ...gratefulPeople.map((person) {
+                    final pMap = person as Map<String, dynamic>;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0b1623), // Dark spidey panel
+                        border: Border(left: BorderSide(color: const Color(0xFF00f0ff), width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(pMap['name']?.toUpperCase() ?? 'UNKNOWN', style: GoogleFonts.chakraPetch(fontWeight: FontWeight.bold, color: const Color(0xFF00f0ff))),
+                          const SizedBox(height: 4),
+                          Text(pMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, height: 1.4)),
+                        ],
+                      ),
+                    ).animate().slideX(begin: 0.1, end: 0).fadeIn();
+                  }),
+                ],
+
+                // Grateful Assets
+                if (gratefulAssets.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildSpideyHeader("ASSETS IDENTIFIED", const Color(0xFFd02b3e)),
+                  const SizedBox(height: 8),
+                  ...gratefulAssets.map((asset) {
+                    final aMap = asset as Map<String, dynamic>;
+                    final type = aMap['type']?.toString() ?? 'resource';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0b1623), // Dark spidey panel
+                        border: Border(left: BorderSide(color: const Color(0xFFd02b3e), width: 3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(_getIconForAssetType(type), size: 16, color: const Color(0xFFd02b3e)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(aMap['name']?.toUpperCase() ?? 'UNKNOWN', style: GoogleFonts.chakraPetch(fontWeight: FontWeight.bold, color: const Color(0xFFd02b3e))),
+                                if ((aMap['why'] ?? '').toString().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text("WHY: ${aMap['why']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, height: 1.4)),
+                                ],
+                                if ((aMap['what'] ?? '').toString().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text("WHAT: ${aMap['what']}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, height: 1.4)),
+                                ],
+                                // Fallback reason if why/what aren't present
+                                if ((aMap['reason'] ?? '').toString().isNotEmpty && (aMap['why'] ?? '').toString().isEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(aMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, height: 1.4)),
+                                ]
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().slideX(begin: 0.1, end: 0).fadeIn();
+                  }),
+                ],
+
+              ],
+            ),
+          )
         ],
       ),
+    );
+  }
+
+  Widget _buildSpideyHeader(String title, Color color) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.rajdhani(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.5), Colors.transparent],
+                begin: Alignment.centerLeft, end: Alignment.centerRight
+              )
+            ),
+          ),
+        )
+      ],
     );
   }
 }
@@ -16984,127 +17451,6 @@ class TimePieChart extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/charts/time_pie_chart.dart ---
 
---- START OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class VirtuePieChart extends StatelessWidget {
-  final List<ReflectionLog> logs;
-  final String? selectedVirtue;
-  final Function(String?)? onVirtueSelected;
-
-  const VirtuePieChart({
-    super.key,
-    required this.logs,
-    this.selectedVirtue,
-    this.onVirtueSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Map<String, int> totals = {};
-    for (var log in logs) {
-      log.xpGained.forEach((key, value) {
-        totals[key] = (totals[key] ?? 0) + value;
-      });
-    }
-    totals.removeWhere((key, value) => value <= 0);
-
-    if (totals.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(MdiIcons.chartDonut, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
-            const SizedBox(height: 8),
-            Text("NO XP DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
-          ],
-        ),
-      );
-    }
-
-    final int totalXp = totals.values.fold(0, (sum, item) => sum + item);
-    final entries = totals.entries.toList();
-
-    // Default Text
-    String centerTopText = "TOTAL XP";
-    String centerBottomText = "$totalXp";
-    Color centerColor = AppTheme.fhTextPrimary;
-
-    // Selected Text
-    if (selectedVirtue != null && totals.containsKey(selectedVirtue)) {
-      centerTopText = selectedVirtue!.toUpperCase();
-      centerBottomText = "+${totals[selectedVirtue]}";
-      centerColor = _getVirtueColor(selectedVirtue!);
-    }
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        PieChart(
-          PieChartData(
-            sectionsSpace: 4, 
-            centerSpaceRadius: 40,
-            sections: entries.map((e) {
-              final isSelected = e.key == selectedVirtue;
-              return PieChartSectionData(
-                color: _getVirtueColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
-                value: e.value.toDouble(),
-                title: '',
-                radius: isSelected ? 20 : 15,
-                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2), 
-              );
-            }).toList(),
-            pieTouchData: PieTouchData(
-              touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
-                  final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
-                  if (index >= 0 && index < entries.length) {
-                    final key = entries[index].key;
-                    onVirtueSelected?.call(selectedVirtue == key ? null : key);
-                  }
-                } else if (event is FlTapUpEvent && pieTouchResponse?.touchedSection == null) {
-                   onVirtueSelected?.call(null);
-                }
-              },
-            ),
-          ),
-        ),
-        // Inner Ring Detail
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              centerTopText, 
-              style: const TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
-            ),
-            Text(
-              centerBottomText, 
-              style: TextStyle(fontSize: 20, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
-            ),
-          ],
-        )
-      ],
-    );
-  }
-
-  Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
-    }
-  }
-}
---- END OF FILE lib/src/widgets/charts/virtue_pie_chart.dart ---
-
 --- START OF FILE lib/src/widgets/charts/manual_project_chart.dart ---
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -17454,11 +17800,133 @@ class WeeklyVirtueBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     // Similar logic, just different data
     return WeeklyActivityBarChart(
-        weeklyData: weeklyXp, dominantColors: dominantVirtueColors,isVirtue: true);
+        weeklyData: weeklyXp, dominantColors: dominantVirtueColors, isVirtue: true);
   }
 }
-
 --- END OF FILE lib/src/widgets/charts/weekly_bar_charts.dart ---
+
+--- START OF FILE lib/src/widgets/charts/wellbeing_pie_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class WellbeingPieChart extends StatelessWidget {
+  final List<ReflectionLog> logs;
+  final String? selectedVirtue;
+  final Function(String?)? onVirtueSelected;
+
+  const WellbeingPieChart({
+    super.key,
+    required this.logs,
+    this.selectedVirtue,
+    this.onVirtueSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, int> categoryTotals = {
+      'Emotional': 0,
+      'Psychological': 0,
+      'Social & Purpose': 0,
+      'Vitality & Growth': 0,
+    };
+    
+    for (var log in logs) {
+      log.xpGained.forEach((key, value) {
+        if (value > 0) {
+           String cat = WellbeingTheme.getCategory(key);
+           categoryTotals[cat] = (categoryTotals[cat] ?? 0) + value;
+        }
+      });
+    }
+    categoryTotals.removeWhere((key, value) => value <= 0);
+
+    if (categoryTotals.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(MdiIcons.chartDonut, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            const SizedBox(height: 8),
+            Text("NO XP DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    final int totalXp = categoryTotals.values.fold(0, (sum, item) => sum + item);
+    final entries = categoryTotals.entries.toList();
+
+    // Default Text
+    String centerTopText = "TOTAL XP";
+    String centerBottomText = "$totalXp";
+    Color centerColor = AppTheme.fhTextPrimary;
+
+    // Selected Text
+    if (selectedVirtue != null && categoryTotals.containsKey(selectedVirtue)) {
+      centerTopText = selectedVirtue!.toUpperCase();
+      if (centerTopText.contains(' ')) {
+        centerTopText = centerTopText.replaceAll(' ', '\n');
+      }
+      centerBottomText = "+${categoryTotals[selectedVirtue]}";
+      centerColor = WellbeingTheme.getCategoryColor(selectedVirtue!);
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 4, 
+            centerSpaceRadius: 40,
+            sections: entries.map((e) {
+              final isSelected = e.key == selectedVirtue;
+              return PieChartSectionData(
+                color: WellbeingTheme.getCategoryColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                value: e.value.toDouble(),
+                title: '',
+                radius: isSelected ? 20 : 15,
+                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2), 
+              );
+            }).toList(),
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                if (event is FlTapUpEvent && pieTouchResponse?.touchedSection != null) {
+                  final index = pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                  if (index >= 0 && index < entries.length) {
+                    final key = entries[index].key;
+                    onVirtueSelected?.call(selectedVirtue == key ? null : key);
+                  }
+                } else if (event is FlTapUpEvent && pieTouchResponse?.touchedSection == null) {
+                   onVirtueSelected?.call(null);
+                }
+              },
+            ),
+          ),
+        ),
+        // Inner Ring Detail
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              centerTopText, 
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 9, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+            ),
+            Text(
+              centerBottomText, 
+              style: TextStyle(fontSize: 18, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
+            ),
+          ],
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/wellbeing_pie_chart.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
@@ -18087,122 +18555,15 @@ class _ProjectGenerationDialogState extends State<ProjectGenerationDialog> {
 
 --- END OF FILE lib/src/widgets/dialogs/project_generation_dialog.dart ---
 
---- START OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
-// lib/src/widgets/dialogs/skill_detail_dialog.dart
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class SkillDetailDialog extends StatelessWidget {
-  final Skill skill;
-  final int xpGainedToday;
-  final Color color;
-  final IconData icon;
-
-  const SkillDetailDialog({
-    super.key,
-    required this.skill,
-    required this.xpGainedToday,
-    required this.color,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final double progress = skill.currentXp / skill.maxXp;
-    
-    return Dialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: color),
-            const SizedBox(height: 16),
-            Text(
-              skill.name.toUpperCase(),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.fhTextPrimary,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              skill.description,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.fhTextSecondary,
-                fontStyle: FontStyle.italic
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("LEVEL ${skill.level}", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-                Text("${skill.currentXp} / ${skill.maxXp} XP", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 12,
-                backgroundColor: AppTheme.fhBgDeepDark,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Improved Today", style: TextStyle(color: AppTheme.fhTextSecondary)),
-                  Text(
-                    "+$xpGainedToday XP", 
-                    style: TextStyle(
-                      color: xpGainedToday > 0 ? AppTheme.fhAccentGreen : AppTheme.fhTextDisabled,
-                      fontWeight: FontWeight.bold
-                    )
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.fhBgDark,
-                side: BorderSide(color: color),
-                minimumSize: const Size(double.infinity, 44)
-              ),
-              child: Text("CLOSE", style: TextStyle(color: color)),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/skill_detail_dialog.dart ---
-
 --- START OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 import 'dart:math';
+
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class XpGainDialog extends StatefulWidget {
   final Map<String, int> xpGained;
@@ -18270,7 +18631,7 @@ class _XpGainDialogState extends State<XpGainDialog>
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: EdgeInsets.zero, // KEY FIX: Allow full screen layout
+      insetPadding: EdgeInsets.zero, 
       child: Stack(
         children: [
           // 1. Full Screen Backdrop Blur
@@ -18283,7 +18644,7 @@ class _XpGainDialogState extends State<XpGainDialog>
             ),
           ),
 
-          // 2. Dismiss tap handler (optional)
+          // 2. Dismiss tap handler
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
@@ -18295,7 +18656,7 @@ class _XpGainDialogState extends State<XpGainDialog>
           // 3. Main Dialog Card
           Center(
             child: GestureDetector(
-              onTap: () {}, // Prevent taps on card from dismissing
+              onTap: () {}, 
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: FadeTransition(
@@ -18303,7 +18664,6 @@ class _XpGainDialogState extends State<XpGainDialog>
                   child: Container(
                     width: MediaQuery.of(context).size.width * 0.85,
                     constraints: const BoxConstraints(maxWidth: 360, maxHeight: 500),
-                    // Gradient Border Wrapper
                     padding: const EdgeInsets.all(1.5),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(0),
@@ -18317,7 +18677,7 @@ class _XpGainDialogState extends State<XpGainDialog>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.fhAccentGold.withValues(alpha: 0.15),
+                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.15),
                           blurRadius: 50,
                           spreadRadius: 1,
                         ),
@@ -18327,7 +18687,6 @@ class _XpGainDialogState extends State<XpGainDialog>
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1720),
                         borderRadius: BorderRadius.circular(0),
-                        // Inner Radial Gradient for depth
                         gradient: RadialGradient(
                           center: Alignment.topCenter,
                           radius: 1.2,
@@ -18356,13 +18715,12 @@ class _XpGainDialogState extends State<XpGainDialog>
                                     letterSpacing: 2.0,
                                     shadows: [
                                       Shadow(
-                                        color: AppTheme.fhAccentGold.withValues(alpha: 0.3),
+                                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
                                         blurRadius: 10
                                       )
                                     ]
                                   ),
                                 ),
-                                
                               ],
                             ),
                           ),
@@ -18382,20 +18740,19 @@ class _XpGainDialogState extends State<XpGainDialog>
                                       margin: const EdgeInsets.only(bottom: 16),
                                     ),
                                     GridView.count(
-                                      crossAxisCount: 3,
+                                      crossAxisCount: 4,
                                       shrinkWrap: true,
-                                      childAspectRatio: 2.2,
-                                      physics: NeverScrollableScrollPhysics(),
+                                      childAspectRatio: 1.6,
+                                      mainAxisSpacing: 8,
+                                      crossAxisSpacing: 8,
+                                      physics: const NeverScrollableScrollPhysics(),
                                       children: List.generate(entries.length, (index) {
                                       final entry = entries[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: _buildCompactSkillRow(entry.key, entry.value)
+                                      return _buildCompactSkillRow(entry.key, entry.value)
                                             .animate(delay: (100 * index).ms)
                                             .fadeIn()
-                                            .slideX(begin: -0.1, end: 0),
-                                      );
-                                    }),
+                                            .slideX(begin: -0.1, end: 0);
+                                      }),
                                     ),
                                     const SizedBox(height: 16),
                                   ],
@@ -18491,96 +18848,39 @@ class _XpGainDialogState extends State<XpGainDialog>
     );
   }
 
-  Widget _buildShimmerIcon() {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(seconds: 2),
-      builder: (context, value, child) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.fhAccentGold.withValues(alpha: 0.2 * (1 - value)),
-                    Colors.transparent
-                  ],
-                  stops: const [0.5, 1.0],
-                ),
-              ),
-            ),
-            Icon(MdiIcons.starFourPoints,
-                size: 28, color: AppTheme.fhAccentGold),
-          ],
-        );
-      },
-    );
-  }
-
  Widget _buildCompactSkillRow(String skillName, int xp) {
-  Color color = _getVirtueColor(skillName);
+  Color color = WellbeingTheme.getColor(skillName);
 
   return Container(
-    height: 36, // set fixed height
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    alignment: Alignment.center,
     decoration: BoxDecoration(
       color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
     ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(
-          _getSkillIcon(skillName),
+          WellbeingTheme.getIcon(skillName),
           color: color,
           size: 16,
         ),
-
-        const SizedBox(width: 8),
-
+        const SizedBox(height: 2),
         Text(
           "+$xp",
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: 11,
           ),
         ),
       ],
     ),
   );
-}
-
-  Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
-    }
-  }
-
-  IconData _getSkillIcon(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return MdiIcons.brain;
-      case 'courage': return MdiIcons.sword;
-      case 'humanity': return MdiIcons.handHeart;
-      case 'justice': return MdiIcons.scaleBalance;
-      case 'temperance': return MdiIcons.yinYang;
-      case 'transcendence': return MdiIcons.starFourPoints;
-      default: return MdiIcons.circleSmall;
-    }
-  }
+ }
 }
 --- END OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
 
@@ -20029,20 +20329,38 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class AddGratitudeDialog extends StatefulWidget {
-  const AddGratitudeDialog({super.key});
+  final GratitudeItem? initialItem;
+  const AddGratitudeDialog({super.key, this.initialItem});
 
   @override
   State<AddGratitudeDialog> createState() => _AddGratitudeDialogState();
 }
 
 class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
-  final _nameController = TextEditingController();
-  final _whyController = TextEditingController();
-  final _howController = TextEditingController();
-  final _whatController = TextEditingController();
-  String _selectedType = 'resource';
+  late TextEditingController _nameController;
+  late TextEditingController _whyController;
+  late TextEditingController _howController;
+  late TextEditingController _whatController;
+  late String _selectedType;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialItem?.name ?? '');
+    _whyController = TextEditingController(text: widget.initialItem?.why ?? '');
+    _howController = TextEditingController(text: widget.initialItem?.how ?? '');
+    _whatController = TextEditingController(text: widget.initialItem?.what ?? '');
+    
+    _selectedType = widget.initialItem?.type ?? 'resource';
+    
+    // Validate type against allowed list just in case
+    if (!['resource', 'skill', 'person', 'object'].contains(_selectedType)) {
+      _selectedType = 'resource';
+    }
+  }
 
   @override
   void dispose() {
@@ -20057,7 +20375,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
     if (_nameController.text.trim().isEmpty) return;
 
     final item = GratitudeItem(
-      id: '', // Will be assigned in constructor
+      id: widget.initialItem?.id ?? const Uuid().v4(), // Use existing ID or generate new
       type: _selectedType,
       name: _nameController.text.trim(),
       why: _whyController.text.trim(),
@@ -20084,7 +20402,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                "NEW ASSET ENTRY",
+                widget.initialItem != null ? "EDIT ASSET" : "NEW ASSET ENTRY",
                 style: GoogleFonts.rajdhani(
                   color: PersonInfoTheme.spideyCyan,
                   fontSize: 20,
@@ -20171,7 +20489,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
                         shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                       ),
                       onPressed: _submit,
-                      child: Text("LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      child: Text(widget.initialItem != null ? "UPDATE" : "LOG ASSET", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                     ),
                   ),
                 ],
@@ -20231,11 +20549,19 @@ class SelectResourceDialog extends StatefulWidget {
 
 class _SelectResourceDialogState extends State<SelectResourceDialog> {
   late Set<String> _currentSelection;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _currentSelection = Set<String>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _toggleSelection(String id) {
@@ -20261,7 +20587,13 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final items = provider.chatbotMemory.gratitudeList;
+    
+    // Filter and Sort
+    var items = provider.chatbotMemory.gratitudeList.toList();
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     return Dialog(
       backgroundColor: AppTheme.fhBgMedium,
@@ -20284,11 +20616,30 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
             ),
           ),
           
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: "SEARCH...",
+                hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
+                filled: true,
+                fillColor: AppTheme.fhBgDark,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: const OutlineInputBorder(borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          
           Flexible(
             child: items.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: Text("No assets available. Add them in the Gratitude Log.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
+                  child: Text("No matching assets found.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
                 )
               : ListView.builder(
                   shrinkWrap: true,
@@ -20366,6 +20717,241 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
   }
 }
 --- END OF FILE lib/src/widgets/dialogs/select_resource_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/asset_info_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class AssetInfoDialog extends StatelessWidget {
+  final GratitudeItem item;
+
+  const AssetInfoDialog({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: PersonInfoTheme.bgPanel,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.name.toUpperCase(),
+              style: GoogleFonts.rajdhani(
+                color: PersonInfoTheme.spideyCyan,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.0
+              ),
+            ),
+            Text(
+              "TYPE: ${item.type.toUpperCase()}",
+              style: GoogleFonts.rajdhani(
+                color: PersonInfoTheme.spideyCyanDim,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            if (item.why.isNotEmpty) _buildSection("STRATEGIC VALUE (WHY)", item.why),
+            if (item.how.isNotEmpty) _buildSection("USAGE METHOD (HOW)", item.how),
+            if (item.what.isNotEmpty) _buildSection("EXPECTED YIELD (WHAT)", item.what),
+            
+            if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
+              const Text("No detailed intelligence available for this asset.", style: TextStyle(color: PersonInfoTheme.textGrey, fontStyle: FontStyle.italic)),
+
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PersonInfoTheme.textGrey,
+                  side: const BorderSide(color: Color(0xFF1f2f40)),
+                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CLOSE DATA"),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.only(left: 8),
+            decoration: const BoxDecoration(border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 2))),
+            child: Text(
+              title,
+              style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(content, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14, height: 1.5)),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/asset_info_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/wellbeing_detail_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+
+class WellbeingDetailDialog extends StatelessWidget {
+  final Skill skill;
+  final int xpGainedToday;
+
+  const WellbeingDetailDialog({
+    super.key,
+    required this.skill,
+    required this.xpGainedToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = skill.maxXp > 0 ? skill.currentXp / skill.maxXp : 0.0;
+    final Color color = WellbeingTheme.getColor(skill.name);
+    final IconData icon = WellbeingTheme.getIcon(skill.name);
+
+    return Dialog(
+      backgroundColor: PersonInfoTheme.bgPanel,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: color, width: 2),
+        borderRadius: BorderRadius.zero,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
+              ),
+              child: Icon(icon, size: 48, color: color),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              skill.name.toUpperCase(),
+              style: GoogleFonts.rajdhani(
+                color: PersonInfoTheme.textWhite,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.0,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              skill.description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: PersonInfoTheme.textGrey,
+                fontSize: 13,
+                height: 1.4,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "LEVEL ${skill.level}",
+                  style: GoogleFonts.rajdhani(
+                    color: color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "${skill.currentXp} / ${skill.maxXp} XP",
+                  style: GoogleFonts.rajdhani(
+                    color: PersonInfoTheme.textWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SpideyProgressBar(progress: progress, color: color),
+            
+            const SizedBox(height: 24),
+            
+            // Daily Momentum
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PersonInfoTheme.bgDark,
+                border: Border.all(color: const Color(0xFF1f2f40)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "7-DAY MOMENTUM",
+                    style: GoogleFonts.rajdhani(
+                      color: PersonInfoTheme.textGrey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  Text(
+                    "+$xpGainedToday XP",
+                    style: GoogleFonts.rajdhani(
+                      color: xpGainedToday > 0 ? PersonInfoTheme.spideyCyan : PersonInfoTheme.textGrey,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: "ACKNOWLEDGE",
+                color: color,
+                onPressed: () => Navigator.pop(context),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/wellbeing_detail_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';
@@ -21116,7 +21702,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         children:[
                           Expanded(
                             child: ValorantButton(
-                              label: "Complete",
+                              label: "FINISH",
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
@@ -21128,7 +21714,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: ValorantButton(
-                              label: "Terminate",
+                              label: "DELETE",
                               icon: MdiIcons.deleteOutline,
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,
@@ -24981,215 +25567,6 @@ class ReflectionProgressWidget extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/reflection_progress_widget.dart ---
 
---- START OF FILE lib/src/widgets/ui/virtue_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-
-class VirtueCard extends StatelessWidget {
-  final Skill skill;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const VirtueCard({
-    super.key,
-    required this.skill,
-    required this.color,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final double progress = skill.currentXp / skill.maxXp;
-    final int level = skill.level;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark.withOpacity(0.9),
-          border: Border.all(color: color.withOpacity(0.5), width: 1),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4),
-            topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(12),
-            bottomRight: Radius.circular(12),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-
-                    SizedBox(height: 10,),
-            // Header (Compact, No Gradient)
-            Expanded(
-              flex: 4, // Adjusted ratio
-              child: Container(
-                // Removed gradient decoration
-                child: Stack(
-                  children: [
-                    // Top Left Icon
-                    // Hexagon Avatar (Scaled down)
-                    Center(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ClipPath(
-                            clipper: _HexagonClipper(),
-                            child: Container(
-                              width: 50, // Smaller
-                              height: 58,
-                              color: AppTheme.fhBgDeepDark,
-                              child: Center(
-                                child: Icon(icon, size: 24, color: color),
-                              ),
-                            ),
-                          ),
-                          CustomPaint(
-                            size: const Size(52, 60),
-                            painter: _HexagonBorderPainter(color: color),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Content
-            Expanded(
-              flex: 5, // Adjusted ratio
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      skill.name.toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 9, // Smaller font
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
-                        color: AppTheme.fhTextPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "LEVEL $level",
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 9, // Smaller font
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    
-                    // Progress Bar Section
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          height: 6, // Thinner bar
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: AppTheme.fhBgDeepDark,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: progress.clamp(0.0, 1.0),
-                            child: Container(
-                              color: color,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "XP: ${skill.currentXp}/${skill.maxXp}",
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 8), // Smaller font
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HexagonClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    final w = size.width;
-    final h = size.height;
-    
-    path.moveTo(w * 0.5, 0);
-    path.lineTo(w, h * 0.25);
-    path.lineTo(w, h * 0.75);
-    path.lineTo(w * 0.5, h);
-    path.lineTo(0, h * 0.75);
-    path.lineTo(0, h * 0.25);
-    path.close();
-    
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
-
-class _HexagonBorderPainter extends CustomPainter {
-  final Color color;
-  
-  _HexagonBorderPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5; // Thinner border
-
-    final w = size.width;
-    final h = size.height;
-    
-    final path = Path();
-    path.moveTo(w * 0.5, 0);
-    path.lineTo(w, h * 0.25);
-    path.lineTo(w, h * 0.75);
-    path.lineTo(w * 0.5, h);
-    path.lineTo(0, h * 0.75);
-    path.lineTo(0, h * 0.25);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
---- END OF FILE lib/src/widgets/ui/virtue_card.dart ---
-
 --- START OF FILE lib/src/widgets/ui/circular_time_progress.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -25826,6 +26203,156 @@ class NfsGridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 --- END OF FILE lib/src/widgets/ui/nfs_components.dart ---
+
+--- START OF FILE lib/src/widgets/ui/spidey_progress_bar.dart ---
+import 'package:flutter/material.dart';
+
+class SpideyProgressBar extends StatelessWidget {
+  final double progress;
+  final Color color;
+
+  const SpideyProgressBar({
+    super.key,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform(
+      transform: Matrix4.skewX(-0.3),
+      child: Container(
+        height: 6,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: progress.clamp(0.0, 1.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.6),
+                  blurRadius: 4,
+                  offset: const Offset(0, 0),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/spidey_progress_bar.dart ---
+
+--- START OF FILE lib/src/widgets/ui/wellbeing_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class WellbeingCard extends StatelessWidget {
+  final Skill skill;
+  final VoidCallback onTap;
+
+  const WellbeingCard({
+    super.key,
+    required this.skill,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = skill.maxXp > 0 ? skill.currentXp / skill.maxXp : 0.0;
+    final int level = skill.level;
+    final Color color = WellbeingTheme.getColor(skill.name);
+    final IconData icon = WellbeingTheme.getIcon(skill.name);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: PersonInfoTheme.bgPanel,
+          border: Border(left: BorderSide(color: color, width: 3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        skill.name.toUpperCase(),
+                        style: GoogleFonts.rajdhani(
+                          color: PersonInfoTheme.textWhite,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      Text(
+                        "LVL $level",
+                        style: GoogleFonts.rajdhani(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SpideyProgressBar(progress: progress, color: color),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      "${skill.currentXp} / ${skill.maxXp} XP",
+                      style: GoogleFonts.rajdhani(
+                        color: PersonInfoTheme.textGrey,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/wellbeing_card.dart ---
 
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
@@ -26808,7 +27335,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/wellbeing_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
@@ -27067,7 +27594,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 ),
               ),
               ChartCarouselData(
-                title: "VIRTUE GROWTH",
+                title: "WELL-BEING GROWTH",
                 chart: WeeklyVirtueBarChart(
                   weeklyXp: chartData['virtueData'],
                   dominantVirtueColors: chartData['virtueColors'],
@@ -27105,11 +27632,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 child: ValorantCard(
                   child: Column(
                     children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const Text("WELL-BEING GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 150,
-                        child: VirtuePieChart(
+                        child: WellbeingPieChart(
                           logs: reflectionsForDate,
                           selectedVirtue: _selectedVirtueFilter,
                           onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
@@ -29542,6 +30069,139 @@ class SessionLogDrawer extends StatelessWidget {
 
 --- END OF FILE lib/src/widgets/drawers/session_log_drawer.dart ---
 
+--- START OF FILE lib/src/widgets/drawers/wellbeing_drawer.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/widgets/ui/wellbeing_card.dart';
+import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class WellbeingDrawer extends StatelessWidget {
+  const WellbeingDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+
+    return Drawer(
+      width: 360,
+      backgroundColor: PersonInfoTheme.bgDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF1f2f40), width: 2)),
+              color: PersonInfoTheme.bgPanel,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(MdiIcons.dna, color: PersonInfoTheme.spideyCyan, size: 32),
+                    const SizedBox(width: 12),
+                    Text(
+                      "WELL-BEING",
+                      style: GoogleFonts.rajdhani(
+                        color: PersonInfoTheme.textWhite,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "// PSYCHOLOGICAL & EMOTIONAL METRICS",
+                  style: GoogleFonts.rajdhani(
+                    color: PersonInfoTheme.textGrey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // List of Well-Being Sources
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: appProvider.skills.length,
+              itemBuilder: (context, index) {
+                final skill = appProvider.skills[index];
+                return WellbeingCard(
+                  skill: skill,
+                  onTap: () {
+                    final xpToday = appProvider.get7DayWellbeingMomentum(skill.name) ~/ 7;
+                    showDialog(
+                      context: context,
+                      builder: (_) => WellbeingDetailDialog(
+                        skill: skill,
+                        xpGainedToday: xpToday,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          
+          // Sync Action
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              icon: appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..."
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : Icon(MdiIcons.syncIcon, size: 18, color: Colors.black),
+              label: Text(
+                appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
+                style: GoogleFonts.rajdhani(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PersonInfoTheme.spideyCyan,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+              ),
+              onPressed: appProvider.loadingTaskName != null ? null : () async {
+                try {
+                  await appProvider.syncWeeklyWellbeing();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Well-Being Progress Synchronized"), backgroundColor: AppTheme.fhAccentGreen)
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.fhAccentRed)
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/drawers/wellbeing_drawer.dart ---
+
 --- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -31612,13 +32272,11 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/widgets/dialogs/select_resource_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/asset_info_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-
-// Helper to grab the item details from provider
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 
@@ -31660,16 +32318,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
 
     if (result != null) {
       onChanged(jsonEncode(result));
-    }
-  }
-
-  IconData _getIconForType(String type) {
-    switch(type.toLowerCase()) {
-      case 'skill': return MdiIcons.lightningBolt;
-      case 'person': return MdiIcons.accountHeart;
-      case 'object': return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default: return MdiIcons.starFourPoints;
     }
   }
 
@@ -31728,9 +32376,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: selectedIds.map((id) {
-                  // Normally we'd fetch the actual item from provider to display Name & Icon
-                  // For pure UI speed, we'll extract provider here if needed, but we can just use Consumer 
-                  // or pass provider from parent. Let's use a nested Consumer to be safe.
                   return _ResourceChipBuilder(id: id, accentColor: accentColor);
                 }).toList(),
               )
@@ -31763,23 +32408,31 @@ class _ResourceChipBuilder extends StatelessWidget {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); // Hide if deleted
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.1),
-            border: Border.all(color: accentColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_getIconForType(item.type), size: 14, color: accentColor),
-              const SizedBox(width: 6),
-              Text(
-                item.name.toUpperCase(),
-                style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
+        return InkWell(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => AssetInfoDialog(item: item)
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              border: Border.all(color: accentColor.withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getIconForType(item.type), size: 14, color: accentColor),
+                const SizedBox(width: 6),
+                Text(
+                  item.name.toUpperCase(),
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         );
       }

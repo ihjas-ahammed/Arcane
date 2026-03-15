@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/charts/virtue_pie_chart.dart';
+import 'package:arcane/src/widgets/charts/wellbeing_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
@@ -261,7 +261,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 ),
               ),
               ChartCarouselData(
-                title: "VIRTUE GROWTH",
+                title: "WELL-BEING GROWTH",
                 chart: WeeklyVirtueBarChart(
                   weeklyXp: chartData['virtueData'],
                   dominantVirtueColors: chartData['virtueColors'],
@@ -299,11 +299,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 child: ValorantCard(
                   child: Column(
                     children: [
-                      const Text("VIRTUE GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                      const Text("WELL-BEING GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 150,
-                        child: VirtuePieChart(
+                        child: WellbeingPieChart(
                           logs: reflectionsForDate,
                           selectedVirtue: _selectedVirtueFilter,
                           onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),

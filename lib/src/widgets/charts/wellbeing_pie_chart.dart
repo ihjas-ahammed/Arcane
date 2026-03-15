@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class VirtuePieChart extends StatelessWidget {
+class WellbeingPieChart extends StatelessWidget {
   final List<ReflectionLog> logs;
   final String? selectedVirtue;
   final Function(String?)? onVirtueSelected;
 
-  const VirtuePieChart({
+  const WellbeingPieChart({
     super.key,
     required this.logs,
     this.selectedVirtue,
@@ -18,15 +19,24 @@ class VirtuePieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Map<String, int> totals = {};
+    Map<String, int> categoryTotals = {
+      'Emotional': 0,
+      'Psychological': 0,
+      'Social & Purpose': 0,
+      'Vitality & Growth': 0,
+    };
+    
     for (var log in logs) {
       log.xpGained.forEach((key, value) {
-        totals[key] = (totals[key] ?? 0) + value;
+        if (value > 0) {
+           String cat = WellbeingTheme.getCategory(key);
+           categoryTotals[cat] = (categoryTotals[cat] ?? 0) + value;
+        }
       });
     }
-    totals.removeWhere((key, value) => value <= 0);
+    categoryTotals.removeWhere((key, value) => value <= 0);
 
-    if (totals.isEmpty) {
+    if (categoryTotals.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -39,8 +49,8 @@ class VirtuePieChart extends StatelessWidget {
       );
     }
 
-    final int totalXp = totals.values.fold(0, (sum, item) => sum + item);
-    final entries = totals.entries.toList();
+    final int totalXp = categoryTotals.values.fold(0, (sum, item) => sum + item);
+    final entries = categoryTotals.entries.toList();
 
     // Default Text
     String centerTopText = "TOTAL XP";
@@ -48,10 +58,13 @@ class VirtuePieChart extends StatelessWidget {
     Color centerColor = AppTheme.fhTextPrimary;
 
     // Selected Text
-    if (selectedVirtue != null && totals.containsKey(selectedVirtue)) {
+    if (selectedVirtue != null && categoryTotals.containsKey(selectedVirtue)) {
       centerTopText = selectedVirtue!.toUpperCase();
-      centerBottomText = "+${totals[selectedVirtue]}";
-      centerColor = _getVirtueColor(selectedVirtue!);
+      if (centerTopText.contains(' ')) {
+        centerTopText = centerTopText.replaceAll(' ', '\n');
+      }
+      centerBottomText = "+${categoryTotals[selectedVirtue]}";
+      centerColor = WellbeingTheme.getCategoryColor(selectedVirtue!);
     }
 
     return Stack(
@@ -64,7 +77,7 @@ class VirtuePieChart extends StatelessWidget {
             sections: entries.map((e) {
               final isSelected = e.key == selectedVirtue;
               return PieChartSectionData(
-                color: _getVirtueColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                color: WellbeingTheme.getCategoryColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
                 value: e.value.toDouble(),
                 title: '',
                 radius: isSelected ? 20 : 15,
@@ -92,27 +105,16 @@ class VirtuePieChart extends StatelessWidget {
           children: [
             Text(
               centerTopText, 
-              style: const TextStyle(fontSize: 10, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 9, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
             ),
             Text(
               centerBottomText, 
-              style: TextStyle(fontSize: 20, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
+              style: TextStyle(fontSize: 18, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
             ),
           ],
         )
       ],
     );
-  }
-
-  Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom': return Colors.blueAccent;
-      case 'courage': return AppTheme.fhAccentRed;
-      case 'humanity': return const Color(0xFFE91E63);
-      case 'justice': return AppTheme.fhAccentGold;
-      case 'temperance': return AppTheme.fhAccentTeal;
-      case 'transcendence': return AppTheme.fhAccentPurple;
-      default: return Colors.grey;
-    }
   }
 }

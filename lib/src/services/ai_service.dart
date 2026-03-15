@@ -308,12 +308,25 @@ class AIService {
     Action Planned: $action
     
     1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to virtues (Wisdom, Courage, Humanity, Justice, Temperance, Transcendence).
+    2. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
     3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
 
     Output JSON: {
       "feedback": "string", 
-      "xp_allocation": {"Wisdom": int, ...}
+      "xp_allocation": {
+        "Positivity": int,
+        "Resilience": int,
+        "Satisfaction": int,
+        "Vitality": int,
+        "Env. Mastery": int,
+        "Relationships": int,
+        "Self-Acceptance": int,
+        "Mastery": int,
+        "Autonomy": int,
+        "Growth": int,
+        "Engagement": int,
+        "Meaning": int
+      }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -325,6 +338,61 @@ class AIService {
         currentApiKeyIndex: 0,
         onNewApiKeyIndex: (_) {},
         onLog: (_) {});
+  }
+
+  Future<List<Map<String, dynamic>>> evaluateBatchReflections({
+    required List<Map<String, dynamic>> logsPayload,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following array of reflection logs. 
+    For each log, evaluate the user's progress across these 12 Sources of Well-Being:
+    1. Positivity 2. Resilience 3. Satisfaction 4. Vitality 5. Env. Mastery 6. Relationships 
+    7. Self-Acceptance 8. Mastery 9. Autonomy 10. Growth 11. Engagement 12. Meaning
+
+    Award XP (0 to 50) for each category based on evidence in the specific log. If no evidence, award 0.
+
+    Logs to evaluate:
+    ${jsonEncode(logsPayload)}
+
+    Output EXACTLY valid JSON matching this structure:
+    {
+      "updates": [
+        {
+          "log_id": "id_string_from_input",
+          "xp_allocation": {
+            "Positivity": int,
+            "Resilience": int,
+            "Satisfaction": int,
+            "Vitality": int,
+            "Env. Mastery": int,
+            "Relationships": int,
+            "Self-Acceptance": int,
+            "Mastery": int,
+            "Autonomy": int,
+            "Growth": int,
+            "Engagement": int,
+            "Meaning": int
+          }
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<Map<String, dynamic>> generateDailySummary({
