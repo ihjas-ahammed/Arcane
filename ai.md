@@ -1,14 +1,6 @@
 Make the following changes:
 
-    
-    
-    - Update project screen:
-        - Adapt the UI to new theme
-        - Fix the regression graph, its not completely covering like sometime when I get 100% it leaves space and the prediction is still there
-        - Update AI Generation:
-            - Add support to upload documents or images
-    - Update AI prompting:
-        - When AI auto generate fi=or checkpoints or substep, add a prompt dialog where user can write their custom prompt before auto gen
+    - Fix the shown errore
 
 
 

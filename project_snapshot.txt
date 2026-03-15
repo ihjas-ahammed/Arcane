@@ -1,0 +1,290 @@
+
+--- START OF FILE android/app/build.gradle.kts ---
+plugins {
+    id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
+    id("kotlin-android")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+android {
+    // FIX: Matched namespace exactly to the applicationId and the remaining MainActivity
+    namespace = "me.ihjas.arcane"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "27.0.12077973"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
+
+    defaultConfig {
+        applicationId = "me.ihjas.arcane"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+--- END OF FILE android/app/build.gradle.kts ---
+
+--- START OF FILE android/settings.gradle.kts ---
+pluginManagement {
+    val flutterSdkPath = run {
+        val properties = java.util.Properties()
+        file("local.properties").inputStream().use { properties.load(it) }
+        val flutterSdkPath = properties.getProperty("flutter.sdk")
+        require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+        flutterSdkPath
+    }
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.7.3" apply false
+    // FIX: Updated google-services and downgraded Kotlin slightly to ensure stable Flutter plugin compilation
+    id("com.google.gms.google-services") version("4.4.2") apply false
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+}
+
+include(":app")
+--- END OF FILE android/settings.gradle.kts ---
+
+--- START OF FILE pubspec.yaml ---
+name: arcane
+description: "A Flutter version of the Task Dominion application."
+publish_to: 'none'
+
+version: 2026.1.25+712
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.13.1
+  # FIX: Removed firebase_core_platform_interface to prevent cross-version channel conflicts
+  firebase_auth: ^5.5.4
+  cloud_firestore: ^5.6.8
+  firebase_database: ^11.3.8
+
+  # State Management
+  provider: ^6.1.2
+
+  # AI
+  google_generative_ai: ^0.4.0 
+
+  # UI & Utilities
+  cupertino_icons: ^1.0.6
+  intl: ^0.20.2
+  fl_chart: ^1.1.1
+  material_design_icons_flutter: ^7.0.7296
+  collection: ^1.18.0 
+  flutter_colorpicker: ^1.1.0
+  smooth_page_indicator: ^1.2.1
+  uuid: ^4.5.2
+  http: ^1.6.0
+  file_picker: ^8.1.4
+  universal_html: ^2.2.4
+  path_provider: ^2.1.2
+  share_plus: ^10.1.2
+  google_fonts: ^6.3.3
+  flutter_animate: ^4.5.2
+  gap: ^3.0.1
+  connectivity_plus: ^7.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  mockito: ^5.4.4 
+  change_app_package_name: ^1.1.0 
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/fonts/icons/icon.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/fonts/icons/icon.png"
+  adaptive_icon_foreground_inset: 25
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+    background_color: "#000000"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/fonts/icons/icon.png"
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: RobotoCondensed
+      fonts:
+        - asset: assets/fonts/RobotoCondensed-Regular.ttf
+        - asset: assets/fonts/RobotoCondensed-Bold.ttf
+          weight: 700
+    - family: OpenSans
+      fonts:
+        - asset: assets/fonts/OpenSans-Regular.ttf
+        - asset: assets/fonts/OpenSans-SemiBold.ttf
+          weight: 600
+--- END OF FILE pubspec.yaml ---
+
+--- START OF FILE lib/main.dart ---
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:arcane/src/app.dart';
+import 'package:arcane/firebase_options.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:provider/provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Safe Firebase Initialization
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase init error (Native modules might be missing): $e");
+  }
+  
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppProvider()),
+        Provider(create: (_) => AIService()),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+--- END OF FILE lib/main.dart ---
+
+--- START OF FILE lib/src/app.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/screens/home_screen.dart';
+import 'package:arcane/src/screens/login_screen.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Arcane',
+      builder: (context, child) {
+        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        return Container(
+          color: Colors.black, 
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: child,
+            ),
+          ),
+        );
+      },
+      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+      debugShowCheckedModeBanner: false,
+      home: Consumer<AppProvider>(
+        builder: (context, appProvider, child) {
+          if (appProvider.authLoading) {
+            return const Scaffold(
+              backgroundColor: AppTheme.fhBgDeepDark,
+              body: Center(
+                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+            );
+          }
+
+          if (appProvider.currentUser == null) {
+            return const LoginScreen();
+          }
+
+          final Color currentTaskColor =
+              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+          return Theme(
+            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
+            child: Stack(
+              children: [
+                const HomeScreen(),
+                
+                // Blocking overlay ONLY for critical manual loads
+                if (appProvider.isManuallyLoading)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black87,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: AppTheme.fhAccentTeal),
+                            SizedBox(height: 16),
+                            Text(
+                              "RESTORING DATABASE...",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: AppTheme.fontDisplay,
+                                  letterSpacing: 1.5,
+                                  fontWeight: FontWeight.bold),
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/app.dart ---

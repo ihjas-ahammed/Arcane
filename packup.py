@@ -41,7 +41,6 @@ ADDITIONAL_IGNORE_PATTERNS = [
     "windows/",
     "macos/",
     "linux/",
-    "android/",
     "ios/",
     "ai.txt",
     "ai.md",

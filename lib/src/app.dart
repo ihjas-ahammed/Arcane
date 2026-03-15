@@ -17,10 +17,9 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Arcane',
-      // We use a builder to inject the theme based on the provider state
       builder: (context, child) {
-        // Pillarbox constraint for desktop/web and ideal screen 720x1520 constraint
-        final constrainedApp = Container(
+        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        return Container(
           color: Colors.black, 
           child: Center(
             child: ConstrainedBox(
@@ -29,10 +28,7 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         );
-
-        return constrainedApp;
       },
-      // Default theme, will be overridden by local Theme widgets in screens
       theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
@@ -41,8 +37,7 @@ class _MyAppState extends State<MyApp> {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
               body: Center(
-                  child:
-                      CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
 
@@ -50,7 +45,6 @@ class _MyAppState extends State<MyApp> {
             return const LoginScreen();
           }
 
-          // Apply dynamic theme based on selected task
           final Color currentTaskColor =
               appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
 
@@ -59,10 +53,8 @@ class _MyAppState extends State<MyApp> {
             child: Stack(
               children: [
                 const HomeScreen(),
-
-                // Sync indicator has been entirely removed to hide the background sync note
-
-                // Blocking overlay ONLY for critical manual loads (Restore/Import)
+                
+                // Blocking overlay ONLY for critical manual loads
                 if (appProvider.isManuallyLoading)
                   Positioned.fill(
                     child: Container(

@@ -14,40 +14,79 @@
 --- END OF FILE .gitattributes ---
 
 --- START OF FILE README.md ---
-# arcane
+# Task Dominion: Arcane Edition
 
-A Flutter version of the Task Dominion application.
+## What is this?
+Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
 
-## Getting Started
+## Why?
+Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
 
-This project is a starting point for a Flutter application.
+## How it works
+The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
+* **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
+* **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
+* **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Developer Setup
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### 1. Prerequisites
+Ensure you have the Flutter SDK installed.
+* Run `flutter doctor` to verify your environment.
+* Install project dependencies: `flutter pub get`
 
-## Firebase Setup
+### 2. Firebase Configuration
+This project relies heavily on Firebase. 
+1. Ensure you have the FlutterFire CLI installed: `npm install -g firebase-tools` then `dart pub global activate flutterfire_cli`.
+2. Run `flutterfire configure` in the project root and link it to your Firebase project.
 
-This project uses Firebase. To configure it:
-1. Make sure you have the FlutterFire CLI installed: `flutter`
-2. Run `flutterfire configure` in the project root and select your Firebase project. This will generate `lib/firebase_options.dart`.
+### 3. Enable Realtime Database (Primary Data Layer)
+Realtime Database is used for live state syncing.
+1. Open the Firebase Console.
+2. Navigate to **Build > Realtime Database** and click **Create Database**.
+3. Choose a location and start in **Locked mode**.
+4. Update the Rules to allow authenticated user access to their own nodes:
+```json
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    }
+  }
+}
+```
 
-## API Keys
+### 4. Enable Cloud Firestore (Backup & Archival Layer)
+Firestore is used for manual snapshots and archived weekly reports.
+1. Navigate to **Build > Firestore Database** and click **Create Database**.
+2. Update the Security Rules:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
 
-AI features require API keys. Create a file `lib/src/config/api_keys.dart` with your Gemini API keys:
+### 5. API Keys Configuration
+AI features require Gemini API keys.
+1. Create a file `lib/src/config/api_keys.dart`.
+2. Add your Gemini API keys:
 ```dart
 // lib/src/config/api_keys.dart
 // IMPORTANT: Add this file to your .gitignore
-const List<String> GEMINI_API_KEYS = ['YOUR_GEMINI_API_KEY_1_HERE'];
-const String GEMINI_MODEL_NAME = 'gemini-1.5-flash-latest'; // Or your preferred model
+const List<String> geminiApiKeys = ['YOUR_GEMINI_API_KEY_1_HERE'];
+const String geminiModelName = 'gemini-2.0-flash'; 
 ```
-Ensure this file is added to your `.gitignore`.
-
+*Note: Make sure this file is added to your `.gitignore` to prevent exposing your keys.*
 --- END OF FILE README.md ---
 
 --- START OF FILE analysis_options.yaml ---
@@ -178,46 +217,7 @@ extensions:
 --- END OF FILE devtools_options.yaml ---
 
 --- START OF FILE firebase.json ---
-{
-  "flutter": {
-    "platforms": {
-      "android": {
-        "default": {
-          "projectId": "task-dominion",
-          "appId": "1:1059901273076:android:edb8027313c28e2c843fa1",
-          "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "task-dominion",
-          "configurations": {
-            "android": "1:1059901273076:android:edb8027313c28e2c843fa1",
-            "ios": "1:1059901273076:ios:0e00d77480cd44e6843fa1",
-            "macos": "1:1059901273076:ios:681581fd0db8a039843fa1",
-            "web": "1:1059901273076:web:86c0ab680c91dc5f843fa1",
-            "windows": "1:1059901273076:web:fc82a312504729c1843fa1"
-          }
-        }
-      }
-    }
-  },
-  "hosting": {
-    "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
-  }
-}
-
+{"flutter":{"platforms":{"android":{"default":{"projectId":"task-dominion","appId":"1:1059901273076:android:edb8027313c28e2c843fa1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"task-dominion","configurations":{"android":"1:1059901273076:android:edb8027313c28e2c843fa1","ios":"1:1059901273076:ios:0e00d77480cd44e6843fa1","macos":"1:1059901273076:ios:681581fd0db8a039843fa1","web":"1:1059901273076:web:86c0ab680c91dc5f843fa1","windows":"1:1059901273076:web:fc82a312504729c1843fa1"}}}}},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}
 --- END OF FILE firebase.json ---
 
 --- START OF FILE models.json ---
@@ -1164,10 +1164,10 @@ packages:
     dependency: transitive
     description:
       name: _flutterfire_internals
-      sha256: "214e6f07e2a44f45972e0365c7b537eaeaddb4598db0778dd4ac64b4acd3f5b1"
+      sha256: "50e24b769bd1e725732f0aff18b806b8731c1fbcf4e8018ab98e7c4805a2a52f"
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.55"
+    version: "1.3.57"
   analyzer:
     dependency: transitive
     description:
@@ -1460,26 +1460,50 @@ packages:
     dependency: "direct main"
     description:
       name: firebase_core
-      sha256: "8cfe3c900512399ce8d50fcc817e5758ff8615eeb6fa5c846a4cc47bbf6353b6"
+      sha256: "5bba5924139e91d26446fd2601c18a6aa62c1161c768a989bb5e245dcdc20644"
       url: "https://pub.dev"
     source: hosted
-    version: "3.13.1"
+    version: "3.15.0"
   firebase_core_platform_interface:
     dependency: "direct main"
     description:
       name: firebase_core_platform_interface
-      sha256: d7253d255ff10f85cfd2adaba9ac17bae878fa3ba577462451163bd9f1d1f0bf
+      sha256: "8bcfad6d7033f5ea951d15b867622a824b13812178bfec0c779b9d81de011bbb"
       url: "https://pub.dev"
     source: hosted
-    version: "5.4.0"
+    version: "5.4.2"
   firebase_core_web:
     dependency: transitive
     description:
       name: firebase_core_web
-      sha256: ddd72baa6f727e5b23f32d9af23d7d453d67946f380bd9c21daf474ee0f7326e
+      sha256: eb3afccfc452b2b2075acbe0c4b27de62dd596802b4e5e19869c1e926cbb20b3
       url: "https://pub.dev"
     source: hosted
-    version: "2.23.0"
+    version: "2.24.0"
+  firebase_database:
+    dependency: "direct main"
+    description:
+      name: firebase_database
+      sha256: "57879545b17cf6025016ebb105711749ff1e7f9afb8cfc5472861d84561a8ec0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "11.3.8"
+  firebase_database_platform_interface:
+    dependency: transitive
+    description:
+      name: firebase_database_platform_interface
+      sha256: "7f5d56393d5cad097ed805b772a3f98678305857d90f1c2204b7e247d7f96437"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.6+8"
+  firebase_database_web:
+    dependency: transitive
+    description:
+      name: firebase_database_web
+      sha256: "9d5067c582b338181121f28e3c08cfc02197639ddbfa2dd718bf861a22fa4ebc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.6+14"
   fixnum:
     dependency: transitive
     description:
@@ -2119,6 +2143,7 @@ dependencies:
   flutter_animate: ^4.5.2
   gap: ^3.0.1
   connectivity_plus: ^7.0.0
+  firebase_database: ^11.3.8
 
 
 dev_dependencies:
@@ -2178,6 +2203,10 @@ flutter:
     #       weight: 700
 
 --- END OF FILE pubspec.yaml ---
+
+--- START OF FILE targets.md ---
+
+--- END OF FILE targets.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 version.json,1772941275505,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
@@ -2333,6 +2362,1009 @@ jobs:
 }
 
 --- END OF FILE .idx/dev.nix ---
+
+--- START OF FILE android/.gitignore ---
+gradle-wrapper.jar
+/.gradle
+/captures/
+/gradlew
+/gradlew.bat
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+
+# Remember to never publicly share your keystore.
+# See https://flutter.dev/to/reference-keystore
+key.properties
+**/*.keystore
+**/*.jks
+
+--- END OF FILE android/.gitignore ---
+
+--- START OF FILE android/NOTICE ---
+
+   Copyright (c) 2005-2014, The Android Open Source Project
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+
+--- END OF FILE android/NOTICE ---
+
+--- START OF FILE android/build.gradle.kts ---
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
+subprojects {
+    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    project.layout.buildDirectory.value(newSubprojectBuildDir)
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
+}
+
+--- END OF FILE android/build.gradle.kts ---
+
+--- START OF FILE android/gradle.properties ---
+org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError
+android.useAndroidX=true
+android.enableJetifier=true
+
+--- END OF FILE android/gradle.properties ---
+
+--- START OF FILE android/settings.gradle.kts ---
+pluginManagement {
+    val flutterSdkPath = run {
+        val properties = java.util.Properties()
+        file("local.properties").inputStream().use { properties.load(it) }
+        val flutterSdkPath = properties.getProperty("flutter.sdk")
+        require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+        flutterSdkPath
+    }
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.7.3" apply false
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services") version("4.3.15") apply false
+    // END: FlutterFire Configuration
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+}
+
+include(":app")
+
+--- END OF FILE android/settings.gradle.kts ---
+
+--- START OF FILE android/gradlew ---
+#!/usr/bin/env bash
+
+##############################################################################
+##
+##  Gradle start up script for UN*X
+##
+##############################################################################
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS=""
+
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD="maximum"
+
+warn ( ) {
+    echo "$*"
+}
+
+die ( ) {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+case "`uname`" in
+  CYGWIN* )
+    cygwin=true
+    ;;
+  Darwin* )
+    darwin=true
+    ;;
+  MINGW* )
+    msys=true
+    ;;
+esac
+
+# Attempt to set APP_HOME
+# Resolve links: $0 may be a link
+PRG="$0"
+# Need this for relative symlinks.
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+SAVED="`pwd`"
+cd "`dirname \"$PRG\"`/" >/dev/null
+APP_HOME="`pwd -P`"
+cd "$SAVED" >/dev/null
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+# Determine the Java command to use to start the JVM.
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+        JAVACMD="$JAVA_HOME/bin/java"
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD="java"
+    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+fi
+
+# Increase the maximum file descriptors if we can.
+if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
+    MAX_FD_LIMIT=`ulimit -H -n`
+    if [ $? -eq 0 ] ; then
+        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
+            MAX_FD="$MAX_FD_LIMIT"
+        fi
+        ulimit -n $MAX_FD
+        if [ $? -ne 0 ] ; then
+            warn "Could not set maximum file descriptor limit: $MAX_FD"
+        fi
+    else
+        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
+    fi
+fi
+
+# For Darwin, add options to specify how the application appears in the dock
+if $darwin; then
+    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+fi
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin ; then
+    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
+    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
+    JAVACMD=`cygpath --unix "$JAVACMD"`
+
+    # We build the pattern for arguments to be converted via cygpath
+    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
+    SEP=""
+    for dir in $ROOTDIRSRAW ; do
+        ROOTDIRS="$ROOTDIRS$SEP$dir"
+        SEP="|"
+    done
+    OURCYGPATTERN="(^($ROOTDIRS))"
+    # Add a user-defined pattern to the cygpath arguments
+    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
+        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
+    fi
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    i=0
+    for arg in "$@" ; do
+        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
+        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
+
+        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
+            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
+        else
+            eval `echo args$i`="\"$arg\""
+        fi
+        i=$((i+1))
+    done
+    case $i in
+        (0) set -- ;;
+        (1) set -- "$args0" ;;
+        (2) set -- "$args0" "$args1" ;;
+        (3) set -- "$args0" "$args1" "$args2" ;;
+        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
+        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
+        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
+        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
+        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
+        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
+    esac
+fi
+
+# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
+function splitJvmOpts() {
+    JVM_OPTS=("$@")
+}
+eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
+JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
+
+exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+
+--- END OF FILE android/gradlew ---
+
+--- START OF FILE android/gradlew.bat ---
+@if "%DEBUG%" == "" @echo off
+@rem ##########################################################################
+@rem
+@rem  Gradle startup script for Windows
+@rem
+@rem ##########################################################################
+
+@rem Set local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" setlocal
+
+@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+set DEFAULT_JVM_OPTS=
+
+set DIRNAME=%~dp0
+if "%DIRNAME%" == "" set DIRNAME=.
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+
+@rem Find java.exe
+if defined JAVA_HOME goto findJavaFromJavaHome
+
+set JAVA_EXE=java.exe
+%JAVA_EXE% -version >NUL 2>&1
+if "%ERRORLEVEL%" == "0" goto init
+
+echo.
+echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:findJavaFromJavaHome
+set JAVA_HOME=%JAVA_HOME:"=%
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+
+if exist "%JAVA_EXE%" goto init
+
+echo.
+echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:init
+@rem Get command-line arguments, handling Windowz variants
+
+if not "%OS%" == "Windows_NT" goto win9xME_args
+if "%@eval[2+2]" == "4" goto 4NT_args
+
+:win9xME_args
+@rem Slurp the command line arguments.
+set CMD_LINE_ARGS=
+set _SKIP=2
+
+:win9xME_args_slurp
+if "x%~1" == "x" goto execute
+
+set CMD_LINE_ARGS=%*
+goto execute
+
+:4NT_args
+@rem Get arguments from the 4NT Shell from JP Software
+set CMD_LINE_ARGS=%$
+
+:execute
+@rem Setup the command line
+
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+
+@rem Execute Gradle
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
+
+:end
+@rem End local scope for the variables with windows NT shell
+if "%ERRORLEVEL%"=="0" goto mainEnd
+
+:fail
+rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
+rem the _cmd.exe /c_ return code!
+if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
+exit /b 1
+
+:mainEnd
+if "%OS%"=="Windows_NT" endlocal
+
+:omega
+
+--- END OF FILE android/gradlew.bat ---
+
+--- START OF FILE android/local.properties ---
+sdk.dir=/home/ihjas/Android/Sdk
+flutter.sdk=/mnt/sda2/home/flutter
+flutter.buildMode=debug
+flutter.versionName=2026.1.25
+flutter.versionCode=712
+--- END OF FILE android/local.properties ---
+
+--- START OF FILE android/app/build.gradle.kts ---
+plugins {
+    id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
+    id("kotlin-android")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+android {
+    namespace = "com.example.arcane"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "27.0.12077973"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
+
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "me.ihjas.arcane"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+--- END OF FILE android/app/build.gradle.kts ---
+
+--- START OF FILE android/app/google-services.json ---
+{
+  "project_info": {
+    "project_number": "1059901273076",
+    "firebase_url": "https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "task-dominion",
+    "storage_bucket": "task-dominion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:092a770ad41f5234843fa1",
+        "android_client_info": {
+          "package_name": "com.example.arcane"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:749d4c8f9c5aeb9e843fa1",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:0cb9d16dea4f2201843fa1",
+        "android_client_info": {
+          "package_name": "com.example.myapp_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:edb8027313c28e2c843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.arcane"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:9bbc5d654d40408c843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.dominion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:bdeb039da1e16ab1843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.myapp_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+--- END OF FILE android/app/google-services.json ---
+
+--- START OF FILE android/app/src/debug/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+
+--- END OF FILE android/app/src/debug/AndroidManifest.xml ---
+
+--- START OF FILE android/app/src/main/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="Primus"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:label="Primus"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
+
+--- END OF FILE android/app/src/main/AndroidManifest.xml ---
+
+--- START OF FILE android/app/src/main/kotlin/com/example/myapp_flutter/MainActivity.kt ---
+package com.example.arcane
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
+
+--- END OF FILE android/app/src/main/kotlin/com/example/myapp_flutter/MainActivity.kt ---
+
+--- START OF FILE android/app/src/main/kotlin/me/ihjas/arcane/MainActivity.kt ---
+package me.ihjas.arcane
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
+
+--- END OF FILE android/app/src/main/kotlin/me/ihjas/arcane/MainActivity.kt ---
+
+--- START OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?android:colorBackground" />
+
+    <!-- You can insert your own image assets here -->
+    <!-- <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item> -->
+</layer-list>
+
+--- END OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
+
+--- START OF FILE android/app/src/main/res/drawable/launch_background.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/white" />
+
+    <!-- You can insert your own image assets here -->
+    <!-- <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item> -->
+</layer-list>
+
+--- END OF FILE android/app/src/main/res/drawable/launch_background.xml ---
+
+--- START OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Background stays the same -->
+    <background android:drawable="@color/ic_launcher_background"/>
+    
+    <!-- Foreground: We remove the android:drawable attribute from here... -->
+    <foreground>
+        <!-- ...and wrap it in an inset tag -->
+        <inset
+            android:drawable="@drawable/ic_launcher_foreground"
+            android:inset="15%" />
+    </foreground>
+    
+</adaptive-icon>
+--- END OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
+
+--- START OF FILE android/app/src/main/res/values-night/styles.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is on -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <!-- Show a splash screen on the activity. Automatically removed when
+             the Flutter engine draws its first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
+
+--- END OF FILE android/app/src/main/res/values-night/styles.xml ---
+
+--- START OF FILE android/app/src/main/res/values/colors.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#000000</color>
+</resources>
+--- END OF FILE android/app/src/main/res/values/colors.xml ---
+
+--- START OF FILE android/app/src/main/res/values/styles.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Show a splash screen on the activity. Automatically removed when
+             the Flutter engine draws its first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
+
+--- END OF FILE android/app/src/main/res/values/styles.xml ---
+
+--- START OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
+package io.flutter.plugins;
+
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import io.flutter.Log;
+
+import io.flutter.embedding.engine.FlutterEngine;
+
+/**
+ * Generated file. Do not edit.
+ * This file is generated by the Flutter tool based on the
+ * plugins that support the Android platform.
+ */
+@Keep
+public final class GeneratedPluginRegistrant {
+  private static final String TAG = "GeneratedPluginRegistrant";
+  public static void registerWith(@NonNull FlutterEngine flutterEngine) {
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin cloud_firestore, io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.connectivity.ConnectivityPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin connectivity_plus, dev.fluttercommunity.plus.connectivity.ConnectivityPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new com.mr.flutter.plugin.filepicker.FilePickerPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin file_picker, com.mr.flutter.plugin.filepicker.FilePickerPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_auth, io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_core, io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.database.FirebaseDatabasePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_database, io.flutter.plugins.firebase.database.FirebaseDatabasePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin flutter_plugin_android_lifecycle, io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.pathprovider.PathProviderPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin path_provider_android, io.flutter.plugins.pathprovider.PathProviderPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.share.SharePlusPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin share_plus, dev.fluttercommunity.plus.share.SharePlusPlugin", e);
+    }
+  }
+}
+
+--- END OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
+
+--- START OF FILE android/app/src/profile/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+
+--- END OF FILE android/app/src/profile/AndroidManifest.xml ---
+
+--- START OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-9.1.0-all.zip
+
+--- END OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
+
+--- START OF FILE android/.gradle/9.1.0/gc.properties ---
+
+--- END OF FILE android/.gradle/9.1.0/gc.properties ---
+
+--- START OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+#Fri Feb 20 05:07:08 IST 2026
+gradle.version=9.1.0
+
+--- END OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+
+--- START OF FILE android/.gradle/vcs-1/gc.properties ---
+
+--- END OF FILE android/.gradle/vcs-1/gc.properties ---
 
 --- START OF FILE lib/firebase_options.dart ---
 // File generated by FlutterFire CLI.
@@ -7495,7 +8527,7 @@ mixin SyncMixin on ChangeNotifier {
 
   void initSync() {
     _autoSaveTimer?.cancel();
-    // Faster check interval (5s) for "Realtime" feel, but relies on dirty flags
+    // Faster check interval (5s) for Realtime DB syncs
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_hasUnsavedChanges &&
           currentUser != null &&
@@ -7523,7 +8555,6 @@ mixin SyncMixin on ChangeNotifier {
     _hasUnsavedChanges = true;
     _saveLocalSnapshot();
     if (settings.autoSaveEnabled) {
-      // Trigger save on next tick (or debounced)
       notifyListeners();
     }
   }
@@ -7564,9 +8595,13 @@ mixin SyncMixin on ChangeNotifier {
     } catch (_) {}
   }
 
+  // --- Realtime DB Methods ---
+
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
     await _performActualSave(force: true);
+    // A manual trigger is a good time to auto-snapshot to Firestore too
+    await performFirestoreBackup();
   }
 
   Future<void> manuallyLoadFromCloud() async {
@@ -7596,12 +8631,8 @@ mixin SyncMixin on ChangeNotifier {
 
     try {
       final appData = getFullAppState();
-      
-      // 1. Always update Settings timestamp
       settings.lastModified = DateTime.now().millisecondsSinceEpoch;
       
-      // 2. Prepare chunks
-      // We use the full app state map to extract chunks to ensure consistency
       final tasksData = {'mainTasks': appData['mainTasks']};
       final historyData = {'completedByDay': appData['completedByDay']};
       final reflectionsData = {'reflectionLogs': appData['reflectionLogs']};
@@ -7611,7 +8642,6 @@ mixin SyncMixin on ChangeNotifier {
         'savingsGoals': appData['savingsGoals']
       };
       
-      // Settings doc includes auxiliary data
       final settingsData = {
         'lastLoginDate': appData['lastLoginDate'],
         'settings': settings.toJson(),
@@ -7625,7 +8655,7 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // 3. Save dirty collections
+      // Pushing changes to Realtime Database
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }
@@ -7638,7 +8668,6 @@ mixin SyncMixin on ChangeNotifier {
       if (force || _dirtyCollections.contains('finance')) {
         if (!await _storageService.saveFinance(currentUser!.uid, financeData)) success = false;
       }
-      // Always try to save settings if anything else was saved or if specifically dirty
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
       }
@@ -7647,13 +8676,42 @@ mixin SyncMixin on ChangeNotifier {
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();
-        // Update local snapshot with new timestamp
         await _saveLocalSnapshot(); 
       }
     } catch (e) {
       debugPrint("Cloud Sync Error: $e");
     } finally {
       _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  // --- Firestore Backup Methods ---
+
+  Future<void> performFirestoreBackup() async {
+    if (currentUser == null) return;
+    try {
+      final appData = getFullAppState();
+      await _storageService.backupToFirestore(currentUser!.uid, appData);
+    } catch (e) {
+      debugPrint("Firestore backup failed: $e");
+    }
+  }
+
+  Future<void> restoreFromFirestoreBackup() async {
+    if (currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final cloudData = await _storageService.getFirestoreBackup(currentUser!.uid);
+      if (cloudData != null) {
+        loadStateFromMap(cloudData);
+        _hasUnsavedChanges = true;
+        await _saveLocalSnapshot(forceFlush: true);
+        await _performActualSave(force: true); // Push restored data to RTDB immediately
+      }
+    } finally {
+      _isManuallyLoading = false;
       notifyListeners();
     }
   }
@@ -10956,8 +12014,11 @@ import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DataRecoveryScreen extends StatefulWidget {
   const DataRecoveryScreen({super.key});
@@ -11111,6 +12172,41 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  Future<void> _backupToFirestore() async {
+    try {
+      await context.read<AppProvider>().performFirestoreBackup();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cloud Snapshot Secured in Firestore.")));
+    } catch(e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
+    }
+  }
+
+  Future<void> _restoreFromFirestore() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Restore Firestore Snapshot?"),
+        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text("Restore")
+          ),
+        ],
+      )
+    );
+    if (confirm == true && mounted) {
+       try {
+         await context.read<AppProvider>().restoreFromFirestoreBackup();
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
+       } catch(e) {
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
+       }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -11119,55 +12215,132 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         title: const Text("Data Recovery"),
         backgroundColor: AppTheme.fhBgDeepDark,
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(MdiIcons.upload, size: 18),
-                    label: const Text("EXPORT DATA"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      side: BorderSide(
-                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _exportData,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // --- CLOUD SNAPSHOT SECTION ---
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: PersonInfoTheme.bgPanel,
+                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
+                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
+                      const SizedBox(width: 12),
+                      Text(
+                        "FIRESTORE SNAPSHOT",
+                        style: GoogleFonts.rajdhani(
+                          color: PersonInfoTheme.spideyRed,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(MdiIcons.download, size: 18),
-                    label: const Text("IMPORT DATA"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      side: BorderSide(
-                          color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _importData,
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
+                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ValorantButton(
+                          label: "BACKUP",
+                          icon: MdiIcons.cloudUploadOutline,
+                          color: PersonInfoTheme.spideyCyan,
+                          isPrimary: false,
+                          onPressed: _backupToFirestore,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ValorantButton(
+                          label: "RESTORE",
+                          icon: MdiIcons.cloudDownloadOutline,
+                          color: PersonInfoTheme.spideyRed,
+                          isPrimary: true,
+                          onPressed: _restoreFromFirestore,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
-          ),
-          const Divider(color: AppTheme.fhBorderColor),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+        
+            // --- MANUAL EXPORT SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.upload, size: 18),
+                      label: const Text("EXPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _exportData,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.download, size: 18),
+                      label: const Text("IMPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _importData,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const Divider(color: AppTheme.fhBorderColor, height: 32),
+            
+            // --- LOCAL BACKUPS SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "LOCAL CACHE ARCHIVES", 
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _isLoading
+                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
                 : _backupFiles.isEmpty
-                    ? const Center(child: Text("No local backups found."))
+                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
                     : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: _backupFiles.length,
                         itemBuilder: (context, index) {
                           final file = _backupFiles[index];
                           final date = file.lastModifiedSync();
                           final size = file.lengthSync();
-
+        
                           return ListTile(
                             leading: Icon(MdiIcons.fileClockOutline,
                                 color: AppTheme.fhTextSecondary),
@@ -11200,13 +12373,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                           );
                         },
                       ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
 --- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 
 --- START OF FILE lib/src/screens/finance/finance_dashboard_screen.dart ---
@@ -13763,7 +14935,9 @@ class LocalStorageService {
 --- END OF FILE lib/src/services/local_storage_service.dart ---
 
 --- START OF FILE lib/src/services/storage_service.dart ---
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 
 const String _userCollection = 'users'; 
@@ -13778,9 +14952,62 @@ const String _docFinance = 'finance';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
 
-  DocumentReference<Map<String, dynamic>> _dataDocRef(
-      String userId, String docId) {
+  // --- Realtime Database (Primary) ---
+
+  DatabaseReference _rtdbRef(String userId, String chunk) {
+    return _rtdb.ref('users/$userId/data/$chunk');
+  }
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    if (userId.isEmpty) return null;
+
+    try {
+      final snap = await _rtdb.ref('users/$userId/data').get();
+      
+      if (snap.exists && snap.value != null) {
+        final raw = snap.value as Map<dynamic, dynamic>;
+        Map<String, dynamic> fullData = {};
+        
+        // We store chunks as JSON strings in RTDB to prevent array/map mangling
+        if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+        if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+        if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
+        if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
+        if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+        
+        return fullData;
+      } else {
+        // Migration Fallback: If no RTDB data, pull from Firestore and return it.
+        // SyncMixin will immediately save it back to RTDB on next tick.
+        return await getFirestoreBackup(userId);
+      }
+    } catch (e) {
+      // In case of extreme failure, fallback to Firestore
+      return await getFirestoreBackup(userId);
+    }
+  }
+
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHistory, data);
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
+  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+
+  Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Firestore Database (Backup & Archival) ---
+
+  DocumentReference<Map<String, dynamic>> _firestoreDocRef(String userId, String docId) {
     return _firestore
         .collection(_userCollection)
         .doc(userId)
@@ -13788,18 +15015,17 @@ class StorageService {
         .doc(docId);
   }
 
-  Future<Map<String, dynamic>?> getUserData(String userId) async {
+  Future<Map<String, dynamic>?> getFirestoreBackup(String userId) async {
     if (userId.isEmpty) return null;
 
     try {
-      final tasksSnap = await _dataDocRef(userId, _docTasks).get();
-      final historySnap = await _dataDocRef(userId, _docHistory).get();
-      final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
-      final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final financeSnap = await _dataDocRef(userId, _docFinance).get();
+      final tasksSnap = await _firestoreDocRef(userId, _docTasks).get();
+      final historySnap = await _firestoreDocRef(userId, _docHistory).get();
+      final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
+      final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
+      final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
 
-      bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
+      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -13811,7 +15037,7 @@ class StorageService {
         return fullData;
       }
 
-      final oldDocSnap = await _dataDocRef(userId, _gameStateDocId).get();
+      final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
       if (oldDocSnap.exists) {
         return oldDocSnap.data();
       }
@@ -13822,136 +15048,7 @@ class StorageService {
     }
   }
 
-  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docTasks, data);
-  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docHistory, data);
-  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docReflections, data);
-  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docSettings, data);
-  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docFinance, data);
-
-  Future<bool> _saveChunk(
-      String userId, String docId, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Save Daily Reports & Briefings to /daily/{date}
-  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('daily')
-          .doc(date)
-          .set({
-            type: data,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Fetch recent daily data to repair history overwrite issues during sync
-  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
-    if (userId.isEmpty) return {};
-    try {
-      final now = DateTime.now();
-      final Map<String, Map<String, dynamic>> result = {};
-      final cutoffDate = now.subtract(Duration(days: days));
-      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
-
-      final snap = await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('daily')
-          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
-          .get();
-
-      for (var doc in snap.docs) {
-        result[doc.id] = doc.data();
-      }
-      return result;
-    } catch (e) {
-      return {};
-    }
-  }
-
-  // Save Weekly Reports to /weekly/{date}
-  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('weekly')
-          .doc(date)
-          .set({
-            'report': data,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Fetch all archived weekly reports
-  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
-    if (userId.isEmpty) return [];
-    try {
-      final snap = await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('weekly')
-          .orderBy('updatedAt', descending: true)
-          .get();
-          
-      return snap.docs.map((doc) {
-        return {
-          'id': doc.id,
-          ...doc.data(),
-        };
-      }).toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
-  Future<bool> deleteLegacyData(String userId) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _dataDocRef(userId, _gameStateDocId).delete();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteUserData(String userId) async {
-    if (userId.isEmpty) return false;
-    try {
-      final batch = _firestore.batch();
-      batch.delete(_dataDocRef(userId, _gameStateDocId));
-      batch.delete(_dataDocRef(userId, _docTasks));
-      batch.delete(_dataDocRef(userId, _docHistory));
-      batch.delete(_dataDocRef(userId, _docReflections));
-      batch.delete(_dataDocRef(userId, _docSettings));
-      batch.delete(_dataDocRef(userId, _docFinance));
-      await batch.commit();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> setUserData(String userId, Map<String, dynamic> fullData) async {
+  Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
     if (userId.isEmpty) return false;
 
     final tasksData = <String, dynamic>{};
@@ -13978,15 +15075,120 @@ class StorageService {
 
     try {
       final batch = _firestore.batch();
-      batch.set(_dataDocRef(userId, _docTasks), tasksData);
-      batch.set(_dataDocRef(userId, _docHistory), historyData);
-      batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_dataDocRef(userId, _docSettings), settingsData);
-      batch.set(_dataDocRef(userId, _docFinance), financeData);
+      batch.set(_firestoreDocRef(userId, _docTasks), tasksData);
+      batch.set(_firestoreDocRef(userId, _docHistory), historyData);
+      batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
+      batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
+      batch.set(_firestoreDocRef(userId, _docFinance), financeData);
       await batch.commit();
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<bool> deleteUserData(String userId) async {
+    if (userId.isEmpty) return false;
+    try {
+      // Clear RTDB
+      await _rtdb.ref('users/$userId/data').remove();
+
+      // Clear Firestore
+      final batch = _firestore.batch();
+      batch.delete(_firestoreDocRef(userId, _gameStateDocId));
+      batch.delete(_firestoreDocRef(userId, _docTasks));
+      batch.delete(_firestoreDocRef(userId, _docHistory));
+      batch.delete(_firestoreDocRef(userId, _docReflections));
+      batch.delete(_firestoreDocRef(userId, _docSettings));
+      batch.delete(_firestoreDocRef(userId, _docFinance));
+      await batch.commit();
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Historical Archives (Remain in Firestore) ---
+
+  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .doc(date)
+          .set({
+            type: data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
+    if (userId.isEmpty) return {};
+    try {
+      final now = DateTime.now();
+      final Map<String, Map<String, dynamic>> result = {};
+      final cutoffDate = now.subtract(Duration(days: days));
+      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
+
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .get();
+
+      for (var doc in snap.docs) {
+        result[doc.id] = doc.data();
+      }
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .doc(date)
+          .set({
+            'report': data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+          
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e) {
+      return [];
     }
   }
 }

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 
 const String _userCollection = 'users'; 
@@ -13,9 +15,62 @@ const String _docFinance = 'finance';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
 
-  DocumentReference<Map<String, dynamic>> _dataDocRef(
-      String userId, String docId) {
+  // --- Realtime Database (Primary) ---
+
+  DatabaseReference _rtdbRef(String userId, String chunk) {
+    return _rtdb.ref('users/$userId/data/$chunk');
+  }
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    if (userId.isEmpty) return null;
+
+    try {
+      final snap = await _rtdb.ref('users/$userId/data').get();
+      
+      if (snap.exists && snap.value != null) {
+        final raw = snap.value as Map<dynamic, dynamic>;
+        Map<String, dynamic> fullData = {};
+        
+        // We store chunks as JSON strings in RTDB to prevent array/map mangling
+        if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+        if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+        if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
+        if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
+        if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+        
+        return fullData;
+      } else {
+        // Migration Fallback: If no RTDB data, pull from Firestore and return it.
+        // SyncMixin will immediately save it back to RTDB on next tick.
+        return await getFirestoreBackup(userId);
+      }
+    } catch (e) {
+      // In case of extreme failure, fallback to Firestore
+      return await getFirestoreBackup(userId);
+    }
+  }
+
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHistory, data);
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
+  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+
+  Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Firestore Database (Backup & Archival) ---
+
+  DocumentReference<Map<String, dynamic>> _firestoreDocRef(String userId, String docId) {
     return _firestore
         .collection(_userCollection)
         .doc(userId)
@@ -23,18 +78,17 @@ class StorageService {
         .doc(docId);
   }
 
-  Future<Map<String, dynamic>?> getUserData(String userId) async {
+  Future<Map<String, dynamic>?> getFirestoreBackup(String userId) async {
     if (userId.isEmpty) return null;
 
     try {
-      final tasksSnap = await _dataDocRef(userId, _docTasks).get();
-      final historySnap = await _dataDocRef(userId, _docHistory).get();
-      final reflectionsSnap = await _dataDocRef(userId, _docReflections).get();
-      final settingsSnap = await _dataDocRef(userId, _docSettings).get();
-      final financeSnap = await _dataDocRef(userId, _docFinance).get();
+      final tasksSnap = await _firestoreDocRef(userId, _docTasks).get();
+      final historySnap = await _firestoreDocRef(userId, _docHistory).get();
+      final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
+      final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
+      final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
 
-      bool hasNewData =
-          tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
+      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -46,7 +100,7 @@ class StorageService {
         return fullData;
       }
 
-      final oldDocSnap = await _dataDocRef(userId, _gameStateDocId).get();
+      final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
       if (oldDocSnap.exists) {
         return oldDocSnap.data();
       }
@@ -57,136 +111,7 @@ class StorageService {
     }
   }
 
-  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docTasks, data);
-  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docHistory, data);
-  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docReflections, data);
-  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docSettings, data);
-  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunk(userId, _docFinance, data);
-
-  Future<bool> _saveChunk(
-      String userId, String docId, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _dataDocRef(userId, docId).set(data, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Save Daily Reports & Briefings to /daily/{date}
-  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('daily')
-          .doc(date)
-          .set({
-            type: data,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Fetch recent daily data to repair history overwrite issues during sync
-  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
-    if (userId.isEmpty) return {};
-    try {
-      final now = DateTime.now();
-      final Map<String, Map<String, dynamic>> result = {};
-      final cutoffDate = now.subtract(Duration(days: days));
-      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
-
-      final snap = await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('daily')
-          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
-          .get();
-
-      for (var doc in snap.docs) {
-        result[doc.id] = doc.data();
-      }
-      return result;
-    } catch (e) {
-      return {};
-    }
-  }
-
-  // Save Weekly Reports to /weekly/{date}
-  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('weekly')
-          .doc(date)
-          .set({
-            'report': data,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Fetch all archived weekly reports
-  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
-    if (userId.isEmpty) return [];
-    try {
-      final snap = await _firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection('weekly')
-          .orderBy('updatedAt', descending: true)
-          .get();
-          
-      return snap.docs.map((doc) {
-        return {
-          'id': doc.id,
-          ...doc.data(),
-        };
-      }).toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
-  Future<bool> deleteLegacyData(String userId) async {
-    if (userId.isEmpty) return false;
-    try {
-      await _dataDocRef(userId, _gameStateDocId).delete();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteUserData(String userId) async {
-    if (userId.isEmpty) return false;
-    try {
-      final batch = _firestore.batch();
-      batch.delete(_dataDocRef(userId, _gameStateDocId));
-      batch.delete(_dataDocRef(userId, _docTasks));
-      batch.delete(_dataDocRef(userId, _docHistory));
-      batch.delete(_dataDocRef(userId, _docReflections));
-      batch.delete(_dataDocRef(userId, _docSettings));
-      batch.delete(_dataDocRef(userId, _docFinance));
-      await batch.commit();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> setUserData(String userId, Map<String, dynamic> fullData) async {
+  Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
     if (userId.isEmpty) return false;
 
     final tasksData = <String, dynamic>{};
@@ -213,15 +138,120 @@ class StorageService {
 
     try {
       final batch = _firestore.batch();
-      batch.set(_dataDocRef(userId, _docTasks), tasksData);
-      batch.set(_dataDocRef(userId, _docHistory), historyData);
-      batch.set(_dataDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_dataDocRef(userId, _docSettings), settingsData);
-      batch.set(_dataDocRef(userId, _docFinance), financeData);
+      batch.set(_firestoreDocRef(userId, _docTasks), tasksData);
+      batch.set(_firestoreDocRef(userId, _docHistory), historyData);
+      batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
+      batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
+      batch.set(_firestoreDocRef(userId, _docFinance), financeData);
       await batch.commit();
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<bool> deleteUserData(String userId) async {
+    if (userId.isEmpty) return false;
+    try {
+      // Clear RTDB
+      await _rtdb.ref('users/$userId/data').remove();
+
+      // Clear Firestore
+      final batch = _firestore.batch();
+      batch.delete(_firestoreDocRef(userId, _gameStateDocId));
+      batch.delete(_firestoreDocRef(userId, _docTasks));
+      batch.delete(_firestoreDocRef(userId, _docHistory));
+      batch.delete(_firestoreDocRef(userId, _docReflections));
+      batch.delete(_firestoreDocRef(userId, _docSettings));
+      batch.delete(_firestoreDocRef(userId, _docFinance));
+      await batch.commit();
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Historical Archives (Remain in Firestore) ---
+
+  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .doc(date)
+          .set({
+            type: data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
+    if (userId.isEmpty) return {};
+    try {
+      final now = DateTime.now();
+      final Map<String, Map<String, dynamic>> result = {};
+      final cutoffDate = now.subtract(Duration(days: days));
+      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
+
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .get();
+
+      for (var doc in snap.docs) {
+        result[doc.id] = doc.data();
+      }
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .doc(date)
+          .set({
+            'report': data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+          
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e) {
+      return [];
     }
   }
 }

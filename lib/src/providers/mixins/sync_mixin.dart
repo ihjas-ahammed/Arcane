@@ -34,7 +34,7 @@ mixin SyncMixin on ChangeNotifier {
 
   void initSync() {
     _autoSaveTimer?.cancel();
-    // Faster check interval (5s) for "Realtime" feel, but relies on dirty flags
+    // Faster check interval (5s) for Realtime DB syncs
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_hasUnsavedChanges &&
           currentUser != null &&
@@ -62,7 +62,6 @@ mixin SyncMixin on ChangeNotifier {
     _hasUnsavedChanges = true;
     _saveLocalSnapshot();
     if (settings.autoSaveEnabled) {
-      // Trigger save on next tick (or debounced)
       notifyListeners();
     }
   }
@@ -103,9 +102,13 @@ mixin SyncMixin on ChangeNotifier {
     } catch (_) {}
   }
 
+  // --- Realtime DB Methods ---
+
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
     await _performActualSave(force: true);
+    // A manual trigger is a good time to auto-snapshot to Firestore too
+    await performFirestoreBackup();
   }
 
   Future<void> manuallyLoadFromCloud() async {
@@ -135,12 +138,8 @@ mixin SyncMixin on ChangeNotifier {
 
     try {
       final appData = getFullAppState();
-      
-      // 1. Always update Settings timestamp
       settings.lastModified = DateTime.now().millisecondsSinceEpoch;
       
-      // 2. Prepare chunks
-      // We use the full app state map to extract chunks to ensure consistency
       final tasksData = {'mainTasks': appData['mainTasks']};
       final historyData = {'completedByDay': appData['completedByDay']};
       final reflectionsData = {'reflectionLogs': appData['reflectionLogs']};
@@ -150,7 +149,6 @@ mixin SyncMixin on ChangeNotifier {
         'savingsGoals': appData['savingsGoals']
       };
       
-      // Settings doc includes auxiliary data
       final settingsData = {
         'lastLoginDate': appData['lastLoginDate'],
         'settings': settings.toJson(),
@@ -164,7 +162,7 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // 3. Save dirty collections
+      // Pushing changes to Realtime Database
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }
@@ -177,7 +175,6 @@ mixin SyncMixin on ChangeNotifier {
       if (force || _dirtyCollections.contains('finance')) {
         if (!await _storageService.saveFinance(currentUser!.uid, financeData)) success = false;
       }
-      // Always try to save settings if anything else was saved or if specifically dirty
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
       }
@@ -186,13 +183,42 @@ mixin SyncMixin on ChangeNotifier {
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();
-        // Update local snapshot with new timestamp
         await _saveLocalSnapshot(); 
       }
     } catch (e) {
       debugPrint("Cloud Sync Error: $e");
     } finally {
       _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  // --- Firestore Backup Methods ---
+
+  Future<void> performFirestoreBackup() async {
+    if (currentUser == null) return;
+    try {
+      final appData = getFullAppState();
+      await _storageService.backupToFirestore(currentUser!.uid, appData);
+    } catch (e) {
+      debugPrint("Firestore backup failed: $e");
+    }
+  }
+
+  Future<void> restoreFromFirestoreBackup() async {
+    if (currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      final cloudData = await _storageService.getFirestoreBackup(currentUser!.uid);
+      if (cloudData != null) {
+        loadStateFromMap(cloudData);
+        _hasUnsavedChanges = true;
+        await _saveLocalSnapshot(forceFlush: true);
+        await _performActualSave(force: true); // Push restored data to RTDB immediately
+      }
+    } finally {
+      _isManuallyLoading = false;
       notifyListeners();
     }
   }

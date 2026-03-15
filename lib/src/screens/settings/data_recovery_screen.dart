@@ -5,8 +5,11 @@ import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DataRecoveryScreen extends StatefulWidget {
   const DataRecoveryScreen({super.key});
@@ -160,6 +163,41 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  Future<void> _backupToFirestore() async {
+    try {
+      await context.read<AppProvider>().performFirestoreBackup();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cloud Snapshot Secured in Firestore.")));
+    } catch(e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
+    }
+  }
+
+  Future<void> _restoreFromFirestore() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Restore Firestore Snapshot?"),
+        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text("Restore")
+          ),
+        ],
+      )
+    );
+    if (confirm == true && mounted) {
+       try {
+         await context.read<AppProvider>().restoreFromFirestoreBackup();
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
+       } catch(e) {
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
+       }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,55 +206,132 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         title: const Text("Data Recovery"),
         backgroundColor: AppTheme.fhBgDeepDark,
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(MdiIcons.upload, size: 18),
-                    label: const Text("EXPORT DATA"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      side: BorderSide(
-                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _exportData,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // --- CLOUD SNAPSHOT SECTION ---
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: PersonInfoTheme.bgPanel,
+                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
+                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
+                      const SizedBox(width: 12),
+                      Text(
+                        "FIRESTORE SNAPSHOT",
+                        style: GoogleFonts.rajdhani(
+                          color: PersonInfoTheme.spideyRed,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(MdiIcons.download, size: 18),
-                    label: const Text("IMPORT DATA"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.fhBgDark,
-                      foregroundColor: AppTheme.fhTextPrimary,
-                      side: BorderSide(
-                          color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
-                    ),
-                    onPressed: _importData,
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
+                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ValorantButton(
+                          label: "BACKUP",
+                          icon: MdiIcons.cloudUploadOutline,
+                          color: PersonInfoTheme.spideyCyan,
+                          isPrimary: false,
+                          onPressed: _backupToFirestore,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ValorantButton(
+                          label: "RESTORE",
+                          icon: MdiIcons.cloudDownloadOutline,
+                          color: PersonInfoTheme.spideyRed,
+                          isPrimary: true,
+                          onPressed: _restoreFromFirestore,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
-          ),
-          const Divider(color: AppTheme.fhBorderColor),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+        
+            // --- MANUAL EXPORT SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.upload, size: 18),
+                      label: const Text("EXPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _exportData,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.download, size: 18),
+                      label: const Text("IMPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _importData,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const Divider(color: AppTheme.fhBorderColor, height: 32),
+            
+            // --- LOCAL BACKUPS SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "LOCAL CACHE ARCHIVES", 
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _isLoading
+                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
                 : _backupFiles.isEmpty
-                    ? const Center(child: Text("No local backups found."))
+                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
                     : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: _backupFiles.length,
                         itemBuilder: (context, index) {
                           final file = _backupFiles[index];
                           final date = file.lastModifiedSync();
                           final size = file.lengthSync();
-
+        
                           return ListTile(
                             leading: Icon(MdiIcons.fileClockOutline,
                                 color: AppTheme.fhTextSecondary),
@@ -249,8 +364,8 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                           );
                         },
                       ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
