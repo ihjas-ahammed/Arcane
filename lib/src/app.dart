@@ -54,27 +54,17 @@ class _MyAppState extends State<MyApp> {
               children: [
                 const HomeScreen(),
                 
-                // Blocking overlay ONLY for critical manual loads
+                // Unobtrusive loading bar at the top instead of a full screen blocker
                 if (appProvider.isManuallyLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black87,
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(color: AppTheme.fhAccentTeal),
-                            SizedBox(height: 16),
-                            Text(
-                              "RESTORING DATABASE...",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: AppTheme.fontDisplay,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold),
-                            )
-                          ],
-                        ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      child: const LinearProgressIndicator(
+                        color: AppTheme.fhAccentTeal,
+                        backgroundColor: Colors.transparent,
+                        minHeight: 4,
                       ),
                     ),
                   )

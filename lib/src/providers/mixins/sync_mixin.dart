@@ -14,6 +14,7 @@ mixin SyncMixin on ChangeNotifier {
   final LocalStorageService _localStorageService = LocalStorageService();
   
   Timer? _autoSaveTimer;
+  StreamSubscription? _rtdbSubscription;
   final Set<String> _dirtyCollections = {};
   bool _hasUnsavedChanges = false;
   
@@ -44,10 +45,34 @@ mixin SyncMixin on ChangeNotifier {
       }
     });
   }
+  
+  void startRealtimeSyncListener() {
+    _rtdbSubscription?.cancel();
+    if (currentUser == null) return;
+    
+    _rtdbSubscription = _storageService.watchUserData(currentUser!.uid).listen((cloudData) {
+      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops during manual sync/load
+      if (cloudData.isNotEmpty) {
+        int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
+        // Only accept data that is genuinely newer than our last push
+        if (cloudTs > settings.lastModified) {
+          debugPrint("Realtime Update Triggered: Cloud ($cloudTs) > Local (${settings.lastModified})");
+          loadStateFromMap(cloudData);
+          _saveLocalSnapshot();
+          notifyListeners();
+        }
+      }
+    });
+  }
+
+  void stopRealtimeSyncListener() {
+    _rtdbSubscription?.cancel();
+  }
 
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _rtdbSubscription?.cancel();
     super.dispose();
   }
 
@@ -64,6 +89,11 @@ mixin SyncMixin on ChangeNotifier {
     if (settings.autoSaveEnabled) {
       notifyListeners();
     }
+  }
+
+  Future<void> forceLocalBackup() async {
+    await _saveLocalSnapshot(forceFlush: true);
+    notifyListeners();
   }
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
@@ -137,8 +167,8 @@ mixin SyncMixin on ChangeNotifier {
     notifyListeners();
 
     try {
-      final appData = getFullAppState();
       settings.lastModified = DateTime.now().millisecondsSinceEpoch;
+      final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
       final historyData = {'completedByDay': appData['completedByDay']};

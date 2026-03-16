@@ -30,26 +30,37 @@ class StorageService {
       final snap = await _rtdb.ref('users/$userId/data').get();
       
       if (snap.exists && snap.value != null) {
-        final raw = snap.value as Map<dynamic, dynamic>;
-        Map<String, dynamic> fullData = {};
-        
-        // We store chunks as JSON strings in RTDB to prevent array/map mangling
-        if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
-        if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
-        if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
-        if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
-        if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
-        
-        return fullData;
+        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
         // Migration Fallback: If no RTDB data, pull from Firestore and return it.
-        // SyncMixin will immediately save it back to RTDB on next tick.
         return await getFirestoreBackup(userId);
       }
     } catch (e) {
       // In case of extreme failure, fallback to Firestore
       return await getFirestoreBackup(userId);
     }
+  }
+
+  // Live Sync Stream
+  Stream<Map<String, dynamic>> watchUserData(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    
+    return _rtdb.ref('users/$userId/data').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return _parseRtdbData(event.snapshot.value as Map<dynamic, dynamic>);
+      }
+      return {};
+    });
+  }
+
+  Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
+    Map<String, dynamic> fullData = {};
+    if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
+    if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
+    if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    return fullData;
   }
 
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);

@@ -168,6 +168,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         
         // Fetch specific daily subcollections to avoid cross-device history overwrite
         await fetchDailyReportsFromCloud();
+        
+        // Start listening to live RTDB updates
+        startRealtimeSyncListener();
 
       } catch (e) {
         debugPrint("Cloud init failed: $e");
@@ -177,6 +180,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     } else {
       setCurrentUser(null);
+      stopRealtimeSyncListener();
       await _resetToInitialState();
       await _localStorage.clearState();
       setAuthLoading(false);

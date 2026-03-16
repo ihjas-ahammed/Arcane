@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,7 +13,7 @@ class ActionPlanStepsList extends StatefulWidget {
   final String mainTaskId;
   final String subTaskId;
   final List<SubSubTask> steps;
-  final VoidCallback onGenerate;
+  final Function(String) onGenerate;
   final Color accentColor;
 
   const ActionPlanStepsList({
@@ -71,7 +72,19 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
               if (widget.steps.isEmpty)
                 TextButton.icon(
-                  onPressed: isLoading ? null : widget.onGenerate,
+                  onPressed: isLoading ? null : () async {
+                    final prompt = await showDialog<String>(
+                      context: context,
+                      builder: (_) => const AiGenerationPromptDialog(
+                        title: "GENERATE STRATEGY",
+                        hintText: "Add specific instructions, e.g. Focus on low budget...",
+                        actionLabel: "GENERATE",
+                      ),
+                    );
+                    if (prompt != null && prompt.isNotEmpty) {
+                      widget.onGenerate(prompt);
+                    }
+                  },
                   icon: isLoading 
                     ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
                     : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),

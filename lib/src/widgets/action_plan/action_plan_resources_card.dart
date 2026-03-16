@@ -136,6 +136,8 @@ class _ResourceChipBuilder extends StatelessWidget {
       builder: (context, provider, _) {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); // Hide if deleted
+        var name = item.name;
+        if(item.name.length > 40) name = name.substring(0,40)+"...";
 
         return InkWell(
           onTap: () {
@@ -152,12 +154,14 @@ class _ResourceChipBuilder extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(_getIconForType(item.type), size: 14, color: accentColor),
                 const SizedBox(width: 6),
                 Text(
-                  item.name.toUpperCase(),
+                  name.toUpperCase(),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],

@@ -1,290 +1,1147 @@
+Here are the updated files to enhance the Day Plan and Schedule Hero sections with Spider-Man game-inspired aesthetics, improved queue logic, space-saving layouts, and the requested "Postpone" and "Finish" buttons.
 
---- START OF FILE android/app/build.gradle.kts ---
-plugins {
-    id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
-    id("dev.flutter.flutter-gradle-plugin")
-}
+### Updated Files
 
-android {
-    // FIX: Matched namespace exactly to the applicationId and the remaining MainActivity
-    namespace = "me.ihjas.arcane"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
-    defaultConfig {
-        applicationId = "me.ihjas.arcane"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
-        }
-    }
-}
-
-flutter {
-    source = "../.."
-}
---- END OF FILE android/app/build.gradle.kts ---
-
---- START OF FILE android/settings.gradle.kts ---
-pluginManagement {
-    val flutterSdkPath = run {
-        val properties = java.util.Properties()
-        file("local.properties").inputStream().use { properties.load(it) }
-        val flutterSdkPath = properties.getProperty("flutter.sdk")
-        require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
-        flutterSdkPath
-    }
-
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-plugins {
-    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.7.3" apply false
-    // FIX: Updated google-services and downgraded Kotlin slightly to ensure stable Flutter plugin compilation
-    id("com.google.gms.google-services") version("4.4.2") apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-}
-
-include(":app")
---- END OF FILE android/settings.gradle.kts ---
-
---- START OF FILE pubspec.yaml ---
-name: arcane
-description: "A Flutter version of the Task Dominion application."
-publish_to: 'none'
-
-version: 2026.1.25+712
-
-environment:
-  sdk: '>=3.3.0 <4.0.0'
-
-dependencies:
-  flutter:
-    sdk: flutter
-
-  # Firebase
-  firebase_core: ^3.13.1
-  # FIX: Removed firebase_core_platform_interface to prevent cross-version channel conflicts
-  firebase_auth: ^5.5.4
-  cloud_firestore: ^5.6.8
-  firebase_database: ^11.3.8
-
-  # State Management
-  provider: ^6.1.2
-
-  # AI
-  google_generative_ai: ^0.4.0 
-
-  # UI & Utilities
-  cupertino_icons: ^1.0.6
-  intl: ^0.20.2
-  fl_chart: ^1.1.1
-  material_design_icons_flutter: ^7.0.7296
-  collection: ^1.18.0 
-  flutter_colorpicker: ^1.1.0
-  smooth_page_indicator: ^1.2.1
-  uuid: ^4.5.2
-  http: ^1.6.0
-  file_picker: ^8.1.4
-  universal_html: ^2.2.4
-  path_provider: ^2.1.2
-  share_plus: ^10.1.2
-  google_fonts: ^6.3.3
-  flutter_animate: ^4.5.2
-  gap: ^3.0.1
-  connectivity_plus: ^7.0.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^5.0.0
-  mockito: ^5.4.4 
-  change_app_package_name: ^1.1.0 
-  flutter_launcher_icons: ^0.13.1
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/fonts/icons/icon.png"
-  adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/fonts/icons/icon.png"
-  adaptive_icon_foreground_inset: 25
-  min_sdk_android: 21
-  web:
-    generate: true
-    image_path: "assets/fonts/icons/icon.png"
-    background_color: "#000000"
-    theme_color: "#000000"
-  windows:
-    generate: true
-    image_path: "assets/fonts/icons/icon.png"
-    icon_size: 48
-  macos:
-    generate: true
-    image_path: "assets/fonts/icons/icon.png"
-
-flutter:
-  uses-material-design: true
-  fonts:
-    - family: RobotoCondensed
-      fonts:
-        - asset: assets/fonts/RobotoCondensed-Regular.ttf
-        - asset: assets/fonts/RobotoCondensed-Bold.ttf
-          weight: 700
-    - family: OpenSans
-      fonts:
-        - asset: assets/fonts/OpenSans-Regular.ttf
-        - asset: assets/fonts/OpenSans-SemiBold.ttf
-          weight: 600
---- END OF FILE pubspec.yaml ---
-
---- START OF FILE lib/main.dart ---
+--- START OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:arcane/src/app.dart';
-import 'package:arcane/firebase_options.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:provider/provider.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Safe Firebase Initialization
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint("Firebase init error (Native modules might be missing): $e");
-  }
-  
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AppProvider()),
-        Provider(create: (_) => AIService()),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
---- END OF FILE lib/main.dart ---
-
---- START OF FILE lib/src/app.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/screens/home_screen.dart';
-import 'package:arcane/src/screens/login_screen.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class DayPlanScreen extends StatefulWidget {
+  const DayPlanScreen({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<DayPlanScreen> createState() => _DayPlanScreenState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _DayPlanScreenState extends State<DayPlanScreen> {
+  List<String> _currentPlan = [];
+  bool _isInit = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInit) {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      _currentPlan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+      _isInit = false;
+    }
+  }
+
+  void _savePlan() {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    provider.taskActions.updateDayPlan(helper.getTodayDateString(), _currentPlan);
+    Navigator.pop(context);
+  }
+
+  void _addToPlan(String compoundId) {
+    if (!_currentPlan.contains(compoundId)) {
+      setState(() {
+        _currentPlan.add(compoundId);
+        // Auto-remove any child checkpoints if the parent subtask was just added
+        final parts = compoundId.split('|');
+        if (parts.length == 2) {
+           _currentPlan.removeWhere((item) {
+             final p = item.split('|');
+             return p.length == 3 && p[0] == parts[0] && p[1] == parts[1];
+           });
+        }
+      });
+    }
+  }
+
+  void _removeFromPlan(String compoundId) {
+    setState(() => _currentPlan.remove(compoundId));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Arcane',
-      builder: (context, child) {
-        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
-        return Container(
-          color: Colors.black, 
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: child,
-            ),
-          ),
+    final provider = Provider.of<AppProvider>(context);
+    final currentPlanSet = _currentPlan.toSet();
+
+    // Build available list
+    List<Widget> availableWidgets = [];
+    for (var task in provider.mainTasks) {
+      final activeSubs = task.subTasks.where((s) => !s.completed).toList();
+      if (activeSubs.isEmpty) continue;
+
+      List<Widget> taskWidgets = [];
+
+      for (var sub in activeSubs) {
+        final subId = "${task.id}|${sub.id}";
+        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
+        final allCheckpointIds = activeCheckpoints.map((c) => "$subId|${c.id}").toList();
+
+        bool isSubtaskInPlan = currentPlanSet.contains(subId);
+        bool allCheckpointsInPlan = activeCheckpoints.isNotEmpty && allCheckpointIds.every((id) => currentPlanSet.contains(id));
+
+        // 1. Add SubTask itself if not in plan AND not all its checkpoints are already queued
+        if (!isSubtaskInPlan && !allCheckpointsInPlan) {
+          taskWidgets.add(
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark.withOpacity(0.5),
+                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+              ),
+              child: ListTile(
+                leading: Icon(MdiIcons.targetAccount, color: task.taskColor, size: 20),
+                title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14)),
+                trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
+                onTap: () => _addToPlan(subId),
+              ),
+            )
+          );
+        }
+
+        // 2. Add Checkpoints inside the SubTask ONLY if parent SubTask is NOT queued
+        if (!isSubtaskInPlan) {
+          for (var cp in activeCheckpoints) {
+            final cpId = "$subId|${cp.id}";
+            if (!currentPlanSet.contains(cpId)) {
+              taskWidgets.add(
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withOpacity(0.3),
+                    border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
+                    title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+                    trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+                    onTap: () => _addToPlan(cpId),
+                  ),
+                )
+              );
+            }
+          }
+        }
+      }
+
+      if (taskWidgets.isNotEmpty) {
+        availableWidgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
+            child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
+          )
         );
-      },
-      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
-      debugShowCheckedModeBanner: false,
-      home: Consumer<AppProvider>(
-        builder: (context, appProvider, child) {
-          if (appProvider.authLoading) {
-            return const Scaffold(
-              backgroundColor: AppTheme.fhBgDeepDark,
-              body: Center(
-                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
-            );
-          }
+        availableWidgets.addAll(taskWidgets);
+      }
+    }
 
-          if (appProvider.currentUser == null) {
-            return const LoginScreen();
-          }
+    return Scaffold(
+      backgroundColor: PersonInfoTheme.bgDark,
+      appBar: AppBar(
+        title: Text("STARTUP PLAN MAKER", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check, color: AppTheme.fhAccentGreen),
+            onPressed: _savePlan,
+            tooltip: "Save Plan",
+          )
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Selected Plan (Reorderable)
+            Expanded(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    color: PersonInfoTheme.bgPanel,
+                    child: Text("TODAY'S QUEUE", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
+                  ),
+                  Expanded(
+                    child: _currentPlan.isEmpty
+                      ? const Center(child: Text("QUEUE EMPTY", style: TextStyle(color: AppTheme.fhTextDisabled)))
+                      : ReorderableListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _currentPlan.length,
+                          onReorder: (oldIndex, newIndex) {
+                            if (oldIndex < newIndex) newIndex -= 1;
+                            setState(() {
+                              final item = _currentPlan.removeAt(oldIndex);
+                              _currentPlan.insert(newIndex, item);
+                            });
+                          },
+                          proxyDecorator: (child, index, animation) => Material(color: Colors.transparent, child: child),
+                          itemBuilder: (context, index) {
+                            final compId = _currentPlan[index];
+                            final parts = compId.split('|');
+                            if (parts.length < 2) return const SizedBox.shrink();
+                            
+                            final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+                            final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+                            
+                            if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
 
-          final Color currentTaskColor =
-              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+                            // Determine if it's a checkpoint or subtask
+                            final isCheckpoint = parts.length == 3;
+                            String title = sub.name;
+                            String subtitle = task.name;
+                            IconData leadingIcon = MdiIcons.targetAccount;
 
-          return Theme(
-            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-            child: Stack(
-              children: [
-                const HomeScreen(),
-                
-                // Blocking overlay ONLY for critical manual loads
-                if (appProvider.isManuallyLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black87,
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(color: AppTheme.fhAccentTeal),
-                            SizedBox(height: 16),
-                            Text(
-                              "RESTORING DATABASE...",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: AppTheme.fontDisplay,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold),
-                            )
-                          ],
+                            if (isCheckpoint) {
+                              final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+                              if (cp == null) return SizedBox.shrink(key: ValueKey(compId));
+                              title = cp.name;
+                              subtitle = "${task.name} > ${sub.name}";
+                              leadingIcon = MdiIcons.rhombusOutline;
+                            }
+
+                            return Container(
+                              key: ValueKey(compId),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: PersonInfoTheme.bgPanel,
+                                border: Border(left: BorderSide(color: task.taskColor, width: 4)),
+                              ),
+                              child: ListTile(
+                                leading: Icon(leadingIcon, color: task.taskColor, size: 20),
+                                title: Text(title, style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                                subtitle: Text(subtitle, style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.close, color: AppTheme.fhAccentRed, size: 18),
+                                      onPressed: () => _removeFromPlan(compId),
+                                    ),
+                                    const Icon(Icons.drag_handle, color: AppTheme.fhTextSecondary, size: 18),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
+                  )
+                ],
+              ),
+            ),
+            
+            Container(height: 2, color: PersonInfoTheme.spideyRed.withOpacity(0.5)),
+
+            // Available Tasks
+            Expanded(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    color: PersonInfoTheme.bgPanel,
+                    child: Text("AVAILABLE MISSIONS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: availableWidgets,
                     ),
                   )
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 }
---- END OF FILE lib/src/app.dart ---
+--- END OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
+
+--- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
+import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
+
+class ScheduleView extends StatefulWidget {
+  const ScheduleView({super.key});
+
+  @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
+  DateTime _selectedDate = DateTime.now();
+  List<TimelineEntry> _predictedEntries = [];
+  bool _isPredicting = false;
+
+  // --- Date Control ---
+  void _shiftDate(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+      _predictedEntries.clear(); 
+    });
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _predictedEntries.clear();
+      });
+    }
+  }
+
+  // --- Prediction ---
+  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
+    if (!_isSameDay(_selectedDate, DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
+      return;
+    }
+    setState(() => _isPredicting = true);
+    try {
+      final newEntries = await provider.scheduleActions.predictSchedule();
+      setState(() {
+        _predictedEntries = newEntries;
+      });
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isPredicting = false);
+    }
+  }
+
+  // --- Entries Merging ---
+  List<TimelineEntry> _buildEntries(AppProvider provider) {
+    final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: displayStart,
+              endTime: displayEnd,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: true,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+
+    for (var pred in _predictedEntries) {
+      bool overlaps = false;
+      for (var real in entries) {
+        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) entries.add(pred);
+    }
+
+    return entries;
+  }
+
+  // --- Handlers ---
+  void _openProtocolControl(BuildContext context, AppProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: ProtocolControlPanel(
+          protocols: provider.mainTasks,
+          selectedProtocolId: provider.selectedTaskId,
+          onSelect: (id) => provider.setSelectedTaskId(id),
+          onAdd: () => _showAddProtocolDialog(context, provider),
+          onEdit: (updatedTask) {
+            provider.editMainTask(
+              updatedTask.id,
+              name: updatedTask.name,
+              description: updatedTask.description,
+              theme: updatedTask.theme,
+              colorHex: updatedTask.colorHex,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("NEW PROTOCOL"),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: "NAME"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty) {
+                provider.addMainTask(
+                  name: nameCtrl.text,
+                  description: "New Protocol",
+                  theme: "general",
+                  colorHex: "FF00F8F8" 
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("CREATE"),
+          )
+        ],
+      )
+    );
+  }
+
+  void _handleAddSession(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
+    );
+
+    if (result != null && mounted) {
+      final start = result['start']!;
+      final end = result['end']!;
+      _showTaskSelectorAndAdd(context, provider, start, end);
+    }
+  }
+
+  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppTheme.fhBgMedium,
+          title: const Text("SELECT MISSION"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: provider.mainTasks.length,
+              itemBuilder: (context, index) {
+                final task = provider.mainTasks[index];
+                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
+
+                return ExpansionTile(
+                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
+                  children: activeSubtasks.map((sub) {
+                    return ListTile(
+                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                      onTap: () {
+                        provider.addSessionToSubtask(task.id, sub.id, start, end);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
+    if (entry.isPredicted) {
+      _handlePredictedEntryTap(context, provider, entry);
+      return;
+    }
+
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+    
+    String? mainTaskId;
+    String? subTaskId;
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+          break;
+        }
+      }
+      if (mainTaskId != null) break;
+    }
+
+    if (mainTaskId == null || subTaskId == null) return;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(
+        initialStart: session.startTime,
+        initialEnd: session.endTime,
+      ),
+    );
+
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
+      }
+    }
+  }
+
+  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(entry.title),
+        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _predictedEntries.removeWhere((e) => e.id == entry.id);
+              });
+              Navigator.pop(ctx);
+            }, 
+            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
+            }, 
+            child: const Text("LOG REAL SESSION")
+          )
+        ],
+      )
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final entries = _buildEntries(provider);
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+
+    // Resolve Next Task from Day Plan
+    String? nextQueueId;
+    SubTask? nextSubTask;
+    MainTask? nextMainTask;
+    SubSubTask? nextCheckpoint;
+
+    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
+    
+    for (String idPair in plan) {
+      final parts = idPair.split('|');
+      if (parts.length >= 2) {
+        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+        
+        if (sTask != null && !sTask.completed) {
+          if (parts.length == 3) {
+            // It's a checkpoint
+            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              nextQueueId = idPair;
+              nextMainTask = mTask;
+              nextSubTask = sTask;
+              nextCheckpoint = cp;
+              break;
+            }
+          } else {
+            // It's a subtask
+            nextQueueId = idPair;
+            nextMainTask = mTask;
+            nextSubTask = sTask;
+            break;
+          }
+        }
+      }
+    }
+
+    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
+    final totalTodaySeconds = nextSubTask != null 
+        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
+        : 0.0;
+
+    return Column(
+      children: [
+        // HERO SECTION
+        ScheduleHeroWidget(
+          mainTask: nextMainTask,
+          subTask: nextSubTask,
+          checkpoint: nextCheckpoint,
+          isRunning: isRunning,
+          totalTodaySeconds: totalTodaySeconds,
+          onOpenPlan: () {
+             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
+          },
+          onPlayPause: () {
+            if (nextSubTask == null || nextMainTask == null) return;
+            if (isRunning) {
+              provider.pauseTimer(nextSubTask!.id);
+              provider.logTimerAndReset(nextSubTask!.id);
+            } else {
+              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+            }
+          },
+          onPostpone: () {
+            if (nextQueueId != null) {
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onFinishCheckpoint: () {
+            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
+              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+        ),
+        
+        // --- NEW QUEUE DASHBOARD ---
+        if (isToday)
+          const DayPlanDashboardWidget(),
+
+        // CONTROLS
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark,
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(-1),
+                  ),
+                  InkWell(
+                    onTap: () => _pickDate(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhAccentTeal,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(1),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  if (isToday)
+                    IconButton(
+                      icon: _isPredicting 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
+                      tooltip: "PREDICT SCHEDULE",
+                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                    ),
+                  IconButton(
+                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
+                    tooltip: "PROTOCOL CONTROL",
+                    onPressed: () => _openProtocolControl(context, provider),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: Stack(
+            children: [
+              ScheduleTimeline(
+                entries: entries,
+                onAddSession: () => _handleAddSession(context, provider),
+                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
+                initialScrollOffset: 0,
+              ),
+              Positioned(
+                right: 20,
+                bottom: 20,
+                child: FloatingActionButton(
+                  backgroundColor: AppTheme.fhAccentRed,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                  onPressed: () => _handleAddSession(context, provider),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/schedule_view.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class ScheduleHeroWidget extends StatelessWidget {
+  final MainTask? mainTask;
+  final SubTask? subTask;
+  final SubSubTask? checkpoint;
+  final bool isRunning;
+  final double totalTodaySeconds;
+  
+  final VoidCallback onPlayPause;
+  final VoidCallback onOpenPlan;
+  final VoidCallback onPostpone;
+  final VoidCallback onFinishCheckpoint;
+
+  const ScheduleHeroWidget({
+    super.key,
+    this.mainTask,
+    this.subTask,
+    this.checkpoint,
+    required this.isRunning,
+    required this.totalTodaySeconds,
+    required this.onPlayPause,
+    required this.onOpenPlan,
+    required this.onPostpone,
+    required this.onFinishCheckpoint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isEmpty = subTask == null;
+    final bool isCheckpoint = checkpoint != null;
+    
+    final Color mainColor = isEmpty 
+        ? AppTheme.fhTextDisabled 
+        : (isCheckpoint ? PersonInfoTheme.spideyCyan : (mainTask?.taskColor ?? PersonInfoTheme.spideyRed));
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: PersonInfoTheme.bgPanel,
+        border: Border(left: BorderSide(color: mainColor, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withOpacity(0.15),
+            blurRadius: 15,
+            spreadRadius: 2,
+          )
+        ]
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(isCheckpoint ? MdiIcons.rhombusOutline : MdiIcons.targetAccount, color: mainColor, size: 14),
+                    const SizedBox(width: 8),
+                    Text(
+                      isEmpty ? "QUEUE EMPTY" : (isCheckpoint ? "CHECKPOINT TARGET" : "PRIMARY TARGET"),
+                      style: GoogleFonts.rajdhani(
+                        color: mainColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  onTap: onOpenPlan,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.fhTextSecondary.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(MdiIcons.formatListBulleted, size: 12, color: AppTheme.fhTextSecondary),
+                        const SizedBox(width: 4),
+                        const Text("DAY PLAN", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Main Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
+                        style: GoogleFonts.chakraPetch(
+                          color: AppTheme.fhTextPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          height: 1.1,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      if (!isEmpty)
+                        Text(
+                          isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
+                          style: TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        
+                      if (!isCheckpoint && !isEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
+                            const SizedBox(width: 4),
+                            Text(
+                              "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
+                              style: const TextStyle(
+                                fontFamily: "RobotoMono",
+                                color: AppTheme.fhTextSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold
+                              ),
+                            )
+                          ],
+                        )
+                      ]
+                    ],
+                  ),
+                ),
+                
+                if (!isEmpty) ...[
+                  const SizedBox(width: 16),
+                  
+                  // Action Buttons Column
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isCheckpoint) ...[
+                        _buildCompactButton(
+                          label: "FINISH",
+                          icon: MdiIcons.checkAll,
+                          color: PersonInfoTheme.spideyCyan,
+                          isFilled: true,
+                          onTap: onFinishCheckpoint
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
+                          label: "POSTPONE",
+                          icon: MdiIcons.skipNext,
+                          color: PersonInfoTheme.spideyRed,
+                          isFilled: false,
+                          onTap: onPostpone
+                        ),
+                      ] else ...[
+                        _buildCompactButton(
+                          label: isRunning ? "HALT" : "ENGAGE",
+                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
+                          color: isRunning ? AppTheme.fhAccentRed : mainColor,
+                          isFilled: true,
+                          onTap: onPlayPause
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
+                          label: "POSTPONE",
+                          icon: MdiIcons.skipNext,
+                          color: AppTheme.fhTextSecondary,
+                          isFilled: false,
+                          onTap: onPostpone
+                        ),
+                      ]
+                    ],
+                  )
+                ]
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCompactButton({required String label, required IconData icon, required Color color, required bool isFilled, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: isFilled ? color : Colors.transparent,
+          border: Border.all(color: color, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: isFilled ? Colors.black : color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.rajdhani(
+                color: isFilled ? Colors.black : color,
+                fontWeight: FontWeight.bold,
+                fontSize: 12
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DayPlanDashboardWidget extends StatelessWidget {
+  const DayPlanDashboardWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+
+    if (plan.isEmpty) return const SizedBox.shrink();
+
+    // Map IDs to actual active widgets for the horizontal list
+    List<Widget> queueItems = [];
+
+    // Track what we've rendered so we don't render the top item again if it's currently active in the hero
+    bool isFirstItem = true;
+
+    for (String compId in plan) {
+      final parts = compId.split('|');
+      if (parts.length < 2) continue;
+
+      final mainId = parts[0];
+      final subId = parts[1];
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
+
+      if (task == null || sub == null) continue;
+
+      final isCheckpoint = parts.length == 3;
+      bool isCompleted = false;
+      String title = sub.name;
+      String typeLabel = "MISSION";
+
+      if (isCheckpoint) {
+        final cpId = parts[2];
+        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
+        if (cp == null) continue;
+        
+        isCompleted = cp.completed;
+        title = cp.name;
+        typeLabel = "CHECKPOINT";
+      } else {
+        isCompleted = sub.completed;
+      }
+      
+      // Skip completed items, or the very first incomplete item since it's in the Hero Widget
+      if (isCompleted) continue;
+      if (isFirstItem) {
+         isFirstItem = false;
+         continue; // Skip the active up-next
+      }
+
+      queueItems.add(_buildCard(
+        context, provider,
+        title: title,
+        parentName: isCheckpoint ? sub.name : task.name,
+        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
+      ));
+    }
+
+    if (queueItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
+              const SizedBox(width: 8),
+              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 65, // More compact horizontal card height
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: queueItems.length,
+            separatorBuilder: (c, i) => const SizedBox(width: 10),
+            itemBuilder: (c, i) => queueItems[i],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildCard(
+    BuildContext context, AppProvider provider, {
+    required String title,
+    required String parentName,
+    required Color color,
+  }) {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: PersonInfoTheme.bgPanel,
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.chakraPetch(
+              color: AppTheme.fhTextPrimary, 
+              fontSize: 12, 
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            parentName,
+            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---

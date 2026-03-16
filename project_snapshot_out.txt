@@ -217,7 +217,7 @@ extensions:
 --- END OF FILE devtools_options.yaml ---
 
 --- START OF FILE firebase.json ---
-{"flutter":{"platforms":{"android":{"default":{"projectId":"task-dominion","appId":"1:1059901273076:android:edb8027313c28e2c843fa1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"task-dominion","configurations":{"android":"1:1059901273076:android:edb8027313c28e2c843fa1","ios":"1:1059901273076:ios:0e00d77480cd44e6843fa1","macos":"1:1059901273076:ios:681581fd0db8a039843fa1","web":"1:1059901273076:web:86c0ab680c91dc5f843fa1","windows":"1:1059901273076:web:fc82a312504729c1843fa1"}}}}},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}
+{"flutter":{"platforms":{"android":{"default":{"projectId":"task-dominion","appId":"1:1059901273076:android:092a770ad41f5234843fa1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"task-dominion","configurations":{"android":"1:1059901273076:android:092a770ad41f5234843fa1","ios":"1:1059901273076:ios:0e00d77480cd44e6843fa1","macos":"1:1059901273076:ios:681581fd0db8a039843fa1","web":"1:1059901273076:web:86c0ab680c91dc5f843fa1","windows":"1:1059901273076:web:fc82a312504729c1843fa1"}}}}},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}
 --- END OF FILE firebase.json ---
 
 --- START OF FILE models.json ---
@@ -1156,34 +1156,34 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: e55636ed79578b9abca5fecf9437947798f5ef7456308b5cb85720b793eac92f
+      sha256: "8d7ff3948166b8ec5da0fbb5962000926b8e02f2ed9b3e51d1738905fbd4c98d"
       url: "https://pub.dev"
     source: hosted
-    version: "82.0.0"
+    version: "93.0.0"
   _flutterfire_internals:
     dependency: transitive
     description:
       name: _flutterfire_internals
-      sha256: "50e24b769bd1e725732f0aff18b806b8731c1fbcf4e8018ab98e7c4805a2a52f"
+      sha256: afe15ce18a287d2f89da95566e62892df339b1936bbe9b83587df45b944ee72a
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.57"
+    version: "1.3.67"
   analyzer:
     dependency: transitive
     description:
       name: analyzer
-      sha256: "904ae5bb474d32c38fb9482e2d925d5454cda04ddd0e55d2e6826bc72f6ba8c0"
+      sha256: de7148ed2fcec579b19f122c1800933dfa028f6d9fd38a152b04b1516cec120b
       url: "https://pub.dev"
     source: hosted
-    version: "7.4.5"
+    version: "10.0.1"
   archive:
     dependency: transitive
     description:
       name: archive
-      sha256: "2fde1607386ab523f7a36bb3e7edb43bd58e6edaf2ffb29d8a6d578b297fdbbd"
+      sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.7"
+    version: "4.0.9"
   args:
     dependency: transitive
     description:
@@ -1212,10 +1212,10 @@ packages:
     dependency: transitive
     description:
       name: build
-      sha256: cef23f1eda9b57566c81e2133d196f8e3df48f244b317368d65c5943d91148f0
+      sha256: "275bf6bb2a00a9852c28d4e0b410da1d833a734d57d39d44f94bfc895a484ec3"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.2"
+    version: "4.0.4"
   built_collection:
     dependency: transitive
     description:
@@ -1228,10 +1228,10 @@ packages:
     dependency: transitive
     description:
       name: built_value
-      sha256: ea90e81dc4a25a043d9bee692d20ed6d1c4a1662a28c03a96417446c093ed6b4
+      sha256: "6ae8a6435a8c6520c7077b107e77f1fb4ba7009633259a4d49a8afd8e7efc5e9"
       url: "https://pub.dev"
     source: hosted
-    version: "8.9.5"
+    version: "8.12.4"
   change_app_package_name:
     dependency: "direct dev"
     description:
@@ -1260,10 +1260,10 @@ packages:
     dependency: transitive
     description:
       name: checked_yaml
-      sha256: feb6bed21949061731a7a75fc5d2aa727cf160b91af9a3e464c5e3a32e28b5ff
+      sha256: "959525d3162f249993882720d52b7e0c833978df229be20702b33d48d91de70f"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.3"
+    version: "2.0.4"
   cli_util:
     dependency: transitive
     description:
@@ -1284,34 +1284,42 @@ packages:
     dependency: "direct main"
     description:
       name: cloud_firestore
-      sha256: d25c956be5261c14bc9a69c9662de8addb308376b4b53a64469aade52e7b02f8
+      sha256: e17d7a4342374973decaee550f9f4e4ddb8c89a8b41c2540d0c24004f49cdf36
       url: "https://pub.dev"
     source: hosted
-    version: "5.6.8"
+    version: "6.1.3"
   cloud_firestore_platform_interface:
     dependency: transitive
     description:
       name: cloud_firestore_platform_interface
-      sha256: ee2b8f8c602ede36073afd3741e99cfea9dd982b4a44833daf665134d151c32a
+      sha256: c110a968cc11a83f0e2b88c335340cb21d123ab9e440aaa834eb33c20505893c
       url: "https://pub.dev"
     source: hosted
-    version: "6.6.8"
+    version: "7.0.7"
   cloud_firestore_web:
     dependency: transitive
     description:
       name: cloud_firestore_web
-      sha256: b99bc4f1f70787f694b73bc6fce238d4d6cc822c9b31ba8ef1578b180b6f77bc
+      sha256: ff6c87ecb167f35e84027a36b1f65994da6a81e1b4eb14d0a8cdd2be09e861c3
       url: "https://pub.dev"
     source: hosted
-    version: "4.4.8"
+    version: "5.1.3"
+  code_assets:
+    dependency: transitive
+    description:
+      name: code_assets
+      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   code_builder:
     dependency: transitive
     description:
       name: code_builder
-      sha256: "0ec10bf4a89e4c613960bf1e8b42c64127021740fb21640c29c909826a5eea3e"
+      sha256: "6a6cab2ba4680d6423f34a9b972a4c9a94ebe1b62ecec4e1a1f2cba91fd1319d"
       url: "https://pub.dev"
     source: hosted
-    version: "4.10.1"
+    version: "4.11.1"
   collection:
     dependency: "direct main"
     description:
@@ -1348,18 +1356,18 @@ packages:
     dependency: transitive
     description:
       name: cross_file
-      sha256: "701dcfc06da0882883a2657c445103380e53e647060ad8d9dfb710c100996608"
+      sha256: "28bb3ae56f117b5aec029d702a90f57d285cd975c3c5c281eaca38dbc47c5937"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.5+1"
+    version: "0.3.5+2"
   crypto:
     dependency: transitive
     description:
       name: crypto
-      sha256: "1e445881f28f22d6140f181e07737b22f1e099a5e1ff94b0af2f9e4a463f4855"
+      sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.6"
+    version: "3.0.7"
   csslib:
     dependency: transitive
     description:
@@ -1380,10 +1388,10 @@ packages:
     dependency: transitive
     description:
       name: dart_style
-      sha256: "27eb0ae77836989a3bc541ce55595e8ceee0992807f14511552a898ddd0d88ac"
+      sha256: "29f7ecc274a86d32920b1d9cfc7502fa87220da41ec60b55f329559d5732e2b2"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.1"
+    version: "3.1.7"
   dbus:
     dependency: transitive
     description:
@@ -1396,10 +1404,10 @@ packages:
     dependency: transitive
     description:
       name: equatable
-      sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
+      sha256: "3e0141505477fd8ad55d6eb4e7776d3fe8430be8e497ccb1521370c3f21a3e2b"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.7"
+    version: "2.0.8"
   fake_async:
     dependency: transitive
     description:
@@ -1412,10 +1420,10 @@ packages:
     dependency: transitive
     description:
       name: ffi
-      sha256: "289279317b4b16eb2bb7e271abccd4bf84ec9bdcbe999e278a94b804f5630418"
+      sha256: "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.4"
+    version: "2.2.0"
   file:
     dependency: transitive
     description:
@@ -1428,82 +1436,114 @@ packages:
     dependency: "direct main"
     description:
       name: file_picker
-      sha256: ab13ae8ef5580a411c458d6207b6774a6c237d77ac37011b13994879f68a8810
+      sha256: "57d9a1dd5063f85fa3107fb42d1faffda52fdc948cefd5fe5ea85267a5fc7343"
       url: "https://pub.dev"
     source: hosted
-    version: "8.3.7"
+    version: "10.3.10"
+  file_selector_linux:
+    dependency: transitive
+    description:
+      name: file_selector_linux
+      sha256: "2567f398e06ac72dcf2e98a0c95df2a9edd03c2c2e0cacd4780f20cdf56263a0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.4"
+  file_selector_macos:
+    dependency: transitive
+    description:
+      name: file_selector_macos
+      sha256: "5e0bbe9c312416f1787a68259ea1505b52f258c587f12920422671807c4d618a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.5"
+  file_selector_platform_interface:
+    dependency: transitive
+    description:
+      name: file_selector_platform_interface
+      sha256: "35e0bd61ebcdb91a3505813b055b09b79dfdc7d0aee9c09a7ba59ae4bb13dc85"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
+  file_selector_windows:
+    dependency: transitive
+    description:
+      name: file_selector_windows
+      sha256: "62197474ae75893a62df75939c777763d39c2bc5f73ce5b88497208bc269abfd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.3+5"
   firebase_auth:
     dependency: "direct main"
     description:
       name: firebase_auth
-      sha256: "10cd3f00a247f33b0a5c77574011a87379432bf3fec77a500b55f2bcc30ddd8b"
+      sha256: "1c290de59ba88d3b193e5933441ea4793d623e802d75bd4135e36d550c3f6b62"
       url: "https://pub.dev"
     source: hosted
-    version: "5.5.4"
+    version: "6.2.0"
   firebase_auth_platform_interface:
     dependency: transitive
     description:
       name: firebase_auth_platform_interface
-      sha256: "2d15872a8899b0459fab6b4c148fd142e135acfc8a303d383d80b455e4dba7bd"
+      sha256: c830e2a1c69c27242a920296784458ad6eb71decdfa083578f7788dbde5d3a69
       url: "https://pub.dev"
     source: hosted
-    version: "7.6.3"
+    version: "8.1.7"
   firebase_auth_web:
     dependency: transitive
     description:
       name: firebase_auth_web
-      sha256: efba45393050ca03d992eae1d305d5fc8c0c9f5980624053512e935c23767c4f
+      sha256: "809d0807a7b6dbdd2d2dd04f217375aaa9835794750a4eec408c2990ed505e41"
       url: "https://pub.dev"
     source: hosted
-    version: "5.14.3"
+    version: "6.1.3"
   firebase_core:
     dependency: "direct main"
     description:
       name: firebase_core
-      sha256: "5bba5924139e91d26446fd2601c18a6aa62c1161c768a989bb5e245dcdc20644"
+      sha256: f0997fee80fbb6d2c658c5b88ae87ba1f9506b5b37126db64fc2e75d8e977fbb
       url: "https://pub.dev"
     source: hosted
-    version: "3.15.0"
+    version: "4.5.0"
   firebase_core_platform_interface:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: firebase_core_platform_interface
-      sha256: "8bcfad6d7033f5ea951d15b867622a824b13812178bfec0c779b9d81de011bbb"
+      sha256: cccb4f572325dc14904c02fcc7db6323ad62ba02536833dddb5c02cac7341c64
       url: "https://pub.dev"
     source: hosted
-    version: "5.4.2"
+    version: "6.0.2"
   firebase_core_web:
     dependency: transitive
     description:
       name: firebase_core_web
-      sha256: eb3afccfc452b2b2075acbe0c4b27de62dd596802b4e5e19869c1e926cbb20b3
+      sha256: "856ca92bf2d75a63761286ab8e791bda3a85184c2b641764433b619647acfca6"
       url: "https://pub.dev"
     source: hosted
-    version: "2.24.0"
+    version: "3.5.0"
   firebase_database:
     dependency: "direct main"
     description:
       name: firebase_database
-      sha256: "57879545b17cf6025016ebb105711749ff1e7f9afb8cfc5472861d84561a8ec0"
+      sha256: "5162446a8fc4c930f89582531a963c7c659b1b3167e8720e926899d9fbfabb1e"
       url: "https://pub.dev"
     source: hosted
-    version: "11.3.8"
+    version: "12.1.4"
   firebase_database_platform_interface:
     dependency: transitive
     description:
       name: firebase_database_platform_interface
-      sha256: "7f5d56393d5cad097ed805b772a3f98678305857d90f1c2204b7e247d7f96437"
+      sha256: "6a59a702ea900f479f4411fe6dac50e3f8f17bf8b21cc986e6bbfcaa3ab0e50e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.6+8"
+    version: "0.3.0+3"
   firebase_database_web:
     dependency: transitive
     description:
       name: firebase_database_web
-      sha256: "9d5067c582b338181121f28e3c08cfc02197639ddbfa2dd718bf861a22fa4ebc"
+      sha256: f825a3b3507a7064312c88af47abc63765405785cc7ddf768c13f11192431ae8
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.6+14"
+    version: "0.2.7+4"
   fixnum:
     dependency: transitive
     description:
@@ -1516,10 +1556,10 @@ packages:
     dependency: "direct main"
     description:
       name: fl_chart
-      sha256: "7ca9a40f4eb85949190e54087be8b4d6ac09dc4c54238d782a34cf1f7c011de9"
+      sha256: b938f77d042cbcd822936a7a359a7235bad8bd72070de1f827efc2cc297ac888
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "1.2.0"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -1545,18 +1585,18 @@ packages:
     dependency: "direct dev"
     description:
       name: flutter_launcher_icons
-      sha256: "526faf84284b86a4cb36d20a5e45147747b7563d921373d4ee0559c54fcdbcea"
+      sha256: "10f13781741a2e3972126fae08393d3c4e01fa4cd7473326b94b72cf594195e7"
       url: "https://pub.dev"
     source: hosted
-    version: "0.13.1"
+    version: "0.14.4"
   flutter_lints:
     dependency: "direct dev"
     description:
       name: flutter_lints
-      sha256: "5398f14efa795ffb7a33e9b6a08798b26a180edac4ad7db3f231e40f82ce11e1"
+      sha256: "3105dc8492f6183fb076ccf1f351ac3d60564bff92e20bfc4af9cc1651f4e7e1"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.0"
+    version: "6.0.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -1603,10 +1643,10 @@ packages:
     dependency: "direct main"
     description:
       name: google_fonts
-      sha256: ba03d03bcaa2f6cb7bd920e3b5027181db75ab524f8891c8bc3aa603885b8055
+      sha256: db9df7a5898d894eeda4c78143f35c30a243558be439518972366880b80bf88e
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.3"
+    version: "8.0.2"
   google_generative_ai:
     dependency: "direct main"
     description:
@@ -1615,6 +1655,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.7"
+  hooks:
+    dependency: transitive
+    description:
+      name: hooks
+      sha256: e79ed1e8e1929bc6ecb6ec85f0cb519c887aa5b423705ded0d0f2d9226def388
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   html:
     dependency: transitive
     description:
@@ -1643,10 +1691,74 @@ packages:
     dependency: transitive
     description:
       name: image
-      sha256: "4e973fcf4caae1a4be2fa0a13157aa38a8f9cb049db6529aa00b4d71abc4d928"
+      sha256: f9881ff4998044947ec38d098bc7c8316ae1186fa786eddffdb867b9bc94dfce
       url: "https://pub.dev"
     source: hosted
-    version: "4.5.4"
+    version: "4.8.0"
+  image_picker:
+    dependency: "direct main"
+    description:
+      name: image_picker
+      sha256: "784210112be18ea55f69d7076e2c656a4e24949fa9e76429fe53af0c0f4fa320"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.1"
+  image_picker_android:
+    dependency: transitive
+    description:
+      name: image_picker_android
+      sha256: eda9b91b7e266d9041084a42d605a74937d996b87083395c5e47835916a86156
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+14"
+  image_picker_for_web:
+    dependency: transitive
+    description:
+      name: image_picker_for_web
+      sha256: "66257a3191ab360d23a55c8241c91a6e329d31e94efa7be9cf7a212e65850214"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.1"
+  image_picker_ios:
+    dependency: transitive
+    description:
+      name: image_picker_ios
+      sha256: b9c4a438a9ff4f60808c9cf0039b93a42bb6c2211ef6ebb647394b2b3fa84588
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+6"
+  image_picker_linux:
+    dependency: transitive
+    description:
+      name: image_picker_linux
+      sha256: "1f81c5f2046b9ab724f85523e4af65be1d47b038160a8c8deed909762c308ed4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  image_picker_macos:
+    dependency: transitive
+    description:
+      name: image_picker_macos
+      sha256: "86f0f15a309de7e1a552c12df9ce5b59fe927e71385329355aec4776c6a8ec91"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2+1"
+  image_picker_platform_interface:
+    dependency: transitive
+    description:
+      name: image_picker_platform_interface
+      sha256: "567e056716333a1647c64bb6bd873cff7622233a5c3f694be28a583d4715690c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.1"
+  image_picker_windows:
+    dependency: transitive
+    description:
+      name: image_picker_windows
+      sha256: d248c86554a72b5495a31c56f060cf73a41c7ff541689327b1a7dbccc33adfae
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
   intl:
     dependency: "direct main"
     description:
@@ -1659,10 +1771,10 @@ packages:
     dependency: transitive
     description:
       name: json_annotation
-      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
+      sha256: cb09e7dac6210041fad964ed7fbee004f14258b4eca4040f72d1234062ace4c8
       url: "https://pub.dev"
     source: hosted
-    version: "4.9.0"
+    version: "4.11.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -1691,10 +1803,10 @@ packages:
     dependency: transitive
     description:
       name: lints
-      sha256: c35bb79562d980e9a453fc715854e1ed39e24e7d0297a880ef54e17f9874a9d7
+      sha256: "12f842a479589fea194fe5c5a3095abc7be0c1f2ddfa9a0e76aed1dbd26a87df"
       url: "https://pub.dev"
     source: hosted
-    version: "5.1.1"
+    version: "6.1.0"
   logging:
     dependency: transitive
     description:
@@ -1736,7 +1848,7 @@ packages:
     source: hosted
     version: "1.17.0"
   mime:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: mime
       sha256: "41a20518f0cb1256669420fdba0cd90d21561e560ac240f26ef8322e45bb7ed6"
@@ -1747,10 +1859,18 @@ packages:
     dependency: "direct dev"
     description:
       name: mockito
-      sha256: "4546eac99e8967ea91bae633d2ca7698181d008e95fa4627330cf903d573277a"
+      sha256: a45d1aa065b796922db7b9e7e7e45f921aed17adf3a8318a1f47097e7e695566
       url: "https://pub.dev"
     source: hosted
-    version: "5.4.6"
+    version: "5.6.3"
+  native_toolchain_c:
+    dependency: transitive
+    description:
+      name: native_toolchain_c
+      sha256: "92b2ca62c8bd2b8d2f267cdfccf9bfbdb7322f778f8f91b3ce5b5cda23a3899f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.5"
   nested:
     dependency: transitive
     description:
@@ -1767,6 +1887,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.0"
+  objective_c:
+    dependency: transitive
+    description:
+      name: objective_c
+      sha256: "100a1c87616ab6ed41ec263b083c0ef3261ee6cd1dc3b0f35f8ddfa4f996fe52"
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.3.0"
   package_config:
     dependency: transitive
     description:
@@ -1803,10 +1931,10 @@ packages:
     dependency: transitive
     description:
       name: path_provider_foundation
-      sha256: "6d13aece7b3f5c5a9731eaf553ff9dcbc2eff41087fd2df587fd0fed9a3eb0c4"
+      sha256: "2a376b7d6392d80cd3705782d2caa734ca4727776db0b6ec36ef3f1855197699"
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.1"
+    version: "2.6.0"
   path_provider_linux:
     dependency: transitive
     description:
@@ -1835,10 +1963,10 @@ packages:
     dependency: transitive
     description:
       name: petitparser
-      sha256: "07c8f0b1913bcde1ff0d26e57ace2f3012ccbf2b204e070290dad3bb22797646"
+      sha256: "91bd59303e9f769f108f8df05e371341b15d59e995e6806aefab827b58336675"
       url: "https://pub.dev"
     source: hosted
-    version: "6.1.0"
+    version: "7.0.2"
   platform:
     dependency: transitive
     description:
@@ -1859,18 +1987,18 @@ packages:
     dependency: transitive
     description:
       name: posix
-      sha256: f0d7856b6ca1887cfa6d1d394056a296ae33489db914e365e2044fdada449e62
+      sha256: "185ef7606574f789b40f289c233efa52e96dead518aed988e040a10737febb07"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.2"
+    version: "6.5.0"
   provider:
     dependency: "direct main"
     description:
       name: provider
-      sha256: "4abbd070a04e9ddc287673bf5a030c7ca8b685ff70218720abab8b092f53dd84"
+      sha256: "4e82183fa20e5ca25703ead7e05de9e4cceed1fbd1eadc1ac3cb6f565a09f272"
       url: "https://pub.dev"
     source: hosted
-    version: "6.1.5"
+    version: "6.1.5+1"
   pub_semver:
     dependency: transitive
     description:
@@ -1883,18 +2011,18 @@ packages:
     dependency: "direct main"
     description:
       name: share_plus
-      sha256: fce43200aa03ea87b91ce4c3ac79f0cecd52e2a7a56c7a4185023c271fbfa6da
+      sha256: "14c8860d4de93d3a7e53af51bff479598c4e999605290756bbbe45cf65b37840"
       url: "https://pub.dev"
     source: hosted
-    version: "10.1.4"
+    version: "12.0.1"
   share_plus_platform_interface:
     dependency: transitive
     description:
       name: share_plus_platform_interface
-      sha256: cc012a23fc2d479854e6c80150696c4a5f5bb62cb89af4de1c505cf78d0a5d0b
+      sha256: "88023e53a13429bd65d8e85e11a9b484f49d4c190abbd96c7932b74d6927cc9a"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.2"
+    version: "6.1.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -1904,26 +2032,26 @@ packages:
     dependency: "direct main"
     description:
       name: smooth_page_indicator
-      sha256: b21ebb8bc39cf72d11c7cfd809162a48c3800668ced1c9da3aade13a32cf6c1c
+      sha256: "4b497e9898d095de40d246db943371183fa7482492a88391cfa8415ef94d57ba"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.1"
+    version: "2.0.1"
   source_gen:
     dependency: transitive
     description:
       name: source_gen
-      sha256: "35c8150ece9e8c8d263337a265153c3329667640850b9304861faea59fc98f6b"
+      sha256: adc962c96fffb2de1728ef396a995aaedcafbe635abdca13d2a987ce17e57751
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0"
+    version: "4.2.1"
   source_span:
     dependency: transitive
     description:
       name: source_span
-      sha256: "254ee5351d6cb365c859e20ee823c3bb479bf4a293c22d17a9f1bf144ce86f7c"
+      sha256: "56a02f1f4cd1a2d96303c0144c93bd6d909eea6bee6bf5a0e0b685edbd4c47ab"
       url: "https://pub.dev"
     source: hosted
-    version: "1.10.1"
+    version: "1.10.2"
   stack_trace:
     dependency: transitive
     description:
@@ -2008,10 +2136,10 @@ packages:
     dependency: transitive
     description:
       name: url_launcher_web
-      sha256: "4bd2b7b4dc4d4d0b94e5babfffbca8eac1a126c7f3d6ecbc1a11013faa3abba2"
+      sha256: d0412fcf4c6b31ecfdb7762359b7206ffba3bbffd396c6d9f9c4616ece476c1f
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.1"
+    version: "2.4.2"
   url_launcher_windows:
     dependency: transitive
     description:
@@ -2024,10 +2152,10 @@ packages:
     dependency: "direct main"
     description:
       name: uuid
-      sha256: a11b666489b1954e01d992f3d601b1804a33937b5a8fe677bd26b8a9f96f96e8
+      sha256: "1fef9e8e11e2991bb773070d4656b7bd5d850967a2456cfc83cf47925ba79489"
       url: "https://pub.dev"
     source: hosted
-    version: "4.5.2"
+    version: "4.5.3"
   vector_math:
     dependency: transitive
     description:
@@ -2040,18 +2168,18 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: ddfa8d30d89985b96407efce8acbdd124701f96741f2d981ca860662f1c0dc02
+      sha256: "45caa6c5917fa127b5dbcfbd1fa60b14e583afdc08bfc96dda38886ca252eb60"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.0"
+    version: "15.0.2"
   watcher:
     dependency: transitive
     description:
       name: watcher
-      sha256: "69da27e49efa56a15f8afe8f4438c4ec02eff0a117df1b22ea4aad194fe1c104"
+      sha256: "1398c9f081a753f9226febe8900fce8f7d0a67163334e1c94a2438339d79d635"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "1.2.1"
   web:
     dependency: transitive
     description:
@@ -2080,10 +2208,10 @@ packages:
     dependency: transitive
     description:
       name: xml
-      sha256: b015a8ad1c488f66851d762d3090a21c600e479dc75e68328c52774040cf9226
+      sha256: "971043b3a0d3da28727e40ed3e0b5d18b742fa5a68665cca88e74b7876d5e025"
       url: "https://pub.dev"
     source: hosted
-    version: "6.5.0"
+    version: "6.6.1"
   yaml:
     dependency: transitive
     description:
@@ -2093,31 +2221,31 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.9.0 <4.0.0"
-  flutter: ">=3.35.0"
+  dart: ">=3.10.3 <4.0.0"
+  flutter: ">=3.38.4"
 
 --- END OF FILE pubspec.lock ---
 
 --- START OF FILE pubspec.yaml ---
 name: arcane
 description: "A Flutter version of the Task Dominion application."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
-version: 2026.1.25+712 # Incremented version
+version: 2026.1.25+712
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
-
 
 dependencies:
   flutter:
     sdk: flutter
 
   # Firebase
-  firebase_core: ^3.13.1
-  firebase_core_platform_interface: ^5.4.0
-  firebase_auth: ^5.5.4
-  cloud_firestore: ^5.6.8
+  firebase_core: ^4.5.0
+  # FIX: Removed firebase_core_platform_interface to prevent cross-version channel conflicts
+  firebase_auth: ^6.2.0
+  cloud_firestore: ^6.1.3
+  firebase_database: ^12.1.4
 
   # State Management
   provider: ^6.1.2
@@ -2127,41 +2255,41 @@ dependencies:
 
   # UI & Utilities
   cupertino_icons: ^1.0.6
-  intl: ^0.20.2 # For date formatting
-  fl_chart: ^1.1.1 # For charts
-  material_design_icons_flutter: ^7.0.7296 # For extra icons
+  intl: ^0.20.2
+  fl_chart: ^1.1.1
+  material_design_icons_flutter: ^7.0.7296
   collection: ^1.18.0 
-  flutter_colorpicker: ^1.1.0 # For task color selection
-  smooth_page_indicator: ^1.2.1
+  flutter_colorpicker: ^1.1.0
+  smooth_page_indicator: ^2.0.1
   uuid: ^4.5.2
   http: ^1.6.0
-  file_picker: ^8.1.4
+  file_picker: ^10.3.10
   universal_html: ^2.2.4
   path_provider: ^2.1.2
-  share_plus: ^10.1.2
-  google_fonts: ^6.3.3
+  share_plus: ^12.0.1
+  google_fonts: ^8.0.2
   flutter_animate: ^4.5.2
   gap: ^3.0.1
   connectivity_plus: ^7.0.0
-  firebase_database: ^11.3.8
-
+  image_picker: ^1.2.1
+  mime: ^2.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   mockito: ^5.4.4 
   change_app_package_name: ^1.1.0 
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/fonts/icons/icon.png" # Path to your single PNG icon
-  adaptive_icon_background: "#000000" # Or "assets/icon/background.png"
+  image_path: "assets/fonts/icons/icon.png"
+  adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/fonts/icons/icon.png"
   adaptive_icon_foreground_inset: 25
-  min_sdk_android: 21 # Minimum Android SDK version supported (usually default is fine)
+  min_sdk_android: 21
   web:
     generate: true
     image_path: "assets/fonts/icons/icon.png"
@@ -2170,19 +2298,13 @@ flutter_launcher_icons:
   windows:
     generate: true
     image_path: "assets/fonts/icons/icon.png"
-    icon_size: 48 # Or other supported sizes (48 to 256)
+    icon_size: 48
   macos:
     generate: true
     image_path: "assets/fonts/icons/icon.png"
 
-
-
 flutter:
   uses-material-design: true
-
-  assets: []
-  #   - assets/images/valorant-bg-example.png # Example if adding a background image
-
   fonts:
     - family: RobotoCondensed
       fonts:
@@ -2194,19 +2316,15 @@ flutter:
         - asset: assets/fonts/OpenSans-Regular.ttf
         - asset: assets/fonts/OpenSans-SemiBold.ttf
           weight: 600
-    # Note: For true Valorant fonts like "Tungsten" or "DIN Next LT Pro",
-    # you would need to acquire the font files (ensure licensing) and declare them here.
-    # Example:
-    # - family: Tungsten
-    #   fonts:
-    #     - asset: assets/fonts/Tungsten-Bold.ttf # (if you had this file)
-    #       weight: 700
-
 --- END OF FILE pubspec.yaml ---
 
 --- START OF FILE targets.md ---
 
 --- END OF FILE targets.md ---
+
+--- START OF FILE future.md ---
+- 
+--- END OF FILE future.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 version.json,1772941275505,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
@@ -2363,1009 +2481,6 @@ jobs:
 
 --- END OF FILE .idx/dev.nix ---
 
---- START OF FILE android/.gitignore ---
-gradle-wrapper.jar
-/.gradle
-/captures/
-/gradlew
-/gradlew.bat
-/local.properties
-GeneratedPluginRegistrant.java
-.cxx/
-
-# Remember to never publicly share your keystore.
-# See https://flutter.dev/to/reference-keystore
-key.properties
-**/*.keystore
-**/*.jks
-
---- END OF FILE android/.gitignore ---
-
---- START OF FILE android/NOTICE ---
-
-   Copyright (c) 2005-2014, The Android Open Source Project
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-
-
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-   1. Definitions.
-
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-
---- END OF FILE android/NOTICE ---
-
---- START OF FILE android/build.gradle.kts ---
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.value(newBuildDir)
-
-subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
-}
-
---- END OF FILE android/build.gradle.kts ---
-
---- START OF FILE android/gradle.properties ---
-org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError
-android.useAndroidX=true
-android.enableJetifier=true
-
---- END OF FILE android/gradle.properties ---
-
---- START OF FILE android/settings.gradle.kts ---
-pluginManagement {
-    val flutterSdkPath = run {
-        val properties = java.util.Properties()
-        file("local.properties").inputStream().use { properties.load(it) }
-        val flutterSdkPath = properties.getProperty("flutter.sdk")
-        require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
-        flutterSdkPath
-    }
-
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-plugins {
-    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.7.3" apply false
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services") version("4.3.15") apply false
-    // END: FlutterFire Configuration
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
-}
-
-include(":app")
-
---- END OF FILE android/settings.gradle.kts ---
-
---- START OF FILE android/gradlew ---
-#!/usr/bin/env bash
-
-##############################################################################
-##
-##  Gradle start up script for UN*X
-##
-##############################################################################
-
-# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS=""
-
-APP_NAME="Gradle"
-APP_BASE_NAME=`basename "$0"`
-
-# Use the maximum available, or set MAX_FD != -1 to use that value.
-MAX_FD="maximum"
-
-warn ( ) {
-    echo "$*"
-}
-
-die ( ) {
-    echo
-    echo "$*"
-    echo
-    exit 1
-}
-
-# OS specific support (must be 'true' or 'false').
-cygwin=false
-msys=false
-darwin=false
-case "`uname`" in
-  CYGWIN* )
-    cygwin=true
-    ;;
-  Darwin* )
-    darwin=true
-    ;;
-  MINGW* )
-    msys=true
-    ;;
-esac
-
-# Attempt to set APP_HOME
-# Resolve links: $0 may be a link
-PRG="$0"
-# Need this for relative symlinks.
-while [ -h "$PRG" ] ; do
-    ls=`ls -ld "$PRG"`
-    link=`expr "$ls" : '.*-> \(.*\)$'`
-    if expr "$link" : '/.*' > /dev/null; then
-        PRG="$link"
-    else
-        PRG=`dirname "$PRG"`"/$link"
-    fi
-done
-SAVED="`pwd`"
-cd "`dirname \"$PRG\"`/" >/dev/null
-APP_HOME="`pwd -P`"
-cd "$SAVED" >/dev/null
-
-CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
-
-# Determine the Java command to use to start the JVM.
-if [ -n "$JAVA_HOME" ] ; then
-    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
-        # IBM's JDK on AIX uses strange locations for the executables
-        JAVACMD="$JAVA_HOME/jre/sh/java"
-    else
-        JAVACMD="$JAVA_HOME/bin/java"
-    fi
-    if [ ! -x "$JAVACMD" ] ; then
-        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
-
-Please set the JAVA_HOME variable in your environment to match the
-location of your Java installation."
-    fi
-else
-    JAVACMD="java"
-    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
-
-Please set the JAVA_HOME variable in your environment to match the
-location of your Java installation."
-fi
-
-# Increase the maximum file descriptors if we can.
-if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
-    MAX_FD_LIMIT=`ulimit -H -n`
-    if [ $? -eq 0 ] ; then
-        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
-            MAX_FD="$MAX_FD_LIMIT"
-        fi
-        ulimit -n $MAX_FD
-        if [ $? -ne 0 ] ; then
-            warn "Could not set maximum file descriptor limit: $MAX_FD"
-        fi
-    else
-        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
-    fi
-fi
-
-# For Darwin, add options to specify how the application appears in the dock
-if $darwin; then
-    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
-fi
-
-# For Cygwin, switch paths to Windows format before running java
-if $cygwin ; then
-    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
-    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
-    JAVACMD=`cygpath --unix "$JAVACMD"`
-
-    # We build the pattern for arguments to be converted via cygpath
-    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
-    SEP=""
-    for dir in $ROOTDIRSRAW ; do
-        ROOTDIRS="$ROOTDIRS$SEP$dir"
-        SEP="|"
-    done
-    OURCYGPATTERN="(^($ROOTDIRS))"
-    # Add a user-defined pattern to the cygpath arguments
-    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
-        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
-    fi
-    # Now convert the arguments - kludge to limit ourselves to /bin/sh
-    i=0
-    for arg in "$@" ; do
-        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
-        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
-
-        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
-            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
-        else
-            eval `echo args$i`="\"$arg\""
-        fi
-        i=$((i+1))
-    done
-    case $i in
-        (0) set -- ;;
-        (1) set -- "$args0" ;;
-        (2) set -- "$args0" "$args1" ;;
-        (3) set -- "$args0" "$args1" "$args2" ;;
-        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
-        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
-        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
-        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
-        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
-        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
-    esac
-fi
-
-# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
-function splitJvmOpts() {
-    JVM_OPTS=("$@")
-}
-eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
-JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
-
-exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-
---- END OF FILE android/gradlew ---
-
---- START OF FILE android/gradlew.bat ---
-@if "%DEBUG%" == "" @echo off
-@rem ##########################################################################
-@rem
-@rem  Gradle startup script for Windows
-@rem
-@rem ##########################################################################
-
-@rem Set local scope for the variables with windows NT shell
-if "%OS%"=="Windows_NT" setlocal
-
-@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-set DEFAULT_JVM_OPTS=
-
-set DIRNAME=%~dp0
-if "%DIRNAME%" == "" set DIRNAME=.
-set APP_BASE_NAME=%~n0
-set APP_HOME=%DIRNAME%
-
-@rem Find java.exe
-if defined JAVA_HOME goto findJavaFromJavaHome
-
-set JAVA_EXE=java.exe
-%JAVA_EXE% -version >NUL 2>&1
-if "%ERRORLEVEL%" == "0" goto init
-
-echo.
-echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
-echo.
-echo Please set the JAVA_HOME variable in your environment to match the
-echo location of your Java installation.
-
-goto fail
-
-:findJavaFromJavaHome
-set JAVA_HOME=%JAVA_HOME:"=%
-set JAVA_EXE=%JAVA_HOME%/bin/java.exe
-
-if exist "%JAVA_EXE%" goto init
-
-echo.
-echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
-echo.
-echo Please set the JAVA_HOME variable in your environment to match the
-echo location of your Java installation.
-
-goto fail
-
-:init
-@rem Get command-line arguments, handling Windowz variants
-
-if not "%OS%" == "Windows_NT" goto win9xME_args
-if "%@eval[2+2]" == "4" goto 4NT_args
-
-:win9xME_args
-@rem Slurp the command line arguments.
-set CMD_LINE_ARGS=
-set _SKIP=2
-
-:win9xME_args_slurp
-if "x%~1" == "x" goto execute
-
-set CMD_LINE_ARGS=%*
-goto execute
-
-:4NT_args
-@rem Get arguments from the 4NT Shell from JP Software
-set CMD_LINE_ARGS=%$
-
-:execute
-@rem Setup the command line
-
-set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
-
-@rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
-
-:end
-@rem End local scope for the variables with windows NT shell
-if "%ERRORLEVEL%"=="0" goto mainEnd
-
-:fail
-rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
-rem the _cmd.exe /c_ return code!
-if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
-exit /b 1
-
-:mainEnd
-if "%OS%"=="Windows_NT" endlocal
-
-:omega
-
---- END OF FILE android/gradlew.bat ---
-
---- START OF FILE android/local.properties ---
-sdk.dir=/home/ihjas/Android/Sdk
-flutter.sdk=/mnt/sda2/home/flutter
-flutter.buildMode=debug
-flutter.versionName=2026.1.25
-flutter.versionCode=712
---- END OF FILE android/local.properties ---
-
---- START OF FILE android/app/build.gradle.kts ---
-plugins {
-    id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
-    id("dev.flutter.flutter-gradle-plugin")
-}
-
-android {
-    namespace = "com.example.arcane"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "me.ihjas.arcane"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
-        }
-    }
-}
-
-flutter {
-    source = "../.."
-}
-
---- END OF FILE android/app/build.gradle.kts ---
-
---- START OF FILE android/app/google-services.json ---
-{
-  "project_info": {
-    "project_number": "1059901273076",
-    "firebase_url": "https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "project_id": "task-dominion",
-    "storage_bucket": "task-dominion.firebasestorage.app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:092a770ad41f5234843fa1",
-        "android_client_info": {
-          "package_name": "com.example.arcane"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:749d4c8f9c5aeb9e843fa1",
-        "android_client_info": {
-          "package_name": "com.example.myapp"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:0cb9d16dea4f2201843fa1",
-        "android_client_info": {
-          "package_name": "com.example.myapp_flutter"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:edb8027313c28e2c843fa1",
-        "android_client_info": {
-          "package_name": "me.ihjas.arcane"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:9bbc5d654d40408c843fa1",
-        "android_client_info": {
-          "package_name": "me.ihjas.dominion"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1059901273076:android:bdeb039da1e16ab1843fa1",
-        "android_client_info": {
-          "package_name": "me.ihjas.myapp_flutter"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    }
-  ],
-  "configuration_version": "1"
-}
---- END OF FILE android/app/google-services.json ---
-
---- START OF FILE android/app/src/debug/AndroidManifest.xml ---
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The INTERNET permission is required for development. Specifically,
-         the Flutter tool needs it to communicate with the running application
-         to allow setting breakpoints, to provide hot reload, etc.
-    -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-</manifest>
-
---- END OF FILE android/app/src/debug/AndroidManifest.xml ---
-
---- START OF FILE android/app/src/main/AndroidManifest.xml ---
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:label="Primus"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:label="Primus"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
-</manifest>
-
---- END OF FILE android/app/src/main/AndroidManifest.xml ---
-
---- START OF FILE android/app/src/main/kotlin/com/example/myapp_flutter/MainActivity.kt ---
-package com.example.arcane
-
-import io.flutter.embedding.android.FlutterActivity
-
-class MainActivity : FlutterActivity()
-
---- END OF FILE android/app/src/main/kotlin/com/example/myapp_flutter/MainActivity.kt ---
-
---- START OF FILE android/app/src/main/kotlin/me/ihjas/arcane/MainActivity.kt ---
-package me.ihjas.arcane
-
-import io.flutter.embedding.android.FlutterActivity
-
-class MainActivity : FlutterActivity()
-
---- END OF FILE android/app/src/main/kotlin/me/ihjas/arcane/MainActivity.kt ---
-
---- START OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
-</layer-list>
-
---- END OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
-
---- START OF FILE android/app/src/main/res/drawable/launch_background.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
-</layer-list>
-
---- END OF FILE android/app/src/main/res/drawable/launch_background.xml ---
-
---- START OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    
-    <!-- Background stays the same -->
-    <background android:drawable="@color/ic_launcher_background"/>
-    
-    <!-- Foreground: We remove the android:drawable attribute from here... -->
-    <foreground>
-        <!-- ...and wrap it in an inset tag -->
-        <inset
-            android:drawable="@drawable/ic_launcher_foreground"
-            android:inset="15%" />
-    </foreground>
-    
-</adaptive-icon>
---- END OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
-
---- START OF FILE android/app/src/main/res/values-night/styles.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is on -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
-        <!-- Show a splash screen on the activity. Automatically removed when
-             the Flutter engine draws its first frame -->
-        <item name="android:windowBackground">@drawable/launch_background</item>
-    </style>
-    <!-- Theme applied to the Android Window as soon as the process has started.
-         This theme determines the color of the Android Window while your
-         Flutter UI initializes, as well as behind your Flutter UI while its
-         running.
-
-         This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
-    </style>
-</resources>
-
---- END OF FILE android/app/src/main/res/values-night/styles.xml ---
-
---- START OF FILE android/app/src/main/res/values/colors.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">#000000</color>
-</resources>
---- END OF FILE android/app/src/main/res/values/colors.xml ---
-
---- START OF FILE android/app/src/main/res/values/styles.xml ---
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <!-- Show a splash screen on the activity. Automatically removed when
-             the Flutter engine draws its first frame -->
-        <item name="android:windowBackground">@drawable/launch_background</item>
-    </style>
-    <!-- Theme applied to the Android Window as soon as the process has started.
-         This theme determines the color of the Android Window while your
-         Flutter UI initializes, as well as behind your Flutter UI while its
-         running.
-
-         This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
-    </style>
-</resources>
-
---- END OF FILE android/app/src/main/res/values/styles.xml ---
-
---- START OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
-package io.flutter.plugins;
-
-import androidx.annotation.Keep;
-import androidx.annotation.NonNull;
-import io.flutter.Log;
-
-import io.flutter.embedding.engine.FlutterEngine;
-
-/**
- * Generated file. Do not edit.
- * This file is generated by the Flutter tool based on the
- * plugins that support the Android platform.
- */
-@Keep
-public final class GeneratedPluginRegistrant {
-  private static final String TAG = "GeneratedPluginRegistrant";
-  public static void registerWith(@NonNull FlutterEngine flutterEngine) {
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin cloud_firestore, io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.connectivity.ConnectivityPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin connectivity_plus, dev.fluttercommunity.plus.connectivity.ConnectivityPlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new com.mr.flutter.plugin.filepicker.FilePickerPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin file_picker, com.mr.flutter.plugin.filepicker.FilePickerPlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin firebase_auth, io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin firebase_core, io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.database.FirebaseDatabasePlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin firebase_database, io.flutter.plugins.firebase.database.FirebaseDatabasePlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin flutter_plugin_android_lifecycle, io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new io.flutter.plugins.pathprovider.PathProviderPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin path_provider_android, io.flutter.plugins.pathprovider.PathProviderPlugin", e);
-    }
-    try {
-      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.share.SharePlusPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin share_plus, dev.fluttercommunity.plus.share.SharePlusPlugin", e);
-    }
-  }
-}
-
---- END OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
-
---- START OF FILE android/app/src/profile/AndroidManifest.xml ---
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The INTERNET permission is required for development. Specifically,
-         the Flutter tool needs it to communicate with the running application
-         to allow setting breakpoints, to provide hot reload, etc.
-    -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-</manifest>
-
---- END OF FILE android/app/src/profile/AndroidManifest.xml ---
-
---- START OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-9.1.0-all.zip
-
---- END OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
-
---- START OF FILE android/.gradle/9.1.0/gc.properties ---
-
---- END OF FILE android/.gradle/9.1.0/gc.properties ---
-
---- START OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
-#Fri Feb 20 05:07:08 IST 2026
-gradle.version=9.1.0
-
---- END OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
-
---- START OF FILE android/.gradle/vcs-1/gc.properties ---
-
---- END OF FILE android/.gradle/vcs-1/gc.properties ---
-
 --- START OF FILE lib/firebase_options.dart ---
 // File generated by FlutterFire CLI.
 // ignore_for_file: type=lint
@@ -3419,7 +2534,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg',
-    appId: '1:1059901273076:android:edb8027313c28e2c843fa1',
+    appId: '1:1059901273076:android:092a770ad41f5234843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -3464,16 +2579,23 @@ class DefaultFirebaseOptions {
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:arcane/src/app.dart';
-import 'package:arcane/firebase_options.dart'; // Auto-generated by FlutterFire
+import 'package:arcane/firebase_options.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  // Safe Firebase Initialization
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase init error (Native modules might be missing): $e");
+  }
+  
   runApp(
     MultiProvider(
       providers: [
@@ -3484,7 +2606,6 @@ void main() async {
     ),
   );
 }
-
 --- END OF FILE lib/main.dart ---
 
 --- START OF FILE lib/screens/logbook_screen.dart ---
@@ -3889,10 +3010,9 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Arcane',
-      // We use a builder to inject the theme based on the provider state
       builder: (context, child) {
-        // Pillarbox constraint for desktop/web and ideal screen 720x1520 constraint
-        final constrainedApp = Container(
+        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        return Container(
           color: Colors.black, 
           child: Center(
             child: ConstrainedBox(
@@ -3901,10 +3021,7 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         );
-
-        return constrainedApp;
       },
-      // Default theme, will be overridden by local Theme widgets in screens
       theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
@@ -3913,8 +3030,7 @@ class _MyAppState extends State<MyApp> {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
               body: Center(
-                  child:
-                      CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
 
@@ -3922,7 +3038,6 @@ class _MyAppState extends State<MyApp> {
             return const LoginScreen();
           }
 
-          // Apply dynamic theme based on selected task
           final Color currentTaskColor =
               appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
 
@@ -3931,30 +3046,18 @@ class _MyAppState extends State<MyApp> {
             child: Stack(
               children: [
                 const HomeScreen(),
-
-                // Sync indicator has been entirely removed to hide the background sync note
-
-                // Blocking overlay ONLY for critical manual loads (Restore/Import)
+                
+                // Unobtrusive loading bar at the top instead of a full screen blocker
                 if (appProvider.isManuallyLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black87,
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(color: AppTheme.fhAccentTeal),
-                            SizedBox(height: 16),
-                            Text(
-                              "RESTORING DATABASE...",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: AppTheme.fontDisplay,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold),
-                            )
-                          ],
-                        ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      child: const LinearProgressIndicator(
+                        color: AppTheme.fhAccentTeal,
+                        backgroundColor: Colors.transparent,
+                        minHeight: 4,
                       ),
                     ),
                   )
@@ -5552,6 +4655,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         
         // Fetch specific daily subcollections to avoid cross-device history overwrite
         await fetchDailyReportsFromCloud();
+        
+        // Start listening to live RTDB updates
+        startRealtimeSyncListener();
 
       } catch (e) {
         debugPrint("Cloud init failed: $e");
@@ -5561,6 +4667,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     } else {
       setCurrentUser(null);
+      stopRealtimeSyncListener();
       await _resetToInitialState();
       await _localStorage.clearState();
       setAuthLoading(false);
@@ -6296,7 +5403,6 @@ class AIGenerationActions {
     if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
   }
 
-  // ... [Existing methods like triggerAISubquestGeneration, generateCheckpointsForSubtask] ...
   Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
       String generationMode, String userInput, int numSubquests) async {
     if (_provider.isGeneratingSubquests) {
@@ -6418,7 +5524,7 @@ class AIGenerationActions {
   }
 
   Future<void> generateActionPlanSteps(
-      String mainTaskId, String subTaskId, String why) async {
+      String mainTaskId, String subTaskId, String why, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Strategy...");
 
@@ -6429,6 +5535,7 @@ class AIGenerationActions {
       final result = await _aiService.generateActionPlanSteps(
         taskName: subTask.name,
         why: why,
+        userPrompt: userPrompt,
         modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
@@ -6459,7 +5566,6 @@ class AIGenerationActions {
     }
   }
 }
-
 --- END OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
 
 --- START OF FILE lib/src/providers/actions/project_actions.dart ---
@@ -6469,6 +5575,7 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProjectActions {
   final AppProvider _provider;
@@ -7007,13 +6114,14 @@ class ProjectActions {
     return false;
   }
 
-  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt, {List<XFile>? images}) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
         modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
+        images: images,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
@@ -8507,6 +7615,7 @@ mixin SyncMixin on ChangeNotifier {
   final LocalStorageService _localStorageService = LocalStorageService();
   
   Timer? _autoSaveTimer;
+  StreamSubscription? _rtdbSubscription;
   final Set<String> _dirtyCollections = {};
   bool _hasUnsavedChanges = false;
   
@@ -8537,10 +7646,34 @@ mixin SyncMixin on ChangeNotifier {
       }
     });
   }
+  
+  void startRealtimeSyncListener() {
+    _rtdbSubscription?.cancel();
+    if (currentUser == null) return;
+    
+    _rtdbSubscription = _storageService.watchUserData(currentUser!.uid).listen((cloudData) {
+      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops during manual sync/load
+      if (cloudData.isNotEmpty) {
+        int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
+        // Only accept data that is genuinely newer than our last push
+        if (cloudTs > settings.lastModified) {
+          debugPrint("Realtime Update Triggered: Cloud ($cloudTs) > Local (${settings.lastModified})");
+          loadStateFromMap(cloudData);
+          _saveLocalSnapshot();
+          notifyListeners();
+        }
+      }
+    });
+  }
+
+  void stopRealtimeSyncListener() {
+    _rtdbSubscription?.cancel();
+  }
 
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _rtdbSubscription?.cancel();
     super.dispose();
   }
 
@@ -8557,6 +7690,11 @@ mixin SyncMixin on ChangeNotifier {
     if (settings.autoSaveEnabled) {
       notifyListeners();
     }
+  }
+
+  Future<void> forceLocalBackup() async {
+    await _saveLocalSnapshot(forceFlush: true);
+    notifyListeners();
   }
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
@@ -8630,8 +7768,8 @@ mixin SyncMixin on ChangeNotifier {
     notifyListeners();
 
     try {
-      final appData = getFullAppState();
       settings.lastModified = DateTime.now().millisecondsSinceEpoch;
+      final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
       final historyData = {'completedByDay': appData['completedByDay']};
@@ -12174,8 +11312,16 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
   Future<void> _backupToFirestore() async {
     try {
-      await context.read<AppProvider>().performFirestoreBackup();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cloud Snapshot Secured in Firestore.")));
+      final provider = context.read<AppProvider>();
+      await provider.forceLocalBackup(); // Auto make local backup first
+      await provider.performFirestoreBackup(); // Then Firestore
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."))
+        );
+        _loadBackups(); // Refresh local list
+      }
     } catch(e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
     }
@@ -13765,7 +12911,17 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
   void _addToPlan(String compoundId) {
     if (!_currentPlan.contains(compoundId)) {
-      setState(() => _currentPlan.add(compoundId));
+      setState(() {
+        _currentPlan.add(compoundId);
+        // Auto-remove any child checkpoints if the parent subtask was just added
+        final parts = compoundId.split('|');
+        if (parts.length == 2) {
+           _currentPlan.removeWhere((item) {
+             final p = item.split('|');
+             return p.length == 3 && p[0] == parts[0] && p[1] == parts[1];
+           });
+        }
+      });
     }
   }
 
@@ -13776,6 +12932,7 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
+    final currentPlanSet = _currentPlan.toSet();
 
     // Build available list
     List<Widget> availableWidgets = [];
@@ -13783,19 +12940,19 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
       final activeSubs = task.subTasks.where((s) => !s.completed).toList();
       if (activeSubs.isEmpty) continue;
 
-      availableWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
-          child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
-        )
-      );
+      List<Widget> taskWidgets = [];
 
       for (var sub in activeSubs) {
         final subId = "${task.id}|${sub.id}";
-        
-        // Add SubTask itself
-        if (!_currentPlan.contains(subId)) {
-          availableWidgets.add(
+        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
+        final allCheckpointIds = activeCheckpoints.map((c) => "$subId|${c.id}").toList();
+
+        bool isSubtaskInPlan = currentPlanSet.contains(subId);
+        bool allCheckpointsInPlan = activeCheckpoints.isNotEmpty && allCheckpointIds.every((id) => currentPlanSet.contains(id));
+
+        // 1. Add SubTask itself if not in plan AND not all its checkpoints are already queued
+        if (!isSubtaskInPlan && !allCheckpointsInPlan) {
+          taskWidgets.add(
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
@@ -13812,29 +12969,40 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
           );
         }
 
-        // Add Checkpoints inside the SubTask
-        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
-        for (var cp in activeCheckpoints) {
-          final cpId = "${task.id}|${sub.id}|${cp.id}";
-          if (!_currentPlan.contains(cpId)) {
-            availableWidgets.add(
-              Container(
-                margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark.withOpacity(0.3),
-                  border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
-                ),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
-                  trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
-                  onTap: () => _addToPlan(cpId),
-                ),
-              )
-            );
+        // 2. Add Checkpoints inside the SubTask ONLY if parent SubTask is NOT queued
+        if (!isSubtaskInPlan) {
+          for (var cp in activeCheckpoints) {
+            final cpId = "$subId|${cp.id}";
+            if (!currentPlanSet.contains(cpId)) {
+              taskWidgets.add(
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withOpacity(0.3),
+                    border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
+                    title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+                    trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+                    onTap: () => _addToPlan(cpId),
+                  ),
+                )
+              );
+            }
           }
         }
+      }
+
+      if (taskWidgets.isNotEmpty) {
+        availableWidgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
+            child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
+          )
+        );
+        availableWidgets.addAll(taskWidgets);
       }
     }
 
@@ -14057,6 +13225,8 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/utils/json_utils.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 
 class AIService {
   
@@ -14106,7 +13276,8 @@ class AIService {
   }
 
   Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
+    String? prompt, // Keeping for backward compatibility where only text is needed
+    List<genai.Part>? parts, // Multi-modal input
     required List<String> modelCandidates,
     List<String>? customApiKeys,
     required int currentApiKeyIndex,
@@ -14121,7 +13292,9 @@ class AIService {
       modelCandidates: modelCandidates,
       requestFn: (apiKey, modelName) async {
         final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
+        
+        final contentParts = parts ?? [genai.TextPart(prompt!)];
+        final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
         String? rawResponseText = response.text;
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
@@ -14136,6 +13309,7 @@ class AIService {
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
+    required String userPrompt,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -14147,9 +13321,10 @@ class AIService {
     
     OBJECTIVE: $taskName
     STRATEGIC INTENT (WHY): $why
+    USER SPECIFIC REQUEST: $userPrompt
     
     Task:
-    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
     2. Define the expected result/reward ("What") upon completion.
     
     Output JSON ONLY:
@@ -14265,13 +13440,24 @@ class AIService {
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
     required String userPrompt,
+    List<XFile>? images,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    
+    List<genai.Part> parts = [genai.TextPart(promptStr)];
+    if (images != null) {
+      for (var img in images) {
+        final bytes = await img.readAsBytes();
+        final mime = lookupMimeType(img.name) ?? 'image/jpeg';
+        parts.add(genai.DataPart(mime, bytes));
+      }
+    }
+
+    return await makeAICall(parts: parts, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
   Future<List<Map<String, dynamic>>> generateStepsForProject({
@@ -14967,26 +14153,37 @@ class StorageService {
       final snap = await _rtdb.ref('users/$userId/data').get();
       
       if (snap.exists && snap.value != null) {
-        final raw = snap.value as Map<dynamic, dynamic>;
-        Map<String, dynamic> fullData = {};
-        
-        // We store chunks as JSON strings in RTDB to prevent array/map mangling
-        if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
-        if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
-        if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
-        if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
-        if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
-        
-        return fullData;
+        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
         // Migration Fallback: If no RTDB data, pull from Firestore and return it.
-        // SyncMixin will immediately save it back to RTDB on next tick.
         return await getFirestoreBackup(userId);
       }
     } catch (e) {
       // In case of extreme failure, fallback to Firestore
       return await getFirestoreBackup(userId);
     }
+  }
+
+  // Live Sync Stream
+  Stream<Map<String, dynamic>> watchUserData(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    
+    return _rtdb.ref('users/$userId/data').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return _parseRtdbData(event.snapshot.value as Map<dynamic, dynamic>);
+      }
+      return {};
+    });
+  }
+
+  Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
+    Map<String, dynamic> fullData = {};
+    if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
+    if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
+    if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    return fullData;
   }
 
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
@@ -16800,8 +15997,10 @@ class BusNextCard extends StatelessWidget {
 
 --- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;
@@ -16823,18 +16022,12 @@ class OverallProjectProgressCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF2C3E50), AppTheme.fhBgDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+        color: PersonInfoTheme.bgPanel,
+        border: Border.all(color: PersonInfoTheme.spideyRed, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
+            color: PersonInfoTheme.spideyRed.withValues(alpha: 0.2),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           )
         ],
@@ -16847,40 +16040,45 @@ class OverallProjectProgressCard extends StatelessWidget {
             children: [
               Text(
                 "OVERALL PROGRESS",
-                style: TextStyle(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
-                  fontSize: 11,
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.spideyCyan,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+                  letterSpacing: 1.5,
                 ),
               ),
               Text(
                 "$percentage%",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.textWhite,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  fontFamily: AppTheme.fontDisplay,
+                  shadows: [
+                    const Shadow(
+                      color: Color(0x6600f0ff),
+                      blurRadius: 5.0,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: avgProgress,
-              minHeight: 8,
-              backgroundColor: AppTheme.fhBgDeepDark,
-              color: AppTheme.fhAccentTeal,
-            ),
+          const SizedBox(height: 16),
+          SpideyProgressBar(
+            progress: avgProgress,
+            color: PersonInfoTheme.spideyRed,
           ),
-          const SizedBox(height: 8),
-          Text(
-            "${activeProjects.length} Active Projects",
-            style: TextStyle(
-                color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
-                fontSize: 11),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              "${activeProjects.length} ACTIVE OPERATIONS",
+              style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.textGrey,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  fontSize: 14),
+            ),
           ),
         ],
       ),
@@ -22551,6 +21749,8 @@ import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SubmissionDetailScreen extends StatefulWidget {
   final MainTask parentTask;
@@ -22797,10 +21997,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 foregroundColor: Colors.black,
                                 onPressed: () {
                                   if (isRunning) {
-                                    provider.pauseTimer(liveSubTask.id); 
+                                    provider.pauseTimer(liveSubTask!.id); 
                                     provider.logTimerAndReset(liveSubTask.id); 
                                   } else {
-                                    provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
                                   }
                                 },
                                 child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
@@ -22823,7 +22023,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             subTaskId: liveSubTask.id,
                             steps: liveSubTask.subSubTasks,
                             accentColor: activeAccent,
-                            onGenerate: () => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask.id, liveSubTask.why),
+                            onGenerate: (prompt) => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
                           ),
                           
                           const SizedBox(height: 24),
@@ -22832,19 +22032,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'why': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanOutcomeCard(
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'what': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'resources': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -22908,7 +22108,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
-                                provider.completeSubtask(widget.parentTask.id, liveSubTask.id);
+                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -22921,7 +22121,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,
                               onPressed: () {
-                                provider.deleteSubtask(widget.parentTask.id, liveSubTask.id);
+                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -23365,6 +22565,8 @@ import 'package:arcane/src/widgets/valorant/valorant_text_field.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class CreateProjectSheet extends StatefulWidget {
   const CreateProjectSheet({super.key});
@@ -23377,6 +22579,9 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   String? _selectedMainTaskId;
+  
+  final ImagePicker _picker = ImagePicker();
+  final List<XFile> _selectedImages = [];
 
   @override
   void initState() {
@@ -23390,6 +22595,25 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
     _nameController.dispose();
     _descController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source);
+      if (picked != null) {
+        setState(() {
+          _selectedImages.add(picked);
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error picking image: $e")));
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
   }
 
   @override
@@ -23462,6 +22686,68 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
                   maxLines: 3,
                 ),
                 
+                const SizedBox(height: 24),
+                
+                // AI Multi-modal Attachments
+                const Text("ATTACHMENTS (FOR AI GENERATION)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.camera_alt, size: 16),
+                      label: const Text("CAMERA"),
+                      onPressed: () => _pickImage(ImageSource.camera),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.fhAccentTeal),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.photo_library, size: 16),
+                      label: const Text("GALLERY"),
+                      onPressed: () => _pickImage(ImageSource.gallery),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.fhAccentPurple),
+                    ),
+                  ],
+                ),
+                
+                if (_selectedImages.isNotEmpty) ...[
+                   const SizedBox(height: 16),
+                   SizedBox(
+                     height: 80,
+                     child: ListView.builder(
+                       scrollDirection: Axis.horizontal,
+                       itemCount: _selectedImages.length,
+                       itemBuilder: (context, index) {
+                         return Stack(
+                           children: [
+                             Container(
+                               margin: const EdgeInsets.only(right: 12, top: 8),
+                               width: 60, height: 60,
+                               decoration: BoxDecoration(
+                                 border: Border.all(color: AppTheme.fhBorderColor),
+                                 image: DecorationImage(
+                                   image: FileImage(File(_selectedImages[index].path)),
+                                   fit: BoxFit.cover
+                                 )
+                               ),
+                             ),
+                             Positioned(
+                               top: 0, right: 0,
+                               child: InkWell(
+                                 onTap: () => _removeImage(index),
+                                 child: Container(
+                                   padding: const EdgeInsets.all(2),
+                                   decoration: const BoxDecoration(color: AppTheme.fhAccentRed, shape: BoxShape.circle),
+                                   child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                 ),
+                               ),
+                             )
+                           ],
+                         );
+                       },
+                     ),
+                   ),
+                ],
+                
                 const SizedBox(height: 40),
                 
                 // Buttons
@@ -23477,16 +22763,31 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ValorantButton(
-                        label: "DEPLOY",
+                        label: provider.isGeneratingSubquests ? "PROCESSING..." : "DEPLOY",
                         isPrimary: true,
-                        onPressed: () {
+                        onPressed: provider.isGeneratingSubquests ? null : () async {
                           if (_nameController.text.isNotEmpty && _selectedMainTaskId != null) {
-                            provider.projectActions.addProject(
-                              _nameController.text, 
-                              _descController.text,
-                              mainTaskId: _selectedMainTaskId
-                            );
-                            Navigator.pop(context);
+                            
+                            // If description has content, it means we might want AI generation
+                            if (_descController.text.isNotEmpty || _selectedImages.isNotEmpty) {
+                              final prompt = "${_nameController.text}. Details: ${_descController.text}";
+                              
+                              // We don't pop immediately because we await the AI task if generating with context
+                              await provider.projectActions.generateProjectStructure(
+                                _selectedMainTaskId!, 
+                                prompt, 
+                                images: _selectedImages.isNotEmpty ? _selectedImages : null
+                              );
+                              if (mounted) Navigator.pop(context);
+                            } else {
+                              // Basic manual creation
+                              provider.projectActions.addProject(
+                                _nameController.text, 
+                                _descController.text,
+                                mainTaskId: _selectedMainTaskId
+                              );
+                              Navigator.pop(context);
+                            }
                           }
                         },
                       ),
@@ -25399,59 +24700,6 @@ class CompletedProjectsSection extends StatelessWidget {
 
 --- END OF FILE lib/src/widgets/ui/completed_projects_section.dart ---
 
---- START OF FILE lib/src/widgets/ui/completed_submissions_section.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class CompletedSubmissionsSection extends StatelessWidget {
-  final MainTask parentTask;
-  final List<SubTask> completedSubtasks;
-
-  const CompletedSubmissionsSection({
-    super.key,
-    required this.parentTask,
-    required this.completedSubtasks,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(MdiIcons.archiveCheckOutline,
-                color: parentTask.taskColor.withOpacity(0.7), size: 20),
-            title: Text(
-              "ARCHIVED MISSIONS (${completedSubtasks.length})",
-              style: TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontWeight: FontWeight.bold,
-                fontFamily: AppTheme.fontDisplay,
-                letterSpacing: 1.2,
-                fontSize: 14,
-              ),
-            ),
-            childrenPadding: EdgeInsets.zero,
-            children: completedSubtasks.map((st) {
-              return SubmissionCard(parentTask: parentTask, subTask: st);
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/completed_submissions_section.dart ---
-
 --- START OF FILE lib/src/widgets/ui/linked_task_indicator.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -25923,80 +25171,6 @@ class ProjectStepListTile extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/ui/project_step_list_tile.dart ---
-
---- START OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class RecurringCompletedSection extends StatelessWidget {
-  final MainTask parentTask;
-  final List<SubTask> completedSubtasks;
-
-  const RecurringCompletedSection({
-    super.key,
-    required this.parentTask,
-    required this.completedSubtasks,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(MdiIcons.timerSand,
-                color: AppTheme.fhAccentTeal, size: 20),
-            title: Row(
-              children: [
-                Text(
-                  "COOLDOWN",
-                  style: TextStyle(
-                    color: AppTheme.fhAccentTeal,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: AppTheme.fontDisplay,
-                    letterSpacing: 1.2,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhAccentTeal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.3)),
-                  ),
-                  child: const Text(
-                    "RESETS 00:00",
-                    style: TextStyle(
-                      color: AppTheme.fhAccentTeal,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            childrenPadding: EdgeInsets.zero,
-            children: completedSubtasks.map((st) {
-              return SubmissionCard(parentTask: parentTask, subTask: st);
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
 
 --- START OF FILE lib/src/widgets/ui/sync_indicator.dart ---
 import 'package:flutter/material.dart';
@@ -27555,6 +26729,133 @@ class WellbeingCard extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/ui/wellbeing_card.dart ---
+
+--- START OF FILE lib/src/widgets/ui/completed_submissions_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class CompletedSubmissionsSection extends StatelessWidget {
+  final MainTask parentTask;
+  final List<SubTask> completedSubtasks;
+
+  const CompletedSubmissionsSection({
+    super.key,
+    required this.parentTask,
+    required this.completedSubtasks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(MdiIcons.archiveCheckOutline,
+                color: parentTask.taskColor.withOpacity(0.7), size: 20),
+            title: Text(
+              "ARCHIVED MISSIONS (${completedSubtasks.length})",
+              style: TextStyle(
+                color: AppTheme.fhTextSecondary,
+                fontWeight: FontWeight.bold,
+                fontFamily: AppTheme.fontDisplay,
+                letterSpacing: 1.2,
+                fontSize: 14,
+              ),
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: completedSubtasks.map((st) {
+              return SubmissionCard(parentTask: parentTask, subTask: st);
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/completed_submissions_section.dart ---
+
+--- START OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class RecurringCompletedSection extends StatelessWidget {
+  final MainTask parentTask;
+  final List<SubTask> completedSubtasks;
+
+  const RecurringCompletedSection({
+    super.key,
+    required this.parentTask,
+    required this.completedSubtasks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (completedSubtasks.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(MdiIcons.timerSand,
+                color: AppTheme.fhAccentTeal, size: 20),
+            title: Row(
+              children: [
+                Text(
+                  "COOLDOWN",
+                  style: TextStyle(
+                    color: AppTheme.fhAccentTeal,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontDisplay,
+                    letterSpacing: 1.2,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhAccentTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.3)),
+                  ),
+                  child: const Text(
+                    "RESETS 00:00",
+                    style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: completedSubtasks.map((st) {
+              return SubmissionCard(parentTask: parentTask, subTask: st);
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
 
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
@@ -29338,6 +28639,7 @@ import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -29642,9 +28944,12 @@ class _ScheduleViewState extends State<ScheduleView> {
     final isToday = _isSameDay(_selectedDate, DateTime.now());
 
     // Resolve Next Task from Day Plan
+    String? nextQueueId;
     SubTask? nextSubTask;
     MainTask? nextMainTask;
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+    SubSubTask? nextCheckpoint;
+
+    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
     
     for (String idPair in plan) {
       final parts = idPair.split('|');
@@ -29652,25 +28957,42 @@ class _ScheduleViewState extends State<ScheduleView> {
         final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
         final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
         
-        // We only care about the parent SubTask for the Hero Timer
         if (sTask != null && !sTask.completed) {
-          nextSubTask = sTask;
-          nextMainTask = mTask;
-          break; // Found the first incomplete task in the plan
+          if (parts.length == 3) {
+            // It's a checkpoint
+            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              nextQueueId = idPair;
+              nextMainTask = mTask;
+              nextSubTask = sTask;
+              nextCheckpoint = cp;
+              break;
+            }
+          } else {
+            // It's a subtask
+            nextQueueId = idPair;
+            nextMainTask = mTask;
+            nextSubTask = sTask;
+            break;
+          }
         }
       }
     }
 
     final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
+    final totalTodaySeconds = nextSubTask != null 
+        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
+        : 0.0;
 
     return Column(
       children: [
         // HERO SECTION
         ScheduleHeroWidget(
-          nextTaskName: nextMainTask?.name ?? "NO PLAN SET",
-          nextSubTaskName: nextSubTask?.name ?? "NONE",
-          nextTaskColor: nextMainTask?.taskColor ?? AppTheme.fhTextDisabled,
+          mainTask: nextMainTask,
+          subTask: nextSubTask,
+          checkpoint: nextCheckpoint,
           isRunning: isRunning,
+          totalTodaySeconds: totalTodaySeconds,
           onOpenPlan: () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
           },
@@ -29681,6 +29003,19 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.logTimerAndReset(nextSubTask!.id);
             } else {
               provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+            }
+          },
+          onPostpone: () {
+            if (nextQueueId != null) {
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onFinishCheckpoint: () {
+            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
+              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
             }
           },
         ),
@@ -31760,47 +31095,55 @@ class ProtocolControlPanel extends StatelessWidget {
 --- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ScheduleHeroWidget extends StatelessWidget {
-  final String nextTaskName;
-  final String nextSubTaskName;
-  final Color nextTaskColor;
+  final MainTask? mainTask;
+  final SubTask? subTask;
+  final SubSubTask? checkpoint;
   final bool isRunning;
+  final double totalTodaySeconds;
+  
   final VoidCallback onPlayPause;
   final VoidCallback onOpenPlan;
+  final VoidCallback onPostpone;
+  final VoidCallback onFinishCheckpoint;
 
   const ScheduleHeroWidget({
     super.key,
-    required this.nextTaskName,
-    required this.nextSubTaskName,
-    required this.nextTaskColor,
+    this.mainTask,
+    this.subTask,
+    this.checkpoint,
     required this.isRunning,
+    required this.totalTodaySeconds,
     required this.onPlayPause,
     required this.onOpenPlan,
+    required this.onPostpone,
+    required this.onFinishCheckpoint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isEmpty = subTask == null;
+    final bool isCheckpoint = checkpoint != null;
+    
+    final Color mainColor = isEmpty 
+        ? AppTheme.fhTextDisabled 
+        : (isCheckpoint ? PersonInfoTheme.spideyCyan : (mainTask?.taskColor ?? PersonInfoTheme.spideyRed));
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: nextTaskColor.withOpacity(0.5), width: 1.5),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            nextTaskColor.withOpacity(0.15),
-            AppTheme.fhBgDeepDark,
-          ],
-        ),
+        color: PersonInfoTheme.bgPanel,
+        border: Border(left: BorderSide(color: mainColor, width: 4)),
         boxShadow: [
           BoxShadow(
-            color: nextTaskColor.withOpacity(0.1),
+            color: mainColor.withOpacity(0.15),
             blurRadius: 15,
             spreadRadius: 2,
           )
@@ -31811,22 +31154,21 @@ class ScheduleHeroWidget extends StatelessWidget {
         children: [
           // Header Row
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(MdiIcons.targetAccount, color: nextTaskColor, size: 16),
+                    Icon(isCheckpoint ? MdiIcons.rhombusOutline : MdiIcons.targetAccount, color: mainColor, size: 14),
                     const SizedBox(width: 8),
                     Text(
-                      "UP NEXT",
-                      style: TextStyle(
-                        color: nextTaskColor,
-                        fontSize: 10,
+                      isEmpty ? "QUEUE EMPTY" : (isCheckpoint ? "CHECKPOINT TARGET" : "PRIMARY TARGET"),
+                      style: GoogleFonts.rajdhani(
+                        color: mainColor,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
-                        fontFamily: AppTheme.fontDisplay,
                       ),
                     ),
                   ],
@@ -31837,7 +31179,6 @@ class ScheduleHeroWidget extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.fhTextSecondary.withOpacity(0.5)),
-                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
                       children: [
@@ -31854,7 +31195,7 @@ class ScheduleHeroWidget extends StatelessWidget {
           
           // Main Content
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -31863,10 +31204,10 @@ class ScheduleHeroWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        nextSubTaskName.toUpperCase(),
+                        isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
                         style: GoogleFonts.chakraPetch(
                           color: AppTheme.fhTextPrimary,
-                          fontSize: 24,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                           height: 1.1,
@@ -31875,44 +31216,117 @@ class ScheduleHeroWidget extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        nextTaskName.toUpperCase(),
-                        style: TextStyle(
-                          color: AppTheme.fhTextSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: AppTheme.fontDisplay,
+                      if (!isEmpty)
+                        Text(
+                          isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
+                          style: TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: AppTheme.fontDisplay,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                        
+                      if (!isCheckpoint && !isEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
+                            const SizedBox(width: 4),
+                            Text(
+                              "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
+                              style: const TextStyle(
+                                fontFamily: "RobotoMono",
+                                color: AppTheme.fhTextSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold
+                              ),
+                            )
+                          ],
+                        )
+                      ]
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Play/Pause Button
-                if (nextSubTaskName != "NONE")
-                  GestureDetector(
-                    onTap: onPlayPause,
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: isRunning ? AppTheme.fhAccentRed : nextTaskColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: isRunning ? AppTheme.fhAccentRed.withOpacity(0.4) : nextTaskColor.withOpacity(0.4), blurRadius: 10)
-                        ]
-                      ),
-                      child: Icon(
-                        isRunning ? MdiIcons.pause : MdiIcons.play,
-                        color: Colors.black,
-                        size: 32,
-                      ),
-                    ),
-                  ),
+                
+                if (!isEmpty) ...[
+                  const SizedBox(width: 16),
+                  
+                  // Action Buttons Column
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isCheckpoint) ...[
+                        _buildCompactButton(
+                          label: "FINISH",
+                          icon: MdiIcons.checkAll,
+                          color: PersonInfoTheme.spideyCyan,
+                          isFilled: true,
+                          onTap: onFinishCheckpoint
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
+                          label: "POSTPONE",
+                          icon: MdiIcons.skipNext,
+                          color: PersonInfoTheme.spideyRed,
+                          isFilled: false,
+                          onTap: onPostpone
+                        ),
+                      ] else ...[
+                        _buildCompactButton(
+                          label: isRunning ? "HALT" : "ENGAGE",
+                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
+                          color: isRunning ? AppTheme.fhAccentRed : mainColor,
+                          isFilled: true,
+                          onTap: onPlayPause
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
+                          label: "POSTPONE",
+                          icon: MdiIcons.skipNext,
+                          color: AppTheme.fhTextSecondary,
+                          isFilled: false,
+                          onTap: onPostpone
+                        ),
+                      ]
+                    ],
+                  )
+                ]
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildCompactButton({required String label, required IconData icon, required Color color, required bool isFilled, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: isFilled ? color : Colors.transparent,
+          border: Border.all(color: color, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: isFilled ? Colors.black : color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.rajdhani(
+                color: isFilled ? Colors.black : color,
+                fontWeight: FontWeight.bold,
+                fontSize: 12
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -32222,9 +31636,9 @@ class _LayoutEntry {
 --- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -32242,6 +31656,9 @@ class DayPlanDashboardWidget extends StatelessWidget {
 
     // Map IDs to actual active widgets for the horizontal list
     List<Widget> queueItems = [];
+
+    // Track what we've rendered so we don't render the top item again if it's currently active in the hero
+    bool isFirstItem = true;
 
     for (String compId in plan) {
       final parts = compId.split('|');
@@ -32267,41 +31684,23 @@ class DayPlanDashboardWidget extends StatelessWidget {
         isCompleted = cp.completed;
         title = cp.name;
         typeLabel = "CHECKPOINT";
-
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: sub.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubSubtask(mainId, subId, cpId);
-            } else {
-              provider.taskActions.completeSubSubtask(mainId, subId, cpId);
-            }
-          }
-        ));
-
       } else {
         isCompleted = sub.completed;
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: task.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(mainId, subId);
-            } else {
-              provider.taskActions.completeSubtask(mainId, subId);
-            }
-          }
-        ));
       }
+      
+      // Skip completed items, or the very first incomplete item since it's in the Hero Widget
+      if (isCompleted) continue;
+      if (isFirstItem) {
+         isFirstItem = false;
+         continue; // Skip the active up-next
+      }
+
+      queueItems.add(_buildCard(
+        context, provider,
+        title: title,
+        parentName: isCheckpoint ? sub.name : task.name,
+        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
+      ));
     }
 
     if (queueItems.isEmpty) return const SizedBox.shrink();
@@ -32313,24 +31712,24 @@ class DayPlanDashboardWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             children: [
-              Icon(MdiIcons.formatListChecks, size: 16, color: AppTheme.fhTextSecondary),
+              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
               const SizedBox(width: 8),
-              const Text("TODAY'S QUEUE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ],
           ),
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 100, // Compact horizontal card height
+          height: 65, // More compact horizontal card height
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: queueItems.length,
-            separatorBuilder: (c, i) => const SizedBox(width: 12),
+            separatorBuilder: (c, i) => const SizedBox(width: 10),
             itemBuilder: (c, i) => queueItems[i],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -32340,62 +31739,35 @@ class DayPlanDashboardWidget extends StatelessWidget {
     required String title,
     required String parentName,
     required Color color,
-    required String typeLabel,
-    required bool isCompleted,
-    required VoidCallback onToggle,
   }) {
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
+      width: 180,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isCompleted ? AppTheme.fhBorderColor : color.withOpacity(0.5)),
-        boxShadow: isCompleted ? null : [BoxShadow(color: color.withOpacity(0.1), blurRadius: 10)]
+        color: PersonInfoTheme.bgPanel,
+        border: Border(left: BorderSide(color: color, width: 3)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: RhombusCheckbox(
-              checked: isCompleted,
-              onChanged: (_) => onToggle(),
-              size: CheckboxSize.small,
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.chakraPetch(
+              color: AppTheme.fhTextPrimary, 
+              fontSize: 12, 
+              fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  typeLabel,
-                  style: TextStyle(color: isCompleted ? AppTheme.fhTextDisabled : color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title.toUpperCase(),
-                  style: GoogleFonts.chakraPetch(
-                    color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary, 
-                    fontSize: 14, 
-                    fontWeight: FontWeight.bold,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  parentName,
-                  style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          )
+          const SizedBox(height: 4),
+          Text(
+            parentName,
+            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -33295,6 +32667,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
 import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33303,7 +32676,7 @@ class ActionPlanStepsList extends StatefulWidget {
   final String mainTaskId;
   final String subTaskId;
   final List<SubSubTask> steps;
-  final VoidCallback onGenerate;
+  final Function(String) onGenerate;
   final Color accentColor;
 
   const ActionPlanStepsList({
@@ -33362,7 +32735,19 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
               if (widget.steps.isEmpty)
                 TextButton.icon(
-                  onPressed: isLoading ? null : widget.onGenerate,
+                  onPressed: isLoading ? null : () async {
+                    final prompt = await showDialog<String>(
+                      context: context,
+                      builder: (_) => const AiGenerationPromptDialog(
+                        title: "GENERATE STRATEGY",
+                        hintText: "Add specific instructions, e.g. Focus on low budget...",
+                        actionLabel: "GENERATE",
+                      ),
+                    );
+                    if (prompt != null && prompt.isNotEmpty) {
+                      widget.onGenerate(prompt);
+                    }
+                  },
                   icon: isLoading 
                     ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
                     : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
@@ -34398,3 +33783,806 @@ void main() {
   });
 }
 --- END OF FILE test/widget_test.dart ---
+
+--- START OF FILE android/build.gradle.kts ---
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+val newBuildDir: Directory =
+    rootProject.layout.buildDirectory
+        .dir("../../build")
+        .get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
+subprojects {
+    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    project.layout.buildDirectory.value(newSubprojectBuildDir)
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
+}
+
+--- END OF FILE android/build.gradle.kts ---
+
+--- START OF FILE android/gradle.properties ---
+org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError
+android.useAndroidX=true
+
+--- END OF FILE android/gradle.properties ---
+
+--- START OF FILE android/.gitignore ---
+gradle-wrapper.jar
+/.gradle
+/captures/
+/gradlew
+/gradlew.bat
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+
+# Remember to never publicly share your keystore.
+# See https://flutter.dev/to/reference-keystore
+key.properties
+**/*.keystore
+**/*.jks
+
+--- END OF FILE android/.gitignore ---
+
+--- START OF FILE android/settings.gradle.kts ---
+pluginManagement {
+    val flutterSdkPath =
+        run {
+            val properties = java.util.Properties()
+            file("local.properties").inputStream().use { properties.load(it) }
+            val flutterSdkPath = properties.getProperty("flutter.sdk")
+            require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+            flutterSdkPath
+        }
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.11.1" apply false
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services") version("4.3.15") apply false
+    // END: FlutterFire Configuration
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+}
+
+include(":app")
+
+--- END OF FILE android/settings.gradle.kts ---
+
+--- START OF FILE android/gradlew ---
+#!/usr/bin/env bash
+
+##############################################################################
+##
+##  Gradle start up script for UN*X
+##
+##############################################################################
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS=""
+
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD="maximum"
+
+warn ( ) {
+    echo "$*"
+}
+
+die ( ) {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+case "`uname`" in
+  CYGWIN* )
+    cygwin=true
+    ;;
+  Darwin* )
+    darwin=true
+    ;;
+  MINGW* )
+    msys=true
+    ;;
+esac
+
+# Attempt to set APP_HOME
+# Resolve links: $0 may be a link
+PRG="$0"
+# Need this for relative symlinks.
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+SAVED="`pwd`"
+cd "`dirname \"$PRG\"`/" >/dev/null
+APP_HOME="`pwd -P`"
+cd "$SAVED" >/dev/null
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+# Determine the Java command to use to start the JVM.
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+        JAVACMD="$JAVA_HOME/bin/java"
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD="java"
+    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+fi
+
+# Increase the maximum file descriptors if we can.
+if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
+    MAX_FD_LIMIT=`ulimit -H -n`
+    if [ $? -eq 0 ] ; then
+        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
+            MAX_FD="$MAX_FD_LIMIT"
+        fi
+        ulimit -n $MAX_FD
+        if [ $? -ne 0 ] ; then
+            warn "Could not set maximum file descriptor limit: $MAX_FD"
+        fi
+    else
+        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
+    fi
+fi
+
+# For Darwin, add options to specify how the application appears in the dock
+if $darwin; then
+    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+fi
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin ; then
+    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
+    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
+    JAVACMD=`cygpath --unix "$JAVACMD"`
+
+    # We build the pattern for arguments to be converted via cygpath
+    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
+    SEP=""
+    for dir in $ROOTDIRSRAW ; do
+        ROOTDIRS="$ROOTDIRS$SEP$dir"
+        SEP="|"
+    done
+    OURCYGPATTERN="(^($ROOTDIRS))"
+    # Add a user-defined pattern to the cygpath arguments
+    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
+        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
+    fi
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    i=0
+    for arg in "$@" ; do
+        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
+        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
+
+        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
+            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
+        else
+            eval `echo args$i`="\"$arg\""
+        fi
+        i=$((i+1))
+    done
+    case $i in
+        (0) set -- ;;
+        (1) set -- "$args0" ;;
+        (2) set -- "$args0" "$args1" ;;
+        (3) set -- "$args0" "$args1" "$args2" ;;
+        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
+        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
+        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
+        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
+        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
+        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
+    esac
+fi
+
+# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
+function splitJvmOpts() {
+    JVM_OPTS=("$@")
+}
+eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
+JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
+
+exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+
+--- END OF FILE android/gradlew ---
+
+--- START OF FILE android/gradlew.bat ---
+@if "%DEBUG%" == "" @echo off
+@rem ##########################################################################
+@rem
+@rem  Gradle startup script for Windows
+@rem
+@rem ##########################################################################
+
+@rem Set local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" setlocal
+
+@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+set DEFAULT_JVM_OPTS=
+
+set DIRNAME=%~dp0
+if "%DIRNAME%" == "" set DIRNAME=.
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+
+@rem Find java.exe
+if defined JAVA_HOME goto findJavaFromJavaHome
+
+set JAVA_EXE=java.exe
+%JAVA_EXE% -version >NUL 2>&1
+if "%ERRORLEVEL%" == "0" goto init
+
+echo.
+echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:findJavaFromJavaHome
+set JAVA_HOME=%JAVA_HOME:"=%
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+
+if exist "%JAVA_EXE%" goto init
+
+echo.
+echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:init
+@rem Get command-line arguments, handling Windowz variants
+
+if not "%OS%" == "Windows_NT" goto win9xME_args
+if "%@eval[2+2]" == "4" goto 4NT_args
+
+:win9xME_args
+@rem Slurp the command line arguments.
+set CMD_LINE_ARGS=
+set _SKIP=2
+
+:win9xME_args_slurp
+if "x%~1" == "x" goto execute
+
+set CMD_LINE_ARGS=%*
+goto execute
+
+:4NT_args
+@rem Get arguments from the 4NT Shell from JP Software
+set CMD_LINE_ARGS=%$
+
+:execute
+@rem Setup the command line
+
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+
+@rem Execute Gradle
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
+
+:end
+@rem End local scope for the variables with windows NT shell
+if "%ERRORLEVEL%"=="0" goto mainEnd
+
+:fail
+rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
+rem the _cmd.exe /c_ return code!
+if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
+exit /b 1
+
+:mainEnd
+if "%OS%"=="Windows_NT" endlocal
+
+:omega
+
+--- END OF FILE android/gradlew.bat ---
+
+--- START OF FILE android/local.properties ---
+sdk.dir=/home/ihjas/Android/Sdk
+flutter.sdk=/mnt/sda2/home/flutter
+flutter.buildMode=debug
+flutter.versionName=2026.1.25
+flutter.versionCode=712
+--- END OF FILE android/local.properties ---
+
+--- START OF FILE android/app/build.gradle.kts ---
+plugins {
+    id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
+    id("kotlin-android")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+android {
+    namespace = "com.example.arcane"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
+
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "com.example.arcane"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+--- END OF FILE android/app/build.gradle.kts ---
+
+--- START OF FILE android/app/google-services.json ---
+{
+  "project_info": {
+    "project_number": "1059901273076",
+    "firebase_url": "https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "task-dominion",
+    "storage_bucket": "task-dominion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:092a770ad41f5234843fa1",
+        "android_client_info": {
+          "package_name": "com.example.arcane"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:749d4c8f9c5aeb9e843fa1",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:0cb9d16dea4f2201843fa1",
+        "android_client_info": {
+          "package_name": "com.example.myapp_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:edb8027313c28e2c843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.arcane"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:9bbc5d654d40408c843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.dominion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:bdeb039da1e16ab1843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.myapp_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+--- END OF FILE android/app/google-services.json ---
+
+--- START OF FILE android/app/src/main/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="Primus"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="Primus"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
+
+--- END OF FILE android/app/src/main/AndroidManifest.xml ---
+
+--- START OF FILE android/app/src/main/kotlin/com/example/arcane/MainActivity.kt ---
+package com.example.arcane
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
+
+--- END OF FILE android/app/src/main/kotlin/com/example/arcane/MainActivity.kt ---
+
+--- START OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?android:colorBackground" />
+
+    <!-- You can insert your own image assets here -->
+    <!-- <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item> -->
+</layer-list>
+
+--- END OF FILE android/app/src/main/res/drawable-v21/launch_background.xml ---
+
+--- START OF FILE android/app/src/main/res/drawable/launch_background.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/white" />
+
+    <!-- You can insert your own image assets here -->
+    <!-- <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item> -->
+</layer-list>
+
+--- END OF FILE android/app/src/main/res/drawable/launch_background.xml ---
+
+--- START OF FILE android/app/src/main/res/values-night/styles.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is on -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <!-- Show a splash screen on the activity. Automatically removed when
+             the Flutter engine draws its first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
+
+--- END OF FILE android/app/src/main/res/values-night/styles.xml ---
+
+--- START OF FILE android/app/src/main/res/values/styles.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Show a splash screen on the activity. Automatically removed when
+             the Flutter engine draws its first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
+
+--- END OF FILE android/app/src/main/res/values/styles.xml ---
+
+--- START OF FILE android/app/src/main/res/values/colors.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#000000</color>
+</resources>
+--- END OF FILE android/app/src/main/res/values/colors.xml ---
+
+--- START OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ic_launcher_background"/>
+  <foreground>
+      <inset
+          android:drawable="@drawable/ic_launcher_foreground"
+          android:inset="25%" />
+  </foreground>
+</adaptive-icon>
+
+--- END OF FILE android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml ---
+
+--- START OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
+package io.flutter.plugins;
+
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import io.flutter.Log;
+
+import io.flutter.embedding.engine.FlutterEngine;
+
+/**
+ * Generated file. Do not edit.
+ * This file is generated by the Flutter tool based on the
+ * plugins that support the Android platform.
+ */
+@Keep
+public final class GeneratedPluginRegistrant {
+  private static final String TAG = "GeneratedPluginRegistrant";
+  public static void registerWith(@NonNull FlutterEngine flutterEngine) {
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin cloud_firestore, io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.connectivity.ConnectivityPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin connectivity_plus, dev.fluttercommunity.plus.connectivity.ConnectivityPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new com.mr.flutter.plugin.filepicker.FilePickerPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin file_picker, com.mr.flutter.plugin.filepicker.FilePickerPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_auth, io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_core, io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.firebase.database.FirebaseDatabasePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin firebase_database, io.flutter.plugins.firebase.database.FirebaseDatabasePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin flutter_plugin_android_lifecycle, io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.imagepicker.ImagePickerPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin image_picker_android, io.flutter.plugins.imagepicker.ImagePickerPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new io.flutter.plugins.pathprovider.PathProviderPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin path_provider_android, io.flutter.plugins.pathprovider.PathProviderPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new dev.fluttercommunity.plus.share.SharePlusPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin share_plus, dev.fluttercommunity.plus.share.SharePlusPlugin", e);
+    }
+  }
+}
+
+--- END OF FILE android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java ---
+
+--- START OF FILE android/app/src/profile/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+
+--- END OF FILE android/app/src/profile/AndroidManifest.xml ---
+
+--- START OF FILE android/app/src/debug/AndroidManifest.xml ---
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+
+--- END OF FILE android/app/src/debug/AndroidManifest.xml ---
+
+--- START OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-all.zip
+
+--- END OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
+
+--- START OF FILE android/.gradle/8.14/gc.properties ---
+
+--- END OF FILE android/.gradle/8.14/gc.properties ---
+
+--- START OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+#Sun Mar 15 16:20:57 IST 2026
+gradle.version=8.14
+
+--- END OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+
+--- START OF FILE android/.gradle/vcs-1/gc.properties ---
+
+--- END OF FILE android/.gradle/vcs-1/gc.properties ---

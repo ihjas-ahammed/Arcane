@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +20,9 @@ class DayPlanDashboardWidget extends StatelessWidget {
 
     // Map IDs to actual active widgets for the horizontal list
     List<Widget> queueItems = [];
+
+    // Track what we've rendered so we don't render the top item again if it's currently active in the hero
+    bool isFirstItem = true;
 
     for (String compId in plan) {
       final parts = compId.split('|');
@@ -45,41 +48,23 @@ class DayPlanDashboardWidget extends StatelessWidget {
         isCompleted = cp.completed;
         title = cp.name;
         typeLabel = "CHECKPOINT";
-
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: sub.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubSubtask(mainId, subId, cpId);
-            } else {
-              provider.taskActions.completeSubSubtask(mainId, subId, cpId);
-            }
-          }
-        ));
-
       } else {
         isCompleted = sub.completed;
-        queueItems.add(_buildCard(
-          context, provider,
-          title: title,
-          parentName: task.name,
-          color: task.taskColor,
-          typeLabel: typeLabel,
-          isCompleted: isCompleted,
-          onToggle: () {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(mainId, subId);
-            } else {
-              provider.taskActions.completeSubtask(mainId, subId);
-            }
-          }
-        ));
       }
+      
+      // Skip completed items, or the very first incomplete item since it's in the Hero Widget
+      if (isCompleted) continue;
+      if (isFirstItem) {
+         isFirstItem = false;
+         continue; // Skip the active up-next
+      }
+
+      queueItems.add(_buildCard(
+        context, provider,
+        title: title,
+        parentName: isCheckpoint ? sub.name : task.name,
+        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
+      ));
     }
 
     if (queueItems.isEmpty) return const SizedBox.shrink();
@@ -91,24 +76,24 @@ class DayPlanDashboardWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             children: [
-              Icon(MdiIcons.formatListChecks, size: 16, color: AppTheme.fhTextSecondary),
+              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
               const SizedBox(width: 8),
-              const Text("TODAY'S QUEUE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ],
           ),
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 100, // Compact horizontal card height
+          height: 65, // More compact horizontal card height
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: queueItems.length,
-            separatorBuilder: (c, i) => const SizedBox(width: 12),
+            separatorBuilder: (c, i) => const SizedBox(width: 10),
             itemBuilder: (c, i) => queueItems[i],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -118,62 +103,35 @@ class DayPlanDashboardWidget extends StatelessWidget {
     required String title,
     required String parentName,
     required Color color,
-    required String typeLabel,
-    required bool isCompleted,
-    required VoidCallback onToggle,
   }) {
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
+      width: 180,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isCompleted ? AppTheme.fhBorderColor : color.withOpacity(0.5)),
-        boxShadow: isCompleted ? null : [BoxShadow(color: color.withOpacity(0.1), blurRadius: 10)]
+        color: PersonInfoTheme.bgPanel,
+        border: Border(left: BorderSide(color: color, width: 3)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: RhombusCheckbox(
-              checked: isCompleted,
-              onChanged: (_) => onToggle(),
-              size: CheckboxSize.small,
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.chakraPetch(
+              color: AppTheme.fhTextPrimary, 
+              fontSize: 12, 
+              fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  typeLabel,
-                  style: TextStyle(color: isCompleted ? AppTheme.fhTextDisabled : color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title.toUpperCase(),
-                  style: GoogleFonts.chakraPetch(
-                    color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary, 
-                    fontSize: 14, 
-                    fontWeight: FontWeight.bold,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  parentName,
-                  style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          )
+          const SizedBox(height: 4),
+          Text(
+            parentName,
+            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );

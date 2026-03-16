@@ -17,6 +17,8 @@ import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SubmissionDetailScreen extends StatefulWidget {
   final MainTask parentTask;
@@ -263,10 +265,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 foregroundColor: Colors.black,
                                 onPressed: () {
                                   if (isRunning) {
-                                    provider.pauseTimer(liveSubTask.id); 
+                                    provider.pauseTimer(liveSubTask!.id); 
                                     provider.logTimerAndReset(liveSubTask.id); 
                                   } else {
-                                    provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
+                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
                                   }
                                 },
                                 child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
@@ -289,7 +291,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             subTaskId: liveSubTask.id,
                             steps: liveSubTask.subSubTasks,
                             accentColor: activeAccent,
-                            onGenerate: () => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask.id, liveSubTask.why),
+                            onGenerate: (prompt) => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
                           ),
                           
                           const SizedBox(height: 24),
@@ -298,19 +300,19 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'why': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanOutcomeCard(
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'what': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask.id, {'resources': val}),
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -374,7 +376,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
-                                provider.completeSubtask(widget.parentTask.id, liveSubTask.id);
+                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -387,7 +389,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,
                               onPressed: () {
-                                provider.deleteSubtask(widget.parentTask.id, liveSubTask.id);
+                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),

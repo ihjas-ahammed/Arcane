@@ -38,7 +38,17 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
   void _addToPlan(String compoundId) {
     if (!_currentPlan.contains(compoundId)) {
-      setState(() => _currentPlan.add(compoundId));
+      setState(() {
+        _currentPlan.add(compoundId);
+        // Auto-remove any child checkpoints if the parent subtask was just added
+        final parts = compoundId.split('|');
+        if (parts.length == 2) {
+           _currentPlan.removeWhere((item) {
+             final p = item.split('|');
+             return p.length == 3 && p[0] == parts[0] && p[1] == parts[1];
+           });
+        }
+      });
     }
   }
 
@@ -49,6 +59,7 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
+    final currentPlanSet = _currentPlan.toSet();
 
     // Build available list
     List<Widget> availableWidgets = [];
@@ -56,19 +67,19 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
       final activeSubs = task.subTasks.where((s) => !s.completed).toList();
       if (activeSubs.isEmpty) continue;
 
-      availableWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
-          child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
-        )
-      );
+      List<Widget> taskWidgets = [];
 
       for (var sub in activeSubs) {
         final subId = "${task.id}|${sub.id}";
-        
-        // Add SubTask itself
-        if (!_currentPlan.contains(subId)) {
-          availableWidgets.add(
+        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
+        final allCheckpointIds = activeCheckpoints.map((c) => "$subId|${c.id}").toList();
+
+        bool isSubtaskInPlan = currentPlanSet.contains(subId);
+        bool allCheckpointsInPlan = activeCheckpoints.isNotEmpty && allCheckpointIds.every((id) => currentPlanSet.contains(id));
+
+        // 1. Add SubTask itself if not in plan AND not all its checkpoints are already queued
+        if (!isSubtaskInPlan && !allCheckpointsInPlan) {
+          taskWidgets.add(
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
@@ -85,29 +96,40 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
           );
         }
 
-        // Add Checkpoints inside the SubTask
-        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
-        for (var cp in activeCheckpoints) {
-          final cpId = "${task.id}|${sub.id}|${cp.id}";
-          if (!_currentPlan.contains(cpId)) {
-            availableWidgets.add(
-              Container(
-                margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
-                decoration: BoxDecoration(
-                  color: AppTheme.fhBgDark.withOpacity(0.3),
-                  border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
-                ),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
-                  trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
-                  onTap: () => _addToPlan(cpId),
-                ),
-              )
-            );
+        // 2. Add Checkpoints inside the SubTask ONLY if parent SubTask is NOT queued
+        if (!isSubtaskInPlan) {
+          for (var cp in activeCheckpoints) {
+            final cpId = "$subId|${cp.id}";
+            if (!currentPlanSet.contains(cpId)) {
+              taskWidgets.add(
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDark.withOpacity(0.3),
+                    border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
+                    title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
+                    trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+                    onTap: () => _addToPlan(cpId),
+                  ),
+                )
+              );
+            }
           }
         }
+      }
+
+      if (taskWidgets.isNotEmpty) {
+        availableWidgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
+            child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
+          )
+        );
+        availableWidgets.addAll(taskWidgets);
       }
     }
 

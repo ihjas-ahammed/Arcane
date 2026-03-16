@@ -4,6 +4,8 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:arcane/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/utils/json_utils.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 
 class AIService {
   
@@ -53,7 +55,8 @@ class AIService {
   }
 
   Future<Map<String, dynamic>> makeAICall({
-    required String prompt,
+    String? prompt, // Keeping for backward compatibility where only text is needed
+    List<genai.Part>? parts, // Multi-modal input
     required List<String> modelCandidates,
     List<String>? customApiKeys,
     required int currentApiKeyIndex,
@@ -68,7 +71,9 @@ class AIService {
       modelCandidates: modelCandidates,
       requestFn: (apiKey, modelName) async {
         final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
+        
+        final contentParts = parts ?? [genai.TextPart(prompt!)];
+        final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
         String? rawResponseText = response.text;
         if (rawResponseText == null || rawResponseText.trim().isEmpty) {
@@ -83,6 +88,7 @@ class AIService {
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
+    required String userPrompt,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -94,9 +100,10 @@ class AIService {
     
     OBJECTIVE: $taskName
     STRATEGIC INTENT (WHY): $why
+    USER SPECIFIC REQUEST: $userPrompt
     
     Task:
-    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise.
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
     2. Define the expected result/reward ("What") upon completion.
     
     Output JSON ONLY:
@@ -212,13 +219,24 @@ class AIService {
   Future<Map<String, dynamic>> generateProjectFromPrompt({
     required List<String> modelCandidates,
     required String userPrompt,
+    List<XFile>? images,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    
+    List<genai.Part> parts = [genai.TextPart(promptStr)];
+    if (images != null) {
+      for (var img in images) {
+        final bytes = await img.readAsBytes();
+        final mime = lookupMimeType(img.name) ?? 'image/jpeg';
+        parts.add(genai.DataPart(mime, bytes));
+      }
+    }
+
+    return await makeAICall(parts: parts, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
 
   Future<List<Map<String, dynamic>>> generateStepsForProject({

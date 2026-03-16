@@ -165,8 +165,16 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
   Future<void> _backupToFirestore() async {
     try {
-      await context.read<AppProvider>().performFirestoreBackup();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cloud Snapshot Secured in Firestore.")));
+      final provider = context.read<AppProvider>();
+      await provider.forceLocalBackup(); // Auto make local backup first
+      await provider.performFirestoreBackup(); // Then Firestore
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."))
+        );
+        _loadBackups(); // Refresh local list
+      }
     } catch(e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
     }

@@ -10,6 +10,7 @@ import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -314,9 +315,12 @@ class _ScheduleViewState extends State<ScheduleView> {
     final isToday = _isSameDay(_selectedDate, DateTime.now());
 
     // Resolve Next Task from Day Plan
+    String? nextQueueId;
     SubTask? nextSubTask;
     MainTask? nextMainTask;
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+    SubSubTask? nextCheckpoint;
+
+    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
     
     for (String idPair in plan) {
       final parts = idPair.split('|');
@@ -324,25 +328,42 @@ class _ScheduleViewState extends State<ScheduleView> {
         final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
         final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
         
-        // We only care about the parent SubTask for the Hero Timer
         if (sTask != null && !sTask.completed) {
-          nextSubTask = sTask;
-          nextMainTask = mTask;
-          break; // Found the first incomplete task in the plan
+          if (parts.length == 3) {
+            // It's a checkpoint
+            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              nextQueueId = idPair;
+              nextMainTask = mTask;
+              nextSubTask = sTask;
+              nextCheckpoint = cp;
+              break;
+            }
+          } else {
+            // It's a subtask
+            nextQueueId = idPair;
+            nextMainTask = mTask;
+            nextSubTask = sTask;
+            break;
+          }
         }
       }
     }
 
     final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
+    final totalTodaySeconds = nextSubTask != null 
+        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
+        : 0.0;
 
     return Column(
       children: [
         // HERO SECTION
         ScheduleHeroWidget(
-          nextTaskName: nextMainTask?.name ?? "NO PLAN SET",
-          nextSubTaskName: nextSubTask?.name ?? "NONE",
-          nextTaskColor: nextMainTask?.taskColor ?? AppTheme.fhTextDisabled,
+          mainTask: nextMainTask,
+          subTask: nextSubTask,
+          checkpoint: nextCheckpoint,
           isRunning: isRunning,
+          totalTodaySeconds: totalTodaySeconds,
           onOpenPlan: () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
           },
@@ -353,6 +374,19 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.logTimerAndReset(nextSubTask!.id);
             } else {
               provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+            }
+          },
+          onPostpone: () {
+            if (nextQueueId != null) {
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onFinishCheckpoint: () {
+            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
+              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
             }
           },
         ),

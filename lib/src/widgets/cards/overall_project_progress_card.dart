@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;
@@ -22,18 +24,12 @@ class OverallProjectProgressCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF2C3E50), AppTheme.fhBgDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
+        color: PersonInfoTheme.bgPanel,
+        border: Border.all(color: PersonInfoTheme.spideyRed, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
+            color: PersonInfoTheme.spideyRed.withValues(alpha: 0.2),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           )
         ],
@@ -46,40 +42,45 @@ class OverallProjectProgressCard extends StatelessWidget {
             children: [
               Text(
                 "OVERALL PROGRESS",
-                style: TextStyle(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
-                  fontSize: 11,
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.spideyCyan,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+                  letterSpacing: 1.5,
                 ),
               ),
               Text(
                 "$percentage%",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.textWhite,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  fontFamily: AppTheme.fontDisplay,
+                  shadows: [
+                    const Shadow(
+                      color: Color(0x6600f0ff),
+                      blurRadius: 5.0,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: avgProgress,
-              minHeight: 8,
-              backgroundColor: AppTheme.fhBgDeepDark,
-              color: AppTheme.fhAccentTeal,
-            ),
+          const SizedBox(height: 16),
+          SpideyProgressBar(
+            progress: avgProgress,
+            color: PersonInfoTheme.spideyRed,
           ),
-          const SizedBox(height: 8),
-          Text(
-            "${activeProjects.length} Active Projects",
-            style: TextStyle(
-                color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
-                fontSize: 11),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              "${activeProjects.length} ACTIVE OPERATIONS",
+              style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.textGrey,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  fontSize: 14),
+            ),
           ),
         ],
       ),

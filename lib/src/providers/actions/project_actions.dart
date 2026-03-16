@@ -4,6 +4,7 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProjectActions {
   final AppProvider _provider;
@@ -542,13 +543,14 @@ class ProjectActions {
     return false;
   }
 
-  Future<void> generateProjectStructure(String mainTaskId, String userPrompt) async {
+  Future<void> generateProjectStructure(String mainTaskId, String userPrompt, {List<XFile>? images}) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Project...");
     try {
       final projectData = await _aiService.generateProjectFromPrompt(
         modelCandidates: _provider.settings.heavyModels,
         userPrompt: userPrompt,
+        images: images,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),

@@ -14,7 +14,6 @@ class AIGenerationActions {
     if (kDebugMode) debugPrint("[AIActions - _logToApp]: $logMessage");
   }
 
-  // ... [Existing methods like triggerAISubquestGeneration, generateCheckpointsForSubtask] ...
   Future<void> triggerAISubquestGeneration(MainTask mainTaskForSubquests,
       String generationMode, String userInput, int numSubquests) async {
     if (_provider.isGeneratingSubquests) {
@@ -136,7 +135,7 @@ class AIGenerationActions {
   }
 
   Future<void> generateActionPlanSteps(
-      String mainTaskId, String subTaskId, String why) async {
+      String mainTaskId, String subTaskId, String why, String userPrompt) async {
     _provider.setProviderAISubquestLoading(true);
     _provider.setLoadingTask("Generating Strategy...");
 
@@ -147,6 +146,7 @@ class AIGenerationActions {
       final result = await _aiService.generateActionPlanSteps(
         taskName: subTask.name,
         why: why,
+        userPrompt: userPrompt,
         modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
