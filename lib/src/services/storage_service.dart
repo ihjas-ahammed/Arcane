@@ -12,6 +12,7 @@ const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
 const String _docFinance = 'finance';
+const String _docHealth = 'health';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -60,6 +61,7 @@ class StorageService {
     if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
     if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
     if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] != null) fullData.addAll(jsonDecode(raw[_docHealth] as String));
     return fullData;
   }
 
@@ -68,6 +70,7 @@ class StorageService {
   Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+  Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
 
   Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
@@ -98,8 +101,9 @@ class StorageService {
       final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
       final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
       final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
+      final healthSnap = await _firestoreDocRef(userId, _docHealth).get();
 
-      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
+      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists || healthSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -108,6 +112,7 @@ class StorageService {
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
         if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
+        if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
         return fullData;
       }
 
@@ -139,6 +144,10 @@ class StorageService {
     if (fullData.containsKey('categories')) financeData['categories'] = fullData['categories'];
     if (fullData.containsKey('savingsGoals')) financeData['savingsGoals'] = fullData['savingsGoals'];
 
+    final healthData = <String, dynamic>{};
+    if (fullData.containsKey('foodItems')) healthData['foodItems'] = fullData['foodItems'];
+    if (fullData.containsKey('healthLogs')) healthData['healthLogs'] = fullData['healthLogs'];
+
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
@@ -146,6 +155,8 @@ class StorageService {
     settingsData.remove('transactions');
     settingsData.remove('categories');
     settingsData.remove('savingsGoals');
+    settingsData.remove('foodItems');
+    settingsData.remove('healthLogs');
 
     try {
       final batch = _firestore.batch();
@@ -154,6 +165,7 @@ class StorageService {
       batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
       batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
       batch.set(_firestoreDocRef(userId, _docFinance), financeData);
+      batch.set(_firestoreDocRef(userId, _docHealth), healthData);
       await batch.commit();
       return true;
     } catch (e) {
@@ -175,6 +187,7 @@ class StorageService {
       batch.delete(_firestoreDocRef(userId, _docReflections));
       batch.delete(_firestoreDocRef(userId, _docSettings));
       batch.delete(_firestoreDocRef(userId, _docFinance));
+      batch.delete(_firestoreDocRef(userId, _docHealth));
       await batch.commit();
       
       return true;
@@ -246,7 +259,7 @@ class StorageService {
   }
 
   Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
-    if (userId.isEmpty) return [];
+    if (userId.isEmpty) return[];
     try {
       final snap = await _firestore
           .collection(_userCollection)
@@ -262,7 +275,7 @@ class StorageService {
         };
       }).toList();
     } catch (e) {
-      return [];
+      return[];
     }
   }
 }

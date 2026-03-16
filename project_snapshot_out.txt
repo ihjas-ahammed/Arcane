@@ -4484,6 +4484,122 @@ class SavingsGoal {
 }
 --- END OF FILE lib/src/models/finance_models.dart ---
 
+--- START OF FILE lib/src/models/health_models.dart ---
+import 'package:uuid/uuid.dart';
+
+class FoodItem {
+  String id;
+  String name;
+  int calories;
+  double protein;
+  double carbs;
+  double fat;
+
+  FoodItem({
+    required this.id,
+    required this.name,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  factory FoodItem.fromJson(Map<String, dynamic> json) {
+    return FoodItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? 'Unknown Food',
+      calories: (json['calories'] as num? ?? 0).toInt(),
+      protein: (json['protein'] as num? ?? 0).toDouble(),
+      carbs: (json['carbs'] as num? ?? 0).toDouble(),
+      fat: (json['fat'] as num? ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'calories': calories,
+      'protein': protein,
+      'carbs': carbs,
+      'fat': fat,
+    };
+  }
+}
+
+class MealLog {
+  String id;
+  String foodItemId;
+  DateTime timestamp;
+
+  MealLog({
+    required this.id,
+    required this.foodItemId,
+    required this.timestamp,
+  });
+
+  factory MealLog.fromJson(Map<String, dynamic> json) {
+    return MealLog(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      foodItemId: json['foodItemId'] as String? ?? '',
+      timestamp: json['timestamp'] != null 
+          ? DateTime.parse(json['timestamp']) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'foodItemId': foodItemId,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+class DailyHealthLog {
+  String dateStr;
+  int sleepMinutes;
+  int waterGlasses;
+  double walkDistanceKm;
+  int workoutMinutes;
+  List<MealLog> meals;
+
+  DailyHealthLog({
+    required this.dateStr,
+    this.sleepMinutes = 0,
+    this.waterGlasses = 0,
+    this.walkDistanceKm = 0.0,
+    this.workoutMinutes = 0,
+    List<MealLog>? meals,
+  }) : meals = meals ??[];
+
+  factory DailyHealthLog.fromJson(Map<String, dynamic> json) {
+    return DailyHealthLog(
+      dateStr: json['dateStr'] as String? ?? '',
+      sleepMinutes: (json['sleepMinutes'] as num? ?? 0).toInt(),
+      waterGlasses: (json['waterGlasses'] as num? ?? 0).toInt(),
+      walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
+      workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
+      meals: (json['meals'] as List<dynamic>?)
+              ?.map((e) => MealLog.fromJson(e as Map<String, dynamic>))
+              .toList() ??[],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dateStr': dateStr,
+      'sleepMinutes': sleepMinutes,
+      'waterGlasses': waterGlasses,
+      'walkDistanceKm': walkDistanceKm,
+      'workoutMinutes': workoutMinutes,
+      'meals': meals.map((m) => m.toJson()).toList(),
+    };
+  }
+}
+--- END OF FILE lib/src/models/health_models.dart ---
+
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -4513,6 +4629,7 @@ import 'package:arcane/src/providers/mixins/sync_mixin.dart';
 import 'package:arcane/src/providers/mixins/task_mixin.dart';
 import 'package:arcane/src/providers/mixins/finance_mixin.dart';
 import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
 
 // Import Actions
 import 'package:arcane/src/providers/actions/task_actions.dart';
@@ -4524,7 +4641,7 @@ import 'package:arcane/src/providers/actions/schedule_actions.dart';
 import 'package:arcane/src/providers/actions/finance_actions.dart';
 import 'package:arcane/src/providers/actions/journaling_actions.dart';
 
-class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, WidgetsBindingObserver {
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
   final AIService _aiService = AIService();
   final DataExportService _exportService = DataExportService();
@@ -4711,6 +4828,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
+    // Reset health logs handled by loading empty maps
   }
 
   // --- Mixin Implementations & Legacy Compat ---
@@ -4721,6 +4839,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     map.addAll(getTaskStateMap());
     map.addAll(getFinanceStateMap());
     map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
     return map;
   }
 
@@ -4735,6 +4854,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     loadTaskState(data);
     loadFinanceState(data);
     loadUserState(data);
+    loadHealthState(data);
     
     // Version Check
     if (settings.dataVersion < 1) {
@@ -4842,6 +4962,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     markDirty('history');
     markDirty('reflections');
     markDirty('finance');
+    markDirty('health');
     scheduleRealtimeSync();
   }
 
@@ -4907,7 +5028,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
-    if (currentUser == null) return [];
+    if (currentUser == null) return[];
     return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
   }
 
@@ -7780,6 +7901,11 @@ mixin SyncMixin on ChangeNotifier {
         'savingsGoals': appData['savingsGoals']
       };
       
+      final healthData = {
+        'foodItems': appData['foodItems'],
+        'healthLogs': appData['healthLogs']
+      };
+      
       final settingsData = {
         'lastLoginDate': appData['lastLoginDate'],
         'settings': settings.toJson(),
@@ -7805,6 +7931,9 @@ mixin SyncMixin on ChangeNotifier {
       }
       if (force || _dirtyCollections.contains('finance')) {
         if (!await _storageService.saveFinance(currentUser!.uid, financeData)) success = false;
+      }
+      if (force || _dirtyCollections.contains('health')) {
+        if (!await _storageService.saveHealth(currentUser!.uid, healthData)) success = false;
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
@@ -8172,6 +8301,84 @@ mixin UserMixin on ChangeNotifier {
   }
 }
 --- END OF FILE lib/src/providers/mixins/user_mixin.dart ---
+
+--- START OF FILE lib/src/providers/mixins/health_mixin.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+
+mixin HealthMixin on ChangeNotifier {
+  List<FoodItem> _foodItems =[];
+  Map<String, DailyHealthLog> _healthLogs = {};
+
+  List<FoodItem> get foodItems => _foodItems;
+  Map<String, DailyHealthLog> get healthLogs => _healthLogs;
+
+  SyncMixin get sync => this as SyncMixin;
+
+  void loadHealthState(Map<String, dynamic> data) {
+    if (data['foodItems'] != null) {
+      _foodItems = (data['foodItems'] as List).map((e) => FoodItem.fromJson(e)).toList();
+    }
+    if (data['healthLogs'] != null) {
+      final rawLogs = data['healthLogs'] as Map;
+      _healthLogs = rawLogs.map((k, v) => MapEntry(k.toString(), DailyHealthLog.fromJson(Map<String, dynamic>.from(v))));
+    }
+  }
+
+  Map<String, dynamic> getHealthStateMap() {
+    return {
+      'foodItems': _foodItems.map((e) => e.toJson()).toList(),
+      'healthLogs': _healthLogs.map((k, v) => MapEntry(k, v.toJson())),
+    };
+  }
+
+  DailyHealthLog getDailyHealthLog(String dateStr) {
+    if (!_healthLogs.containsKey(dateStr)) {
+      _healthLogs[dateStr] = DailyHealthLog(dateStr: dateStr);
+      // FIX: Schedule state mutation for the next frame to avoid "setState() called during build" exceptions
+      Future.microtask(() => sync.markDirty('health'));
+    }
+    return _healthLogs[dateStr]!;
+  }
+
+  void addFoodItem(FoodItem item) {
+    _foodItems.add(item);
+    sync.markDirty('health');
+  }
+
+  void addMealLog(String dateStr, MealLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.meals.add(log);
+    sync.markDirty('health');
+  }
+
+  void deleteMealLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.meals.removeWhere((m) => m.id == logId);
+    sync.markDirty('health');
+  }
+
+  void updateWater(String dateStr, int glasses) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.waterGlasses = glasses;
+    sync.markDirty('health');
+  }
+
+  void updateSleep(String dateStr, int minutes) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.sleepMinutes = minutes;
+    sync.markDirty('health');
+  }
+
+  void updateActivity(String dateStr, double walkKm, int workoutMin) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.walkDistanceKm = walkKm;
+    hLog.workoutMinutes = workoutMin;
+    sync.markDirty('health');
+  }
+}
+--- END OF FILE lib/src/providers/mixins/health_mixin.dart ---
 
 --- START OF FILE lib/src/screens/chatbot_screen.dart ---
 import 'package:flutter/material.dart';
@@ -13134,6 +13341,288 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 }
 --- END OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
 
+--- START OF FILE lib/src/screens/health/health_dashboard_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/health_combined_chart.dart';
+import 'package:arcane/src/widgets/health/food_logging_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class HealthDashboardScreen extends StatefulWidget {
+  const HealthDashboardScreen({super.key});
+
+  @override
+  State<HealthDashboardScreen> createState() => _HealthDashboardScreenState();
+}
+
+class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final log = provider.getDailyHealthLog(dateStr);
+
+    int totalCalories = 0;
+    double totalProtein = 0;
+    for (var m in log.meals) {
+      final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
+      if (food != null) {
+        totalCalories += food.calories;
+        totalProtein += food.protein;
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      appBar: AppBar(
+        title: Text("BIOMETRICS & NUTRITION", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children:[
+                  // Date Selector
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children:[
+                      IconButton(icon: const Icon(Icons.chevron_left, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)))),
+                      Text(DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                      IconButton(icon: const Icon(Icons.chevron_right, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)))),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Chart
+                  JwePanel(
+                    title: "TREND ANALYSIS (7-DAY)",
+                    accentColor: JweTheme.accentAmber,
+                    child: SizedBox(
+                      height: 200,
+                      child: HealthCombinedChart(provider: provider),
+                    ),
+                  ),
+        
+                  // Sleep & Water
+                  Row(
+                    children:[
+                      Expanded(
+                        child: JwePanel(
+                          title: "SLEEP METRICS",
+                          accentColor: JweTheme.accentCyan,
+                          child: InkWell(
+                            onTap: () => _editSleep(context, provider, dateStr, log.sleepMinutes),
+                            child: Column(
+                              children:[
+                                Icon(MdiIcons.bedOutline, color: JweTheme.accentCyan, size: 32),
+                                const SizedBox(height: 8),
+                                Text("${(log.sleepMinutes / 60).floor()}h ${log.sleepMinutes % 60}m", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: JwePanel(
+                          title: "HYDRATION",
+                          accentColor: JweTheme.accentCyan,
+                          child: Column(
+                            children:[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children:[
+                                  IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
+                                  Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                                  IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
+                                ],
+                              ),
+                              const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+        
+                  // Activity
+                  JwePanel(
+                    title: "PHYSICAL ACTIVITY",
+                    accentColor: JweTheme.accentAmber,
+                    child: InkWell(
+                      onTap: () => _editActivity(context, provider, dateStr, log.walkDistanceKm, log.workoutMinutes),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children:[
+                              Icon(MdiIcons.walk, color: JweTheme.accentAmber),
+                              const SizedBox(height: 4),
+                              Text("${log.walkDistanceKm.toStringAsFixed(1)} KM", style: GoogleFonts.rajdhani(fontSize: 20, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                            ],
+                          ),
+                          Container(width: 1, height: 40, color: JweTheme.border),
+                          Column(
+                            children:[
+                              Icon(MdiIcons.dumbbell, color: JweTheme.accentAmber),
+                              const SizedBox(height: 4),
+                              Text("${log.workoutMinutes} MIN", style: GoogleFonts.rajdhani(fontSize: 20, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+        
+                  // Nutrition
+                  JwePanel(
+                    title: "NUTRITIONAL INTAKE",
+                    accentColor: JweTheme.accentCyan,
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children:[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children:[
+                                const Text("CALORIES", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text("$totalCalories KCAL", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children:[
+                                const Text("PROTEIN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text("${totalProtein.toStringAsFixed(1)} G", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (log.meals.isEmpty)
+                           const Text("No nutritional data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+                        else
+                          ...log.meals.map((m) {
+                            final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
+                            if (food == null) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                children:[
+                                  Icon(MdiIcons.foodAppleOutline, color: JweTheme.textMuted, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(food.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold))),
+                                  Text("${food.calories} kcal", style: const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
+                                    onPressed: () => provider.deleteMealLog(dateStr, m.id),
+                                  )
+                                ],
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.add, size: 16),
+                            label: Text("LOG MEAL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: JweTheme.accentCyan,
+                              side: const BorderSide(color: JweTheme.accentCyan),
+                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                            ),
+                            onPressed: () => showDialog(context: context, builder: (_) => FoodLoggingDialog(dateStr: dateStr)),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _editSleep(BuildContext context, AppProvider provider, String dateStr, int currentMins) {
+    int h = currentMins ~/ 60;
+    int m = currentMins % 60;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text("LOG SLEEP CYCLE", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        content: Row(
+          children:[
+            Expanded(child: TextField(decoration: const InputDecoration(labelText: "HOURS", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => h = int.tryParse(v) ?? h, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'))),
+            const SizedBox(width: 16),
+            Expanded(child: TextField(decoration: const InputDecoration(labelText: "MINUTES", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'))),
+          ],
+        ),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+          ElevatedButton(
+            onPressed: () {
+              provider.updateSleep(dateStr, h * 60 + m);
+              Navigator.pop(ctx);
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black), 
+            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
+          ),
+        ],
+      )
+    );
+  }
+
+  void _editActivity(BuildContext context, AppProvider provider, String dateStr, double curDist, int curMin) {
+    double d = curDist;
+    int m = curMin;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text("LOG PHYSICAL ACTIVITY", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children:[
+            TextField(decoration: const InputDecoration(labelText: "WALK DISTANCE (KM)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (v) => d = double.tryParse(v) ?? d, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
+            const SizedBox(height: 16),
+            TextField(decoration: const InputDecoration(labelText: "WORKOUT DURATION (MIN)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
+          ],
+        ),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+          ElevatedButton(
+            onPressed: () {
+              provider.updateActivity(dateStr, d, m);
+              Navigator.pop(ctx);
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black), 
+            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
+          ),
+        ],
+      )
+    );
+  }
+}
+--- END OF FILE lib/src/screens/health/health_dashboard_screen.dart ---
+
 --- START OF FILE lib/src/services/firebase_service.dart ---
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13329,7 +13818,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "steps": [
+      "steps":[
         {"name": "Step description"}
       ],
       "what": "Description of the result or reward"
@@ -13376,8 +13865,7 @@ class AIService {
     - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
     - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
     
-    OUTPUT JSON ARRAY STRUCTURE:
-    [
+    OUTPUT JSON ARRAY STRUCTURE:[
       {
         "taskName": "Exact Name from Available Tasks or New Name",
         "subTaskName": "Specific Activity",
@@ -13405,7 +13893,7 @@ class AIService {
     if (result is List) {
       return result.map((e) => e as Map<String, dynamic>).toList();
     }
-    return [];
+    return[];
   }
 
   Future<String> queryNeuralArchive({
@@ -13446,9 +13934,9 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps:[{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     
-    List<genai.Part> parts = [genai.TextPart(promptStr)];
+    List<genai.Part> parts =[genai.TextPart(promptStr)];
     if (images != null) {
       for (var img in images) {
         final bytes = await img.readAsBytes();
@@ -13473,7 +13961,7 @@ class AIService {
   }) async {
     final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateSubstepsForStep({
@@ -13489,7 +13977,7 @@ class AIService {
   }) async {
     final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
@@ -13507,7 +13995,7 @@ class AIService {
   }) async {
     final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
@@ -13523,7 +14011,7 @@ class AIService {
   }) async {
     final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ??[];
   }
 
   Future<Map<String, dynamic>> evaluateReflection({
@@ -13600,7 +14088,7 @@ class AIService {
 
     Output EXACTLY valid JSON matching this structure:
     {
-      "updates": [
+      "updates":[
         {
           "log_id": "id_string_from_input",
           "xp_allocation": {
@@ -13631,7 +14119,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
         
-    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
   }
 
   Future<Map<String, dynamic>> generateDailySummary({
@@ -13661,7 +14149,7 @@ class AIService {
       "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
-      "grateful_assets": [ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
+      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -13691,7 +14179,7 @@ class AIService {
     3. Output JSON: 
     { 
       "summary": "string", 
-      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
+      "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
       "time_insight": "string",
       "grateful_people": [ {"name": "string", "reason": "string"} ]
     } 
@@ -13716,7 +14204,7 @@ class AIService {
       final data = jsonDecode(response.body);
       if (data['models'] != null && data['models'] is List) {
         final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          final methods = List<String>.from(m['supportedGenerationMethods'] ??[]);
           if (methods.contains('generateContent')) {
             return (m['name'] as String).replaceFirst('models/', '');
           }
@@ -13724,7 +14212,7 @@ class AIService {
         }).whereType<String>().toList();
         return models;
       }
-      return [];
+      return[];
     } else {
       throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
     }
@@ -13757,7 +14245,7 @@ class AIService {
     Output JSON ONLY:
     {
       "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "metrics":[ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -13790,7 +14278,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "people": [
+      "people":[
         {
           "name": "string",
           "relation": "string"
@@ -13807,7 +14295,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
@@ -13827,7 +14315,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "assets": [
+      "assets":[
         {
           "name": "string",
           "type": "skill|person|object|resource",
@@ -13846,7 +14334,47 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractFoodInfo({
+    required String prompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final aiPrompt = """
+    Analyze the following food description and estimate the nutritional value per serving.
+    If multiple distinct items are mentioned, separate them.
+    
+    Description: $prompt
+    
+    Output JSON ONLY:
+    {
+      "items":[
+        {
+          "name": "string (Capitalized)",
+          "calories": int,
+          "protein": double (grams),
+          "carbs": double (grams),
+          "fat": double (grams)
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    final result = await makeAICall(
+        prompt: aiPrompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
   }
 
   Future<Map<String, dynamic>> generatePersonDetails({
@@ -13873,10 +14401,10 @@ class AIService {
       "role": "Their inferred role (e.g. Student, Colleague)",
       "status": "Current relationship status (e.g. Calibration Phase, Active)",
       "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
-      "interaction_history": [
+      "interaction_history":[
         {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
       ],
-      "communication_tips": [
+      "communication_tips":[
         {"highlight": "Tip Name:", "text": "Description of the tip."}
       ]
     }
@@ -14135,6 +14663,7 @@ const String _docHistory = 'history';
 const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
 const String _docFinance = 'finance';
+const String _docHealth = 'health';
 
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14183,6 +14712,7 @@ class StorageService {
     if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
     if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
     if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] != null) fullData.addAll(jsonDecode(raw[_docHealth] as String));
     return fullData;
   }
 
@@ -14191,6 +14721,7 @@ class StorageService {
   Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+  Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
 
   Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
@@ -14221,8 +14752,9 @@ class StorageService {
       final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
       final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
       final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
+      final healthSnap = await _firestoreDocRef(userId, _docHealth).get();
 
-      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists;
+      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists || healthSnap.exists;
 
       if (hasNewData) {
         Map<String, dynamic> fullData = {};
@@ -14231,6 +14763,7 @@ class StorageService {
         if (historySnap.exists) fullData.addAll(historySnap.data()!);
         if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
         if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
+        if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
         return fullData;
       }
 
@@ -14262,6 +14795,10 @@ class StorageService {
     if (fullData.containsKey('categories')) financeData['categories'] = fullData['categories'];
     if (fullData.containsKey('savingsGoals')) financeData['savingsGoals'] = fullData['savingsGoals'];
 
+    final healthData = <String, dynamic>{};
+    if (fullData.containsKey('foodItems')) healthData['foodItems'] = fullData['foodItems'];
+    if (fullData.containsKey('healthLogs')) healthData['healthLogs'] = fullData['healthLogs'];
+
     final settingsData = Map<String, dynamic>.from(fullData);
     settingsData.remove('mainTasks');
     settingsData.remove('completedByDay');
@@ -14269,6 +14806,8 @@ class StorageService {
     settingsData.remove('transactions');
     settingsData.remove('categories');
     settingsData.remove('savingsGoals');
+    settingsData.remove('foodItems');
+    settingsData.remove('healthLogs');
 
     try {
       final batch = _firestore.batch();
@@ -14277,6 +14816,7 @@ class StorageService {
       batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
       batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
       batch.set(_firestoreDocRef(userId, _docFinance), financeData);
+      batch.set(_firestoreDocRef(userId, _docHealth), healthData);
       await batch.commit();
       return true;
     } catch (e) {
@@ -14298,6 +14838,7 @@ class StorageService {
       batch.delete(_firestoreDocRef(userId, _docReflections));
       batch.delete(_firestoreDocRef(userId, _docSettings));
       batch.delete(_firestoreDocRef(userId, _docFinance));
+      batch.delete(_firestoreDocRef(userId, _docHealth));
       await batch.commit();
       
       return true;
@@ -14369,7 +14910,7 @@ class StorageService {
   }
 
   Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
-    if (userId.isEmpty) return [];
+    if (userId.isEmpty) return[];
     try {
       final snap = await _firestore
           .collection(_userCollection)
@@ -14385,7 +14926,7 @@ class StorageService {
         };
       }).toList();
     } catch (e) {
-      return [];
+      return[];
     }
   }
 }
@@ -14884,6 +15425,21 @@ class WellbeingTheme {
 }
 --- END OF FILE lib/src/theme/wellbeing_theme.dart ---
 
+--- START OF FILE lib/src/theme/jwe_theme.dart ---
+import 'package:flutter/material.dart';
+
+class JweTheme {
+  static const Color bgBase = Color(0xFF070B11); // Deep slate background
+  static const Color panel = Color(0xFF0F1A24); // Panel background
+  static const Color border = Color(0xFF1B2A38); // Subtle panel border
+  static const Color accentCyan = Color(0xFF00E5FF); // Holographic cyan
+  static const Color accentAmber = Color(0xFFFFB300); // Jurassic amber
+  static const Color accentRed = Color(0xFFFF3D00); // Danger/Alert
+  static const Color textWhite = Color(0xFFCFD8DC); // Primary text
+  static const Color textMuted = Color(0xFF607D8B); // Muted info text
+}
+--- END OF FILE lib/src/theme/jwe_theme.dart ---
+
 --- START OF FILE lib/src/utils/chart_data_helper.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
@@ -14919,7 +15475,6 @@ class ChartDataHelper {
       if (isToday) {
         // Live data calculation for today
         for (var task in provider.mainTasks) {
-          // FIX: Apply filter to "Today" logic
           if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
             continue;
           }
@@ -14972,7 +15527,7 @@ class ChartDataHelper {
 
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
-          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
+          if (selectedVirtueFilter != null && WellbeingTheme.getCategory(k) != selectedVirtueFilter) {
             return;
           }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
@@ -15997,10 +16552,9 @@ class BusNextCard extends StatelessWidget {
 
 --- START OF FILE lib/src/widgets/cards/overall_project_progress_card.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;
@@ -16018,66 +16572,54 @@ class OverallProjectProgressCard extends StatelessWidget {
     final double avgProgress = totalProgress / activeProjects.length;
     final int percentage = (avgProgress * 100).toInt();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: PersonInfoTheme.bgPanel,
-        border: Border.all(color: PersonInfoTheme.spideyRed, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: PersonInfoTheme.spideyRed.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
+    return ValorantCard(
+      borderColor: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children:[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
+            children:[
+              const Text(
                 "OVERALL PROGRESS",
-                style: GoogleFonts.rajdhani(
-                  color: PersonInfoTheme.spideyCyan,
-                  fontSize: 16,
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
               ),
               Text(
                 "$percentage%",
-                style: GoogleFonts.rajdhani(
-                  color: PersonInfoTheme.textWhite,
-                  fontSize: 28,
+                style: const TextStyle(
+                  color: AppTheme.fhTextPrimary,
+                  fontSize: 24,
+                  fontFamily: AppTheme.fontDisplay,
                   fontWeight: FontWeight.bold,
-                  shadows: [
-                    const Shadow(
-                      color: Color(0x6600f0ff),
-                      blurRadius: 5.0,
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SpideyProgressBar(
-            progress: avgProgress,
-            color: PersonInfoTheme.spideyRed,
-          ),
           const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: avgProgress.clamp(0.0, 1.0),
+              minHeight: 6,
+              color: AppTheme.fhAccentTeal,
+              backgroundColor: AppTheme.fhBgDeepDark,
+            ),
+          ),
+          const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
               "${activeProjects.length} ACTIVE OPERATIONS",
-              style: GoogleFonts.rajdhani(
-                  color: PersonInfoTheme.textGrey,
+              style: const TextStyle(
+                  color: AppTheme.fhTextSecondary,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
-                  fontSize: 14),
+                  fontSize: 10),
             ),
           ),
         ],
@@ -26857,6 +27399,124 @@ class RecurringCompletedSection extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/recurring_completed_section.dart ---
 
+--- START OF FILE lib/src/widgets/ui/jwe_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class JwePanel extends StatelessWidget {
+  final String? title;
+  final Widget child;
+  final Color accentColor;
+
+  const JwePanel({
+    super.key,
+    this.title,
+    required this.child,
+    this.accentColor = JweTheme.accentCyan,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: JweTheme.panel.withOpacity(0.85),
+        border: Border.all(color: accentColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.zero, // Sharp holographic aesthetic
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children:[
+          if (title != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: accentColor, width: 4),
+                  bottom: BorderSide(color: accentColor.withOpacity(0.2)),
+                ),
+                gradient: LinearGradient(
+                  colors:[accentColor.withOpacity(0.15), Colors.transparent],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+              child: Text(
+                title!.toUpperCase(),
+                style: GoogleFonts.rajdhani(
+                  color: JweTheme.textWhite,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/jwe_panel.dart ---
+
+--- START OF FILE lib/src/widgets/ui/jwe_compact_engage_button.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class JweCompactEngageButton extends StatelessWidget {
+  final bool isRunning;
+  final VoidCallback onPressed;
+
+  const JweCompactEngageButton({
+    super.key,
+    required this.isRunning,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = isRunning ? JweTheme.accentRed : JweTheme.accentCyan;
+    final String label = isRunning ? "HALT" : "ENGAGE";
+    final IconData icon = isRunning ? MdiIcons.pause : MdiIcons.play;
+
+    return InkWell(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          border: Border.all(color: color, width: 1.5),
+          // JWE Theme uses sharp corners
+          borderRadius: BorderRadius.zero,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.rajdhani(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/jwe_compact_engage_button.dart ---
+
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -27837,6 +28497,7 @@ class _ChatbotViewState extends State<ChatbotView> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/charts/wellbeing_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
@@ -27850,6 +28511,7 @@ import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
+import 'package:arcane/src/screens/health/health_dashboard_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:arcane/src/widgets/ui/reflection_progress_widget.dart';
@@ -28050,7 +28712,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 l.timestamp.month == d.month &&
                 l.timestamp.day == d.day;
           }).toList()
-        : [];
+        :[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -28059,10 +28721,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+            children:[
               Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
               Row(
-                children: [
+                children:[
                   IconButton(
                     icon: Icon(MdiIcons.archiveSearchOutline, color: AppTheme.fhAccentTeal),
                     tooltip: "Archived Reports",
@@ -28087,7 +28749,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           // 1. 7-DAY PERFORMANCE (ChartCarousel)
           ChartCarousel(
             height: 250,
-            pages: [
+            pages:[
               ChartCarouselData(
                 title: "7-DAY PERFORMANCE",
                 chart: WeeklyActivityBarChart(
@@ -28110,11 +28772,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           
           // 2. MISSION FOCUS & VIRTUE GROWTH PIE CHARTS
           Row(
-            children: [
+            children:[
               Expanded(
                 child: ValorantCard(
                   child: Column(
-                    children: [
+                    children:[
                       const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -28134,7 +28796,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               Expanded(
                 child: ValorantCard(
                   child: Column(
-                    children: [
+                    children:[
                       const Text("WELL-BEING GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -28165,10 +28827,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                children:[
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children:[
                       const Text(
                         "INSPECT DATE", 
                         style: TextStyle(
@@ -28243,7 +28905,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ValorantCard(
               borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
               child: Column(
-                children: [
+                children:[
                   const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -28265,7 +28927,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           const Text("CLASSIFIED LOGS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
-            children: [
+            children:[
                Expanded(
                  child: ValorantButton(
                    label: "ARCHIVE",
@@ -28289,16 +28951,29 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
           
           const SizedBox(height: 12),
-          SizedBox(
-             width: double.infinity,
-             child: ValorantButton(
-               label: "ADVANCED PROTOCOLS",
-               icon: MdiIcons.hexagonMultipleOutline,
-               isPrimary: false,
-               color: AppTheme.fhAccentPurple.withOpacity(0.1),
-               onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
-             )
-           ),
+          Row(
+            children:[
+               Expanded(
+                 child: ValorantButton(
+                   label: "ADVANCED PROTOCOLS",
+                   icon: MdiIcons.hexagonMultipleOutline,
+                   isPrimary: false,
+                   color: AppTheme.fhAccentPurple.withOpacity(0.1),
+                   onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
+                 )
+               ),
+               const SizedBox(width: 12),
+               Expanded(
+                 child: ValorantButton(
+                   label: "BIOMETRICS",
+                   icon: MdiIcons.heartPulse,
+                   isPrimary: false,
+                   color: JweTheme.accentCyan.withOpacity(0.3),
+                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
+                 )
+               ),
+            ],
+          ),
             
           const SizedBox(height: 40),
         ],
@@ -30744,8 +31419,9 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/widgets/ui/jwe_compact_engage_button.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class CheckpointItem extends StatefulWidget {
   final String title;
@@ -30759,6 +31435,8 @@ class CheckpointItem extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onToggleType;
   final VoidCallback? onTap; // For opening detail
+  final VoidCallback? onPlay; // For engaging timer
+  final bool isRunning;
   final bool hasSubsteps; // To show visual indicator
 
   const CheckpointItem({
@@ -30774,6 +31452,8 @@ class CheckpointItem extends StatefulWidget {
     this.onDuplicate,
     this.onToggleType,
     this.onTap,
+    this.onPlay,
+    this.isRunning = false,
     this.hasSubsteps = false,
   });
 
@@ -30812,7 +31492,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
     final color = widget.accentColor;
 
     final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
-    final bgColor = isInfo ? color.withOpacity(0.1) : (_localCompleted ? color.withOpacity(0.15) : AppTheme.fhBgDark.withOpacity(0.6));
+    final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
     final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
     final textColor = AppTheme.fhTextPrimary; // Never dim completely
 
@@ -30873,6 +31553,15 @@ class _CheckpointItemState extends State<CheckpointItem> {
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: Icon(MdiIcons.fileTree, size: 14, color: color),
+              ),
+
+            if (widget.onPlay != null && !isInfo)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                child: JweCompactEngageButton(
+                  isRunning: widget.isRunning,
+                  onPressed: widget.onPlay!,
+                ),
               ),
 
             PopupMenuButton<String>(
@@ -32782,6 +33471,16 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               hasSubsteps: step.substeps.isNotEmpty,
               accentColor: widget.accentColor,
               onTap: () => _navigateToStepDetail(context, step),
+              onPlay: () {
+                final isRunning = provider.activeTimers[widget.subTaskId]?.isRunning ?? false;
+                if (isRunning) {
+                  provider.pauseTimer(widget.subTaskId);
+                  provider.logTimerAndReset(widget.subTaskId);
+                } else {
+                  provider.startTimer(widget.subTaskId, 'subtask', widget.mainTaskId);
+                }
+              },
+              isRunning: provider.activeTimers[widget.subTaskId]?.isRunning ?? false,
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
@@ -32994,6 +33693,8 @@ class _ResourceChipBuilder extends StatelessWidget {
       builder: (context, provider, _) {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); // Hide if deleted
+        var name = item.name;
+        if(item.name.length > 40) name = name.substring(0,40)+"...";
 
         return InkWell(
           onTap: () {
@@ -33010,12 +33711,14 @@ class _ResourceChipBuilder extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(_getIconForType(item.type), size: 14, color: accentColor),
                 const SizedBox(width: 6),
                 Text(
-                  item.name.toUpperCase(),
+                  name.toUpperCase(),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -33454,6 +34157,261 @@ class PersonDossierSection extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/journaling/person_dossier_section.dart ---
+
+--- START OF FILE lib/src/widgets/health/food_logging_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class FoodLoggingDialog extends StatefulWidget {
+  final String dateStr;
+  const FoodLoggingDialog({super.key, required this.dateStr});
+
+  @override
+  State<FoodLoggingDialog> createState() => _FoodLoggingDialogState();
+}
+
+class _FoodLoggingDialogState extends State<FoodLoggingDialog> {
+  final _promptController = TextEditingController();
+  bool _isLoading = false;
+
+  void _submit() async {
+    if (_promptController.text.trim().isEmpty) return;
+    setState(() => _isLoading = true);
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    try {
+      final items = await provider.aiService.extractFoodInfo(
+        prompt: _promptController.text.trim(),
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (i) => provider.setApiKeyIndex(i),
+        onLog: (m) {},
+      );
+
+      for (var itemData in items) {
+        final food = FoodItem(
+          id: const Uuid().v4(),
+          name: itemData['name'] ?? 'Unknown',
+          calories: (itemData['calories'] as num?)?.toInt() ?? 0,
+          protein: (itemData['protein'] as num?)?.toDouble() ?? 0,
+          carbs: (itemData['carbs'] as num?)?.toDouble() ?? 0,
+          fat: (itemData['fat'] as num?)?.toDouble() ?? 0,
+        );
+        provider.addFoodItem(food);
+        provider.addMealLog(widget.dateStr, MealLog(id: const Uuid().v4(), foodItemId: food.id, timestamp: DateTime.now()));
+      }
+      
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      title: Text("SMART FOOD SCANNER", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children:[
+            const Text("Describe the meal. The AI will calculate macros automatically.", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _promptController,
+              maxLines: 3,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
+              decoration: const InputDecoration(
+                hintText: "e.g. 2 scrambled eggs, a slice of toast, and a coffee",
+                hintStyle: TextStyle(color: JweTheme.textMuted),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            if (provider.foodItems.isNotEmpty)
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text("OR SELECT FROM DATABASE", style: TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  children: provider.foodItems.map((f) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(f.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    subtitle: Text("${f.calories} kcal | ${f.protein}g protein", style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
+                    trailing: const Icon(Icons.add_circle_outline, color: JweTheme.accentCyan, size: 20),
+                    onTap: () {
+                       provider.addMealLog(widget.dateStr, MealLog(id: const Uuid().v4(), foodItemId: f.id, timestamp: DateTime.now()));
+                       Navigator.pop(context);
+                    },
+                  )).toList(),
+                ),
+              )
+          ],
+        ),
+      ),
+      actions:[
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black),
+          onPressed: _isLoading ? null : _submit,
+          child: _isLoading 
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)) 
+            : const Text("ANALYZE & LOG", style: TextStyle(fontWeight: FontWeight.bold)),
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/food_logging_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:intl/intl.dart';
+
+class HealthCombinedChart extends StatelessWidget {
+  final AppProvider provider;
+
+  const HealthCombinedChart({super.key, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final List<FlSpot> sleepSpots =[];
+    final List<FlSpot> workSpots = [];
+    final List<FlSpot> virtueSpots =[];
+
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
+      // 1. Sleep
+      final log = provider.healthLogs[dateStr];
+      final sleepHrs = (log?.sleepMinutes ?? 0) / 60.0;
+      sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
+
+      // 2. Work (Time spent on tasks)
+      final hist = provider.completedByDay[dateStr];
+      double workMins = 0;
+      if (hist != null && hist['taskTimes'] != null) {
+        (hist['taskTimes'] as Map<String, dynamic>).forEach((_, v) => workMins += (v as num));
+      }
+      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); // Convert seconds to hours
+      
+      // 3. Virtue XP
+      final xpLog = provider.reflectionLogs.where((l) => l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day);
+      double xp = 0;
+      for (var l in xpLog) {
+         xp += l.xpGained.values.fold(0, (a, b) => a + b);
+      }
+      virtueSpots.add(FlSpot((6 - i).toDouble(), xp / 10.0)); // Scale down XP by factor of 10 to fit graph
+    }
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children:[
+            _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
+            const SizedBox(width: 12),
+            _LegendItem("WORK (HRS)", JweTheme.accentAmber),
+            const SizedBox(width: 12),
+            _LegendItem("XP (SCALED)", const Color(0xFFB388FF)), // Soft purple for XP
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (val) => FlLine(color: JweTheme.border, strokeWidth: 1),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final date = now.subtract(Duration(days: 6 - value.toInt()));
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                      );
+                    }
+                  )
+                )
+              ),
+              borderData: FlBorderData(show: false),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (group) => JweTheme.panel,
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
+                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
+                      return LineTooltipItem("${(spot.y * 10).toInt()} XP", const TextStyle(color: Color(0xFFB388FF), fontSize: 12, fontWeight: FontWeight.bold));
+                    }).toList();
+                  }
+                )
+              ),
+              lineBarsData:[
+                LineChartBarData(
+                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+                ),
+                LineChartBarData(
+                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
+                ),
+                LineChartBarData(
+                  spots: virtueSpots, color: const Color(0xFFB388FF), isCurved: true, dotData: const FlDotData(show: false), barWidth: 2,
+                ),
+              ]
+            )
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _LegendItem(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children:[
+        Container(width: 8, height: 8, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

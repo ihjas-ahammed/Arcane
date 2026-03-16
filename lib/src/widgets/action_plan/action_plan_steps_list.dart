@@ -119,6 +119,8 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               hasSubsteps: step.substeps.isNotEmpty,
               accentColor: widget.accentColor,
               onTap: () => _navigateToStepDetail(context, step),
+              onPlay: null, // Removed engage button from checkpoints
+              isRunning: false,
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);

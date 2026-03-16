@@ -1,13 +1,12 @@
 Make the following changes:
 
-    - Add a Health Log, in analytics, to log sleep time and show a graph of sleep time along with both total time spend, virtue graph, also add a neutrition log where I write what I ate, it will initally make me generate a card for the food item if its new unless let me select from it (the card is compact enough to show its energy, neutrition) i can also log how much water I had which shows a dashboard with my neutritoon status and health status
-    - So health log is another screen where it shows my health status, also add a log for my workout like walk distance, workout times
+    - Update biometrics:
+        - Make it possible to log more than one sleep metric (with date), and show them as a list
+        - Same goes for physical activity
 
-    - Fix virtue graph, update it to show wellbeing status, also the individual graph when I click on each pie element is currently not working ever since I upgaded to wellbeing elements
+        - As for Log Meal, make it possible to log same meal again, and also when I click on the card give more details of the meal we had (AI generated)
 
-    - Update the OVERALL PROGRESS widget, remake its design based on the cards we use in projects 
-
-    - On action plans, give enngage option for checkpoints too but starts the parent task timer
+    - Remove the engage button from checkpoints cards, u where told to add them on the planner in schdule so I can directly start timer from there even if its a checkpoint, so fix that
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

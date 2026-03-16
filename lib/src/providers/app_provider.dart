@@ -26,6 +26,7 @@ import 'package:arcane/src/providers/mixins/sync_mixin.dart';
 import 'package:arcane/src/providers/mixins/task_mixin.dart';
 import 'package:arcane/src/providers/mixins/finance_mixin.dart';
 import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
 
 // Import Actions
 import 'package:arcane/src/providers/actions/task_actions.dart';
@@ -37,7 +38,7 @@ import 'package:arcane/src/providers/actions/schedule_actions.dart';
 import 'package:arcane/src/providers/actions/finance_actions.dart';
 import 'package:arcane/src/providers/actions/journaling_actions.dart';
 
-class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, WidgetsBindingObserver {
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
   final AIService _aiService = AIService();
   final DataExportService _exportService = DataExportService();
@@ -224,6 +225,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
+    // Reset health logs handled by loading empty maps
   }
 
   // --- Mixin Implementations & Legacy Compat ---
@@ -234,6 +236,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     map.addAll(getTaskStateMap());
     map.addAll(getFinanceStateMap());
     map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
     return map;
   }
 
@@ -248,6 +251,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     loadTaskState(data);
     loadFinanceState(data);
     loadUserState(data);
+    loadHealthState(data);
     
     // Version Check
     if (settings.dataVersion < 1) {
@@ -355,6 +359,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     markDirty('history');
     markDirty('reflections');
     markDirty('finance');
+    markDirty('health');
     scheduleRealtimeSync();
   }
 
@@ -420,7 +425,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
-    if (currentUser == null) return [];
+    if (currentUser == null) return[];
     return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
   }
 

@@ -165,10 +165,18 @@ class ScheduleHeroWidget extends StatelessWidget {
                     children: [
                       if (isCheckpoint) ...[
                         _buildCompactButton(
+                          label: isRunning ? "HALT" : "ENGAGE",
+                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
+                          color: isRunning ? AppTheme.fhAccentRed : PersonInfoTheme.spideyCyan,
+                          isFilled: true,
+                          onTap: onPlayPause
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
                           label: "FINISH",
                           icon: MdiIcons.checkAll,
                           color: PersonInfoTheme.spideyCyan,
-                          isFilled: true,
+                          isFilled: false,
                           onTap: onFinishCheckpoint
                         ),
                         const SizedBox(height: 8),

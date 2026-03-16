@@ -32,7 +32,6 @@ class ChartDataHelper {
       if (isToday) {
         // Live data calculation for today
         for (var task in provider.mainTasks) {
-          // FIX: Apply filter to "Today" logic
           if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
             continue;
           }
@@ -85,7 +84,7 @@ class ChartDataHelper {
 
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
-          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
+          if (selectedVirtueFilter != null && WellbeingTheme.getCategory(k) != selectedVirtueFilter) {
             return;
           }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;

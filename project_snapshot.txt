@@ -1,1147 +1,1405 @@
-Here are the updated files to enhance the Day Plan and Schedule Hero sections with Spider-Man game-inspired aesthetics, improved queue logic, space-saving layouts, and the requested "Postpone" and "Finish" buttons.
 
-### Updated Files
 
---- START OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
+--- START OF FILE lib/src/models/health_models.dart ---
+import 'package:uuid/uuid.dart';
 
-class DayPlanScreen extends StatefulWidget {
-  const DayPlanScreen({super.key});
+class FoodItem {
+  String id;
+  String name;
+  int calories;
+  double protein;
+  double carbs;
+  double fat;
+  String? description;
+  List<String>? benefits;
+  List<String>? warnings;
 
-  @override
-  State<DayPlanScreen> createState() => _DayPlanScreenState();
+  FoodItem({
+    required this.id,
+    required this.name,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+    this.description,
+    this.benefits,
+    this.warnings,
+  });
+
+  factory FoodItem.fromJson(Map<String, dynamic> json) {
+    return FoodItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? 'Unknown Food',
+      calories: (json['calories'] as num? ?? 0).toInt(),
+      protein: (json['protein'] as num? ?? 0).toDouble(),
+      carbs: (json['carbs'] as num? ?? 0).toDouble(),
+      fat: (json['fat'] as num? ?? 0).toDouble(),
+      description: json['description'] as String?,
+      benefits: (json['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      warnings: (json['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'calories': calories,
+      'protein': protein,
+      'carbs': carbs,
+      'fat': fat,
+      'description': description,
+      'benefits': benefits,
+      'warnings': warnings,
+    };
+  }
 }
 
-class _DayPlanScreenState extends State<DayPlanScreen> {
-  List<String> _currentPlan = [];
-  bool _isInit = true;
+class MealLog {
+  String id;
+  String foodItemId;
+  DateTime timestamp;
+
+  MealLog({
+    required this.id,
+    required this.foodItemId,
+    required this.timestamp,
+  });
+
+  factory MealLog.fromJson(Map<String, dynamic> json) {
+    return MealLog(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      foodItemId: json['foodItemId'] as String? ?? '',
+      timestamp: json['timestamp'] != null 
+          ? DateTime.parse(json['timestamp']) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'foodItemId': foodItemId,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+class SleepLog {
+  String id;
+  DateTime startTime;
+  DateTime endTime;
+
+  SleepLog({
+    required this.id,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  int get durationMinutes => endTime.difference(startTime).inMinutes;
+
+  factory SleepLog.fromJson(Map<String, dynamic> json) {
+    if (json['startTime'] != null && json['endTime'] != null) {
+      return SleepLog(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        startTime: DateTime.parse(json['startTime']),
+        endTime: DateTime.parse(json['endTime']),
+      );
+    } else {
+      // Legacy migration from 'minutes' and 'timestamp'
+      final end = json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now();
+      final mins = (json['minutes'] as num? ?? 0).toInt();
+      final start = end.subtract(Duration(minutes: mins));
+      return SleepLog(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        startTime: start,
+        endTime: end,
+      );
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime.toIso8601String(),
+    };
+  }
+}
+
+class ActivityLog {
+  String id;
+  double walkDistanceKm;
+  int workoutMinutes;
+  DateTime timestamp;
+
+  ActivityLog({
+    required this.id,
+    required this.walkDistanceKm,
+    required this.workoutMinutes,
+    required this.timestamp,
+  });
+
+  factory ActivityLog.fromJson(Map<String, dynamic> json) {
+    return ActivityLog(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
+      workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
+      timestamp: json['timestamp'] != null 
+          ? DateTime.parse(json['timestamp']) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'walkDistanceKm': walkDistanceKm,
+      'workoutMinutes': workoutMinutes,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+class DailyHealthLog {
+  String dateStr;
+  int waterGlasses;
+  List<MealLog> meals;
+  List<SleepLog> sleepLogs;
+  List<ActivityLog> activityLogs;
+
+  DailyHealthLog({
+    required this.dateStr,
+    this.waterGlasses = 0,
+    List<MealLog>? meals,
+    List<SleepLog>? sleepLogs,
+    List<ActivityLog>? activityLogs,
+  }) : meals = meals ?? [],
+       sleepLogs = sleepLogs ?? [],
+       activityLogs = activityLogs ?? [];
+
+  factory DailyHealthLog.fromJson(Map<String, dynamic> json) {
+    // Migration logic for old singular fields
+    final legacySleep = (json['sleepMinutes'] as num? ?? 0).toInt();
+    final legacyWalk = (json['walkDistanceKm'] as num? ?? 0.0).toDouble();
+    final legacyWorkout = (json['workoutMinutes'] as num? ?? 0).toInt();
+
+    List<SleepLog> parsedSleep = (json['sleepLogs'] as List<dynamic>?)
+            ?.map((e) => SleepLog.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [];
+    
+    if (parsedSleep.isEmpty && legacySleep > 0) {
+      final end = DateTime.now();
+      parsedSleep.add(SleepLog(id: const Uuid().v4(), startTime: end.subtract(Duration(minutes: legacySleep)), endTime: end));
+    }
+
+    List<ActivityLog> parsedActivity = (json['activityLogs'] as List<dynamic>?)
+            ?.map((e) => ActivityLog.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [];
+            
+    if (parsedActivity.isEmpty && (legacyWalk > 0 || legacyWorkout > 0)) {
+      parsedActivity.add(ActivityLog(id: const Uuid().v4(), walkDistanceKm: legacyWalk, workoutMinutes: legacyWorkout, timestamp: DateTime.now()));
+    }
+
+    return DailyHealthLog(
+      dateStr: json['dateStr'] as String? ?? '',
+      waterGlasses: (json['waterGlasses'] as num? ?? 0).toInt(),
+      meals: (json['meals'] as List<dynamic>?)
+              ?.map((e) => MealLog.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+      sleepLogs: parsedSleep,
+      activityLogs: parsedActivity,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dateStr': dateStr,
+      'waterGlasses': waterGlasses,
+      'meals': meals.map((m) => m.toJson()).toList(),
+      'sleepLogs': sleepLogs.map((s) => s.toJson()).toList(),
+      'activityLogs': activityLogs.map((a) => a.toJson()).toList(),
+    };
+  }
+}
+--- END OF FILE lib/src/models/health_models.dart ---
+
+--- START OF FILE lib/src/providers/mixins/health_mixin.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:uuid/uuid.dart';
+
+mixin HealthMixin on ChangeNotifier {
+  List<FoodItem> _foodItems =[];
+  Map<String, DailyHealthLog> _healthLogs = {};
+
+  List<FoodItem> get foodItems => _foodItems;
+  Map<String, DailyHealthLog> get healthLogs => _healthLogs;
+
+  SyncMixin get sync => this as SyncMixin;
+
+  void loadHealthState(Map<String, dynamic> data) {
+    if (data['foodItems'] != null) {
+      _foodItems = (data['foodItems'] as List).map((e) => FoodItem.fromJson(e)).toList();
+    }
+    if (data['healthLogs'] != null) {
+      final rawLogs = data['healthLogs'] as Map;
+      _healthLogs = rawLogs.map((k, v) => MapEntry(k.toString(), DailyHealthLog.fromJson(Map<String, dynamic>.from(v))));
+    }
+  }
+
+  Map<String, dynamic> getHealthStateMap() {
+    return {
+      'foodItems': _foodItems.map((e) => e.toJson()).toList(),
+      'healthLogs': _healthLogs.map((k, v) => MapEntry(k, v.toJson())),
+    };
+  }
+
+  DailyHealthLog getDailyHealthLog(String dateStr) {
+    if (!_healthLogs.containsKey(dateStr)) {
+      _healthLogs[dateStr] = DailyHealthLog(dateStr: dateStr);
+      // FIX: Schedule state mutation for the next frame to avoid "setState() called during build" exceptions
+      Future.microtask(() => sync.markDirty('health'));
+    }
+    return _healthLogs[dateStr]!;
+  }
+
+  void addFoodItem(FoodItem item) {
+    _foodItems.add(item);
+    sync.markDirty('health');
+  }
+
+  void updateFoodItem(FoodItem item) {
+    final index = _foodItems.indexWhere((f) => f.id == item.id);
+    if (index != -1) {
+      _foodItems[index] = item;
+      sync.markDirty('health');
+    }
+  }
+
+  void addMealLog(String dateStr, MealLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.meals.add(log);
+    sync.markDirty('health');
+  }
+
+  void deleteMealLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.meals.removeWhere((m) => m.id == logId);
+    sync.markDirty('health');
+  }
+  
+  void logMealAgain(String dateStr, MealLog originalLog) {
+    final hLog = getDailyHealthLog(dateStr);
+    final newLog = MealLog(id: const Uuid().v4(), foodItemId: originalLog.foodItemId, timestamp: DateTime.now());
+    hLog.meals.add(newLog);
+    sync.markDirty('health');
+  }
+
+  void addSleepLog(String dateStr, SleepLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.sleepLogs.add(log);
+    hLog.sleepLogs.sort((a, b) => b.endTime.compareTo(a.endTime));
+    sync.markDirty('health');
+  }
+
+  void deleteSleepLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.sleepLogs.removeWhere((l) => l.id == logId);
+    sync.markDirty('health');
+  }
+
+  void addActivityLog(String dateStr, ActivityLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.activityLogs.add(log);
+    hLog.activityLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    sync.markDirty('health');
+  }
+
+  void deleteActivityLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.activityLogs.removeWhere((l) => l.id == logId);
+    sync.markDirty('health');
+  }
+
+  void updateWater(String dateStr, int glasses) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.waterGlasses = glasses;
+    sync.markDirty('health');
+  }
+}
+--- END OF FILE lib/src/providers/mixins/health_mixin.dart ---
+
+--- START OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
+
+class AddSleepDialog extends StatefulWidget {
+  final String dateStr;
+  const AddSleepDialog({super.key, required this.dateStr});
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_isInit) {
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      _currentPlan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-      _isInit = false;
-    }
+  State<AddSleepDialog> createState() => _AddSleepDialogState();
+}
+
+class _AddSleepDialogState extends State<AddSleepDialog> {
+  late DateTime _startDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the currently selected date in the dashboard
+    _startDate = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
+    // Default sleep range guess
+    _startTime = const TimeOfDay(hour: 23, minute: 0);
+    _endTime = const TimeOfDay(hour: 7, minute: 0);
   }
 
-  void _savePlan() {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    provider.taskActions.updateDayPlan(helper.getTodayDateString(), _currentPlan);
-    Navigator.pop(context);
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      title: Text(
+        "LOG SLEEP RECORD", 
+        style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDatePickerRow("DATE RECORDED", _startDate, (val) => setState(() => _startDate = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("BED TIME", _startTime, (val) => setState(() => _startTime = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("WAKE TIME", _endTime, (val) => setState(() => _endTime = val)),
+            if (_startTime != null && _endTime != null) ...[
+               const SizedBox(height: 16),
+               Builder(builder: (context) {
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
+                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+                  final diff = end.difference(start);
+                  
+                  return Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: JweTheme.textMuted, size: 14),
+                      const SizedBox(width: 8),
+                      Text(
+                        end.day != start.day 
+                          ? "Crosses midnight (${diff.inHours}h ${diff.inMinutes % 60}m)" 
+                          : "Same day (${diff.inHours}h ${diff.inMinutes % 60}m)", 
+                        style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)
+                      )
+                    ],
+                  );
+               })
+            ]
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black),
+          onPressed: (_startTime != null && _endTime != null)
+              ? () {
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
+                  
+                  if (end.isBefore(start)) {
+                      end = end.add(const Duration(days: 1));
+                  }
+                  
+                  final provider = Provider.of<AppProvider>(context, listen: false);
+                  provider.addSleepLog(widget.dateStr, SleepLog(
+                    id: const Uuid().v4(),
+                    startTime: start,
+                    endTime: end,
+                  ));
+                  
+                  Navigator.pop(context);
+                }
+              : null,
+          child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
   }
 
-  void _addToPlan(String compoundId) {
-    if (!_currentPlan.contains(compoundId)) {
-      setState(() {
-        _currentPlan.add(compoundId);
-        // Auto-remove any child checkpoints if the parent subtask was just added
-        final parts = compoundId.split('|');
-        if (parts.length == 2) {
-           _currentPlan.removeWhere((item) {
-             final p = item.split('|');
-             return p.length == 3 && p[0] == parts[0] && p[1] == parts[1];
-           });
-        }
-      });
-    }
+  Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
+    return Container(
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase,
+        border: Border.all(color: JweTheme.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now().add(const Duration(days: 1)),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: JweTheme.accentCyan,
+                      onPrimary: Colors.black,
+                      surface: JweTheme.panel,
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                ),
+              );
+              if (picked != null) onSelect(picked);
+            },
+            child: Text(
+              DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
+              style: const TextStyle(
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 14,
+                color: JweTheme.accentCyan
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _removeFromPlan(String compoundId) {
-    setState(() => _currentPlan.remove(compoundId));
+  Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
+    return Container(
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase,
+        border: Border.all(color: JweTheme.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          InkWell(
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: time ?? TimeOfDay.now(),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: JweTheme.accentCyan,
+                      onPrimary: Colors.black,
+                      surface: JweTheme.panel,
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                ),
+              );
+              if (picked != null) onSelect(picked);
+            },
+            child: Text(
+              time?.format(context) ?? "--:--",
+              style: const TextStyle(
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 16,
+                color: JweTheme.accentCyan
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/health/sleep_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/add_sleep_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SleepPanel extends StatelessWidget {
+  final String dateStr;
+  const SleepPanel({super.key, required this.dateStr});
+
+  void _showAddDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AddSleepDialog(dateStr: dateStr),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final currentPlanSet = _currentPlan.toSet();
+    final log = provider.getDailyHealthLog(dateStr);
+    final totalMinutes = log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes);
 
-    // Build available list
-    List<Widget> availableWidgets = [];
-    for (var task in provider.mainTasks) {
-      final activeSubs = task.subTasks.where((s) => !s.completed).toList();
-      if (activeSubs.isEmpty) continue;
-
-      List<Widget> taskWidgets = [];
-
-      for (var sub in activeSubs) {
-        final subId = "${task.id}|${sub.id}";
-        final activeCheckpoints = sub.subSubTasks.where((c) => !c.completed).toList();
-        final allCheckpointIds = activeCheckpoints.map((c) => "$subId|${c.id}").toList();
-
-        bool isSubtaskInPlan = currentPlanSet.contains(subId);
-        bool allCheckpointsInPlan = activeCheckpoints.isNotEmpty && allCheckpointIds.every((id) => currentPlanSet.contains(id));
-
-        // 1. Add SubTask itself if not in plan AND not all its checkpoints are already queued
-        if (!isSubtaskInPlan && !allCheckpointsInPlan) {
-          taskWidgets.add(
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark.withOpacity(0.5),
-                border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
-              ),
-              child: ListTile(
-                leading: Icon(MdiIcons.targetAccount, color: task.taskColor, size: 20),
-                title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14)),
-                trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal),
-                onTap: () => _addToPlan(subId),
-              ),
-            )
-          );
-        }
-
-        // 2. Add Checkpoints inside the SubTask ONLY if parent SubTask is NOT queued
-        if (!isSubtaskInPlan) {
-          for (var cp in activeCheckpoints) {
-            final cpId = "$subId|${cp.id}";
-            if (!currentPlanSet.contains(cpId)) {
-              taskWidgets.add(
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8, left: 24), // Indent checkpoints
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withOpacity(0.3),
-                    border: Border(left: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5), width: 2)),
+    return JwePanel(
+      title: "SLEEP METRICS",
+      accentColor: JweTheme.accentCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("TOTAL SLEEP", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("${(totalMinutes / 60).floor()}h ${totalMinutes % 60}m", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (log.sleepLogs.isEmpty)
+             const Text("No sleep data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: log.sleepLogs.length,
+              itemBuilder: (ctx, i) {
+                final sLog = log.sleepLogs[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children:[
+                      Icon(MdiIcons.bedOutline, color: JweTheme.textMuted, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${DateFormat('HH:mm').format(sLog.startTime)} - ${DateFormat('HH:mm').format(sLog.endTime)}", 
+                              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+                            ),
+                            Text(
+                              "${(sLog.durationMinutes / 60).floor()}h ${sLog.durationMinutes % 60}m", 
+                              style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)
+                            ),
+                          ],
+                        )
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
+                        onPressed: () => provider.deleteSleepLog(dateStr, sLog.id),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      )
+                    ],
                   ),
-                  child: ListTile(
-                    dense: true,
-                    leading: Icon(MdiIcons.rhombusOutline, color: AppTheme.fhTextSecondary, size: 16),
-                    title: Text(cp.name, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13)),
-                    trailing: const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
-                    onTap: () => _addToPlan(cpId),
-                  ),
-                )
-              );
-            }
-          }
-        }
+                );
+              }
+            ),
+
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: Text("ADD SLEEP RECORD", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: JweTheme.accentCyan,
+              side: const BorderSide(color: JweTheme.accentCyan),
+              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+            ),
+            onPressed: () => _showAddDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/sleep_panel.dart ---
+
+--- START OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:intl/intl.dart';
+
+class HealthCombinedChart extends StatelessWidget {
+  final AppProvider provider;
+
+  const HealthCombinedChart({super.key, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final List<FlSpot> sleepSpots =[];
+    final List<FlSpot> workSpots = [];
+    final List<FlSpot> virtueSpots =[];
+
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
+      // 1. Sleep
+      final log = provider.healthLogs[dateStr];
+      final sleepMins = log?.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) ?? 0;
+      final sleepHrs = sleepMins / 60.0;
+      sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
+
+      // 2. Work (Time spent on tasks)
+      final hist = provider.completedByDay[dateStr];
+      double workMins = 0;
+      if (hist != null && hist['taskTimes'] != null) {
+        (hist['taskTimes'] as Map<String, dynamic>).forEach((_, v) => workMins += (v as num));
       }
+      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); // Convert seconds to hours
+      
+      // 3. Virtue XP
+      final xpLog = provider.reflectionLogs.where((l) => l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day);
+      double xp = 0;
+      for (var l in xpLog) {
+         xp += l.xpGained.values.fold(0, (a, b) => a + b);
+      }
+      virtueSpots.add(FlSpot((6 - i).toDouble(), xp / 10.0)); // Scale down XP by factor of 10 to fit graph
+    }
 
-      if (taskWidgets.isNotEmpty) {
-        availableWidgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4),
-            child: Text(task.name.toUpperCase(), style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.5)),
-          )
-        );
-        availableWidgets.addAll(taskWidgets);
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children:[
+            _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
+            const SizedBox(width: 12),
+            _LegendItem("WORK (HRS)", JweTheme.accentAmber),
+            const SizedBox(width: 12),
+            _LegendItem("XP (SCALED)", const Color(0xFFB388FF)), // Soft purple for XP
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (val) => FlLine(color: JweTheme.border, strokeWidth: 1),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final date = now.subtract(Duration(days: 6 - value.toInt()));
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                      );
+                    }
+                  )
+                )
+              ),
+              borderData: FlBorderData(show: false),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (group) => JweTheme.panel,
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
+                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
+                      return LineTooltipItem("${(spot.y * 10).toInt()} XP", const TextStyle(color: Color(0xFFB388FF), fontSize: 12, fontWeight: FontWeight.bold));
+                    }).toList();
+                  }
+                )
+              ),
+              lineBarsData:[
+                LineChartBarData(
+                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+                ),
+                LineChartBarData(
+                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
+                ),
+                LineChartBarData(
+                  spots: virtueSpots, color: const Color(0xFFB388FF), isCurved: true, dotData: const FlDotData(show: false), barWidth: 2,
+                ),
+              ]
+            )
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _LegendItem(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children:[
+        Container(width: 8, height: 8, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+
+--- START OF FILE lib/src/widgets/health/nutrition_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/food_logging_dialog.dart';
+import 'package:arcane/src/widgets/health/meal_insight_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class NutritionPanel extends StatelessWidget {
+  final String dateStr;
+  const NutritionPanel({super.key, required this.dateStr});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final log = provider.getDailyHealthLog(dateStr);
+
+    int totalCalories = 0;
+    double totalProtein = 0;
+    for (var m in log.meals) {
+      final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
+      if (food != null) {
+        totalCalories += food.calories;
+        totalProtein += food.protein;
       }
     }
 
-    return Scaffold(
-      backgroundColor: PersonInfoTheme.bgDark,
-      appBar: AppBar(
-        title: Text("STARTUP PLAN MAKER", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check, color: AppTheme.fhAccentGreen),
-            onPressed: _savePlan,
-            tooltip: "Save Plan",
+    return JwePanel(
+      title: "NUTRITIONAL INTAKE",
+      accentColor: JweTheme.accentCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:[
+                  const Text("CALORIES", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("$totalCalories KCAL", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children:[
+                  const Text("PROTEIN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("${totalProtein.toStringAsFixed(1)} G", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          if (log.meals.isEmpty)
+             const Text("No nutritional data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: log.meals.length,
+              itemBuilder: (ctx, i) {
+                final mLog = log.meals[i];
+                final food = provider.foodItems.where((f) => f.id == mLog.foodItemId).firstOrNull;
+                if (food == null) return const SizedBox.shrink();
+
+                return InkWell(
+                  onTap: () {
+                    showDialog(context: context, builder: (_) => MealInsightDialog(foodItem: food));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentCyan.withOpacity(0.05),
+                      border: Border.all(color: JweTheme.accentCyan.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children:[
+                        Icon(MdiIcons.foodAppleOutline, color: JweTheme.accentCyan, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(food.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text("${food.calories} kcal | ${food.protein}g protein", style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono')),
+                            ],
+                          ),
+                        ),
+                        // Log Again
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: JweTheme.accentAmber, size: 18),
+                          tooltip: "Log Again",
+                          onPressed: () => provider.logMealAgain(dateStr, mLog),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 12),
+                        // Delete
+                        IconButton(
+                          icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 18),
+                          onPressed: () => provider.deleteMealLog(dateStr, mLog.id),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              }
+            ),
+          
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: Text("LOG MEAL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: JweTheme.accentCyan,
+              side: const BorderSide(color: JweTheme.accentCyan),
+              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+            ),
+            onPressed: () => showDialog(context: context, builder: (_) => FoodLoggingDialog(dateStr: dateStr)),
           )
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Selected Plan (Reorderable)
-            Expanded(
-              flex: 1,
-              child: Column(
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/nutrition_panel.dart ---
+
+--- START OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class MealInsightDialog extends StatefulWidget {
+  final FoodItem foodItem;
+  
+  const MealInsightDialog({super.key, required this.foodItem});
+
+  @override
+  State<MealInsightDialog> createState() => _MealInsightDialogState();
+}
+
+class _MealInsightDialogState extends State<MealInsightDialog> {
+  Map<String, dynamic>? _insights;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.foodItem.description != null && widget.foodItem.description!.isNotEmpty) {
+      // Use existing insights
+      _insights = {
+        'description': widget.foodItem.description,
+        'benefits': widget.foodItem.benefits,
+        'warnings': widget.foodItem.warnings,
+      };
+      _isLoading = false;
+    } else {
+      _fetchInsights();
+    }
+  }
+
+  Future<void> _fetchInsights() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    try {
+      final res = await provider.aiService.getMealInsights(
+        mealName: widget.foodItem.name,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (i) => provider.setApiKeyIndex(i),
+        onLog: (_) {},
+      );
+      
+      // Save data back to the FoodItem so we don't have to fetch again
+      widget.foodItem.description = res['description'];
+      widget.foodItem.benefits = (res['benefits'] as List?)?.map((e) => e.toString()).toList();
+      widget.foodItem.warnings = (res['warnings'] as List?)?.map((e) => e.toString()).toList();
+      provider.updateFoodItem(widget.foodItem);
+
+      if (mounted) setState(() { _insights = res; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      title: Text("NUTRITIONAL INSIGHT", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: _isLoading 
+          ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: JweTheme.accentCyan)))
+          : _error != null
+            ? Text("Error: $_error", style: const TextStyle(color: JweTheme.accentRed))
+            : Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    color: PersonInfoTheme.bgPanel,
-                    child: Text("TODAY'S QUEUE", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
+                  Text(widget.foodItem.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  
+                  Text(_insights?['description'] ?? 'No description available.', style: const TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4)),
+                  const SizedBox(height: 16),
+                  
+                  if (_insights?['benefits'] != null) ...[
+                    const Text("BENEFITS", style: TextStyle(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_insights!['benefits'] as List).map((b) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("• ", style: TextStyle(color: JweTheme.accentCyan)),
+                          Expanded(child: Text(b.toString(), style: const TextStyle(color: JweTheme.textWhite, fontSize: 12))),
+                        ],
+                      ),
+                    )),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (_insights?['warnings'] != null && (_insights!['warnings'] as List).isNotEmpty) ...[
+                    const Text("WARNINGS / ALERTS", style: TextStyle(color: JweTheme.accentRed, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_insights!['warnings'] as List).map((w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("! ", style: TextStyle(color: JweTheme.accentRed)),
+                          Expanded(child: Text(w.toString(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
+                        ],
+                      ),
+                    )),
+                  ],
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE", style: TextStyle(color: JweTheme.textMuted))),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class CheckpointItem extends StatefulWidget {
+  final String title;
+  final bool isCompleted;
+  final String? linkedLabel;
+  final String type; // 'check' or 'info'
+  final Color accentColor;
+  final VoidCallback? onUnlink;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onToggleType;
+  final VoidCallback? onTap; // For opening detail
+  final VoidCallback? onPlay; // For engaging timer
+  final bool isRunning;
+  final bool hasSubsteps; // To show visual indicator
+
+  const CheckpointItem({
+    super.key,
+    required this.title,
+    required this.isCompleted,
+    this.linkedLabel,
+    this.type = 'check',
+    required this.accentColor,
+    this.onUnlink,
+    required this.onToggle,
+    required this.onDelete,
+    this.onDuplicate,
+    this.onToggleType,
+    this.onTap,
+    this.onPlay,
+    this.isRunning = false,
+    this.hasSubsteps = false,
+  });
+
+  @override
+  State<CheckpointItem> createState() => _CheckpointItemState();
+}
+
+class _CheckpointItemState extends State<CheckpointItem> {
+  late bool _localCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _localCompleted = widget.isCompleted;
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckpointItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      _localCompleted = widget.isCompleted;
+    }
+  }
+
+  void _handleToggle() {
+    if (widget.type == 'info') return;
+    setState(() {
+      _localCompleted = !_localCompleted;
+    });
+    widget.onToggle();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isInfo = widget.type == 'info';
+    final color = widget.accentColor;
+
+    final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
+    final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
+    final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
+    final textColor = AppTheme.fhTextPrimary; // Never dim completely
+
+    return GestureDetector(
+      onTap: widget.onTap, // Open detail on card tap
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border(left: BorderSide(color: borderColor, width: 4)),
+        ),
+        child: Row(
+          children:[
+            // Checkbox logic overrides tap on the left side
+            if (!isInfo)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: RhombusCheckbox(
+                  checked: _localCompleted,
+                  onChanged: (_) => _handleToggle(),
+                  size: CheckboxSize.small,
+                ),
+              )
+            else 
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
+              ),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:[
+                  Text(
+                    widget.title.toUpperCase(),
+                    style: GoogleFonts.chakraPetch(
+                      color: textColor,
+                      fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                      decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                  Expanded(
-                    child: _currentPlan.isEmpty
-                      ? const Center(child: Text("QUEUE EMPTY", style: TextStyle(color: AppTheme.fhTextDisabled)))
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _currentPlan.length,
-                          onReorder: (oldIndex, newIndex) {
-                            if (oldIndex < newIndex) newIndex -= 1;
-                            setState(() {
-                              final item = _currentPlan.removeAt(oldIndex);
-                              _currentPlan.insert(newIndex, item);
-                            });
-                          },
-                          proxyDecorator: (child, index, animation) => Material(color: Colors.transparent, child: child),
-                          itemBuilder: (context, index) {
-                            final compId = _currentPlan[index];
-                            final parts = compId.split('|');
-                            if (parts.length < 2) return const SizedBox.shrink();
-                            
-                            final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-                            final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-                            
-                            if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
-
-                            // Determine if it's a checkpoint or subtask
-                            final isCheckpoint = parts.length == 3;
-                            String title = sub.name;
-                            String subtitle = task.name;
-                            IconData leadingIcon = MdiIcons.targetAccount;
-
-                            if (isCheckpoint) {
-                              final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
-                              if (cp == null) return SizedBox.shrink(key: ValueKey(compId));
-                              title = cp.name;
-                              subtitle = "${task.name} > ${sub.name}";
-                              leadingIcon = MdiIcons.rhombusOutline;
-                            }
-
-                            return Container(
-                              key: ValueKey(compId),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: PersonInfoTheme.bgPanel,
-                                border: Border(left: BorderSide(color: task.taskColor, width: 4)),
-                              ),
-                              child: ListTile(
-                                leading: Icon(leadingIcon, color: task.taskColor, size: 20),
-                                title: Text(title, style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                                subtitle: Text(subtitle, style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.close, color: AppTheme.fhAccentRed, size: 18),
-                                      onPressed: () => _removeFromPlan(compId),
-                                    ),
-                                    const Icon(Icons.drag_handle, color: AppTheme.fhTextSecondary, size: 18),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                  )
+                  if (widget.linkedLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: LinkedTaskIndicator(
+                        label: widget.linkedLabel!,
+                        onUnlink: widget.onUnlink,
+                      ),
+                    ),
                 ],
               ),
             ),
             
-            Container(height: 2, color: PersonInfoTheme.spideyRed.withOpacity(0.5)),
-
-            // Available Tasks
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    color: PersonInfoTheme.bgPanel,
-                    child: Text("AVAILABLE MISSIONS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.0)),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      children: availableWidgets,
-                    ),
-                  )
-                ],
+            if (widget.hasSubsteps)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(MdiIcons.fileTree, size: 14, color: color),
               ),
-            )
+
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+              color: AppTheme.fhBgDark,
+              onSelected: (value) {
+                if (value == 'delete') widget.onDelete();
+                if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                if (value == 'open' && widget.onTap != null) widget.onTap!();
+              },
+              itemBuilder: (context) =>[
+                  PopupMenuItem(
+                  value: 'open',
+                  child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                ),
+                  PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_type',
+                  child: Row(children:[
+                    Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                    const SizedBox(width: 8), 
+                    Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                  ]),
+                ),
+                  PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 }
---- END OF FILE lib/src/screens/schedule/day_plan_screen.dart ---
+--- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 
---- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+--- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
 import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
-import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
-import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class ScheduleView extends StatefulWidget {
-  const ScheduleView({super.key});
+class ActionPlanStepsList extends StatefulWidget {
+  final String mainTaskId;
+  final String subTaskId;
+  final List<SubSubTask> steps;
+  final Function(String) onGenerate;
+  final Color accentColor;
+
+  const ActionPlanStepsList({
+    super.key,
+    required this.mainTaskId,
+    required this.subTaskId,
+    required this.steps,
+    required this.onGenerate,
+    required this.accentColor,
+  });
 
   @override
-  State<ScheduleView> createState() => _ScheduleViewState();
+  State<ActionPlanStepsList> createState() => _ActionPlanStepsListState();
 }
 
-class _ScheduleViewState extends State<ScheduleView> {
-  DateTime _selectedDate = DateTime.now();
-  List<TimelineEntry> _predictedEntries = [];
-  bool _isPredicting = false;
+class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
+  final TextEditingController _stepController = TextEditingController();
+  String _newStepType = 'check'; 
 
-  // --- Date Control ---
-  void _shiftDate(int days) {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: days));
-      _predictedEntries.clear(); 
+  void _addStep(AppProvider provider) {
+    if (_stepController.text.trim().isEmpty) return;
+    provider.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
+      'name': _stepController.text.trim(),
+      'isCountable': false,
+      'targetCount': 0,
+      'type': _newStepType,
     });
+    _stepController.clear();
   }
 
-  Future<void> _pickDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTeal,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _predictedEntries.clear();
-      });
-    }
-  }
-
-  // --- Prediction ---
-  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
-    if (!_isSameDay(_selectedDate, DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
-      return;
-    }
-    setState(() => _isPredicting = true);
-    try {
-      final newEntries = await provider.scheduleActions.predictSchedule();
-      setState(() {
-        _predictedEntries = newEntries;
-      });
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isPredicting = false);
-    }
-  }
-
-  // --- Entries Merging ---
-  List<TimelineEntry> _buildEntries(AppProvider provider) {
-    final List<TimelineEntry> entries = [];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-
-    for (var pred in _predictedEntries) {
-      bool overlaps = false;
-      for (var real in entries) {
-        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (!overlaps) entries.add(pred);
-    }
-
-    return entries;
-  }
-
-  // --- Handlers ---
-  void _openProtocolControl(BuildContext context, AppProvider provider) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.85,
-        child: ProtocolControlPanel(
-          protocols: provider.mainTasks,
-          selectedProtocolId: provider.selectedTaskId,
-          onSelect: (id) => provider.setSelectedTaskId(id),
-          onAdd: () => _showAddProtocolDialog(context, provider),
-          onEdit: (updatedTask) {
-            provider.editMainTask(
-              updatedTask.id,
-              name: updatedTask.name,
-              description: updatedTask.description,
-              theme: updatedTask.theme,
-              colorHex: updatedTask.colorHex,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("NEW PROTOCOL"),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: "NAME"),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty) {
-                provider.addMainTask(
-                  name: nameCtrl.text,
-                  description: "New Protocol",
-                  theme: "general",
-                  colorHex: "FF00F8F8" 
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text("CREATE"),
-          )
-        ],
-      )
-    );
-  }
-
-  void _handleAddSession(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
-    );
-
-    if (result != null && mounted) {
-      final start = result['start']!;
-      final end = result['end']!;
-      _showTaskSelectorAndAdd(context, provider, start, end);
-    }
-  }
-
-  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppTheme.fhBgMedium,
-          title: const Text("SELECT MISSION"),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: provider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = provider.mainTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
-                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
-
-                return ExpansionTile(
-                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
-                  children: activeSubtasks.map((sub) {
-                    return ListTile(
-                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
-                      onTap: () {
-                        provider.addSessionToSubtask(task.id, sub.id, start, end);
-                        Navigator.pop(ctx);
-                      },
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ),
-        );
-      }
-    );
-  }
-
-  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
-    if (entry.isPredicted) {
-      _handlePredictedEntryTap(context, provider, entry);
-      return;
-    }
-
-    if (entry.originalObject is! TaskSession) return;
-    final session = entry.originalObject as TaskSession;
-    
-    String? mainTaskId;
-    String? subTaskId;
-    for (var m in provider.mainTasks) {
-      for (var s in m.subTasks) {
-        if (s.sessions.any((sess) => sess.id == session.id)) {
-          mainTaskId = m.id;
-          subTaskId = s.id;
-          break;
-        }
-      }
-      if (mainTaskId != null) break;
-    }
-
-    if (mainTaskId == null || subTaskId == null) return;
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-        initialStart: session.startTime,
-        initialEnd: session.endTime,
-      ),
-    );
-
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
-      }
-    }
-  }
-
-  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(entry.title),
-        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _predictedEntries.removeWhere((e) => e.id == entry.id);
-              });
-              Navigator.pop(ctx);
-            }, 
-            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
-            }, 
-            child: const Text("LOG REAL SESSION")
-          )
-        ],
-      )
-    );
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  void _navigateToStepDetail(BuildContext context, SubSubTask step) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+      mainTaskId: widget.mainTaskId,
+      parentSubTaskId: widget.subTaskId,
+      checkpointId: step.id,
+    )));
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final entries = _buildEntries(provider);
-    final isToday = _isSameDay(_selectedDate, DateTime.now());
-
-    // Resolve Next Task from Day Plan
-    String? nextQueueId;
-    SubTask? nextSubTask;
-    MainTask? nextMainTask;
-    SubSubTask? nextCheckpoint;
-
-    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
-    
-    for (String idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-        
-        if (sTask != null && !sTask.completed) {
-          if (parts.length == 3) {
-            // It's a checkpoint
-            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
-            if (cp != null && !cp.completed) {
-              nextQueueId = idPair;
-              nextMainTask = mTask;
-              nextSubTask = sTask;
-              nextCheckpoint = cp;
-              break;
-            }
-          } else {
-            // It's a subtask
-            nextQueueId = idPair;
-            nextMainTask = mTask;
-            nextSubTask = sTask;
-            break;
-          }
-        }
-      }
-    }
-
-    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
-    final totalTodaySeconds = nextSubTask != null 
-        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
-        : 0.0;
+    final isLoading = provider.loadingTaskName == "Generating Strategy...";
 
     return Column(
-      children: [
-        // HERO SECTION
-        ScheduleHeroWidget(
-          mainTask: nextMainTask,
-          subTask: nextSubTask,
-          checkpoint: nextCheckpoint,
-          isRunning: isRunning,
-          totalTodaySeconds: totalTodaySeconds,
-          onOpenPlan: () {
-             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
-          },
-          onPlayPause: () {
-            if (nextSubTask == null || nextMainTask == null) return;
-            if (isRunning) {
-              provider.pauseTimer(nextSubTask!.id);
-              provider.logTimerAndReset(nextSubTask!.id);
-            } else {
-              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
-            }
-          },
-          onPostpone: () {
-            if (nextQueueId != null) {
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
-            }
-          },
-          onFinishCheckpoint: () {
-            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
-              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
-            }
-          },
-        ),
-        
-        // --- NEW QUEUE DASHBOARD ---
-        if (isToday)
-          const DayPlanDashboardWidget(),
-
-        // CONTROLS
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:[
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(-1),
+            children:[
+              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+              if (widget.steps.isEmpty)
+                TextButton.icon(
+                  onPressed: isLoading ? null : () async {
+                    final prompt = await showDialog<String>(
+                      context: context,
+                      builder: (_) => const AiGenerationPromptDialog(
+                        title: "GENERATE STRATEGY",
+                        hintText: "Add specific instructions, e.g. Focus on low budget...",
+                        actionLabel: "GENERATE",
+                      ),
+                    );
+                    if (prompt != null && prompt.isNotEmpty) {
+                      widget.onGenerate(prompt);
+                    }
+                  },
+                  icon: isLoading 
+                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
+                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
+                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
                   ),
-                  InkWell(
-                    onTap: () => _pickDate(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTeal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(1),
-                  ),
-                ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        if (widget.steps.isEmpty && !isLoading)
+          Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+              color: AppTheme.fhBgDark.withOpacity(0.5)
+            ),
+            child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+          )
+        else
+          ...widget.steps.map((step) {
+            return CheckpointItem(
+              title: step.name,
+              isCompleted: step.completed,
+              type: step.type,
+              hasSubsteps: step.substeps.isNotEmpty,
+              accentColor: widget.accentColor,
+              onTap: () => _navigateToStepDetail(context, step),
+              onPlay: null, // Removed engage button from checkpoints
+              isRunning: false,
+              onToggle: () {
+                if (step.completed) {
+                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                } else {
+                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                }
+              },
+              onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+              onToggleType: () {
+                final newType = step.type == 'check' ? 'info' : 'check';
+                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+              },
+            );
+          }),
+
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children:[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                child: PopupMenuButton<String>(
+                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
+                  tooltip: "Change Type",
+                  onSelected: (val) => setState(() => _newStepType = val),
+                  color: AppTheme.fhBgDark,
+                  itemBuilder: (context) =>[
+                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  ],
+                ),
               ),
-              Row(
-                children: [
-                  if (isToday)
-                    IconButton(
-                      icon: _isPredicting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
-                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
-                      tooltip: "PREDICT SCHEDULE",
-                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
-                    ),
-                  IconButton(
-                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
-                    tooltip: "PROTOCOL CONTROL",
-                    onPressed: () => _openProtocolControl(context, provider),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _stepController,
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: "ADD STEP...",
+                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
+                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
+                    filled: true,
+                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.all(12),
                   ),
-                ],
+                  onSubmitted: (_) => _addStep(provider),
+                ),
+              ),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _addStep(provider),
+                child: Container(
+                  width: 40, height: 40,
+                  color: widget.accentColor.withOpacity(0.2),
+                  alignment: Alignment.center,
+                  child: Text("+", style: TextStyle(color: widget.accentColor, fontWeight: FontWeight.bold, fontSize: 24)),
+                ),
               )
             ],
           ),
         ),
-
-        Expanded(
-          child: Stack(
-            children: [
-              ScheduleTimeline(
-                entries: entries,
-                onAddSession: () => _handleAddSession(context, provider),
-                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
-                initialScrollOffset: 0,
-              ),
-              Positioned(
-                right: 20,
-                bottom: 20,
-                child: FloatingActionButton(
-                  backgroundColor: AppTheme.fhAccentRed,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                  onPressed: () => _handleAddSession(context, provider),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 }
---- END OF FILE lib/src/widgets/views/schedule_view.dart ---
-
---- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class ScheduleHeroWidget extends StatelessWidget {
-  final MainTask? mainTask;
-  final SubTask? subTask;
-  final SubSubTask? checkpoint;
-  final bool isRunning;
-  final double totalTodaySeconds;
-  
-  final VoidCallback onPlayPause;
-  final VoidCallback onOpenPlan;
-  final VoidCallback onPostpone;
-  final VoidCallback onFinishCheckpoint;
-
-  const ScheduleHeroWidget({
-    super.key,
-    this.mainTask,
-    this.subTask,
-    this.checkpoint,
-    required this.isRunning,
-    required this.totalTodaySeconds,
-    required this.onPlayPause,
-    required this.onOpenPlan,
-    required this.onPostpone,
-    required this.onFinishCheckpoint,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isEmpty = subTask == null;
-    final bool isCheckpoint = checkpoint != null;
-    
-    final Color mainColor = isEmpty 
-        ? AppTheme.fhTextDisabled 
-        : (isCheckpoint ? PersonInfoTheme.spideyCyan : (mainTask?.taskColor ?? PersonInfoTheme.spideyRed));
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: PersonInfoTheme.bgPanel,
-        border: Border(left: BorderSide(color: mainColor, width: 4)),
-        boxShadow: [
-          BoxShadow(
-            color: mainColor.withOpacity(0.15),
-            blurRadius: 15,
-            spreadRadius: 2,
-          )
-        ]
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(isCheckpoint ? MdiIcons.rhombusOutline : MdiIcons.targetAccount, color: mainColor, size: 14),
-                    const SizedBox(width: 8),
-                    Text(
-                      isEmpty ? "QUEUE EMPTY" : (isCheckpoint ? "CHECKPOINT TARGET" : "PRIMARY TARGET"),
-                      style: GoogleFonts.rajdhani(
-                        color: mainColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                  ],
-                ),
-                InkWell(
-                  onTap: onOpenPlan,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhTextSecondary.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(MdiIcons.formatListBulleted, size: 12, color: AppTheme.fhTextSecondary),
-                        const SizedBox(width: 4),
-                        const Text("DAY PLAN", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Main Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
-                        style: GoogleFonts.chakraPetch(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          height: 1.1,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      if (!isEmpty)
-                        Text(
-                          isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
-                          style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        
-                      if (!isCheckpoint && !isEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
-                              style: const TextStyle(
-                                fontFamily: "RobotoMono",
-                                color: AppTheme.fhTextSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold
-                              ),
-                            )
-                          ],
-                        )
-                      ]
-                    ],
-                  ),
-                ),
-                
-                if (!isEmpty) ...[
-                  const SizedBox(width: 16),
-                  
-                  // Action Buttons Column
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isCheckpoint) ...[
-                        _buildCompactButton(
-                          label: "FINISH",
-                          icon: MdiIcons.checkAll,
-                          color: PersonInfoTheme.spideyCyan,
-                          isFilled: true,
-                          onTap: onFinishCheckpoint
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: PersonInfoTheme.spideyRed,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
-                      ] else ...[
-                        _buildCompactButton(
-                          label: isRunning ? "HALT" : "ENGAGE",
-                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
-                          color: isRunning ? AppTheme.fhAccentRed : mainColor,
-                          isFilled: true,
-                          onTap: onPlayPause
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: AppTheme.fhTextSecondary,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
-                      ]
-                    ],
-                  )
-                ]
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildCompactButton({required String label, required IconData icon, required Color color, required bool isFilled, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: isFilled ? color : Colors.transparent,
-          border: Border.all(color: color, width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: isFilled ? Colors.black : color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.rajdhani(
-                color: isFilled ? Colors.black : color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
-
---- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:provider/provider.dart';
-import 'package:collection/collection.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class DayPlanDashboardWidget extends StatelessWidget {
-  const DayPlanDashboardWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-
-    if (plan.isEmpty) return const SizedBox.shrink();
-
-    // Map IDs to actual active widgets for the horizontal list
-    List<Widget> queueItems = [];
-
-    // Track what we've rendered so we don't render the top item again if it's currently active in the hero
-    bool isFirstItem = true;
-
-    for (String compId in plan) {
-      final parts = compId.split('|');
-      if (parts.length < 2) continue;
-
-      final mainId = parts[0];
-      final subId = parts[1];
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
-
-      if (task == null || sub == null) continue;
-
-      final isCheckpoint = parts.length == 3;
-      bool isCompleted = false;
-      String title = sub.name;
-      String typeLabel = "MISSION";
-
-      if (isCheckpoint) {
-        final cpId = parts[2];
-        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
-        if (cp == null) continue;
-        
-        isCompleted = cp.completed;
-        title = cp.name;
-        typeLabel = "CHECKPOINT";
-      } else {
-        isCompleted = sub.completed;
-      }
-      
-      // Skip completed items, or the very first incomplete item since it's in the Hero Widget
-      if (isCompleted) continue;
-      if (isFirstItem) {
-         isFirstItem = false;
-         continue; // Skip the active up-next
-      }
-
-      queueItems.add(_buildCard(
-        context, provider,
-        title: title,
-        parentName: isCheckpoint ? sub.name : task.name,
-        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
-      ));
-    }
-
-    if (queueItems.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
-              const SizedBox(width: 8),
-              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 65, // More compact horizontal card height
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: queueItems.length,
-            separatorBuilder: (c, i) => const SizedBox(width: 10),
-            itemBuilder: (c, i) => queueItems[i],
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _buildCard(
-    BuildContext context, AppProvider provider, {
-    required String title,
-    required String parentName,
-    required Color color,
-  }) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: PersonInfoTheme.bgPanel,
-        border: Border(left: BorderSide(color: color, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: GoogleFonts.chakraPetch(
-              color: AppTheme.fhTextPrimary, 
-              fontSize: 12, 
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            parentName,
-            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
+--- END OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---

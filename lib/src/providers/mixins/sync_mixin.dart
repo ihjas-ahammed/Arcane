@@ -179,6 +179,11 @@ mixin SyncMixin on ChangeNotifier {
         'savingsGoals': appData['savingsGoals']
       };
       
+      final healthData = {
+        'foodItems': appData['foodItems'],
+        'healthLogs': appData['healthLogs']
+      };
+      
       final settingsData = {
         'lastLoginDate': appData['lastLoginDate'],
         'settings': settings.toJson(),
@@ -204,6 +209,9 @@ mixin SyncMixin on ChangeNotifier {
       }
       if (force || _dirtyCollections.contains('finance')) {
         if (!await _storageService.saveFinance(currentUser!.uid, financeData)) success = false;
+      }
+      if (force || _dirtyCollections.contains('health')) {
+        if (!await _storageService.saveHealth(currentUser!.uid, healthData)) success = false;
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;

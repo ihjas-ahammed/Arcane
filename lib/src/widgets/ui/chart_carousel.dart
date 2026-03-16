@@ -45,7 +45,7 @@ class _ChartCarouselState extends State<ChartCarousel> {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: ValorantCard(
-                  borderColor: AppTheme.fhAccentRed.withValues(alpha: 0.5),
+                  borderColor: AppTheme.fhBgDark.withValues(alpha: 0.5),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

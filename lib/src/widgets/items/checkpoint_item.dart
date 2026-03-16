@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class CheckpointItem extends StatefulWidget {
   final String title;
@@ -17,6 +17,8 @@ class CheckpointItem extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onToggleType;
   final VoidCallback? onTap; // For opening detail
+  final VoidCallback? onPlay; // For engaging timer
+  final bool isRunning;
   final bool hasSubsteps; // To show visual indicator
 
   const CheckpointItem({
@@ -32,6 +34,8 @@ class CheckpointItem extends StatefulWidget {
     this.onDuplicate,
     this.onToggleType,
     this.onTap,
+    this.onPlay,
+    this.isRunning = false,
     this.hasSubsteps = false,
   });
 
@@ -70,7 +74,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
     final color = widget.accentColor;
 
     final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
-    final bgColor = isInfo ? color.withOpacity(0.1) : (_localCompleted ? color.withOpacity(0.15) : AppTheme.fhBgDark.withOpacity(0.6));
+    final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
     final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
     final textColor = AppTheme.fhTextPrimary; // Never dim completely
 

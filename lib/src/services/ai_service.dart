@@ -108,7 +108,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "steps": [
+      "steps":[
         {"name": "Step description"}
       ],
       "what": "Description of the result or reward"
@@ -155,8 +155,7 @@ class AIService {
     - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
     - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
     
-    OUTPUT JSON ARRAY STRUCTURE:
-    [
+    OUTPUT JSON ARRAY STRUCTURE:[
       {
         "taskName": "Exact Name from Available Tasks or New Name",
         "subTaskName": "Specific Activity",
@@ -184,7 +183,7 @@ class AIService {
     if (result is List) {
       return result.map((e) => e as Map<String, dynamic>).toList();
     }
-    return [];
+    return[];
   }
 
   Future<String> queryNeuralArchive({
@@ -225,9 +224,9 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps: [{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps:[{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     
-    List<genai.Part> parts = [genai.TextPart(promptStr)];
+    List<genai.Part> parts =[genai.TextPart(promptStr)];
     if (images != null) {
       for (var img in images) {
         final bytes = await img.readAsBytes();
@@ -252,7 +251,7 @@ class AIService {
   }) async {
     final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateSubstepsForStep({
@@ -268,7 +267,7 @@ class AIService {
   }) async {
     final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ?? [];
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateAISubquests({
@@ -286,7 +285,7 @@ class AIService {
   }) async {
     final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ?? [];
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
@@ -302,7 +301,7 @@ class AIService {
   }) async {
     final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
     final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ?? [];
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ??[];
   }
 
   Future<Map<String, dynamic>> evaluateReflection({
@@ -379,7 +378,7 @@ class AIService {
 
     Output EXACTLY valid JSON matching this structure:
     {
-      "updates": [
+      "updates":[
         {
           "log_id": "id_string_from_input",
           "xp_allocation": {
@@ -410,7 +409,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
         
-    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
   }
 
   Future<Map<String, dynamic>> generateDailySummary({
@@ -440,7 +439,7 @@ class AIService {
       "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
-      "grateful_assets": [ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
+      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -470,7 +469,7 @@ class AIService {
     3. Output JSON: 
     { 
       "summary": "string", 
-      "improved_abilities": [ {"name": "string", "reason": "string", "score": int} ], 
+      "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
       "time_insight": "string",
       "grateful_people": [ {"name": "string", "reason": "string"} ]
     } 
@@ -495,7 +494,7 @@ class AIService {
       final data = jsonDecode(response.body);
       if (data['models'] != null && data['models'] is List) {
         final models = (data['models'] as List).map((m) {
-          final methods = List<String>.from(m['supportedGenerationMethods'] ?? []);
+          final methods = List<String>.from(m['supportedGenerationMethods'] ??[]);
           if (methods.contains('generateContent')) {
             return (m['name'] as String).replaceFirst('models/', '');
           }
@@ -503,7 +502,7 @@ class AIService {
         }).whereType<String>().toList();
         return models;
       }
-      return [];
+      return[];
     } else {
       throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
     }
@@ -536,7 +535,7 @@ class AIService {
     Output JSON ONLY:
     {
       "forecast": "string",
-      "metrics": [ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
+      "metrics":[ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -569,7 +568,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "people": [
+      "people":[
         {
           "name": "string",
           "relation": "string"
@@ -586,7 +585,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
@@ -606,7 +605,7 @@ class AIService {
     
     Output JSON ONLY:
     {
-      "assets": [
+      "assets":[
         {
           "name": "string",
           "type": "skill|person|object|resource",
@@ -625,7 +624,76 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractFoodInfo({
+    required String prompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final aiPrompt = """
+    Analyze the following food description and estimate the nutritional value per serving.
+    If multiple distinct items are mentioned, separate them.
+    
+    Description: $prompt
+    
+    Output JSON ONLY:
+    {
+      "items":[
+        {
+          "name": "string (Capitalized)",
+          "calories": int,
+          "protein": double (grams),
+          "carbs": double (grams),
+          "fat": double (grams)
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    final result = await makeAICall(
+        prompt: aiPrompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> getMealInsights({
+    required String mealName,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Provide a detailed but concise nutritional breakdown and health benefits of the meal: '$mealName'.
+    
+    Output JSON ONLY:
+    {
+      "description": "Short description of the meal and its general profile",
+      "benefits": ["Benefit 1", "Benefit 2"],
+      "warnings": ["Warning 1 (e.g. high sodium, allergens)"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
   }
 
   Future<Map<String, dynamic>> generatePersonDetails({
@@ -652,10 +720,10 @@ class AIService {
       "role": "Their inferred role (e.g. Student, Colleague)",
       "status": "Current relationship status (e.g. Calibration Phase, Active)",
       "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
-      "interaction_history": [
+      "interaction_history":[
         {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
       ],
-      "communication_tips": [
+      "communication_tips":[
         {"highlight": "Tip Name:", "text": "Description of the tip."}
       ]
     }

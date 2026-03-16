@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/charts/wellbeing_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
@@ -14,6 +15,7 @@ import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
+import 'package:arcane/src/screens/health/health_dashboard_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:arcane/src/widgets/ui/reflection_progress_widget.dart';
@@ -214,7 +216,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 l.timestamp.month == d.month &&
                 l.timestamp.day == d.day;
           }).toList()
-        : [];
+        :[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -223,10 +225,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+            children:[
               Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
               Row(
-                children: [
+                children:[
                   IconButton(
                     icon: Icon(MdiIcons.archiveSearchOutline, color: AppTheme.fhAccentTeal),
                     tooltip: "Archived Reports",
@@ -251,7 +253,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           // 1. 7-DAY PERFORMANCE (ChartCarousel)
           ChartCarousel(
             height: 250,
-            pages: [
+            pages:[
               ChartCarouselData(
                 title: "7-DAY PERFORMANCE",
                 chart: WeeklyActivityBarChart(
@@ -274,11 +276,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           
           // 2. MISSION FOCUS & VIRTUE GROWTH PIE CHARTS
           Row(
-            children: [
+            children:[
               Expanded(
                 child: ValorantCard(
                   child: Column(
-                    children: [
+                    children:[
                       const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -298,7 +300,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               Expanded(
                 child: ValorantCard(
                   child: Column(
-                    children: [
+                    children:[
                       const Text("WELL-BEING GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -329,10 +331,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                children:[
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children:[
                       const Text(
                         "INSPECT DATE", 
                         style: TextStyle(
@@ -407,7 +409,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ValorantCard(
               borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
               child: Column(
-                children: [
+                children:[
                   const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -429,7 +431,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           const Text("CLASSIFIED LOGS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
-            children: [
+            children:[
                Expanded(
                  child: ValorantButton(
                    label: "ARCHIVE",
@@ -453,16 +455,29 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ),
           
           const SizedBox(height: 12),
-          SizedBox(
-             width: double.infinity,
-             child: ValorantButton(
-               label: "ADVANCED PROTOCOLS",
-               icon: MdiIcons.hexagonMultipleOutline,
-               isPrimary: false,
-               color: AppTheme.fhAccentPurple.withOpacity(0.1),
-               onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
-             )
-           ),
+          Row(
+            children:[
+               Expanded(
+                 child: ValorantButton(
+                   label: "ADVANCED",
+                   icon: MdiIcons.hexagonMultipleOutline,
+                   isPrimary: false,
+                   color: AppTheme.fhAccentPurple.withOpacity(0.1),
+                   onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
+                 )
+               ),
+               const SizedBox(width: 12),
+               Expanded(
+                 child: ValorantButton(
+                   label: "BIOMETRICS",
+                   icon: MdiIcons.heartPulse,
+                   isPrimary: false,
+                   color: JweTheme.accentCyan.withOpacity(0.3),
+                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
+                 )
+               ),
+            ],
+          ),
             
           const SizedBox(height: 40),
         ],
