@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:path_provider/path_provider.dart';
 
 /// Handles Cloud Synchronization and Local Persistence
 mixin SyncMixin on ChangeNotifier {
@@ -35,7 +33,6 @@ mixin SyncMixin on ChangeNotifier {
 
   void initSync() {
     _autoSaveTimer?.cancel();
-    // Faster check interval (5s) for Realtime DB syncs
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_hasUnsavedChanges &&
           currentUser != null &&
@@ -51,12 +48,10 @@ mixin SyncMixin on ChangeNotifier {
     if (currentUser == null) return;
     
     _rtdbSubscription = _storageService.watchUserData(currentUser!.uid).listen((cloudData) {
-      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops during manual sync/load
+      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops
       if (cloudData.isNotEmpty) {
         int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-        // Only accept data that is genuinely newer than our last push
         if (cloudTs > settings.lastModified) {
-          debugPrint("Realtime Update Triggered: Cloud ($cloudTs) > Local (${settings.lastModified})");
           loadStateFromMap(cloudData);
           _saveLocalSnapshot();
           notifyListeners();
@@ -79,7 +74,7 @@ mixin SyncMixin on ChangeNotifier {
   void markDirty(String collection) {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); // Always persist locally immediately
+    _saveLocalSnapshot(); // Always persist locally immediately for absolute offline-first behavior
     notifyListeners();
   }
 
@@ -97,39 +92,13 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
+    if (currentUser == null) return;
     try {
       final fullData = getFullAppState();
-      await _localStorageService.saveState(fullData);
-      
-      if (forceFlush && (Platform.isAndroid || Platform.isWindows)) {
-        _createBackupFile(fullData);
-      }
+      await _localStorageService.saveState(currentUser!.uid, fullData);
     } catch (e) {
       debugPrint("Local snapshot failed: $e");
     }
-  }
-
-  Future<void> _createBackupFile(Map<String, dynamic> data) async {
-    try {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${docsDir.path}/backups');
-      if (!await backupDir.exists()) await backupDir.create(recursive: true);
-      
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-      final file = File('${backupDir.path}/backup_$timestamp.json');
-      
-      final jsonString = await compute((Map<String, dynamic> d) => jsonEncode(d), data);
-      await file.writeAsString(jsonString);
-      
-      // Cleanup old backups (keep last 5)
-      final files = backupDir.listSync().whereType<File>().toList();
-      files.sort((a, b) => a.path.compareTo(b.path));
-      if (files.length > 5) {
-        for (var i = 0; i < files.length - 5; i++) {
-          await files[i].delete();
-        }
-      }
-    } catch (_) {}
   }
 
   // --- Realtime DB Methods ---
@@ -137,7 +106,6 @@ mixin SyncMixin on ChangeNotifier {
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
     await _performActualSave(force: true);
-    // A manual trigger is a good time to auto-snapshot to Firestore too
     await performFirestoreBackup();
   }
 
@@ -161,10 +129,10 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<void> _performActualSave({bool force = false}) async {
     if (currentUser == null) return;
-    if (_isSyncing) return; // Prevent concurrent syncs
+    if (_isSyncing) return; // Lock
 
     _isSyncing = true;
-    notifyListeners();
+    notifyListeners(); // Shows compact indicator
 
     try {
       settings.lastModified = DateTime.now().millisecondsSinceEpoch;
@@ -197,7 +165,7 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // Pushing changes to Realtime Database
+      // Pushing to Realtime Database incrementally
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }

@@ -1,4 +1,362 @@
 
+--- START OF FILE lib/src/services/storage_service.dart ---
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:intl/intl.dart';
+
+const String _userCollection = 'users'; 
+const String _userSubcollectionDocId = 'data';
+const String _gameStateDocId = 'gameState';
+
+const String _docTasks = 'tasks';
+const String _docSettings = 'settings';
+const String _docFinance = 'finance';
+const String _docHealth = 'health';
+
+class StorageService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
+
+  // --- Realtime Database (Primary) ---
+
+  DatabaseReference _rtdbRef(String userId, String chunk) {
+    return _rtdb.ref('users/$userId/data/$chunk');
+  }
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    if (userId.isEmpty) return null;
+
+    try {
+      final snap = await _rtdb.ref('users/$userId/data').get();
+      
+      if (snap.exists && snap.value != null) {
+        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
+      } else {
+        return await getFirestoreBackup(userId);
+      }
+    } catch (e) {
+      return await getFirestoreBackup(userId);
+    }
+  }
+
+  // Live Sync Stream
+  Stream<Map<String, dynamic>> watchUserData(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    
+    return _rtdb.ref('users/$userId/data').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return _parseRtdbData(event.snapshot.value as Map<dynamic, dynamic>);
+      }
+      return {};
+    });
+  }
+
+  Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
+    Map<String, dynamic> fullData = {};
+    if (raw[_docSettings] is String) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] is String) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docFinance] is String) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] is String) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    
+    // Safely parse chunked maps or legacy strings to fix Type Cast errors
+    if (raw['history'] != null) {
+      if (raw['history'] is String) {
+        fullData.addAll(jsonDecode(raw['history'] as String));
+      } else if (raw['history'] is Map) {
+        Map<String, dynamic> history = {};
+        (raw['history'] as Map).forEach((date, jsonStr) {
+          history[date.toString()] = jsonDecode(jsonStr.toString());
+        });
+        fullData['completedByDay'] = history;
+      }
+    }
+    
+    if (raw['reflections'] != null) {
+      if (raw['reflections'] is String) {
+        fullData.addAll(jsonDecode(raw['reflections'] as String));
+      } else if (raw['reflections'] is Map) {
+        List<dynamic> reflections = [];
+        (raw['reflections'] as Map).forEach((id, jsonStr) {
+          reflections.add(jsonDecode(jsonStr.toString()));
+        });
+        fullData['reflectionLogs'] = reflections;
+      }
+    }
+    
+    return fullData;
+  }
+
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
+  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+  Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
+
+  Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Optimized Chunked Saving for large arrays (History/Reflections)
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
+      final Map<String, dynamic> updates = {};
+      history.forEach((date, dayData) {
+        updates[date] = jsonEncode(dayData);
+      });
+      await _rtdb.ref('users/$userId/data/history').update(updates);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
+      final Map<String, dynamic> updates = {};
+      for (var log in logs) {
+        updates[log['id']] = jsonEncode(log);
+      }
+      // Use Set to overwrite node, dropping locally deleted elements from DB implicitly
+      await _rtdb.ref('users/$userId/data/reflections').set(updates); 
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Firestore Database (Backup & Archival) ---
+
+  DocumentReference<Map<String, dynamic>> _firestoreDocRef(String userId, String docId) {
+    return _firestore
+        .collection(_userCollection)
+        .doc(userId)
+        .collection(_userSubcollectionDocId)
+        .doc(docId);
+  }
+
+  Future<Map<String, dynamic>?> getFirestoreBackup(String userId) async {
+    if (userId.isEmpty) return null;
+
+    try {
+      // Load base state
+      final baseSnap = await _firestoreDocRef(userId, 'base_state').get();
+      Map<String, dynamic> fullData = {};
+      
+      if (baseSnap.exists) {
+        fullData.addAll(baseSnap.data()!);
+      } else {
+        // Legacy fallback handling for older snapshots
+        final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
+        if (oldDocSnap.exists) return oldDocSnap.data();
+        
+        final tasksSnap = await _firestoreDocRef(userId, 'tasks').get();
+        if (tasksSnap.exists) {
+           final historySnap = await _firestoreDocRef(userId, 'history').get();
+           final reflectionsSnap = await _firestoreDocRef(userId, 'reflections').get();
+           final settingsSnap = await _firestoreDocRef(userId, 'settings').get();
+           final financeSnap = await _firestoreDocRef(userId, 'finance').get();
+           final healthSnap = await _firestoreDocRef(userId, 'health').get();
+
+           if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
+           if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
+           if (historySnap.exists) fullData.addAll(historySnap.data()!);
+           if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+           if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
+           if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
+           return fullData;
+        }
+        return null;
+      }
+
+      // Reconstruct Chunked Tasks
+      final tasksCol = await _firestore.collection(_userCollection).doc(userId).collection('tasks_backup').get();
+      if (tasksCol.docs.isNotEmpty) {
+        fullData['mainTasks'] = tasksCol.docs.map((doc) => doc.data()).toList();
+      }
+
+      // Reconstruct Chunked History
+      final historyCol = await _firestore.collection(_userCollection).doc(userId).collection('history_backup').get();
+      if (historyCol.docs.isNotEmpty) {
+        fullData['completedByDay'] = {};
+        for (var doc in historyCol.docs) {
+          fullData['completedByDay'][doc.id] = doc.data();
+        }
+      }
+
+      // Reconstruct Chunked Reflections
+      final refCol = await _firestore.collection(_userCollection).doc(userId).collection('reflections_backup').get();
+      if (refCol.docs.isNotEmpty) {
+        fullData['reflectionLogs'] = refCol.docs.map((doc) => doc.data()).toList();
+      }
+
+      return fullData;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Bypassing 1MB Document Limits by aggressively chunking to subcollections
+  Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
+    if (userId.isEmpty) return false;
+
+    // Clone mapping to avoid mutating active memory state
+    final Map<String, dynamic> baseData = Map.from(fullData);
+    final historyData = baseData.remove('completedByDay') as Map<String, dynamic>? ?? {};
+    final reflectionsData = baseData.remove('reflectionLogs') as List<dynamic>? ?? [];
+    final tasksDataList = baseData.remove('mainTasks') as List<dynamic>? ?? [];
+
+    try {
+      final batches = [_firestore.batch()];
+      int ops = 0;
+      int batchIndex = 0;
+
+      void addSet(DocumentReference ref, Map<String, dynamic> data) {
+        batches[batchIndex].set(ref, data);
+        ops++;
+        if (ops >= 490) { // Keep under 500 max writes per batch limit
+          batches.add(_firestore.batch());
+          batchIndex++;
+          ops = 0;
+        }
+      }
+
+      addSet(_firestoreDocRef(userId, 'base_state'), baseData);
+
+      final tasksCol = _firestore.collection(_userCollection).doc(userId).collection('tasks_backup');
+      for(var task in tasksDataList) {
+        addSet(tasksCol.doc(task['id']), task as Map<String, dynamic>);
+      }
+
+      final historyCol = _firestore.collection(_userCollection).doc(userId).collection('history_backup');
+      historyData.forEach((date, data) {
+        addSet(historyCol.doc(date), data as Map<String, dynamic>);
+      });
+
+      final refCol = _firestore.collection(_userCollection).doc(userId).collection('reflections_backup');
+      for(var log in reflectionsData) {
+        addSet(refCol.doc(log['id']), log as Map<String, dynamic>);
+      }
+
+      for (var b in batches) {
+        await b.commit();
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteUserData(String userId) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _rtdb.ref('users/$userId/data').remove();
+
+      final batch = _firestore.batch();
+      batch.delete(_firestoreDocRef(userId, _gameStateDocId));
+      batch.delete(_firestoreDocRef(userId, 'base_state'));
+      await batch.commit();
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Historical Archives ---
+
+  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .doc(date)
+          .set({
+            type: data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
+    if (userId.isEmpty) return {};
+    try {
+      final now = DateTime.now();
+      final Map<String, Map<String, dynamic>> result = {};
+      final cutoffDate = now.subtract(Duration(days: days));
+      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
+
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .get();
+
+      for (var doc in snap.docs) {
+        result[doc.id] = doc.data();
+      }
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .doc(date)
+          .set({
+            'report': data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
+    if (userId.isEmpty) return[];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+          
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e) {
+      return[];
+    }
+  }
+}
+--- END OF FILE lib/src/services/storage_service.dart ---
+
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -126,63 +484,66 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
-
-    setAuthLoading(true);
-
     if (user != null) {
-      setCurrentUser(user);
-
-      try {
-        final cloudData = await _cloudStorage.getUserData(user.uid);
-        final localData = await _localStorage.loadState();
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
         
-        bool hasCloud = cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null;
-        bool hasLocal = localData != null && localData.isNotEmpty && localData['settings'] != null;
-
-        if (hasCloud) {
-          int cloudTs = cloudData!['settings']['lastModified'] ?? 0;
-          int localTs = hasLocal ? (localData!['settings']['lastModified'] ?? 0) : 0;
-
-          if (cloudTs >= localTs || !hasLocal) {
-            loadStateFromMap(cloudData);
-            await forceLocalBackup(); // Force save to local
-          } else {
-            loadStateFromMap(localData!);
-            scheduleRealtimeSync(); // Local is newer, push to cloud
-          }
-        } else if (hasLocal) {
-          // Cloud is empty but local exists (e.g. wiped RTDB by mistake)
-          loadStateFromMap(localData!);
-          scheduleRealtimeSync(); 
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
         } else {
-          // Both empty, pristine user
+          // Completely new local state, wait for cloud sync in background
           await _resetToInitialState();
-          setLastLoginDate(helper.getTodayDateString());
-          scheduleRealtimeSync();
         }
-
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        await _taskActions.recalibrateTimeLogs(silent: true);
-        _handleDailyReset();
-        
-        await fetchDailyReportsFromCloud();
-        startRealtimeSyncListener();
-
-      } catch (e) {
-        debugPrint("Cloud init failed: $e");
-      } finally {
-        setAuthLoading(false);
+        setAuthLoading(false); // Unblocks UI instantly
       }
+
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
+      // Fire and forget cloud sync
+      _syncWithCloudInBackground(user.uid);
 
     } else {
       setCurrentUser(null);
       stopRealtimeSyncListener();
       await _resetToInitialState();
-      await _localStorage.clearState();
       setAuthLoading(false);
     }
+  }
+
+  Future<void> _syncWithCloudInBackground(String uid) async {
+    try {
+      final cloudData = await _cloudStorage.getUserData(uid);
+      if (cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null) {
+        int cloudTs = cloudData['settings']['lastModified'] ?? 0;
+        int localTs = settings.lastModified;
+
+        if (cloudTs > localTs) {
+          loadStateFromMap(cloudData);
+          await forceLocalBackup(); 
+          notifyListeners();
+        } else if (localTs > cloudTs) {
+          scheduleRealtimeSync(); 
+        }
+      } else if (settings.lastModified > 0) {
+        scheduleRealtimeSync(); 
+      } else {
+        // Pristine user
+        setLastLoginDate(helper.getTodayDateString());
+        scheduleRealtimeSync();
+      }
+    } catch (_) {} // Gracefully ignore offline cloud errors
+
+    try {
+      await fetchDailyReportsFromCloud();
+    } catch (_) {}
+    
+    startRealtimeSyncListener();
   }
 
   Future<void> fetchDailyReportsFromCloud() async {
@@ -346,7 +707,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> clearAllData() async {
     if (currentUser == null) return;
     await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState();
+    await _localStorage.clearState(currentUser!.uid);
     await _resetToInitialState();
     markDirty('settings');
     markDirty('tasks');
@@ -896,1522 +1257,180 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 }
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
---- START OF FILE lib/src/providers/actions/timer_actions.dart ---
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:collection/collection.dart';
-
-class TimerActions {
-  final AppProvider _provider;
-
-  TimerActions(this._provider);
-
-  void startTimer(String id, String type, String mainTaskId) {
-    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (mainTask == null) return; 
-
-    if (type == 'subtask') {
-      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
-      if (subTask == null) return;
-      if (subTask.completed) return; 
-    }
-
-    final runningTimerIds = _provider.activeTimers.entries
-        .where((e) => e.value.isRunning && e.key != id)
-        .map((e) => e.key)
-        .toList();
-
-    for (var timerId in runningTimerIds) {
-      pauseTimer(timerId); 
-    }
-
-    Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
-
-    final existingTimer = updatedActiveTimers[id];
-    updatedActiveTimers[id] = ActiveTimerInfo(
-      startTime: DateTime.now(),
-      accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
-      isRunning: true,
-      type: type,
-      mainTaskId: mainTaskId,
-    );
-    
-    _provider.setProviderState(activeTimers: updatedActiveTimers);
-
-    if (_provider.settings.autoSaveEnabled) {
-      _provider.manuallySaveToCloud();
-    }
-  }
-
-  void pauseTimer(String id) {
-    final timer = _provider.activeTimers[id];
-    if (timer != null && timer.isRunning) {
-      _commitSessionAndPause(id, timer);
-
-      final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
-      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-      
-      newActiveTimers[id] = ActiveTimerInfo(
-        startTime: DateTime.now(), 
-        accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
-        isRunning: false,
-        type: timer.type,
-        mainTaskId: timer.mainTaskId,
-      );
-      
-      _provider.setProviderState(activeTimers: newActiveTimers);
-
-      if (_provider.settings.autoSaveEnabled) {
-        _provider.manuallySaveToCloud();
-      }
-    }
-  }
-
-  void logTimerAndReset(String id) {
-    final timer = _provider.activeTimers[id];
-    if (timer != null) {
-      if (timer.isRunning) {
-        _commitSessionAndPause(id, timer);
-      }
-
-      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-      newActiveTimers.remove(id);
-      
-      _provider.setProviderState(activeTimers: newActiveTimers);
-
-      if (_provider.settings.autoSaveEnabled) {
-        _provider.manuallySaveToCloud();
-      }
-    }
-  }
-
-  void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
-    final now = DateTime.now();
-    DateTime start = timer.startTime;
-
-    if (now.difference(start).inHours >= 12) {
-      start = now.subtract(const Duration(hours: 1)); 
-    }
-
-    if (now.isAfter(start)) {
-      if (timer.type == 'subtask') {
-        _provider.addSessionToSubtask(timer.mainTaskId, id, start, now);
-      }
-    }
-  }
-}
---- END OF FILE lib/src/providers/actions/timer_actions.dart ---
-
---- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/services/data_export_service.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class DataRecoveryScreen extends StatefulWidget {
-  const DataRecoveryScreen({super.key});
-
-  @override
-  State<DataRecoveryScreen> createState() => _DataRecoveryScreenState();
-}
-
-class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
-  List<File> _backupFiles = [];
-  bool _isLoading = true;
-  final DataExportService _exportService = DataExportService();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBackups();
-  }
-
-  Future<void> _loadBackups() async {
-    setState(() => _isLoading = true);
-    try {
-      if (Platform.isAndroid || Platform.isWindows) {
-        final docsDir = await getApplicationDocumentsDirectory();
-        final backupDir = Directory('${docsDir.path}/backups');
-        if (await backupDir.exists()) {
-          final files = backupDir.listSync().whereType<File>().toList();
-          files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-          setState(() {
-            _backupFiles = files;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error loading backups: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _restoreBackup(File file) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Restore Backup?"),
-        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore")),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      try {
-        await context.read<AppProvider>().restoreFromLocalSnapshot(file);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup restored successfully.")));
-          Navigator.pop(context);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error restoring backup: $e")));
-        }
-      }
-    }
-  }
-
-  Future<void> _deleteBackup(File file) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Delete Backup?"),
-        content: const Text("This action cannot be undone."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await file.delete();
-      _loadBackups();
-    }
-  }
-
-  Future<void> _exportData() async {
-    try {
-      final provider = context.read<AppProvider>();
-      final data = provider.getAppStateAsMap();
-      await _exportService.exportJson(data, 'arcane_export');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Export initiated.")));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e")));
-      }
-    }
-  }
-
-  Future<void> _importData() async {
-    try {
-      final importedData = await _exportService.importJson();
-      if (importedData != null && mounted) {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text("Import Data?"),
-            content: const Text("This will overwrite your current data with the imported file. Are you sure?"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import")),
-            ],
-          ),
-        );
-
-        if (confirm == true && mounted) {
-          context.read<AppProvider>().loadAppStateFromMap(importedData);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data imported successfully.")));
-          Navigator.pop(context);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e")));
-      }
-    }
-  }
-
-  Future<void> _backupToFirestore() async {
-    try {
-      final provider = context.read<AppProvider>();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Initiating secure cloud backup..."), duration: Duration(seconds: 1))
-      );
-      
-      await provider.forceLocalBackup(); 
-      await provider.performFirestoreBackup(); 
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."), backgroundColor: AppTheme.fhAccentGreen)
-        );
-        _loadBackups(); 
-      }
-    } catch(e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
-    }
-  }
-
-  Future<void> _restoreFromFirestore() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Restore Firestore Snapshot?"),
-        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("Restore")
-          ),
-        ],
-      )
-    );
-    if (confirm == true && mounted) {
-       try {
-         await context.read<AppProvider>().restoreFromFirestoreBackup();
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
-       } catch(e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
-       }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        title: const Text("Data Recovery"),
-        backgroundColor: AppTheme.fhBgDeepDark,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // --- CLOUD SNAPSHOT SECTION ---
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: PersonInfoTheme.bgPanel,
-                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
-                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
-                      const SizedBox(width: 12),
-                      Text(
-                        "FIRESTORE SNAPSHOT",
-                        style: GoogleFonts.rajdhani(
-                          color: PersonInfoTheme.spideyRed,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
-                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ValorantButton(
-                          label: "BACKUP",
-                          icon: MdiIcons.cloudUploadOutline,
-                          color: PersonInfoTheme.spideyCyan,
-                          isPrimary: false,
-                          onPressed: _backupToFirestore,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ValorantButton(
-                          label: "RESTORE",
-                          icon: MdiIcons.cloudDownloadOutline,
-                          color: PersonInfoTheme.spideyRed,
-                          isPrimary: true,
-                          onPressed: _restoreFromFirestore,
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ),
-        
-            // --- MANUAL EXPORT SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.upload, size: 18),
-                      label: const Text("EXPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _exportData,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.download, size: 18),
-                      label: const Text("IMPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _importData,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(color: AppTheme.fhBorderColor, height: 32),
-            
-            // --- LOCAL BACKUPS SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "LOCAL CACHE ARCHIVES", 
-                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _isLoading
-                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
-                : _backupFiles.isEmpty
-                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _backupFiles.length,
-                        itemBuilder: (context, index) {
-                          final file = _backupFiles[index];
-                          final date = file.lastModifiedSync();
-                          final size = file.lengthSync();
-        
-                          return ListTile(
-                            leading: Icon(MdiIcons.fileClockOutline, color: AppTheme.fhTextSecondary),
-                            title: Text(
-                              "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
-                              style: const TextStyle(color: AppTheme.fhTextPrimary),
-                            ),
-                            subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: AppTheme.fhTextSecondary)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.restore),
-                                  tooltip: "Restore",
-                                  onPressed: () => _restoreBackup(file),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
-                                  tooltip: "Delete",
-                                  onPressed: () => _deleteBackup(file),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
-
---- START OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
-import 'dart:math';
+--- START OF FILE lib/src/widgets/header_widget.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/dialogs/add_savings_log_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
-
-class SavingsDetailScreen extends StatelessWidget {
-  final String goalId;
-
-  const SavingsDetailScreen({super.key, required this.goalId});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
-    
-    if (goal == null) {
-      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: SizedBox.shrink());
-    }
-    
-    final actualProgress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
-    
-    final totalDuration = goal.targetDate.difference(goal.createdAt).inMilliseconds;
-    final elapsed = DateTime.now().difference(goal.createdAt).inMilliseconds;
-    final expectedProgress = totalDuration > 0 ? (elapsed / totalDuration).clamp(0.0, 1.0) : 0.0;
-
-    DateTime? predictedDate;
-    if (goal.currentAmount > 0 && goal.currentAmount < goal.targetAmount) {
-      final daysSinceCreation = max(1, DateTime.now().difference(goal.createdAt).inDays);
-      final dailyAvg = goal.currentAmount / daysSinceCreation;
-      if (dailyAvg > 0) {
-        final amountLeft = goal.targetAmount - goal.currentAmount;
-        final daysLeft = (amountLeft / dailyAvg).ceil();
-        predictedDate = DateTime.now().add(Duration(days: daysLeft));
-      }
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        title: Text(goal.name.toUpperCase()),
-        actions: [
-          IconButton(
-            icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-            onPressed: () {
-              provider.financeActions.deleteSavingsGoal(goal.id);
-              Navigator.pop(context);
-            },
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("ACCUMULATED FUNDS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.currentAmount.toStringAsFixed(2)}", style: const TextStyle(color: AppTheme.fhAccentPurple, fontSize: 32, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text("TARGET", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            const Text("PROGRESS TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Container(
-              height: 16,
-              width: double.infinity,
-              decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
-              child: Stack(
-                children: [
-                  FractionallySizedBox(
-                    widthFactor: expectedProgress,
-                    child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8))),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: actualProgress,
-                    child: Container(decoration: BoxDecoration(color: actualProgress >= expectedProgress ? AppTheme.fhAccentGreen : AppTheme.fhAccentPurple, borderRadius: BorderRadius.circular(8))),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("Target: ${DateFormat('MMM dd, yyyy').format(goal.targetDate)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-                if (predictedDate != null)
-                  Text("Projected: ${DateFormat('MMM dd, yyyy').format(predictedDate)}", style: TextStyle(color: predictedDate.isBefore(goal.targetDate) ? AppTheme.fhAccentGreen : AppTheme.fhAccentOrange, fontSize: 12)),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text("ALLOCATE FUNDS"),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48), backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
-              onPressed: () => _showAddLogDialog(context, provider, goal.id),
-            ),
-            
-            const SizedBox(height: 32),
-            const Text("INVESTMENT LOG", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...goal.logs.map((log) {
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(MdiIcons.arrowRightBottom, color: AppTheme.fhAccentPurple),
-                title: Text("₹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
-                subtitle: Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
-                trailing: IconButton(
-                  icon: Icon(Icons.delete, color: AppTheme.fhAccentRed.withOpacity(0.7), size: 20),
-                  onPressed: () => provider.financeActions.deleteSavingsLog(goal.id, log.id),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddLogDialog(BuildContext context, AppProvider provider, String goalId) {
-    showDialog(context: context, builder: (ctx) => AddSavingsLogDialog(goalId: goalId));
-  }
-}
---- END OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/ui/reflection_progress_widget.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:intl/intl.dart';
-
-class ReflectionProgressWidget extends StatelessWidget {
-  final List<ReflectionLog> logs;
-  final String dateStr;
-
-  const ReflectionProgressWidget({
-    super.key,
-    required this.logs,
-    required this.dateStr,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    bool wake = false;
-    bool morn = false;
-    bool aft = false;
-    bool eve = false;
-    bool night = false;
-
-    ReflectionLog? lastLog;
-
-    for (var log in logs) {
-      if (lastLog == null || log.timestamp.isAfter(lastLog.timestamp)) {
-        lastLog = log;
-      }
-      
-      final h = log.timestamp.hour;
-      if (h >= 0 && h < 8) wake = true;
-      else if (h >= 8 && h < 12) morn = true;
-      else if (h >= 12 && h < 16) aft = true;
-      else if (h >= 16 && h < 19) eve = true;
-      else if (h >= 19 && h <= 23) night = true;
-    }
-
-    final total = [wake, morn, aft, eve, night].where((e) => e).length;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "REFLECTION PROTOCOL",
-                style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              Text(
-                "$total/5 LOGS",
-                style: const TextStyle(
-                  color: AppTheme.fhAccentTeal,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'RobotoMono',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          Row(
-            children: [
-              Expanded(child: _buildSegment("WAKE", wake)),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSegment("MORN", morn)),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSegment("AFT", aft)),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSegment("EVE", eve)),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSegment("NIGHT", night)),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          
-          if (lastLog != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(
-                "LAST LOGGED AT: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
-                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
-              ),
-            ),
-          
-          SizedBox(
-            width: double.infinity,
-            child: ValorantButton(
-              label: "LOG INSIGHT",
-              icon: MdiIcons.notebookEditOutline,
-              isPrimary: false,
-              color: AppTheme.fhAccentTeal,
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: dateStr))
-                );
-              },
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegment(String label, bool isComplete) {
-    return Column(
-      children: [
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: isComplete ? AppTheme.fhAccentTeal : AppTheme.fhBgMedium,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isComplete ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/reflection_progress_widget.dart ---
-
---- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:provider/provider.dart';
-import 'package:collection/collection.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class DayPlanDashboardWidget extends StatelessWidget {
-  const DayPlanDashboardWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
-
-    if (plan.isEmpty) return const SizedBox.shrink();
-
-    List<Widget> queueItems = [];
-    bool isFirstItem = true;
-
-    for (String compId in plan) {
-      final parts = compId.split('|');
-      if (parts.length < 2) continue;
-
-      final mainId = parts[0];
-      final subId = parts[1];
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
-
-      if (task == null || sub == null) continue;
-
-      final isCheckpoint = parts.length == 3;
-      bool isCompleted = false;
-      String title = sub.name;
-      String? cpId;
-
-      if (isCheckpoint) {
-        cpId = parts[2];
-        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
-        if (cp == null) continue;
-        
-        isCompleted = cp.completed;
-        title = cp.name;
-      } else {
-        isCompleted = sub.completed;
-      }
-      
-      if (isCompleted) continue;
-      if (isFirstItem) {
-         isFirstItem = false;
-         continue; 
-      }
-
-      queueItems.add(_buildCard(
-        context, provider,
-        title: title,
-        parentName: isCheckpoint ? sub.name : task.name,
-        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
-        onTap: () {
-          if (isCheckpoint && cpId != null) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-              mainTaskId: mainId,
-              parentSubTaskId: subId,
-              checkpointId: cpId!,
-            )));
-          } else {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
-              parentTask: task,
-              subTask: sub,
-            )));
-          }
-        },
-      ));
-    }
-
-    if (queueItems.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
-              const SizedBox(width: 8),
-              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 65, 
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: queueItems.length,
-            separatorBuilder: (c, i) => const SizedBox(width: 10),
-            itemBuilder: (c, i) => queueItems[i],
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _buildCard(
-    BuildContext context, AppProvider provider, {
-    required String title,
-    required String parentName,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 180,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: PersonInfoTheme.bgPanel,
-          border: Border(left: BorderSide(color: color, width: 3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title.toUpperCase(),
-              style: GoogleFonts.chakraPetch(
-                color: AppTheme.fhTextPrimary, 
-                fontSize: 12, 
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              parentName,
-              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
-
---- START OF FILE lib/src/widgets/health/health_combined_chart.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class HealthCombinedChart extends StatelessWidget {
-  final AppProvider provider;
+class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
+  final String currentViewLabel;
+  final VoidCallback? onOpenPersona; 
+  final Widget? customAction; 
 
-  const HealthCombinedChart({super.key, required this.provider});
+  const HeaderWidget(
+      {super.key, required this.currentViewLabel, this.onOpenPersona, this.customAction});
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final List<FlSpot> sleepSpots =[];
-    final List<FlSpot> workSpots = [];
-
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      
-      final log = provider.healthLogs[dateStr];
-      final sleepMins = log?.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) ?? 0;
-      final sleepHrs = sleepMins / 60.0;
-      sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
-
-      final hist = provider.completedByDay[dateStr];
-      double workMins = 0;
-      if (hist != null && hist['taskTimes'] != null) {
-        (hist['taskTimes'] as Map<String, dynamic>).forEach((_, v) => workMins += (v as num));
-      }
-      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); 
-    }
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children:[
-            _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
-            const SizedBox(width: 12),
-            _LegendItem("WORK (HRS)", JweTheme.accentAmber),
-          ],
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isLargeScreen = screenWidth > 900;
+    
+    return AppBar(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      automaticallyImplyLeading: !isLargeScreen,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
+          height: 1.0,
         ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (val) => FlLine(color: JweTheme.border, strokeWidth: 1),
-              ),
-              titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final date = now.subtract(Duration(days: 6 - value.toInt()));
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                      );
-                    }
-                  )
-                )
-              ),
-              borderData: FlBorderData(show: false),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (group) => JweTheme.panel,
-                  getTooltipItems: (touchedSpots) {
-                    return touchedSpots.map((spot) {
-                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
-                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
-                      return null;
-                    }).whereType<LineTooltipItem>().toList();
-                  }
-                )
-              ),
-              lineBarsData:[
-                LineChartBarData(
-                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
-                ),
-                LineChartBarData(
-                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
-                ),
-              ]
+      ),
+      leading: isLargeScreen
+          ? Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Icon(MdiIcons.shieldCrownOutline, color: AppTheme.fhAccentRed),
             )
+          : Builder(
+              builder: (context) => IconButton(
+                icon: Icon(MdiIcons.menu, color: AppTheme.fhTextPrimary),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              currentViewLabel.toUpperCase(),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: AppTheme.fhTextPrimary,
+                letterSpacing: 2.0,
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.w900,
+                fontSize: 16, 
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+        ],
+      ),
+      centerTitle: true,
+      actions: <Widget>[
+        if (appProvider.loadingTaskName != null || appProvider.isSyncing) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: JweTheme.accentCyan.withOpacity(0.1),
+              border: Border.all(color: JweTheme.accentCyan, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 10, height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentCyan),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  appProvider.loadingTaskName != null ? "AI PROCESSING" : "SYNCING",
+                  style: const TextStyle(
+                    color: JweTheme.accentCyan,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'RobotoMono'
+                  ),
+                )
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+
+        if (customAction != null)
+          customAction!,
+
+        // Persona / Virtues Button
+        IconButton(
+          icon: Icon(MdiIcons.shieldAccount, color: AppTheme.fhTextSecondary, size: 20),
+          onPressed: onOpenPersona,
+          tooltip: 'ARMORY',
         ),
+        const SizedBox(width: 4),
       ],
     );
   }
-}
-
-class _LegendItem extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _LegendItem(this.label, this.color);
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children:[
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 }
---- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+--- END OF FILE lib/src/widgets/header_widget.dart ---
 
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+--- START OF FILE lib/src/app.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/screens/home_screen.dart';
+import 'package:arcane/src/screens/login_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
-import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_resources_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
-import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart';
-import 'package:material_design_icons_flutter/material_design_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionDetailScreen({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
 
   @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+  State<MyApp> createState() => _MyAppState();
 }
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  DateTime _selectedDate = DateTime.now();
-
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => SubtaskConfigDialog(
-        initialName: liveSubTask.name,
-        initialDescription: liveSubTask.description,
-        isRecurring: liveSubTask.isRecurring,
-      ),
-    );
-    if (result != null) {
-      provider.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, result);
-    }
-  }
-
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
-    );
-    
-    if (result != null) {
-      final start = result['start']!;
-      final end = result['end']!;
-      
-      final success = provider.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, start, end);
+class _MyAppState extends State<MyApp> {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Arcane',
+      builder: (context, child) {
+        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        return Container(
+          color: Colors.black, 
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: child,
+            ),
+          ),
+        );
+      },
+      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+      debugShowCheckedModeBanner: false,
+      home: Consumer<AppProvider>(
+        builder: (context, appProvider, child) {
           
-      if (!success && mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: const Text("Overlap detected! Adjust time."),
-             backgroundColor: AppTheme.fhAccentRed, 
-             action: SnackBarAction(
-               label: "EDIT",
-               textColor: Colors.white,
-               onPressed: () {
-                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
-               },
-             ),
-           )
-         );
-      }
-    }
-  }
-
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        if (!session.id.startsWith('temp')) {
-           provider.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
-        }
-      } else if (result['action'] == 'save') {
-        if (session.id.startsWith('temp')) {
-           provider.addSessionToSubtask(
-            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
-        } else {
-           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
-        }
-      }
-    }
-  }
-
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries =[];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      if (task.id != widget.parentTask.id) continue;
-      
-      for (var sub in task.subTasks) {
-        if (sub.id != currentSubTaskId) continue;
-
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor, 
-              isEditable: true,
-              originalObject: session,
-            ));
+          if (appProvider.authLoading) {
+            return const Scaffold(
+              backgroundColor: AppTheme.fhBgDeepDark,
+              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+            );
           }
-        }
-      }
-    }
-    return entries;
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
+          if (appProvider.currentUser == null) {
+            return const LoginScreen();
+          }
 
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
+          final Color currentTaskColor =
+              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
 
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double todaySeconds =
-        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
-
-    final bool isRunning = timerState?.isRunning ?? false;
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    final Color activeAccent = widget.parentTask.taskColor;
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children:[
-            // --- HEADER ---
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                color: AppTheme.fhBgDark,
-              ),
-              child: Row(
-                children:[
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[
-                        Text(
-                          widget.parentTask.name.toUpperCase(),
-                          style: TextStyle(
-                            color: activeAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.0,
-                          ),
-                        ),
-                        Text(
-                          liveSubTask.name.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontSize: 24,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _handleEditSubtask(context, provider, liveSubTask),
-                    child:  Icon(MdiIcons.pencilOutline, color: AppTheme.fhTextSecondary, size: 20),
-                  )
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children:[
-                    // --- TIMER AREA ---
-                    Container(
-                      padding: const EdgeInsets.all(20.0),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors:[activeAccent.withOpacity(0.15), Colors.transparent],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children:[
-                                  const Text("TIME LOGGED TODAY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                                  ActiveSessionTimerDisplay(
-                                    isRunning: isRunning,
-                                    startTime: timerState?.startTime,
-                                    totalTodaySeconds: todaySeconds,
-                                  ),
-                                ],
-                              ),
-                              FloatingActionButton(
-                                backgroundColor: isRunning ? AppTheme.fhAccentRed : activeAccent,
-                                foregroundColor: Colors.black,
-                                onPressed: () {
-                                  if (isRunning) {
-                                    provider.pauseTimer(liveSubTask!.id); 
-                                    provider.logTimerAndReset(liveSubTask.id); 
-                                  } else {
-                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
-                                  }
-                                },
-                                child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
-                              )
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // --- ACTION PLAN ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          ActionPlanStepsList(
-                            mainTaskId: widget.parentTask.id,
-                            subTaskId: liveSubTask.id,
-                            steps: liveSubTask.subSubTasks,
-                            accentColor: activeAccent,
-                            onGenerate: (prompt) => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          ActionPlanWhyCard(
-                            initialWhy: liveSubTask.why,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
-                          ),
-                          const SizedBox(height: 16),
-                          ActionPlanOutcomeCard(
-                            initialWhat: liveSubTask.what,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
-                          ),
-                          const SizedBox(height: 16),
-                          ActionPlanResourcesCard(
-                            initialResources: liveSubTask.resources,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: SubtaskWeeklyChart(subTask: liveSubTask, accentColor: activeAccent),
-                    ),
-
-                    const SizedBox(height: 32),
-                    
-                    // --- TIMELINE ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("SESSION TIMELINE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-                                InkWell(
-                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionSessionsScreen(parentTask: widget.parentTask, subTask: liveSubTask!))),
-                                  child: Text("VIEW ALL", style: TextStyle(color: activeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                                )
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 200, 
-                            decoration: BoxDecoration(
-                              color: AppTheme.fhBgDark.withOpacity(0.5),
-                              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
-                            ),
-                            child: ScheduleTimeline(
-                              entries: timelineEntries,
-                              onAddSession: () => _showAddSessionDialog(context, provider),
-                              onEditEntry: (entry) {
-                                if (entry.originalObject is TaskSession) {
-                                  _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // --- FOOTER ACTIONS ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Row(
-                        children:[
-                          Expanded(
-                            child: ValorantButton(
-                              label: "FINISH",
-                              icon: MdiIcons.contentSave,
-                              color: AppTheme.fhAccentGreen,
-                              onPressed: () {
-                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ValorantButton(
-                              label: "DELETE",
-                              icon: MdiIcons.deleteOutline,
-                              color: AppTheme.fhAccentRed,
-                              isPrimary: false,
-                              onPressed: () {
-                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          return Theme(
+            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
+            child: const HomeScreen(),
+          );
+        },
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-
-class SubtaskWeeklyChart extends StatelessWidget {
-  final SubTask subTask;
-  final Color accentColor;
-
-  const SubtaskWeeklyChart({
-    super.key,
-    required this.subTask,
-    required this.accentColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Map<int, double> weeklyData = {};
-    final Map<int, Color> weeklyColors = {};
-    final now = DateTime.now();
-
-    for (int i = 0; i < 7; i++) {
-      final date = now.subtract(Duration(days: i));
-      double dailySeconds = 0;
-
-      for (var session in subTask.sessions) {
-        if (session.startTime.year == date.year &&
-            session.startTime.month == date.month &&
-            session.startTime.day == date.day) {
-          dailySeconds += session.durationSeconds;
-        }
-      }
-
-      weeklyData[i] = dailySeconds / 60.0; 
-      weeklyColors[i] = accentColor;
-    }
-
-    final bool hasData = weeklyData.values.any((v) => v > 0);
-
-    return JwePanel(
-      title: "7-DAY ACTIVITY",
-      accentColor: accentColor,
-      child: SizedBox(
-        height: 140,
-        child: hasData
-            ? WeeklyActivityBarChart(
-                weeklyData: weeklyData,
-                dominantColors: weeklyColors,
-                isVirtue: false,
-              )
-            : const Center(
-                child: Text(
-                  "NO RECENT ACTIVITY",
-                  style: TextStyle(
-                    color: JweTheme.textMuted,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---
+--- END OF FILE lib/src/app.dart ---

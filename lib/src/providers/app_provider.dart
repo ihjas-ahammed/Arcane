@@ -124,63 +124,66 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
-
-    setAuthLoading(true);
-
     if (user != null) {
-      setCurrentUser(user);
-
-      try {
-        final cloudData = await _cloudStorage.getUserData(user.uid);
-        final localData = await _localStorage.loadState();
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
         
-        bool hasCloud = cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null;
-        bool hasLocal = localData != null && localData.isNotEmpty && localData['settings'] != null;
-
-        if (hasCloud) {
-          int cloudTs = cloudData!['settings']['lastModified'] ?? 0;
-          int localTs = hasLocal ? (localData!['settings']['lastModified'] ?? 0) : 0;
-
-          if (cloudTs >= localTs || !hasLocal) {
-            loadStateFromMap(cloudData);
-            await forceLocalBackup(); // Force save to local
-          } else {
-            loadStateFromMap(localData!);
-            scheduleRealtimeSync(); // Local is newer, push to cloud
-          }
-        } else if (hasLocal) {
-          // Cloud is empty but local exists (e.g. wiped RTDB by mistake)
-          loadStateFromMap(localData!);
-          scheduleRealtimeSync(); 
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
         } else {
-          // Both empty, pristine user
+          // Completely new local state, wait for cloud sync in background
           await _resetToInitialState();
-          setLastLoginDate(helper.getTodayDateString());
-          scheduleRealtimeSync();
         }
-
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        await _taskActions.recalibrateTimeLogs(silent: true);
-        _handleDailyReset();
-        
-        await fetchDailyReportsFromCloud();
-        startRealtimeSyncListener();
-
-      } catch (e) {
-        debugPrint("Cloud init failed: $e");
-      } finally {
-        setAuthLoading(false);
+        setAuthLoading(false); // Unblocks UI instantly
       }
+
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
+      // Fire and forget cloud sync
+      _syncWithCloudInBackground(user.uid);
 
     } else {
       setCurrentUser(null);
       stopRealtimeSyncListener();
       await _resetToInitialState();
-      await _localStorage.clearState();
       setAuthLoading(false);
     }
+  }
+
+  Future<void> _syncWithCloudInBackground(String uid) async {
+    try {
+      final cloudData = await _cloudStorage.getUserData(uid);
+      if (cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null) {
+        int cloudTs = cloudData['settings']['lastModified'] ?? 0;
+        int localTs = settings.lastModified;
+
+        if (cloudTs > localTs) {
+          loadStateFromMap(cloudData);
+          await forceLocalBackup(); 
+          notifyListeners();
+        } else if (localTs > cloudTs) {
+          scheduleRealtimeSync(); 
+        }
+      } else if (settings.lastModified > 0) {
+        scheduleRealtimeSync(); 
+      } else {
+        // Pristine user
+        setLastLoginDate(helper.getTodayDateString());
+        scheduleRealtimeSync();
+      }
+    } catch (_) {} // Gracefully ignore offline cloud errors
+
+    try {
+      await fetchDailyReportsFromCloud();
+    } catch (_) {}
+    
+    startRealtimeSyncListener();
   }
 
   Future<void> fetchDailyReportsFromCloud() async {
@@ -344,7 +347,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> clearAllData() async {
     if (currentUser == null) return;
     await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState();
+    await _localStorage.clearState(currentUser!.uid);
     await _resetToInitialState();
     markDirty('settings');
     markDirty('tasks');

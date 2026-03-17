@@ -8,8 +8,6 @@ const String _userSubcollectionDocId = 'data';
 const String _gameStateDocId = 'gameState';
 
 const String _docTasks = 'tasks';
-const String _docHistory = 'history';
-const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
 const String _docFinance = 'finance';
 const String _docHealth = 'health';
@@ -33,11 +31,9 @@ class StorageService {
       if (snap.exists && snap.value != null) {
         return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
-        // Migration Fallback: If no RTDB data, pull from Firestore and return it.
         return await getFirestoreBackup(userId);
       }
     } catch (e) {
-      // In case of extreme failure, fallback to Firestore
       return await getFirestoreBackup(userId);
     }
   }
@@ -56,18 +52,40 @@ class StorageService {
 
   Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     Map<String, dynamic> fullData = {};
-    if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
-    if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
-    if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
-    if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
-    if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
-    if (raw[_docHealth] != null) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    if (raw[_docSettings] is String) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] is String) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docFinance] is String) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] is String) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    
+    // Safely parse chunked maps or legacy strings to fix Type Cast errors
+    if (raw['history'] != null) {
+      if (raw['history'] is String) {
+        fullData.addAll(jsonDecode(raw['history'] as String));
+      } else if (raw['history'] is Map) {
+        Map<String, dynamic> history = {};
+        (raw['history'] as Map).forEach((date, jsonStr) {
+          history[date.toString()] = jsonDecode(jsonStr.toString());
+        });
+        fullData['completedByDay'] = history;
+      }
+    }
+    
+    if (raw['reflections'] != null) {
+      if (raw['reflections'] is String) {
+        fullData.addAll(jsonDecode(raw['reflections'] as String));
+      } else if (raw['reflections'] is Map) {
+        List<dynamic> reflections = [];
+        (raw['reflections'] as Map).forEach((id, jsonStr) {
+          reflections.add(jsonDecode(jsonStr.toString()));
+        });
+        fullData['reflectionLogs'] = reflections;
+      }
+    }
+    
     return fullData;
   }
 
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
-  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHistory, data);
-  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
   Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
@@ -76,6 +94,38 @@ class StorageService {
     if (userId.isEmpty) return false;
     try {
       await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Optimized Chunked Saving for large arrays (History/Reflections)
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
+      final Map<String, dynamic> updates = {};
+      history.forEach((date, dayData) {
+        updates[date] = jsonEncode(dayData);
+      });
+      await _rtdb.ref('users/$userId/data/history').update(updates);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
+      final Map<String, dynamic> updates = {};
+      for (var log in logs) {
+        updates[log['id']] = jsonEncode(log);
+      }
+      // Use Set to overwrite node, dropping locally deleted elements from DB implicitly
+      await _rtdb.ref('users/$userId/data/reflections').set(updates); 
       return true;
     } catch (e) {
       return false;
@@ -96,77 +146,108 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      final tasksSnap = await _firestoreDocRef(userId, _docTasks).get();
-      final historySnap = await _firestoreDocRef(userId, _docHistory).get();
-      final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
-      final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
-      final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
-      final healthSnap = await _firestoreDocRef(userId, _docHealth).get();
+      // Load base state
+      final baseSnap = await _firestoreDocRef(userId, 'base_state').get();
+      Map<String, dynamic> fullData = {};
+      
+      if (baseSnap.exists) {
+        fullData.addAll(baseSnap.data()!);
+      } else {
+        // Legacy fallback handling for older snapshots
+        final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
+        if (oldDocSnap.exists) return oldDocSnap.data();
+        
+        final tasksSnap = await _firestoreDocRef(userId, 'tasks').get();
+        if (tasksSnap.exists) {
+           final historySnap = await _firestoreDocRef(userId, 'history').get();
+           final reflectionsSnap = await _firestoreDocRef(userId, 'reflections').get();
+           final settingsSnap = await _firestoreDocRef(userId, 'settings').get();
+           final financeSnap = await _firestoreDocRef(userId, 'finance').get();
+           final healthSnap = await _firestoreDocRef(userId, 'health').get();
 
-      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists || healthSnap.exists;
-
-      if (hasNewData) {
-        Map<String, dynamic> fullData = {};
-        if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
-        if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
-        if (historySnap.exists) fullData.addAll(historySnap.data()!);
-        if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
-        if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
-        return fullData;
+           if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
+           if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
+           if (historySnap.exists) fullData.addAll(historySnap.data()!);
+           if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+           if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
+           if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
+           return fullData;
+        }
+        return null;
       }
 
-      final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
-      if (oldDocSnap.exists) {
-        return oldDocSnap.data();
+      // Reconstruct Chunked Tasks
+      final tasksCol = await _firestore.collection(_userCollection).doc(userId).collection('tasks_backup').get();
+      if (tasksCol.docs.isNotEmpty) {
+        fullData['mainTasks'] = tasksCol.docs.map((doc) => doc.data()).toList();
       }
 
-      return null;
+      // Reconstruct Chunked History
+      final historyCol = await _firestore.collection(_userCollection).doc(userId).collection('history_backup').get();
+      if (historyCol.docs.isNotEmpty) {
+        fullData['completedByDay'] = {};
+        for (var doc in historyCol.docs) {
+          fullData['completedByDay'][doc.id] = doc.data();
+        }
+      }
+
+      // Reconstruct Chunked Reflections
+      final refCol = await _firestore.collection(_userCollection).doc(userId).collection('reflections_backup').get();
+      if (refCol.docs.isNotEmpty) {
+        fullData['reflectionLogs'] = refCol.docs.map((doc) => doc.data()).toList();
+      }
+
+      return fullData;
     } catch (e) {
       return null;
     }
   }
 
+  // Bypassing 1MB Document Limits by aggressively chunking to subcollections
   Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
     if (userId.isEmpty) return false;
 
-    final tasksData = <String, dynamic>{};
-    if (fullData.containsKey('mainTasks')) tasksData['mainTasks'] = fullData['mainTasks'];
-
-    final historyData = <String, dynamic>{};
-    if (fullData.containsKey('completedByDay')) historyData['completedByDay'] = fullData['completedByDay'];
-
-    final reflectionsData = <String, dynamic>{};
-    if (fullData.containsKey('reflectionLogs')) reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
-
-    final financeData = <String, dynamic>{};
-    if (fullData.containsKey('transactions')) financeData['transactions'] = fullData['transactions'];
-    if (fullData.containsKey('categories')) financeData['categories'] = fullData['categories'];
-    if (fullData.containsKey('savingsGoals')) financeData['savingsGoals'] = fullData['savingsGoals'];
-
-    final healthData = <String, dynamic>{};
-    if (fullData.containsKey('foodItems')) healthData['foodItems'] = fullData['foodItems'];
-    if (fullData.containsKey('healthLogs')) healthData['healthLogs'] = fullData['healthLogs'];
-
-    final settingsData = Map<String, dynamic>.from(fullData);
-    settingsData.remove('mainTasks');
-    settingsData.remove('completedByDay');
-    settingsData.remove('reflectionLogs');
-    settingsData.remove('transactions');
-    settingsData.remove('categories');
-    settingsData.remove('savingsGoals');
-    settingsData.remove('foodItems');
-    settingsData.remove('healthLogs');
+    // Clone mapping to avoid mutating active memory state
+    final Map<String, dynamic> baseData = Map.from(fullData);
+    final historyData = baseData.remove('completedByDay') as Map<String, dynamic>? ?? {};
+    final reflectionsData = baseData.remove('reflectionLogs') as List<dynamic>? ?? [];
+    final tasksDataList = baseData.remove('mainTasks') as List<dynamic>? ?? [];
 
     try {
-      final batch = _firestore.batch();
-      batch.set(_firestoreDocRef(userId, _docTasks), tasksData);
-      batch.set(_firestoreDocRef(userId, _docHistory), historyData);
-      batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
-      batch.set(_firestoreDocRef(userId, _docFinance), financeData);
-      batch.set(_firestoreDocRef(userId, _docHealth), healthData);
-      await batch.commit();
+      final batches = [_firestore.batch()];
+      int ops = 0;
+      int batchIndex = 0;
+
+      void addSet(DocumentReference ref, Map<String, dynamic> data) {
+        batches[batchIndex].set(ref, data);
+        ops++;
+        if (ops >= 490) { // Keep under 500 max writes per batch limit
+          batches.add(_firestore.batch());
+          batchIndex++;
+          ops = 0;
+        }
+      }
+
+      addSet(_firestoreDocRef(userId, 'base_state'), baseData);
+
+      final tasksCol = _firestore.collection(_userCollection).doc(userId).collection('tasks_backup');
+      for(var task in tasksDataList) {
+        addSet(tasksCol.doc(task['id']), task as Map<String, dynamic>);
+      }
+
+      final historyCol = _firestore.collection(_userCollection).doc(userId).collection('history_backup');
+      historyData.forEach((date, data) {
+        addSet(historyCol.doc(date), data as Map<String, dynamic>);
+      });
+
+      final refCol = _firestore.collection(_userCollection).doc(userId).collection('reflections_backup');
+      for(var log in reflectionsData) {
+        addSet(refCol.doc(log['id']), log as Map<String, dynamic>);
+      }
+
+      for (var b in batches) {
+        await b.commit();
+      }
       return true;
     } catch (e) {
       return false;
@@ -176,18 +257,11 @@ class StorageService {
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      // Clear RTDB
       await _rtdb.ref('users/$userId/data').remove();
 
-      // Clear Firestore
       final batch = _firestore.batch();
       batch.delete(_firestoreDocRef(userId, _gameStateDocId));
-      batch.delete(_firestoreDocRef(userId, _docTasks));
-      batch.delete(_firestoreDocRef(userId, _docHistory));
-      batch.delete(_firestoreDocRef(userId, _docReflections));
-      batch.delete(_firestoreDocRef(userId, _docSettings));
-      batch.delete(_firestoreDocRef(userId, _docFinance));
-      batch.delete(_firestoreDocRef(userId, _docHealth));
+      batch.delete(_firestoreDocRef(userId, 'base_state'));
       await batch.commit();
       
       return true;
@@ -196,7 +270,7 @@ class StorageService {
     }
   }
 
-  // --- Historical Archives (Remain in Firestore) ---
+  // --- Historical Archives ---
 
   Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;

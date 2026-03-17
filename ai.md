@@ -1,17 +1,17 @@
 Make the following changes:
 
     - Fix Data Sync:
-        - Fix that my data is reset whenever I login on a new device which is totally absurd
-        - Make sure to backup into firestore too when I click local Backup button, also give a small snackbar to show the progress feedback
-        - As for multisystem data syncing:
-            First load from firebase cloud whichever app I open
-            Also if I have realtime syncing enable, sync everytime I start a new timer (in background) so I will have access to latest data everywhere, also same goes whenever I turn of the timer
-    - Update Submission View:
-        - Add last 7 day time graph above sessin timeline bellow asset asignment (for each tasks)
+        I had gotten API Key error when I create a new user like my api key is exposed (help me setup gitgnore)
 
-    - Fix Finance projected date: calculate it based on today + total_left/daily_avg
-    - In Log Reflecrion button widget in analysis, add the last reflection log, Time indicator so I know when I last logged and continue from there
-    - In schedule dashboard planner, when I click on the name of a planned task, open that task
+        Make the app work offline, like by default our app is offline, and every cloud activity is async and only indicated by that loading screen in action bar
+
+        Fix that I had lost all data when I try to login as a new user
+
+        Also fix firestore backup, make it by chunks becuase there was a limit of 1MB at a time
+
+        also if there was such a limit for realtimedb, do the same make the cloud sync work in chunks
+
+        Main task is to make initial loading so quick that app just works offline very well 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

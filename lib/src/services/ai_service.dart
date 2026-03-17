@@ -20,18 +20,17 @@ class AIService {
     final List<String> apiKeysToTry = <String>{
       ...geminiApiKeys,
       if (customApiKeys != null) ...customApiKeys
-    }.toList();
+    }.where((k) => !k.contains('YOUR_GEMINI_API_KEY')).toList();
 
     if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
+      onLog("No valid Gemini API keys found. Returning fallback data.");
+      throw Exception("OFFLINE_MOCK_DATA");
     }
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
         int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
         String effectiveKey = apiKeysToTry[effectiveIndex];
-
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
 
         try {
           if (kDebugMode) {
@@ -50,8 +49,7 @@ class AIService {
         }
       }
     }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
+    throw Exception("All models and API keys failed. Please check your connection or settings.");
   }
 
   Future<Map<String, dynamic>> makeAICall({
@@ -63,26 +61,37 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        
-        final contentParts = parts ?? [genai.TextPart(prompt!)];
-        final response = await model.generateContent([genai.Content.multi(contentParts)]);
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          
+          final contentParts = parts ?? [genai.TextPart(prompt!)];
+          final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
+          String? rawResponseText = response.text;
+          if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+            throw Exception("AI response was empty.");
+          }
+          
+          return JsonUtils.tryDecode(rawResponseText);
+        },
+      );
+    } catch (e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) {
+        // Fallback structures so the app doesn't crash without an API key
+        if (prompt != null && prompt.contains("System Start-Up Sequence")) {
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "metrics": [], "directives": ["Add your Gemini API Key in Settings."] };
         }
-        
-        return JsonUtils.tryDecode(rawResponseText);
-      },
-    );
+        return {};
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> generateActionPlanSteps({
@@ -165,25 +174,30 @@ class AIService {
     ]
     """;
 
-    final result = await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        String? raw = response.text;
-        if (raw == null) throw Exception("Empty AI response");
-        return JsonUtils.tryDecode(raw);
-      },
-    );
+    try {
+      final result = await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          String? raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          return JsonUtils.tryDecode(raw);
+        },
+      );
 
-    if (result is List) {
-      return result.map((e) => e as Map<String, dynamic>).toList();
+      if (result is List) {
+        return result.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return[];
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
+      rethrow;
     }
-    return[];
   }
 
   Future<String> queryNeuralArchive({
@@ -201,18 +215,23 @@ class AIService {
     USER: "$query"
     """;
 
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          return response.text ?? "Archive data corrupted or empty.";
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return "Offline mock response: Connect API Key.";
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({

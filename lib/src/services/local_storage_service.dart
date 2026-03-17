@@ -8,16 +8,14 @@ String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
 Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
 
 class LocalStorageService {
-  static const String _fileName = 'arcane_local_cache.json';
-
-  Future<File> get _localFile async {
+  Future<File> _localFile(String userId) async {
     final directory = await getApplicationDocumentsDirectory();
-    return File('${directory.path}/$_fileName');
+    return File('${directory.path}/arcane_local_cache_$userId.json');
   }
 
-  Future<void> saveState(Map<String, dynamic> state) async {
+  Future<void> saveState(String userId, Map<String, dynamic> state) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       // Offload heavy JSON serialization to a background isolate
       final jsonString = await compute(_encodeJson, state);
       await file.writeAsString(jsonString, flush: true);
@@ -26,9 +24,9 @@ class LocalStorageService {
     }
   }
 
-  Future<Map<String, dynamic>?> loadState() async {
+  Future<Map<String, dynamic>?> loadState(String userId) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       if (await file.exists()) {
         final contents = await file.readAsString();
         if (contents.isEmpty) return null;
@@ -41,9 +39,9 @@ class LocalStorageService {
     return null;
   }
 
-  Future<void> clearState() async {
+  Future<void> clearState(String userId) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       if (await file.exists()) {
         await file.delete();
       }

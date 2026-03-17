@@ -33,11 +33,11 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
+          
           if (appProvider.authLoading) {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
-              body: Center(
-                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
 
@@ -50,26 +50,7 @@ class _MyAppState extends State<MyApp> {
 
           return Theme(
             data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-            child: Stack(
-              children: [
-                const HomeScreen(),
-                
-                // Unobtrusive loading bar at the top instead of a full screen blocker
-                if (appProvider.isManuallyLoading)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: SafeArea(
-                      child: const LinearProgressIndicator(
-                        color: AppTheme.fhAccentTeal,
-                        backgroundColor: Colors.transparent,
-                        minHeight: 4,
-                      ),
-                    ),
-                  )
-              ],
-            ),
+            child: const HomeScreen(),
           );
         },
       ),

@@ -98,3 +98,4 @@ macos/Flutter/Generated.xcconfig
 macos/Flutter/ephemeral_dir_path
 macos/Flutter/ephemeral.app
 macos/Flutter/Flutter- আরো একবার.h
+lib/src/config/api_keys.dart
