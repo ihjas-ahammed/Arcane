@@ -1,639 +1,1816 @@
 
-
---- START OF FILE lib/src/models/health_models.dart ---
-import 'package:uuid/uuid.dart';
-
-class FoodItem {
-  String id;
-  String name;
-  int calories;
-  double protein;
-  double carbs;
-  double fat;
-  String? description;
-  List<String>? benefits;
-  List<String>? warnings;
-
-  FoodItem({
-    required this.id,
-    required this.name,
-    required this.calories,
-    required this.protein,
-    required this.carbs,
-    required this.fat,
-    this.description,
-    this.benefits,
-    this.warnings,
-  });
-
-  factory FoodItem.fromJson(Map<String, dynamic> json) {
-    return FoodItem(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      name: json['name'] as String? ?? 'Unknown Food',
-      calories: (json['calories'] as num? ?? 0).toInt(),
-      protein: (json['protein'] as num? ?? 0).toDouble(),
-      carbs: (json['carbs'] as num? ?? 0).toDouble(),
-      fat: (json['fat'] as num? ?? 0).toDouble(),
-      description: json['description'] as String?,
-      benefits: (json['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
-      warnings: (json['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'calories': calories,
-      'protein': protein,
-      'carbs': carbs,
-      'fat': fat,
-      'description': description,
-      'benefits': benefits,
-      'warnings': warnings,
-    };
-  }
-}
-
-class MealLog {
-  String id;
-  String foodItemId;
-  DateTime timestamp;
-
-  MealLog({
-    required this.id,
-    required this.foodItemId,
-    required this.timestamp,
-  });
-
-  factory MealLog.fromJson(Map<String, dynamic> json) {
-    return MealLog(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      foodItemId: json['foodItemId'] as String? ?? '',
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
-          : DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'foodItemId': foodItemId,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-}
-
-class SleepLog {
-  String id;
-  DateTime startTime;
-  DateTime endTime;
-
-  SleepLog({
-    required this.id,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  int get durationMinutes => endTime.difference(startTime).inMinutes;
-
-  factory SleepLog.fromJson(Map<String, dynamic> json) {
-    if (json['startTime'] != null && json['endTime'] != null) {
-      return SleepLog(
-        id: json['id'] as String? ?? const Uuid().v4(),
-        startTime: DateTime.parse(json['startTime']),
-        endTime: DateTime.parse(json['endTime']),
-      );
-    } else {
-      // Legacy migration from 'minutes' and 'timestamp'
-      final end = json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now();
-      final mins = (json['minutes'] as num? ?? 0).toInt();
-      final start = end.subtract(Duration(minutes: mins));
-      return SleepLog(
-        id: json['id'] as String? ?? const Uuid().v4(),
-        startTime: start,
-        endTime: end,
-      );
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime.toIso8601String(),
-    };
-  }
-}
-
-class ActivityLog {
-  String id;
-  double walkDistanceKm;
-  int workoutMinutes;
-  DateTime timestamp;
-
-  ActivityLog({
-    required this.id,
-    required this.walkDistanceKm,
-    required this.workoutMinutes,
-    required this.timestamp,
-  });
-
-  factory ActivityLog.fromJson(Map<String, dynamic> json) {
-    return ActivityLog(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
-      workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
-          : DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'walkDistanceKm': walkDistanceKm,
-      'workoutMinutes': workoutMinutes,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-}
-
-class DailyHealthLog {
-  String dateStr;
-  int waterGlasses;
-  List<MealLog> meals;
-  List<SleepLog> sleepLogs;
-  List<ActivityLog> activityLogs;
-
-  DailyHealthLog({
-    required this.dateStr,
-    this.waterGlasses = 0,
-    List<MealLog>? meals,
-    List<SleepLog>? sleepLogs,
-    List<ActivityLog>? activityLogs,
-  }) : meals = meals ?? [],
-       sleepLogs = sleepLogs ?? [],
-       activityLogs = activityLogs ?? [];
-
-  factory DailyHealthLog.fromJson(Map<String, dynamic> json) {
-    // Migration logic for old singular fields
-    final legacySleep = (json['sleepMinutes'] as num? ?? 0).toInt();
-    final legacyWalk = (json['walkDistanceKm'] as num? ?? 0.0).toDouble();
-    final legacyWorkout = (json['workoutMinutes'] as num? ?? 0).toInt();
-
-    List<SleepLog> parsedSleep = (json['sleepLogs'] as List<dynamic>?)
-            ?.map((e) => SleepLog.fromJson(e as Map<String, dynamic>))
-            .toList() ?? [];
-    
-    if (parsedSleep.isEmpty && legacySleep > 0) {
-      final end = DateTime.now();
-      parsedSleep.add(SleepLog(id: const Uuid().v4(), startTime: end.subtract(Duration(minutes: legacySleep)), endTime: end));
-    }
-
-    List<ActivityLog> parsedActivity = (json['activityLogs'] as List<dynamic>?)
-            ?.map((e) => ActivityLog.fromJson(e as Map<String, dynamic>))
-            .toList() ?? [];
-            
-    if (parsedActivity.isEmpty && (legacyWalk > 0 || legacyWorkout > 0)) {
-      parsedActivity.add(ActivityLog(id: const Uuid().v4(), walkDistanceKm: legacyWalk, workoutMinutes: legacyWorkout, timestamp: DateTime.now()));
-    }
-
-    return DailyHealthLog(
-      dateStr: json['dateStr'] as String? ?? '',
-      waterGlasses: (json['waterGlasses'] as num? ?? 0).toInt(),
-      meals: (json['meals'] as List<dynamic>?)
-              ?.map((e) => MealLog.fromJson(e as Map<String, dynamic>))
-              .toList() ?? [],
-      sleepLogs: parsedSleep,
-      activityLogs: parsedActivity,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'dateStr': dateStr,
-      'waterGlasses': waterGlasses,
-      'meals': meals.map((m) => m.toJson()).toList(),
-      'sleepLogs': sleepLogs.map((s) => s.toJson()).toList(),
-      'activityLogs': activityLogs.map((a) => a.toJson()).toList(),
-    };
-  }
-}
---- END OF FILE lib/src/models/health_models.dart ---
-
---- START OF FILE lib/src/providers/mixins/health_mixin.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/health_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
-import 'package:uuid/uuid.dart';
-
-mixin HealthMixin on ChangeNotifier {
-  List<FoodItem> _foodItems =[];
-  Map<String, DailyHealthLog> _healthLogs = {};
-
-  List<FoodItem> get foodItems => _foodItems;
-  Map<String, DailyHealthLog> get healthLogs => _healthLogs;
-
-  SyncMixin get sync => this as SyncMixin;
-
-  void loadHealthState(Map<String, dynamic> data) {
-    if (data['foodItems'] != null) {
-      _foodItems = (data['foodItems'] as List).map((e) => FoodItem.fromJson(e)).toList();
-    }
-    if (data['healthLogs'] != null) {
-      final rawLogs = data['healthLogs'] as Map;
-      _healthLogs = rawLogs.map((k, v) => MapEntry(k.toString(), DailyHealthLog.fromJson(Map<String, dynamic>.from(v))));
-    }
-  }
-
-  Map<String, dynamic> getHealthStateMap() {
-    return {
-      'foodItems': _foodItems.map((e) => e.toJson()).toList(),
-      'healthLogs': _healthLogs.map((k, v) => MapEntry(k, v.toJson())),
-    };
-  }
-
-  DailyHealthLog getDailyHealthLog(String dateStr) {
-    if (!_healthLogs.containsKey(dateStr)) {
-      _healthLogs[dateStr] = DailyHealthLog(dateStr: dateStr);
-      // FIX: Schedule state mutation for the next frame to avoid "setState() called during build" exceptions
-      Future.microtask(() => sync.markDirty('health'));
-    }
-    return _healthLogs[dateStr]!;
-  }
-
-  void addFoodItem(FoodItem item) {
-    _foodItems.add(item);
-    sync.markDirty('health');
-  }
-
-  void updateFoodItem(FoodItem item) {
-    final index = _foodItems.indexWhere((f) => f.id == item.id);
-    if (index != -1) {
-      _foodItems[index] = item;
-      sync.markDirty('health');
-    }
-  }
-
-  void addMealLog(String dateStr, MealLog log) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.meals.add(log);
-    sync.markDirty('health');
-  }
-
-  void deleteMealLog(String dateStr, String logId) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.meals.removeWhere((m) => m.id == logId);
-    sync.markDirty('health');
-  }
-  
-  void logMealAgain(String dateStr, MealLog originalLog) {
-    final hLog = getDailyHealthLog(dateStr);
-    final newLog = MealLog(id: const Uuid().v4(), foodItemId: originalLog.foodItemId, timestamp: DateTime.now());
-    hLog.meals.add(newLog);
-    sync.markDirty('health');
-  }
-
-  void addSleepLog(String dateStr, SleepLog log) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.sleepLogs.add(log);
-    hLog.sleepLogs.sort((a, b) => b.endTime.compareTo(a.endTime));
-    sync.markDirty('health');
-  }
-
-  void deleteSleepLog(String dateStr, String logId) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.sleepLogs.removeWhere((l) => l.id == logId);
-    sync.markDirty('health');
-  }
-
-  void addActivityLog(String dateStr, ActivityLog log) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.activityLogs.add(log);
-    hLog.activityLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    sync.markDirty('health');
-  }
-
-  void deleteActivityLog(String dateStr, String logId) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.activityLogs.removeWhere((l) => l.id == logId);
-    sync.markDirty('health');
-  }
-
-  void updateWater(String dateStr, int glasses) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.waterGlasses = glasses;
-    sync.markDirty('health');
-  }
-}
---- END OF FILE lib/src/providers/mixins/health_mixin.dart ---
-
---- START OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
+--- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/health_models.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/history_helper.dart'; 
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/finance_models.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class AddSleepDialog extends StatefulWidget {
-  final String dateStr;
-  const AddSleepDialog({super.key, required this.dateStr});
+// Import Mixins
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:arcane/src/providers/mixins/task_mixin.dart';
+import 'package:arcane/src/providers/mixins/finance_mixin.dart';
+import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
+
+// Import Actions
+import 'package:arcane/src/providers/actions/task_actions.dart';
+import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
+import 'package:arcane/src/providers/actions/timer_actions.dart';
+import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart';
+import 'package:arcane/src/providers/actions/finance_actions.dart';
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
+
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
+  
+  final AIService _aiService = AIService();
+  final DataExportService _exportService = DataExportService();
+  final StorageService _cloudStorage = StorageService();
+  final LocalStorageService _localStorage = LocalStorageService();
+
+  AIService get aiService => _aiService;
+
+  // UI State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+  
+  bool get isDataLoadingAfterLogin => false; 
+
+  // Actions
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions;
+  late final FinanceActions _financeActions;
+  late final JournalingActions _journalingActions;
+
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  TimerActions get timerActions => _timerActions;
+  ProjectActions get projectActions => _projectActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions;
+  FinanceActions get financeActions => _financeActions;
+  JournalingActions get journalingActions => _journalingActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
+    _journalingActions = JournalingActions(this);
+
+    _initialize();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
-  State<AddSleepDialog> createState() => _AddSleepDialogState();
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (currentUser != null) {
+        scheduleRealtimeSync(); 
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (currentUser != null) {
+        fetchDailyReportsFromCloud();
+      }
+    }
+  }
+
+  @override
+  Future<void> manuallyLoadFromCloud() async {
+    await super.manuallyLoadFromCloud();
+    await fetchDailyReportsFromCloud();
+  }
+
+  // --- Initialization ---
+
+  Future<void> _initialize() async {
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    initSync(); 
+    
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
+  }
+
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
+
+    setAuthLoading(true);
+
+    if (user != null) {
+      setCurrentUser(user);
+
+      try {
+        final cloudData = await _cloudStorage.getUserData(user.uid);
+        final localData = await _localStorage.loadState();
+        
+        bool hasCloud = cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null;
+        bool hasLocal = localData != null && localData.isNotEmpty && localData['settings'] != null;
+
+        if (hasCloud) {
+          int cloudTs = cloudData!['settings']['lastModified'] ?? 0;
+          int localTs = hasLocal ? (localData!['settings']['lastModified'] ?? 0) : 0;
+
+          if (cloudTs >= localTs || !hasLocal) {
+            loadStateFromMap(cloudData);
+            await forceLocalBackup(); // Force save to local
+          } else {
+            loadStateFromMap(localData!);
+            scheduleRealtimeSync(); // Local is newer, push to cloud
+          }
+        } else if (hasLocal) {
+          // Cloud is empty but local exists (e.g. wiped RTDB by mistake)
+          loadStateFromMap(localData!);
+          scheduleRealtimeSync(); 
+        } else {
+          // Both empty, pristine user
+          await _resetToInitialState();
+          setLastLoginDate(helper.getTodayDateString());
+          scheduleRealtimeSync();
+        }
+
+        _cleanOverlappingSessions();
+        _fixTimerAnomalies();
+        await _taskActions.recalibrateTimeLogs(silent: true);
+        _handleDailyReset();
+        
+        await fetchDailyReportsFromCloud();
+        startRealtimeSyncListener();
+
+      } catch (e) {
+        debugPrint("Cloud init failed: $e");
+      } finally {
+        setAuthLoading(false);
+      }
+
+    } else {
+      setCurrentUser(null);
+      stopRealtimeSyncListener();
+      await _resetToInitialState();
+      await _localStorage.clearState();
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> fetchDailyReportsFromCloud() async {
+    if (currentUser == null) return;
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    if (recentDaily.isNotEmpty) {
+      final newHistory = Map<String, dynamic>.from(completedByDay);
+      recentDaily.forEach((date, data) {
+        final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
+        bool changed = false;
+        if (data.containsKey('briefing')) {
+          dayData['aiBriefing'] = data['briefing'];
+          changed = true;
+        }
+        if (data.containsKey('report')) {
+          dayData['startDayReport'] = data['report'];
+          changed = true;
+        }
+        if (changed) {
+          newHistory[date] = dayData;
+        }
+      });
+      setCompletedByDay(newHistory);
+    }
+  }
+
+  Future<void> _resetToInitialState() async {
+    setLastLoginDate(null);
+    setSettings(AppSettings());
+    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
+    setCompletedByDay({});
+    setActiveTimers({});
+    setReflectionLogs([]);
+    setTransactions([]);
+    setCategories([]);
+    setSavingsGoals([]);
+    setChatbotMemory(ChatbotMemory());
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    // Reset health logs handled by loading empty maps
+  }
+
+  // --- Mixin Implementations & Legacy Compat ---
+
+  @override
+  Map<String, dynamic> getFullAppState() {
+    final map = <String, dynamic>{};
+    map.addAll(getTaskStateMap());
+    map.addAll(getFinanceStateMap());
+    map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
+    return map;
+  }
+
+  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
+  
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+
+  @override
+  void loadStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadFinanceState(data);
+    loadUserState(data);
+    loadHealthState(data);
+    
+    if (settings.dataVersion < 1) {
+      settings.dataVersion = 1;
+      markDirty('settings');
+    }
+  }
+
+  // --- UI Helpers ---
+
+  void setLoadingTask(String? name) {
+    _loadingTaskName = name;
+    notifyListeners();
+  }
+
+  void setProviderAISubquestLoading(bool loading) {
+    _isGeneratingSubquestsForTask = loading;
+    notifyListeners();
+  }
+
+  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
+
+  // --- State Bridge ---
+  
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, dynamic>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
+    if (mainTasks != null) setMainTasks(mainTasks);
+    if (completedByDay != null) setCompletedByDay(completedByDay);
+    if (activeTimers != null) setActiveTimers(activeTimers);
+    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
+    if (transactions != null) setTransactions(transactions);
+    if (categories != null) setCategories(categories);
+    if (savingsGoals != null) setSavingsGoals(savingsGoals);
+    
+    if (doNotify) notifyListeners();
+  }
+
+  // --- Delegated Actions ---
+
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
+
+  // --- Auth & Wrappers ---
+
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> logoutUser() async => await fb_service.signOut();
+  Future<void> signupUser(String email, String password, String username) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName(username);
+      await user.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
+  Future<void> updateUserDisplayName(String name) async {
+    if (currentUser != null) {
+      await currentUser!.updateDisplayName(name);
+      await currentUser!.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+
+  Future<void> clearAllData() async {
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState();
+    await _resetToInitialState();
+    markDirty('settings');
+    markDirty('tasks');
+    markDirty('history');
+    markDirty('reflections');
+    markDirty('finance');
+    markDirty('health');
+    scheduleRealtimeSync();
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadStateFromMap(data);
+      scheduleRealtimeSync();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  void initializeChatbotMemory() {
+    notifyListeners(); 
+  }
+
+  Future<void> exportReflections() async {
+    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      final currentIds = reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      if (newLogs.isNotEmpty) {
+        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
+      }
+    }
+  }
+
+  // --- Gratitude Actions ---
+  void updateGratitudeList(List<GratitudeItem> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.gratitudeList = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+
+  // --- Reports Logic ---
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
+    final recentReflections = reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (currentUser == null) return[];
+    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
+    }
+  }
+
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+    }
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Map<String, dynamic>? getTacticalBriefing(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
+      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
+      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
+    }
+    
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      modelCandidates: settings.heavyModels, 
+      currentApiKeyIndex: apiKeyIndex, 
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+
+    // Auto-capture newly identified grateful assets
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    // Auto-capture newly identified grateful people
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+        scheduleRealtimeSync();
+      }
+    }
+
+    return result;
+  }
+
+  void _cleanOverlappingSessions() {
+    bool changed = false;
+    final newMainTasks = mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned = [sorted.first];
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
+
+    if (changed) setMainTasks(newMainTasks);
+  }
+
+  void _fixTimerAnomalies() {
+    // Logic handles in mixin or here if specialized
+  }
+
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    if (lastLoginDate != todayStr) {
+      bool changed = false;
+      final newMainTasks = mainTasks.map((task) {
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+             bool shouldReset = false;
+             if (st.completed && st.lastCompletedDate != null) {
+                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+             } else if (st.completed) {
+                shouldReset = true;
+             }
+             if (shouldReset) {
+               changed = true;
+               return SubTask(
+                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
+                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
+                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+               );
+             }
+          }
+          return st;
+        }).toList();
+        
+        if (task.dailyTimeSpent > 0) {
+          changed = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }).toList();
+
+      setLastLoginDate(todayStr);
+      if (changed) setMainTasks(newMainTasks);
+    }
+  }
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday;
+    final startOffset = settings.startOfWeek;
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    final startOfWeekDate = now.subtract(Duration(days: diff));
+
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break;
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
+      }
+    }
+    return weeklyStatus;
+  }
+
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  int get7DayWellbeingMomentum(String skillName) {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<void> syncWeeklyWellbeing() async {
+    setLoadingTask("Analyzing Weekly Wellbeing...");
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+      if (recentLogs.isEmpty) {
+        throw Exception("No reflection logs in the past 7 days to analyze.");
+      }
+      
+      final logsPayload = recentLogs.map((l) => {
+        "log_id": l.id,
+        "trigger": l.trigger,
+        "emotion": l.emotion,
+        "action": l.action,
+      }).toList();
+      
+      final updates = await aiService.evaluateBatchReflections(
+        logsPayload: logsPayload,
+        modelCandidates: settings.heavyModels, 
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      bool logsChanged = false;
+      for (var update in updates) {
+        final logId = update['log_id'];
+        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final idx = newLogs.indexWhere((l) => l.id == logId);
+        if (idx != -1) {
+          newLogs[idx] = ReflectionLog(
+            id: newLogs[idx].id,
+            timestamp: newLogs[idx].timestamp,
+            trigger: newLogs[idx].trigger,
+            emotion: newLogs[idx].emotion,
+            reason: newLogs[idx].reason,
+            action: newLogs[idx].action,
+            aiFeedback: newLogs[idx].aiFeedback,
+            xpGained: xpMap, 
+          );
+          logsChanged = true;
+        }
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+        
+        final freshSkills = getBaseWellbeingSkills();
+        for (var log in newLogs) {
+          log.xpGained.forEach((trait, xp) {
+             final s = freshSkills.firstWhereOrNull((x) => x.name.toLowerCase() == trait.toLowerCase());
+             if (s != null) s.addXp(xp);
+          });
+        }
+        setSkills(freshSkills);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final eval = await _aiService.evaluateReflection(
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      modelCandidates: settings.liteModels, 
+      customApiKeys: settings.customApiKeys
+    );
+    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+    
+    final newSkills = List<Skill>.from(skills);
+    for (var entry in xpGained.entries) {
+      if (entry.value > 0) {
+        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) skill.addXp(entry.value);
+      }
+    }
+    setSkills(newSkills);
+
+    final log = ReflectionLog(
+      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: eval['feedback'] ?? '', xpGained: xpGained
+    );
+    setReflectionLogs([...reflectionLogs, log]);
+    
+    return {'log': log, 'xpGained': xpGained};
+  }
+
+  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) {
+    final log = ReflectionLog(
+      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Quick Save", xpGained: {}
+    );
+    setReflectionLogs([...reflectionLogs, log]);
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = reflectionLogs[index];
+      if (trigger != null) log.trigger = trigger;
+      if (emotion != null) log.emotion = emotion;
+      if (reason != null) log.reason = reason;
+      if (action != null) log.action = action;
+      setReflectionLogs(List.from(reflectionLogs));
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final log = reflectionLogs[index];
+      final newSkills = List<Skill>.from(skills);
+      for (var entry in log.xpGained.entries) {
+        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+        if (skill != null) {
+           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
+        }
+      }
+      setSkills(newSkills);
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  NoraSession? get activeNoraSession {
+    if (chatbotMemory.activeNoraSessionId == null) return null;
+    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
+    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.add(newSession);
+    newMemory.activeNoraSessionId = newSession.id;
+    setChatbotMemory(newMemory);
+  }
+
+  void switchNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.activeNoraSessionId = sessionId;
+    setChatbotMemory(newMemory);
+  }
+
+  void deleteNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (newMemory.activeNoraSessionId == sessionId) {
+      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
+    }
+    setChatbotMemory(newMemory);
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    session.messages.add(userMsg);
+    markDirty('settings'); 
+    
+    try {
+      final prompt = "You are ${session.tone}. User: $text";
+      final responseText = await _aiService.queryNeuralArchive(
+        query: text, logsContext: prompt, 
+        modelCandidates: settings.liteModels, 
+        currentApiKeyIndex: apiKeyIndex, 
+        customApiKeys: settings.customApiKeys, 
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
+        onLog: (m) {}
+      );
+      
+      final botMsg = ChatbotMessage(id: const Uuid().v4(), text: responseText, sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(botMsg);
+      markDirty('settings');
+      notifyListeners();
+    } catch(e) {
+      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(errorMsg);
+      markDirty('settings');
+      notifyListeners();
+    }
+  }
+  
+  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
+  
+  void addCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void removeCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void setJournalPin(String pin) {
+    setSettings(settings..journalPin = pin);
+  }
+}
+--- END OF FILE lib/src/providers/app_provider.dart ---
+
+--- START OF FILE lib/src/providers/actions/timer_actions.dart ---
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:collection/collection.dart';
+
+class TimerActions {
+  final AppProvider _provider;
+
+  TimerActions(this._provider);
+
+  void startTimer(String id, String type, String mainTaskId) {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return; 
+
+    if (type == 'subtask') {
+      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
+      if (subTask == null) return;
+      if (subTask.completed) return; 
+    }
+
+    final runningTimerIds = _provider.activeTimers.entries
+        .where((e) => e.value.isRunning && e.key != id)
+        .map((e) => e.key)
+        .toList();
+
+    for (var timerId in runningTimerIds) {
+      pauseTimer(timerId); 
+    }
+
+    Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
+
+    final existingTimer = updatedActiveTimers[id];
+    updatedActiveTimers[id] = ActiveTimerInfo(
+      startTime: DateTime.now(),
+      accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
+      isRunning: true,
+      type: type,
+      mainTaskId: mainTaskId,
+    );
+    
+    _provider.setProviderState(activeTimers: updatedActiveTimers);
+
+    if (_provider.settings.autoSaveEnabled) {
+      _provider.manuallySaveToCloud();
+    }
+  }
+
+  void pauseTimer(String id) {
+    final timer = _provider.activeTimers[id];
+    if (timer != null && timer.isRunning) {
+      _commitSessionAndPause(id, timer);
+
+      final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      
+      newActiveTimers[id] = ActiveTimerInfo(
+        startTime: DateTime.now(), 
+        accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
+        isRunning: false,
+        type: timer.type,
+        mainTaskId: timer.mainTaskId,
+      );
+      
+      _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
+    }
+  }
+
+  void logTimerAndReset(String id) {
+    final timer = _provider.activeTimers[id];
+    if (timer != null) {
+      if (timer.isRunning) {
+        _commitSessionAndPause(id, timer);
+      }
+
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      newActiveTimers.remove(id);
+      
+      _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
+    }
+  }
+
+  void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
+    final now = DateTime.now();
+    DateTime start = timer.startTime;
+
+    if (now.difference(start).inHours >= 12) {
+      start = now.subtract(const Duration(hours: 1)); 
+    }
+
+    if (now.isAfter(start)) {
+      if (timer.type == 'subtask') {
+        _provider.addSessionToSubtask(timer.mainTaskId, id, start, now);
+      }
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/timer_actions.dart ---
+
+--- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class DataRecoveryScreen extends StatefulWidget {
+  const DataRecoveryScreen({super.key});
+
+  @override
+  State<DataRecoveryScreen> createState() => _DataRecoveryScreenState();
 }
 
-class _AddSleepDialogState extends State<AddSleepDialog> {
-  late DateTime _startDate;
-  TimeOfDay? _startTime;
-  TimeOfDay? _endTime;
+class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
+  List<File> _backupFiles = [];
+  bool _isLoading = true;
+  final DataExportService _exportService = DataExportService();
 
   @override
   void initState() {
     super.initState();
-    // Default to the currently selected date in the dashboard
-    _startDate = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
-    // Default sleep range guess
-    _startTime = const TimeOfDay(hour: 23, minute: 0);
-    _endTime = const TimeOfDay(hour: 7, minute: 0);
+    _loadBackups();
+  }
+
+  Future<void> _loadBackups() async {
+    setState(() => _isLoading = true);
+    try {
+      if (Platform.isAndroid || Platform.isWindows) {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docsDir.path}/backups');
+        if (await backupDir.exists()) {
+          final files = backupDir.listSync().whereType<File>().toList();
+          files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+          setState(() {
+            _backupFiles = files;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading backups: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreBackup(File file) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Restore Backup?"),
+        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore")),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await context.read<AppProvider>().restoreFromLocalSnapshot(file);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup restored successfully.")));
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error restoring backup: $e")));
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteBackup(File file) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Backup?"),
+        content: const Text("This action cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await file.delete();
+      _loadBackups();
+    }
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final provider = context.read<AppProvider>();
+      final data = provider.getAppStateAsMap();
+      await _exportService.exportJson(data, 'arcane_export');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Export initiated.")));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e")));
+      }
+    }
+  }
+
+  Future<void> _importData() async {
+    try {
+      final importedData = await _exportService.importJson();
+      if (importedData != null && mounted) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Import Data?"),
+            content: const Text("This will overwrite your current data with the imported file. Are you sure?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import")),
+            ],
+          ),
+        );
+
+        if (confirm == true && mounted) {
+          context.read<AppProvider>().loadAppStateFromMap(importedData);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data imported successfully.")));
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e")));
+      }
+    }
+  }
+
+  Future<void> _backupToFirestore() async {
+    try {
+      final provider = context.read<AppProvider>();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Initiating secure cloud backup..."), duration: Duration(seconds: 1))
+      );
+      
+      await provider.forceLocalBackup(); 
+      await provider.performFirestoreBackup(); 
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."), backgroundColor: AppTheme.fhAccentGreen)
+        );
+        _loadBackups(); 
+      }
+    } catch(e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
+    }
+  }
+
+  Future<void> _restoreFromFirestore() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Restore Firestore Snapshot?"),
+        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text("Restore")
+          ),
+        ],
+      )
+    );
+    if (confirm == true && mounted) {
+       try {
+         await context.read<AppProvider>().restoreFromFirestoreBackup();
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
+       } catch(e) {
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
+       }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: JweTheme.panel,
-      title: Text(
-        "LOG SLEEP RECORD", 
-        style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("Data Recovery"),
+        backgroundColor: AppTheme.fhBgDeepDark,
       ),
-      content: SingleChildScrollView(
+      body: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDatePickerRow("DATE RECORDED", _startDate, (val) => setState(() => _startDate = val)),
-            const SizedBox(height: 16),
-            _buildTimePickerRow("BED TIME", _startTime, (val) => setState(() => _startTime = val)),
-            const SizedBox(height: 16),
-            _buildTimePickerRow("WAKE TIME", _endTime, (val) => setState(() => _endTime = val)),
-            if (_startTime != null && _endTime != null) ...[
-               const SizedBox(height: 16),
-               Builder(builder: (context) {
-                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
-                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
-                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
-                  final diff = end.difference(start);
-                  
-                  return Row(
+            // --- CLOUD SNAPSHOT SECTION ---
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: PersonInfoTheme.bgPanel,
+                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
+                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      const Icon(Icons.info_outline, color: JweTheme.textMuted, size: 14),
-                      const SizedBox(width: 8),
+                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
+                      const SizedBox(width: 12),
                       Text(
-                        end.day != start.day 
-                          ? "Crosses midnight (${diff.inHours}h ${diff.inMinutes % 60}m)" 
-                          : "Same day (${diff.inHours}h ${diff.inMinutes % 60}m)", 
-                        style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)
-                      )
+                        "FIRESTORE SNAPSHOT",
+                        style: GoogleFonts.rajdhani(
+                          color: PersonInfoTheme.spideyRed,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
                     ],
-                  );
-               })
-            ]
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
+                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ValorantButton(
+                          label: "BACKUP",
+                          icon: MdiIcons.cloudUploadOutline,
+                          color: PersonInfoTheme.spideyCyan,
+                          isPrimary: false,
+                          onPressed: _backupToFirestore,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ValorantButton(
+                          label: "RESTORE",
+                          icon: MdiIcons.cloudDownloadOutline,
+                          color: PersonInfoTheme.spideyRed,
+                          isPrimary: true,
+                          onPressed: _restoreFromFirestore,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+        
+            // --- MANUAL EXPORT SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.upload, size: 18),
+                      label: const Text("EXPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _exportData,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(MdiIcons.download, size: 18),
+                      label: const Text("IMPORT DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
+                      ),
+                      onPressed: _importData,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const Divider(color: AppTheme.fhBorderColor, height: 32),
+            
+            // --- LOCAL BACKUPS SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "LOCAL CACHE ARCHIVES", 
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _isLoading
+                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                : _backupFiles.isEmpty
+                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _backupFiles.length,
+                        itemBuilder: (context, index) {
+                          final file = _backupFiles[index];
+                          final date = file.lastModifiedSync();
+                          final size = file.lengthSync();
+        
+                          return ListTile(
+                            leading: Icon(MdiIcons.fileClockOutline, color: AppTheme.fhTextSecondary),
+                            title: Text(
+                              "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
+                              style: const TextStyle(color: AppTheme.fhTextPrimary),
+                            ),
+                            subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: AppTheme.fhTextSecondary)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.restore),
+                                  tooltip: "Restore",
+                                  onPressed: () => _restoreBackup(file),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
+                                  tooltip: "Delete",
+                                  onPressed: () => _deleteBackup(file),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black),
-          onPressed: (_startTime != null && _endTime != null)
-              ? () {
-                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
-                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
-                  
-                  if (end.isBefore(start)) {
-                      end = end.add(const Duration(days: 1));
-                  }
-                  
-                  final provider = Provider.of<AppProvider>(context, listen: false);
-                  provider.addSleepLog(widget.dateStr, SleepLog(
-                    id: const Uuid().v4(),
-                    startTime: start,
-                    endTime: end,
-                  ));
-                  
-                  Navigator.pop(context);
-                }
-              : null,
-          child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
-    return Container(
-      decoration: BoxDecoration(
-        color: JweTheme.bgBase,
-        border: Border.all(color: JweTheme.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
-          InkWell(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: date,
-                firstDate: DateTime(2023),
-                lastDate: DateTime.now().add(const Duration(days: 1)),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: JweTheme.accentCyan,
-                      onPrimary: Colors.black,
-                      surface: JweTheme.panel,
-                      onSurface: Colors.white,
-                    ),
-                  ),
-                  child: child!,
-                ),
-              );
-              if (picked != null) onSelect(picked);
-            },
-            child: Text(
-              DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
-              style: const TextStyle(
-                fontFamily: "RobotoMono",
-                fontWeight: FontWeight.bold, 
-                fontSize: 14,
-                color: JweTheme.accentCyan
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
-    return Container(
-      decoration: BoxDecoration(
-        color: JweTheme.bgBase,
-        border: Border.all(color: JweTheme.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
-          InkWell(
-            onTap: () async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: time ?? TimeOfDay.now(),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: JweTheme.accentCyan,
-                      onPrimary: Colors.black,
-                      surface: JweTheme.panel,
-                      onSurface: Colors.white,
-                    ),
-                  ),
-                  child: child!,
-                ),
-              );
-              if (picked != null) onSelect(picked);
-            },
-            child: Text(
-              time?.format(context) ?? "--:--",
-              style: const TextStyle(
-                fontFamily: "RobotoMono",
-                fontWeight: FontWeight.bold, 
-                fontSize: 16,
-                color: JweTheme.accentCyan
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
+--- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 
---- START OF FILE lib/src/widgets/health/sleep_panel.dart ---
+--- START OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/health/add_sleep_dialog.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/add_savings_log_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
 
-class SleepPanel extends StatelessWidget {
-  final String dateStr;
-  const SleepPanel({super.key, required this.dateStr});
+class SavingsDetailScreen extends StatelessWidget {
+  final String goalId;
 
-  void _showAddDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AddSleepDialog(dateStr: dateStr),
-    );
-  }
+  const SavingsDetailScreen({super.key, required this.goalId});
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final log = provider.getDailyHealthLog(dateStr);
-    final totalMinutes = log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes);
+    final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
+    
+    if (goal == null) {
+      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: SizedBox.shrink());
+    }
+    
+    final actualProgress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
+    
+    final totalDuration = goal.targetDate.difference(goal.createdAt).inMilliseconds;
+    final elapsed = DateTime.now().difference(goal.createdAt).inMilliseconds;
+    final expectedProgress = totalDuration > 0 ? (elapsed / totalDuration).clamp(0.0, 1.0) : 0.0;
 
-    return JwePanel(
-      title: "SLEEP METRICS",
-      accentColor: JweTheme.accentCyan,
+    DateTime? predictedDate;
+    if (goal.currentAmount > 0 && goal.currentAmount < goal.targetAmount) {
+      final daysSinceCreation = max(1, DateTime.now().difference(goal.createdAt).inDays);
+      final dailyAvg = goal.currentAmount / daysSinceCreation;
+      if (dailyAvg > 0) {
+        final amountLeft = goal.targetAmount - goal.currentAmount;
+        final daysLeft = (amountLeft / dailyAvg).ceil();
+        predictedDate = DateTime.now().add(Duration(days: daysLeft));
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: Text(goal.name.toUpperCase()),
+        actions: [
+          IconButton(
+            icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
+            onPressed: () {
+              provider.financeActions.deleteSavingsGoal(goal.id);
+              Navigator.pop(context);
+            },
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("ACCUMULATED FUNDS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text("₹${goal.currentAmount.toStringAsFixed(2)}", style: const TextStyle(color: AppTheme.fhAccentPurple, fontSize: 32, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text("TARGET", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text("₹${goal.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            
+            const Text("PROGRESS TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Container(
+              height: 16,
+              width: double.infinity,
+              decoration: BoxDecoration(color: AppTheme.fhBgDark, borderRadius: BorderRadius.circular(8)),
+              child: Stack(
+                children: [
+                  FractionallySizedBox(
+                    widthFactor: expectedProgress,
+                    child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8))),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: actualProgress,
+                    child: Container(decoration: BoxDecoration(color: actualProgress >= expectedProgress ? AppTheme.fhAccentGreen : AppTheme.fhAccentPurple, borderRadius: BorderRadius.circular(8))),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Target: ${DateFormat('MMM dd, yyyy').format(goal.targetDate)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                if (predictedDate != null)
+                  Text("Projected: ${DateFormat('MMM dd, yyyy').format(predictedDate)}", style: TextStyle(color: predictedDate.isBefore(goal.targetDate) ? AppTheme.fhAccentGreen : AppTheme.fhAccentOrange, fontSize: 12)),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text("ALLOCATE FUNDS"),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48), backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
+              onPressed: () => _showAddLogDialog(context, provider, goal.id),
+            ),
+            
+            const SizedBox(height: 32),
+            const Text("INVESTMENT LOG", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...goal.logs.map((log) {
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.arrowRightBottom, color: AppTheme.fhAccentPurple),
+                title: Text("₹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                subtitle: Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete, color: AppTheme.fhAccentRed.withOpacity(0.7), size: 20),
+                  onPressed: () => provider.financeActions.deleteSavingsLog(goal.id, log.id),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddLogDialog(BuildContext context, AppProvider provider, String goalId) {
+    showDialog(context: context, builder: (ctx) => AddSavingsLogDialog(goalId: goalId));
+  }
+}
+--- END OF FILE lib/src/screens/finance/savings_detail_screen.dart ---
+
+--- START OF FILE lib/src/widgets/ui/reflection_progress_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:intl/intl.dart';
+
+class ReflectionProgressWidget extends StatelessWidget {
+  final List<ReflectionLog> logs;
+  final String dateStr;
+
+  const ReflectionProgressWidget({
+    super.key,
+    required this.logs,
+    required this.dateStr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    bool wake = false;
+    bool morn = false;
+    bool aft = false;
+    bool eve = false;
+    bool night = false;
+
+    ReflectionLog? lastLog;
+
+    for (var log in logs) {
+      if (lastLog == null || log.timestamp.isAfter(lastLog.timestamp)) {
+        lastLog = log;
+      }
+      
+      final h = log.timestamp.hour;
+      if (h >= 0 && h < 8) wake = true;
+      else if (h >= 8 && h < 12) morn = true;
+      else if (h >= 12 && h < 16) aft = true;
+      else if (h >= 16 && h < 19) eve = true;
+      else if (h >= 19 && h <= 23) night = true;
+    }
+
+    final total = [wake, morn, aft, eve, night].where((e) => e).length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgDark,
+        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("TOTAL SLEEP", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-              Text("${(totalMinutes / 60).floor()}h ${totalMinutes % 60}m", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+              const Text(
+                "REFLECTION PROTOCOL",
+                style: TextStyle(
+                  color: AppTheme.fhTextSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Text(
+                "$total/5 LOGS",
+                style: const TextStyle(
+                  color: AppTheme.fhAccentTeal,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'RobotoMono',
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           
-          if (log.sleepLogs.isEmpty)
-             const Text("No sleep data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: log.sleepLogs.length,
-              itemBuilder: (ctx, i) {
-                final sLog = log.sleepLogs[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children:[
-                      Icon(MdiIcons.bedOutline, color: JweTheme.textMuted, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "${DateFormat('HH:mm').format(sLog.startTime)} - ${DateFormat('HH:mm').format(sLog.endTime)}", 
-                              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
-                            ),
-                            Text(
-                              "${(sLog.durationMinutes / 60).floor()}h ${sLog.durationMinutes % 60}m", 
-                              style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)
-                            ),
-                          ],
-                        )
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
-                        onPressed: () => provider.deleteSleepLog(dateStr, sLog.id),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      )
-                    ],
-                  ),
-                );
-              }
-            ),
-
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.add, size: 16),
-            label: Text("ADD SLEEP RECORD", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: JweTheme.accentCyan,
-              side: const BorderSide(color: JweTheme.accentCyan),
-              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-            ),
-            onPressed: () => _showAddDialog(context),
+          Row(
+            children: [
+              Expanded(child: _buildSegment("WAKE", wake)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("MORN", morn)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("AFT", aft)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("EVE", eve)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("NIGHT", night)),
+            ],
           ),
+
+          const SizedBox(height: 16),
+          
+          if (lastLog != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                "LAST LOGGED AT: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
+                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+              ),
+            ),
+          
+          SizedBox(
+            width: double.infinity,
+            child: ValorantButton(
+              label: "LOG INSIGHT",
+              icon: MdiIcons.notebookEditOutline,
+              isPrimary: false,
+              color: AppTheme.fhAccentTeal,
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: dateStr))
+                );
+              },
+            ),
+          )
         ],
       ),
     );
   }
+
+  Widget _buildSegment(String label, bool isComplete) {
+    return Column(
+      children: [
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            color: isComplete ? AppTheme.fhAccentTeal : AppTheme.fhBgMedium,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: isComplete ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
 }
---- END OF FILE lib/src/widgets/health/sleep_panel.dart ---
+--- END OF FILE lib/src/widgets/ui/reflection_progress_widget.dart ---
+
+--- START OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DayPlanDashboardWidget extends StatelessWidget {
+  const DayPlanDashboardWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final plan = provider.taskActions.getDayPlan(helper.getTodayDateString());
+
+    if (plan.isEmpty) return const SizedBox.shrink();
+
+    List<Widget> queueItems = [];
+    bool isFirstItem = true;
+
+    for (String compId in plan) {
+      final parts = compId.split('|');
+      if (parts.length < 2) continue;
+
+      final mainId = parts[0];
+      final subId = parts[1];
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
+
+      if (task == null || sub == null) continue;
+
+      final isCheckpoint = parts.length == 3;
+      bool isCompleted = false;
+      String title = sub.name;
+      String? cpId;
+
+      if (isCheckpoint) {
+        cpId = parts[2];
+        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
+        if (cp == null) continue;
+        
+        isCompleted = cp.completed;
+        title = cp.name;
+      } else {
+        isCompleted = sub.completed;
+      }
+      
+      if (isCompleted) continue;
+      if (isFirstItem) {
+         isFirstItem = false;
+         continue; 
+      }
+
+      queueItems.add(_buildCard(
+        context, provider,
+        title: title,
+        parentName: isCheckpoint ? sub.name : task.name,
+        color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
+        onTap: () {
+          if (isCheckpoint && cpId != null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+              mainTaskId: mainId,
+              parentSubTaskId: subId,
+              checkpointId: cpId!,
+            )));
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
+              parentTask: task,
+              subTask: sub,
+            )));
+          }
+        },
+      ));
+    }
+
+    if (queueItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Icon(MdiIcons.formatListChecks, size: 14, color: AppTheme.fhTextSecondary),
+              const SizedBox(width: 8),
+              const Text("ON DECK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 65, 
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: queueItems.length,
+            separatorBuilder: (c, i) => const SizedBox(width: 10),
+            itemBuilder: (c, i) => queueItems[i],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildCard(
+    BuildContext context, AppProvider provider, {
+    required String title,
+    required String parentName,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: PersonInfoTheme.bgPanel,
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: GoogleFonts.chakraPetch(
+                color: AppTheme.fhTextPrimary, 
+                fontSize: 12, 
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              parentName,
+              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/schedule/day_plan_dashboard_widget.dart ---
 
 --- START OF FILE lib/src/widgets/health/health_combined_chart.dart ---
 import 'package:flutter/material.dart';
@@ -652,33 +1829,22 @@ class HealthCombinedChart extends StatelessWidget {
     final now = DateTime.now();
     final List<FlSpot> sleepSpots =[];
     final List<FlSpot> workSpots = [];
-    final List<FlSpot> virtueSpots =[];
 
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       
-      // 1. Sleep
       final log = provider.healthLogs[dateStr];
       final sleepMins = log?.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) ?? 0;
       final sleepHrs = sleepMins / 60.0;
       sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
 
-      // 2. Work (Time spent on tasks)
       final hist = provider.completedByDay[dateStr];
       double workMins = 0;
       if (hist != null && hist['taskTimes'] != null) {
         (hist['taskTimes'] as Map<String, dynamic>).forEach((_, v) => workMins += (v as num));
       }
-      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); // Convert seconds to hours
-      
-      // 3. Virtue XP
-      final xpLog = provider.reflectionLogs.where((l) => l.timestamp.year == date.year && l.timestamp.month == date.month && l.timestamp.day == date.day);
-      double xp = 0;
-      for (var l in xpLog) {
-         xp += l.xpGained.values.fold(0, (a, b) => a + b);
-      }
-      virtueSpots.add(FlSpot((6 - i).toDouble(), xp / 10.0)); // Scale down XP by factor of 10 to fit graph
+      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); 
     }
 
     return Column(
@@ -689,8 +1855,6 @@ class HealthCombinedChart extends StatelessWidget {
             _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
             const SizedBox(width: 12),
             _LegendItem("WORK (HRS)", JweTheme.accentAmber),
-            const SizedBox(width: 12),
-            _LegendItem("XP (SCALED)", const Color(0xFFB388FF)), // Soft purple for XP
           ],
         ),
         const SizedBox(height: 12),
@@ -727,8 +1891,8 @@ class HealthCombinedChart extends StatelessWidget {
                     return touchedSpots.map((spot) {
                       if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
                       if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
-                      return LineTooltipItem("${(spot.y * 10).toInt()} XP", const TextStyle(color: Color(0xFFB388FF), fontSize: 12, fontWeight: FontWeight.bold));
-                    }).toList();
+                      return null;
+                    }).whereType<LineTooltipItem>().toList();
                   }
                 )
               ),
@@ -738,9 +1902,6 @@ class HealthCombinedChart extends StatelessWidget {
                 ),
                 LineChartBarData(
                   spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
-                ),
-                LineChartBarData(
-                  spots: virtueSpots, color: const Color(0xFFB388FF), isCurved: true, dotData: const FlDotData(show: false), barWidth: 2,
                 ),
               ]
             )
@@ -769,435 +1930,415 @@ class _LegendItem extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
 
---- START OF FILE lib/src/widgets/health/nutrition_panel.dart ---
+--- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/health/food_logging_dialog.dart';
-import 'package:arcane/src/widgets/health/meal_insight_dialog.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
+import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
+import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_resources_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
+import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart';
+import 'package:material_design_icons_flutter/material_design_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-class NutritionPanel extends StatelessWidget {
-  final String dateStr;
-  const NutritionPanel({super.key, required this.dateStr});
+class SubmissionDetailScreen extends StatefulWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionDetailScreen({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  @override
+  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+}
+
+class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
+  DateTime _selectedDate = DateTime.now();
+
+  SubTask? _getLiveSubTask(AppProvider provider) {
+    try {
+      final parent =
+          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
+      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _handleEditSubtask(
+      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => SubtaskConfigDialog(
+        initialName: liveSubTask.name,
+        initialDescription: liveSubTask.description,
+        isRecurring: liveSubTask.isRecurring,
+      ),
+    );
+    if (result != null) {
+      provider.updateSubtask(
+          widget.parentTask.id, widget.subTask.id, result);
+    }
+  }
+
+  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
+    );
+    
+    if (result != null) {
+      final start = result['start']!;
+      final end = result['end']!;
+      
+      final success = provider.addSessionToSubtask(
+          widget.parentTask.id, widget.subTask.id, start, end);
+          
+      if (!success && mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: const Text("Overlap detected! Adjust time."),
+             backgroundColor: AppTheme.fhAccentRed, 
+             action: SnackBarAction(
+               label: "EDIT",
+               textColor: Colors.white,
+               onPressed: () {
+                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
+               },
+             ),
+           )
+         );
+      }
+    }
+  }
+
+  void _handleSessionEdit(
+      BuildContext context, AppProvider provider, TaskSession session) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(
+          initialStart: session.startTime, initialEnd: session.endTime),
+    );
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        if (!session.id.startsWith('temp')) {
+           provider.deleteSessionFromSubtask(
+            widget.parentTask.id, widget.subTask.id, session.id);
+        }
+      } else if (result['action'] == 'save') {
+        if (session.id.startsWith('temp')) {
+           provider.addSessionToSubtask(
+            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
+        } else {
+           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+            session.id, result['start'], result['end']);
+        }
+      }
+    }
+  }
+
+  List<TimelineEntry> _buildTimelineEntries(
+      AppProvider provider, String currentSubTaskId) {
+    final List<TimelineEntry> entries =[];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    for (var task in provider.mainTasks) {
+      if (task.id != widget.parentTask.id) continue;
+      
+      for (var sub in task.subTasks) {
+        if (sub.id != currentSubTaskId) continue;
+
+        for (var session in sub.sessions) {
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: displayStart,
+              endTime: displayEnd,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor, 
+              isEditable: true,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+    return entries;
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final log = provider.getDailyHealthLog(dateStr);
+    final liveSubTask = _getLiveSubTask(provider);
 
-    int totalCalories = 0;
-    double totalProtein = 0;
-    for (var m in log.meals) {
-      final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
-      if (food != null) {
-        totalCalories += food.calories;
-        totalProtein += food.protein;
-      }
+    if (liveSubTask == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+      return const SizedBox.shrink();
     }
 
-    return JwePanel(
-      title: "NUTRITIONAL INTAKE",
-      accentColor: JweTheme.accentCyan,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children:[
-                  const Text("CALORIES", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text("$totalCalories KCAL", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children:[
-                  const Text("PROTEIN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text("${totalProtein.toStringAsFixed(1)} G", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          if (log.meals.isEmpty)
-             const Text("No nutritional data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: log.meals.length,
-              itemBuilder: (ctx, i) {
-                final mLog = log.meals[i];
-                final food = provider.foodItems.where((f) => f.id == mLog.foodItemId).firstOrNull;
-                if (food == null) return const SizedBox.shrink();
+    final timerState = provider.activeTimers[liveSubTask.id];
+    final double todaySeconds =
+        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
 
-                return InkWell(
-                  onTap: () {
-                    showDialog(context: context, builder: (_) => MealInsightDialog(foodItem: food));
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 8.0),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: JweTheme.accentCyan.withOpacity(0.05),
-                      border: Border.all(color: JweTheme.accentCyan.withOpacity(0.2)),
-                    ),
-                    child: Row(
+    final bool isRunning = timerState?.isRunning ?? false;
+    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
+
+    final Color activeAccent = widget.parentTask.taskColor;
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: SafeArea(
+        child: Column(
+          children:[
+            // --- HEADER ---
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+                color: AppTheme.fhBgDark,
+              ),
+              child: Row(
+                children:[
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children:[
-                        Icon(MdiIcons.foodAppleOutline, color: JweTheme.accentCyan, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(food.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text("${food.calories} kcal | ${food.protein}g protein", style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono')),
-                            ],
+                        Text(
+                          widget.parentTask.name.toUpperCase(),
+                          style: TextStyle(
+                            color: activeAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2.0,
                           ),
                         ),
-                        // Log Again
-                        IconButton(
-                          icon: const Icon(Icons.refresh, color: JweTheme.accentAmber, size: 18),
-                          tooltip: "Log Again",
-                          onPressed: () => provider.logMealAgain(dateStr, mLog),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                        Text(
+                          liveSubTask.name.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontSize: 24,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 12),
-                        // Delete
-                        IconButton(
-                          icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 18),
-                          onPressed: () => provider.deleteMealLog(dateStr, mLog.id),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        )
                       ],
                     ),
                   ),
-                );
-              }
-            ),
-          
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.add, size: 16),
-            label: Text("LOG MEAL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: JweTheme.accentCyan,
-              side: const BorderSide(color: JweTheme.accentCyan),
-              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-            ),
-            onPressed: () => showDialog(context: context, builder: (_) => FoodLoggingDialog(dateStr: dateStr)),
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/health/nutrition_panel.dart ---
-
---- START OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/health_models.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class MealInsightDialog extends StatefulWidget {
-  final FoodItem foodItem;
-  
-  const MealInsightDialog({super.key, required this.foodItem});
-
-  @override
-  State<MealInsightDialog> createState() => _MealInsightDialogState();
-}
-
-class _MealInsightDialogState extends State<MealInsightDialog> {
-  Map<String, dynamic>? _insights;
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.foodItem.description != null && widget.foodItem.description!.isNotEmpty) {
-      // Use existing insights
-      _insights = {
-        'description': widget.foodItem.description,
-        'benefits': widget.foodItem.benefits,
-        'warnings': widget.foodItem.warnings,
-      };
-      _isLoading = false;
-    } else {
-      _fetchInsights();
-    }
-  }
-
-  Future<void> _fetchInsights() async {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    try {
-      final res = await provider.aiService.getMealInsights(
-        mealName: widget.foodItem.name,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (i) => provider.setApiKeyIndex(i),
-        onLog: (_) {},
-      );
-      
-      // Save data back to the FoodItem so we don't have to fetch again
-      widget.foodItem.description = res['description'];
-      widget.foodItem.benefits = (res['benefits'] as List?)?.map((e) => e.toString()).toList();
-      widget.foodItem.warnings = (res['warnings'] as List?)?.map((e) => e.toString()).toList();
-      provider.updateFoodItem(widget.foodItem);
-
-      if (mounted) setState(() { _insights = res; _isLoading = false; });
-    } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: JweTheme.panel,
-      title: Text("NUTRITIONAL INSIGHT", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-      content: SingleChildScrollView(
-        child: _isLoading 
-          ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: JweTheme.accentCyan)))
-          : _error != null
-            ? Text("Error: $_error", style: const TextStyle(color: JweTheme.accentRed))
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.foodItem.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  
-                  Text(_insights?['description'] ?? 'No description available.', style: const TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4)),
-                  const SizedBox(height: 16),
-                  
-                  if (_insights?['benefits'] != null) ...[
-                    const Text("BENEFITS", style: TextStyle(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ...(_insights!['benefits'] as List).map((b) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("• ", style: TextStyle(color: JweTheme.accentCyan)),
-                          Expanded(child: Text(b.toString(), style: const TextStyle(color: JweTheme.textWhite, fontSize: 12))),
-                        ],
-                      ),
-                    )),
-                    const SizedBox(height: 16),
-                  ],
-
-                  if (_insights?['warnings'] != null && (_insights!['warnings'] as List).isNotEmpty) ...[
-                    const Text("WARNINGS / ALERTS", style: TextStyle(color: JweTheme.accentRed, fontSize: 10, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ...(_insights!['warnings'] as List).map((w) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("! ", style: TextStyle(color: JweTheme.accentRed)),
-                          Expanded(child: Text(w.toString(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
-                        ],
-                      ),
-                    )),
-                  ],
+                  InkWell(
+                    onTap: () => _handleEditSubtask(context, provider, liveSubTask),
+                    child:  Icon(MdiIcons.pencilOutline, color: AppTheme.fhTextSecondary, size: 20),
+                  )
                 ],
               ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE", style: TextStyle(color: JweTheme.textMuted))),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
-
---- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class CheckpointItem extends StatefulWidget {
-  final String title;
-  final bool isCompleted;
-  final String? linkedLabel;
-  final String type; // 'check' or 'info'
-  final Color accentColor;
-  final VoidCallback? onUnlink;
-  final VoidCallback onToggle;
-  final VoidCallback onDelete;
-  final VoidCallback? onDuplicate;
-  final VoidCallback? onToggleType;
-  final VoidCallback? onTap; // For opening detail
-  final VoidCallback? onPlay; // For engaging timer
-  final bool isRunning;
-  final bool hasSubsteps; // To show visual indicator
-
-  const CheckpointItem({
-    super.key,
-    required this.title,
-    required this.isCompleted,
-    this.linkedLabel,
-    this.type = 'check',
-    required this.accentColor,
-    this.onUnlink,
-    required this.onToggle,
-    required this.onDelete,
-    this.onDuplicate,
-    this.onToggleType,
-    this.onTap,
-    this.onPlay,
-    this.isRunning = false,
-    this.hasSubsteps = false,
-  });
-
-  @override
-  State<CheckpointItem> createState() => _CheckpointItemState();
-}
-
-class _CheckpointItemState extends State<CheckpointItem> {
-  late bool _localCompleted;
-
-  @override
-  void initState() {
-    super.initState();
-    _localCompleted = widget.isCompleted;
-  }
-
-  @override
-  void didUpdateWidget(covariant CheckpointItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isCompleted != oldWidget.isCompleted) {
-      _localCompleted = widget.isCompleted;
-    }
-  }
-
-  void _handleToggle() {
-    if (widget.type == 'info') return;
-    setState(() {
-      _localCompleted = !_localCompleted;
-    });
-    widget.onToggle();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isInfo = widget.type == 'info';
-    final color = widget.accentColor;
-
-    final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
-    final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
-    final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
-    final textColor = AppTheme.fhTextPrimary; // Never dim completely
-
-    return GestureDetector(
-      onTap: widget.onTap, // Open detail on card tap
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(left: BorderSide(color: borderColor, width: 4)),
-        ),
-        child: Row(
-          children:[
-            // Checkbox logic overrides tap on the left side
-            if (!isInfo)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: RhombusCheckbox(
-                  checked: _localCompleted,
-                  onChanged: (_) => _handleToggle(),
-                  size: CheckboxSize.small,
-                ),
-              )
-            else 
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
-              ),
+            ),
 
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children:[
-                  Text(
-                    widget.title.toUpperCase(),
-                    style: GoogleFonts.chakraPetch(
-                      color: textColor,
-                      fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
-                      decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
-                      fontSize: 14,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  if (widget.linkedLabel != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: LinkedTaskIndicator(
-                        label: widget.linkedLabel!,
-                        onUnlink: widget.onUnlink,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children:[
+                    // --- TIMER AREA ---
+                    Container(
+                      padding: const EdgeInsets.all(20.0),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors:[activeAccent.withOpacity(0.15), Colors.transparent],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children:[
+                                  const Text("TIME LOGGED TODAY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                                  ActiveSessionTimerDisplay(
+                                    isRunning: isRunning,
+                                    startTime: timerState?.startTime,
+                                    totalTodaySeconds: todaySeconds,
+                                  ),
+                                ],
+                              ),
+                              FloatingActionButton(
+                                backgroundColor: isRunning ? AppTheme.fhAccentRed : activeAccent,
+                                foregroundColor: Colors.black,
+                                onPressed: () {
+                                  if (isRunning) {
+                                    provider.pauseTimer(liveSubTask!.id); 
+                                    provider.logTimerAndReset(liveSubTask.id); 
+                                  } else {
+                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
+                                  }
+                                },
+                                child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
+                              )
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ),
-            
-            if (widget.hasSubsteps)
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Icon(MdiIcons.fileTree, size: 14, color: color),
-              ),
 
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
-              color: AppTheme.fhBgDark,
-              onSelected: (value) {
-                if (value == 'delete') widget.onDelete();
-                if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
-                if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
-                if (value == 'open' && widget.onTap != null) widget.onTap!();
-              },
-              itemBuilder: (context) =>[
-                  PopupMenuItem(
-                  value: 'open',
-                  child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                    // --- ACTION PLAN ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:[
+                          ActionPlanStepsList(
+                            mainTaskId: widget.parentTask.id,
+                            subTaskId: liveSubTask.id,
+                            steps: liveSubTask.subSubTasks,
+                            accentColor: activeAccent,
+                            onGenerate: (prompt) => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          ActionPlanWhyCard(
+                            initialWhy: liveSubTask.why,
+                            accentColor: activeAccent,
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
+                          ),
+                          const SizedBox(height: 16),
+                          ActionPlanOutcomeCard(
+                            initialWhat: liveSubTask.what,
+                            accentColor: activeAccent,
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
+                          ),
+                          const SizedBox(height: 16),
+                          ActionPlanResourcesCard(
+                            initialResources: liveSubTask.resources,
+                            accentColor: activeAccent,
+                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: SubtaskWeeklyChart(subTask: liveSubTask, accentColor: activeAccent),
+                    ),
+
+                    const SizedBox(height: 32),
+                    
+                    // --- TIMELINE ---
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text("SESSION TIMELINE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                                InkWell(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionSessionsScreen(parentTask: widget.parentTask, subTask: liveSubTask!))),
+                                  child: Text("VIEW ALL", style: TextStyle(color: activeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                                )
+                              ],
+                            ),
+                          ),
+                          Container(
+                            height: 200, 
+                            decoration: BoxDecoration(
+                              color: AppTheme.fhBgDark.withOpacity(0.5),
+                              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
+                            ),
+                            child: ScheduleTimeline(
+                              entries: timelineEntries,
+                              onAddSession: () => _showAddSessionDialog(context, provider),
+                              onEditEntry: (entry) {
+                                if (entry.originalObject is TaskSession) {
+                                  _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // --- FOOTER ACTIONS ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      child: Row(
+                        children:[
+                          Expanded(
+                            child: ValorantButton(
+                              label: "FINISH",
+                              icon: MdiIcons.contentSave,
+                              color: AppTheme.fhAccentGreen,
+                              onPressed: () {
+                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ValorantButton(
+                              label: "DELETE",
+                              icon: MdiIcons.deleteOutline,
+                              color: AppTheme.fhAccentRed,
+                              isPrimary: false,
+                              onPressed: () {
+                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-                  PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
-                ),
-                PopupMenuItem(
-                  value: 'toggle_type',
-                  child: Row(children:[
-                    Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
-                    const SizedBox(width: 8), 
-                    Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
-                  ]),
-                ),
-                  PopupMenuItem(
-                  value: 'delete',
-                  child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -1205,201 +2346,72 @@ class _CheckpointItemState extends State<CheckpointItem> {
     );
   }
 }
---- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+--- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
 
---- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
+--- START OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 
-class ActionPlanStepsList extends StatefulWidget {
-  final String mainTaskId;
-  final String subTaskId;
-  final List<SubSubTask> steps;
-  final Function(String) onGenerate;
+class SubtaskWeeklyChart extends StatelessWidget {
+  final SubTask subTask;
   final Color accentColor;
 
-  const ActionPlanStepsList({
+  const SubtaskWeeklyChart({
     super.key,
-    required this.mainTaskId,
-    required this.subTaskId,
-    required this.steps,
-    required this.onGenerate,
+    required this.subTask,
     required this.accentColor,
   });
 
   @override
-  State<ActionPlanStepsList> createState() => _ActionPlanStepsListState();
-}
-
-class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
-  final TextEditingController _stepController = TextEditingController();
-  String _newStepType = 'check'; 
-
-  void _addStep(AppProvider provider) {
-    if (_stepController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
-      'name': _stepController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
-      'type': _newStepType,
-    });
-    _stepController.clear();
-  }
-
-  void _navigateToStepDetail(BuildContext context, SubSubTask step) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-      mainTaskId: widget.mainTaskId,
-      parentSubTaskId: widget.subTaskId,
-      checkpointId: step.id,
-    )));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final isLoading = provider.loadingTaskName == "Generating Strategy...";
+    final Map<int, double> weeklyData = {};
+    final Map<int, Color> weeklyColors = {};
+    final now = DateTime.now();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children:[
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:[
-              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-              if (widget.steps.isEmpty)
-                TextButton.icon(
-                  onPressed: isLoading ? null : () async {
-                    final prompt = await showDialog<String>(
-                      context: context,
-                      builder: (_) => const AiGenerationPromptDialog(
-                        title: "GENERATE STRATEGY",
-                        hintText: "Add specific instructions, e.g. Focus on low budget...",
-                        actionLabel: "GENERATE",
-                      ),
-                    );
-                    if (prompt != null && prompt.isNotEmpty) {
-                      widget.onGenerate(prompt);
-                    }
-                  },
-                  icon: isLoading 
-                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
-                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
-                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 30),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        
-        if (widget.steps.isEmpty && !isLoading)
-          Container(
-            padding: const EdgeInsets.all(16),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-              color: AppTheme.fhBgDark.withOpacity(0.5)
-            ),
-            child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
-          )
-        else
-          ...widget.steps.map((step) {
-            return CheckpointItem(
-              title: step.name,
-              isCompleted: step.completed,
-              type: step.type,
-              hasSubsteps: step.substeps.isNotEmpty,
-              accentColor: widget.accentColor,
-              onTap: () => _navigateToStepDetail(context, step),
-              onPlay: null, // Removed engage button from checkpoints
-              isRunning: false,
-              onToggle: () {
-                if (step.completed) {
-                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                } else {
-                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                }
-              },
-              onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onToggleType: () {
-                final newType = step.type == 'check' ? 'info' : 'check';
-                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-              },
-            );
-          }),
+    for (int i = 0; i < 7; i++) {
+      final date = now.subtract(Duration(days: i));
+      double dailySeconds = 0;
 
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
-            children:[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                child: PopupMenuButton<String>(
-                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  tooltip: "Change Type",
-                  onSelected: (val) => setState(() => _newStepType = val),
-                  color: AppTheme.fhBgDark,
-                  itemBuilder: (context) =>[
-                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _stepController,
-                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: "ADD STEP...",
-                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
-                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
-                    filled: true,
-                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.all(12),
-                  ),
-                  onSubmitted: (_) => _addStep(provider),
-                ),
-              ),
-              const SizedBox(width: 10),
-              InkWell(
-                onTap: () => _addStep(provider),
-                child: Container(
-                  width: 40, height: 40,
-                  color: widget.accentColor.withOpacity(0.2),
-                  alignment: Alignment.center,
-                  child: Text("+", style: TextStyle(color: widget.accentColor, fontWeight: FontWeight.bold, fontSize: 24)),
-                ),
+      for (var session in subTask.sessions) {
+        if (session.startTime.year == date.year &&
+            session.startTime.month == date.month &&
+            session.startTime.day == date.day) {
+          dailySeconds += session.durationSeconds;
+        }
+      }
+
+      weeklyData[i] = dailySeconds / 60.0; 
+      weeklyColors[i] = accentColor;
+    }
+
+    final bool hasData = weeklyData.values.any((v) => v > 0);
+
+    return JwePanel(
+      title: "7-DAY ACTIVITY",
+      accentColor: accentColor,
+      child: SizedBox(
+        height: 140,
+        child: hasData
+            ? WeeklyActivityBarChart(
+                weeklyData: weeklyData,
+                dominantColors: weeklyColors,
+                isVirtue: false,
               )
-            ],
-          ),
-        ),
-      ],
+            : const Center(
+                child: Text(
+                  "NO RECENT ACTIVITY",
+                  style: TextStyle(
+                    color: JweTheme.textMuted,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }
---- END OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
+--- END OF FILE lib/src/widgets/charts/subtask_weekly_chart.dart ---

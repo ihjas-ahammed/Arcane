@@ -88,7 +88,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       children: [
                         Container(width: 4, height: 16, color: task.taskColor),
                         const SizedBox(width: 8),
-                        Text('ACTIVE CONTRACTS',
+                        Text('ACTIVE TASKS',
                             style: theme.textTheme.titleMedium?.copyWith(
                                 fontFamily: AppTheme.fontDisplay,
                                 color: AppTheme.fhTextPrimary,
@@ -118,7 +118,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   child: Column(
                     children: [
                       const Text(
-                          'NO ACTIVE CONTRACTS',
+                          'NO ACTIVE TASKS',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
                       ),

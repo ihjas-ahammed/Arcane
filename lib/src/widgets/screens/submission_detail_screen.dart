@@ -15,7 +15,9 @@ import 'package:arcane/src/widgets/action_plan/action_plan_resources_card.dart';
 import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
+import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -285,7 +287,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children:[
-                          // Checkpoints
                           ActionPlanStepsList(
                             mainTaskId: widget.parentTask.id,
                             subTaskId: liveSubTask.id,
@@ -296,7 +297,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           
                           const SizedBox(height: 24),
                           
-                          // Why & What & Resources
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
@@ -316,6 +316,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
                         ],
                       ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: SubtaskWeeklyChart(subTask: liveSubTask, accentColor: activeAccent),
                     ),
 
                     const SizedBox(height: 32),

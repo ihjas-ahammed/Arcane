@@ -4,6 +4,7 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:intl/intl.dart';
 
 class ReflectionProgressWidget extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -23,7 +24,13 @@ class ReflectionProgressWidget extends StatelessWidget {
     bool eve = false;
     bool night = false;
 
+    ReflectionLog? lastLog;
+
     for (var log in logs) {
+      if (lastLog == null || log.timestamp.isAfter(lastLog.timestamp)) {
+        lastLog = log;
+      }
+      
       final h = log.timestamp.hour;
       if (h >= 0 && h < 8) wake = true;
       else if (h >= 8 && h < 12) morn = true;
@@ -69,7 +76,6 @@ class ReflectionProgressWidget extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           
-          // Progress Bar Segments
           Row(
             children: [
               Expanded(child: _buildSegment("WAKE", wake)),
@@ -86,7 +92,15 @@ class ReflectionProgressWidget extends StatelessWidget {
 
           const SizedBox(height: 16),
           
-          // Log Button
+          if (lastLog != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                "LAST LOGGED AT: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
+                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+              ),
+            ),
+          
           SizedBox(
             width: double.infinity,
             child: ValorantButton(

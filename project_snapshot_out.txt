@@ -2327,43 +2327,43 @@ flutter:
 --- END OF FILE future.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
-version.json,1772941275505,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
-manifest.json,1772941279038,c82f5dff5f21559c0abdf114190fb9b58fa0aaf6cb3d653b344245fd873afcdb
-index.html,1772940728195,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
-flutter_service_worker.js,1772941280024,0d915e3e2e27a27a7f040ca22a8e25374e8b83d64b3be4b7c6a24dee7ea8cb4a
-flutter_bootstrap.js,1772940728181,3a31d2327aae87ac422bf5a651abcb7d1249b7a2d1a1e56c798928160de30755
-flutter.js,1772940726698,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
-favicon.png,1772941279038,18f5974cf0a7a778cc393e3cb31725d0a85970c8df2b52688cacce7e4dc99342
-icons/Icon-maskable-192.png,1772941279039,3b3af8b09702ed3f063219466bd9e044dbd2703372b1402f6632920ba9c251de
-icons/Icon-512.png,1772941279039,7fdb40ad7ef7200d89786b1266b41d441eea7872d4bdccaf8a954429aab62c5f
-icons/Icon-192.png,1772941279040,2a485edb60e647cf0496f958c90c1ebdb3b9a82dc44260370b9094842fab3906
-assets/FontManifest.json,1772941275749,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
-assets/AssetManifest.bin.json,1772941275749,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
-assets/AssetManifest.bin,1772941275749,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
-assets/shaders/stretch_effect.frag,1772941276151,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
-assets/shaders/ink_sparkle.frag,1772941276070,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
-assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1772941279012,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
-assets/fonts/MaterialIcons-Regular.otf,1772941279027,685b08e2884a0bf799e9438dbfade5db5ad38e7fdde8f1c00ad2f8cfa9c401c0
-assets/assets/fonts/OpenSans-Regular.ttf,1772941278984,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-SemiBold.ttf,1772941278984,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-icons/Icon-maskable-512.png,1772941279040,8d3ccbc9307d2a1ede82dddcd23c11d39a00be576296b9358903ee746206cde2
-canvaskit/skwasm_heavy.js,1772940726588,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
-canvaskit/skwasm.js,1772940726512,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
-assets/assets/fonts/RobotoCondensed-Regular.ttf,1772941278984,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/RobotoCondensed-Bold.ttf,1772941278984,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-canvaskit/chromium/canvaskit.js,1772940726665,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
-canvaskit/canvaskit.js,1772940726555,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
-assets/NOTICES,1772941275750,8d5aa8dd09b0a161b93eaaa711358580248e896a4deb5b9cf6f9abde06fd881b
-canvaskit/canvaskit.js.symbols,1772940726571,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
-canvaskit/chromium/canvaskit.js.symbols,1772940726683,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
-canvaskit/skwasm.js.symbols,1772940726424,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
-canvaskit/skwasm_heavy.js.symbols,1772940726525,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
-assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1772941279017,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
-canvaskit/skwasm.wasm,1772940726459,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
-main.dart.js,1772941275468,7b91c1cec4095a91e3b38bedd09a00cdf27633203c343b83f599670919ddb21d
-canvaskit/chromium/canvaskit.wasm,1772940726621,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
-canvaskit/skwasm_heavy.wasm,1772940726349,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
-canvaskit/canvaskit.wasm,1772940726253,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
+version.json,1773655455926,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
+manifest.json,1773655459197,92824ff17269d17368d9a0b9709e313dcae9136423d210eccf4b3968a147e27c
+index.html,1773655205181,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
+flutter_service_worker.js,1773655459903,36f956738bb041b25ed5ed0a1fea519bb3e47d1299601bdbcdc789b3649feb29
+favicon.png,1773655459197,89d30aa752917b7383e1ccc971caa7ec1be57be2818abc6bc8d7ad379abc9195
+flutter_bootstrap.js,1773655205119,3ab50b9f725d71ba5fbda25300761dae4b54c231429dc443ab86fcaa18caf3fd
+flutter.js,1773655205079,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
+icons/Icon-192.png,1773655459201,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
+icons/Icon-maskable-192.png,1773655459199,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
+assets/FontManifest.json,1773655456149,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
+assets/AssetManifest.bin.json,1773655456147,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
+assets/AssetManifest.bin,1773655456144,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
+assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1773655459175,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
+assets/shaders/ink_sparkle.frag,1773655456399,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
+assets/shaders/stretch_effect.frag,1773655456394,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
+assets/fonts/MaterialIcons-Regular.otf,1773655459175,293058293fbe4f6e0e8101f02ac6ef108eed5b522e5bc3b47e446eb2cf68eeaf
+assets/assets/fonts/OpenSans-Regular.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/RobotoCondensed-Regular.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-SemiBold.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/RobotoCondensed-Bold.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+canvaskit/skwasm_heavy.js,1773655204965,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
+canvaskit/skwasm.js,1773655204910,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
+canvaskit/canvaskit.js,1773655204941,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
+canvaskit/chromium/canvaskit.js,1773655205054,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
+icons/Icon-maskable-512.png,1773655459202,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
+icons/Icon-512.png,1773655459198,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
+assets/NOTICES,1773655456149,e05ace101f0cba8113452e5bea32e7656b2a87c08b6296bcd26f5198554c9cc4
+canvaskit/chromium/canvaskit.js.symbols,1773655205066,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
+canvaskit/canvaskit.js.symbols,1773655204954,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
+canvaskit/skwasm.js.symbols,1773655204844,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
+canvaskit/skwasm_heavy.js.symbols,1773655204926,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
+assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1773655459191,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
+canvaskit/skwasm.wasm,1773655204872,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
+main.dart.js,1773655455898,3c54cbacbc7c02831756f424b231270be1fbcd9b92d334c158fa792e64ad478d
+canvaskit/chromium/canvaskit.wasm,1773655204996,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
+canvaskit/skwasm_heavy.wasm,1773655204777,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
+canvaskit/canvaskit.wasm,1773655204668,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
 
 --- END OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 
@@ -4494,6 +4494,9 @@ class FoodItem {
   double protein;
   double carbs;
   double fat;
+  String? description;
+  List<String>? benefits;
+  List<String>? warnings;
 
   FoodItem({
     required this.id,
@@ -4502,6 +4505,9 @@ class FoodItem {
     required this.protein,
     required this.carbs,
     required this.fat,
+    this.description,
+    this.benefits,
+    this.warnings,
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -4512,6 +4518,9 @@ class FoodItem {
       protein: (json['protein'] as num? ?? 0).toDouble(),
       carbs: (json['carbs'] as num? ?? 0).toDouble(),
       fat: (json['fat'] as num? ?? 0).toDouble(),
+      description: json['description'] as String?,
+      benefits: (json['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      warnings: (json['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
     );
   }
 
@@ -4523,6 +4532,9 @@ class FoodItem {
       'protein': protein,
       'carbs': carbs,
       'fat': fat,
+      'description': description,
+      'benefits': benefits,
+      'warnings': warnings,
     };
   }
 }
@@ -4557,44 +4569,140 @@ class MealLog {
   }
 }
 
-class DailyHealthLog {
-  String dateStr;
-  int sleepMinutes;
-  int waterGlasses;
+class SleepLog {
+  String id;
+  DateTime startTime;
+  DateTime endTime;
+
+  SleepLog({
+    required this.id,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  int get durationMinutes => endTime.difference(startTime).inMinutes;
+
+  factory SleepLog.fromJson(Map<String, dynamic> json) {
+    if (json['startTime'] != null && json['endTime'] != null) {
+      return SleepLog(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        startTime: DateTime.parse(json['startTime']),
+        endTime: DateTime.parse(json['endTime']),
+      );
+    } else {
+      // Legacy migration from 'minutes' and 'timestamp'
+      final end = json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now();
+      final mins = (json['minutes'] as num? ?? 0).toInt();
+      final start = end.subtract(Duration(minutes: mins));
+      return SleepLog(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        startTime: start,
+        endTime: end,
+      );
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime.toIso8601String(),
+    };
+  }
+}
+
+class ActivityLog {
+  String id;
   double walkDistanceKm;
   int workoutMinutes;
+  DateTime timestamp;
+
+  ActivityLog({
+    required this.id,
+    required this.walkDistanceKm,
+    required this.workoutMinutes,
+    required this.timestamp,
+  });
+
+  factory ActivityLog.fromJson(Map<String, dynamic> json) {
+    return ActivityLog(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
+      workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
+      timestamp: json['timestamp'] != null 
+          ? DateTime.parse(json['timestamp']) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'walkDistanceKm': walkDistanceKm,
+      'workoutMinutes': workoutMinutes,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+class DailyHealthLog {
+  String dateStr;
+  int waterGlasses;
   List<MealLog> meals;
+  List<SleepLog> sleepLogs;
+  List<ActivityLog> activityLogs;
 
   DailyHealthLog({
     required this.dateStr,
-    this.sleepMinutes = 0,
     this.waterGlasses = 0,
-    this.walkDistanceKm = 0.0,
-    this.workoutMinutes = 0,
     List<MealLog>? meals,
-  }) : meals = meals ??[];
+    List<SleepLog>? sleepLogs,
+    List<ActivityLog>? activityLogs,
+  }) : meals = meals ?? [],
+       sleepLogs = sleepLogs ?? [],
+       activityLogs = activityLogs ?? [];
 
   factory DailyHealthLog.fromJson(Map<String, dynamic> json) {
+    // Migration logic for old singular fields
+    final legacySleep = (json['sleepMinutes'] as num? ?? 0).toInt();
+    final legacyWalk = (json['walkDistanceKm'] as num? ?? 0.0).toDouble();
+    final legacyWorkout = (json['workoutMinutes'] as num? ?? 0).toInt();
+
+    List<SleepLog> parsedSleep = (json['sleepLogs'] as List<dynamic>?)
+            ?.map((e) => SleepLog.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [];
+    
+    if (parsedSleep.isEmpty && legacySleep > 0) {
+      final end = DateTime.now();
+      parsedSleep.add(SleepLog(id: const Uuid().v4(), startTime: end.subtract(Duration(minutes: legacySleep)), endTime: end));
+    }
+
+    List<ActivityLog> parsedActivity = (json['activityLogs'] as List<dynamic>?)
+            ?.map((e) => ActivityLog.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [];
+            
+    if (parsedActivity.isEmpty && (legacyWalk > 0 || legacyWorkout > 0)) {
+      parsedActivity.add(ActivityLog(id: const Uuid().v4(), walkDistanceKm: legacyWalk, workoutMinutes: legacyWorkout, timestamp: DateTime.now()));
+    }
+
     return DailyHealthLog(
       dateStr: json['dateStr'] as String? ?? '',
-      sleepMinutes: (json['sleepMinutes'] as num? ?? 0).toInt(),
       waterGlasses: (json['waterGlasses'] as num? ?? 0).toInt(),
-      walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
-      workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
       meals: (json['meals'] as List<dynamic>?)
               ?.map((e) => MealLog.fromJson(e as Map<String, dynamic>))
-              .toList() ??[],
+              .toList() ?? [],
+      sleepLogs: parsedSleep,
+      activityLogs: parsedActivity,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'dateStr': dateStr,
-      'sleepMinutes': sleepMinutes,
       'waterGlasses': waterGlasses,
-      'walkDistanceKm': walkDistanceKm,
-      'workoutMinutes': workoutMinutes,
       'meals': meals.map((m) => m.toJson()).toList(),
+      'sleepLogs': sleepLogs.map((s) => s.toJson()).toList(),
+      'activityLogs': activityLogs.map((a) => a.toJson()).toList(),
     };
   }
 }
@@ -8306,6 +8414,7 @@ mixin UserMixin on ChangeNotifier {
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/health_models.dart';
 import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:uuid/uuid.dart';
 
 mixin HealthMixin on ChangeNotifier {
   List<FoodItem> _foodItems =[];
@@ -8347,6 +8456,14 @@ mixin HealthMixin on ChangeNotifier {
     sync.markDirty('health');
   }
 
+  void updateFoodItem(FoodItem item) {
+    final index = _foodItems.indexWhere((f) => f.id == item.id);
+    if (index != -1) {
+      _foodItems[index] = item;
+      sync.markDirty('health');
+    }
+  }
+
   void addMealLog(String dateStr, MealLog log) {
     final hLog = getDailyHealthLog(dateStr);
     hLog.meals.add(log);
@@ -8358,23 +8475,43 @@ mixin HealthMixin on ChangeNotifier {
     hLog.meals.removeWhere((m) => m.id == logId);
     sync.markDirty('health');
   }
+  
+  void logMealAgain(String dateStr, MealLog originalLog) {
+    final hLog = getDailyHealthLog(dateStr);
+    final newLog = MealLog(id: const Uuid().v4(), foodItemId: originalLog.foodItemId, timestamp: DateTime.now());
+    hLog.meals.add(newLog);
+    sync.markDirty('health');
+  }
+
+  void addSleepLog(String dateStr, SleepLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.sleepLogs.add(log);
+    hLog.sleepLogs.sort((a, b) => b.endTime.compareTo(a.endTime));
+    sync.markDirty('health');
+  }
+
+  void deleteSleepLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.sleepLogs.removeWhere((l) => l.id == logId);
+    sync.markDirty('health');
+  }
+
+  void addActivityLog(String dateStr, ActivityLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.activityLogs.add(log);
+    hLog.activityLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    sync.markDirty('health');
+  }
+
+  void deleteActivityLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.activityLogs.removeWhere((l) => l.id == logId);
+    sync.markDirty('health');
+  }
 
   void updateWater(String dateStr, int glasses) {
     final hLog = getDailyHealthLog(dateStr);
     hLog.waterGlasses = glasses;
-    sync.markDirty('health');
-  }
-
-  void updateSleep(String dateStr, int minutes) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.sleepMinutes = minutes;
-    sync.markDirty('health');
-  }
-
-  void updateActivity(String dateStr, double walkKm, int workoutMin) {
-    final hLog = getDailyHealthLog(dateStr);
-    hLog.walkDistanceKm = walkKm;
-    hLog.workoutMinutes = workoutMin;
     sync.markDirty('health');
   }
 }
@@ -13347,11 +13484,13 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/widgets/health/health_combined_chart.dart';
-import 'package:arcane/src/widgets/health/food_logging_dialog.dart';
+import 'package:arcane/src/widgets/health/sleep_panel.dart';
+import 'package:arcane/src/widgets/health/activity_panel.dart';
+import 'package:arcane/src/widgets/health/nutrition_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class HealthDashboardScreen extends StatefulWidget {
   const HealthDashboardScreen({super.key});
@@ -13369,16 +13508,6 @@ class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final log = provider.getDailyHealthLog(dateStr);
 
-    int totalCalories = 0;
-    double totalProtein = 0;
-    for (var m in log.meals) {
-      final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
-      if (food != null) {
-        totalCalories += food.calories;
-        totalProtein += food.protein;
-      }
-    }
-
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
@@ -13393,6 +13522,7 @@ class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children:[
                   // Date Selector
                   Row(
@@ -13414,210 +13544,40 @@ class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
                       child: HealthCombinedChart(provider: provider),
                     ),
                   ),
-        
-                  // Sleep & Water
-                  Row(
-                    children:[
-                      Expanded(
-                        child: JwePanel(
-                          title: "SLEEP METRICS",
-                          accentColor: JweTheme.accentCyan,
-                          child: InkWell(
-                            onTap: () => _editSleep(context, provider, dateStr, log.sleepMinutes),
-                            child: Column(
-                              children:[
-                                Icon(MdiIcons.bedOutline, color: JweTheme.accentCyan, size: 32),
-                                const SizedBox(height: 8),
-                                Text("${(log.sleepMinutes / 60).floor()}h ${log.sleepMinutes % 60}m", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: JwePanel(
-                          title: "HYDRATION",
-                          accentColor: JweTheme.accentCyan,
-                          child: Column(
-                            children:[
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children:[
-                                  IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
-                                  Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                                  IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
-                                ],
-                              ),
-                              const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-        
-                  // Activity
+
+                  // Hydration
                   JwePanel(
-                    title: "PHYSICAL ACTIVITY",
-                    accentColor: JweTheme.accentAmber,
-                    child: InkWell(
-                      onTap: () => _editActivity(context, provider, dateStr, log.walkDistanceKm, log.workoutMinutes),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Column(
-                            children:[
-                              Icon(MdiIcons.walk, color: JweTheme.accentAmber),
-                              const SizedBox(height: 4),
-                              Text("${log.walkDistanceKm.toStringAsFixed(1)} KM", style: GoogleFonts.rajdhani(fontSize: 20, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                            ],
-                          ),
-                          Container(width: 1, height: 40, color: JweTheme.border),
-                          Column(
-                            children:[
-                              Icon(MdiIcons.dumbbell, color: JweTheme.accentAmber),
-                              const SizedBox(height: 4),
-                              Text("${log.workoutMinutes} MIN", style: GoogleFonts.rajdhani(fontSize: 20, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-        
-                  // Nutrition
-                  JwePanel(
-                    title: "NUTRITIONAL INTAKE",
+                    title: "HYDRATION",
                     accentColor: JweTheme.accentCyan,
                     child: Column(
-                      children: [
+                      children:[
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children:[
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children:[
-                                const Text("CALORIES", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                                Text("$totalCalories KCAL", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children:[
-                                const Text("PROTEIN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                                Text("${totalProtein.toStringAsFixed(1)} G", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
-                              ],
-                            ),
+                            IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
+                            Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                            IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        if (log.meals.isEmpty)
-                           const Text("No nutritional data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
-                        else
-                          ...log.meals.map((m) {
-                            final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
-                            if (food == null) return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                children:[
-                                  Icon(MdiIcons.foodAppleOutline, color: JweTheme.textMuted, size: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: Text(food.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold))),
-                                  Text("${food.calories} kcal", style: const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
-                                    onPressed: () => provider.deleteMealLog(dateStr, m.id),
-                                  )
-                                ],
-                              ),
-                            );
-                          }),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.add, size: 16),
-                            label: Text("LOG MEAL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: JweTheme.accentCyan,
-                              side: const BorderSide(color: JweTheme.accentCyan),
-                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                            ),
-                            onPressed: () => showDialog(context: context, builder: (_) => FoodLoggingDialog(dateStr: dateStr)),
-                          ),
-                        )
+                        const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
+        
+                  // Sleep
+                  SleepPanel(dateStr: dateStr),
+        
+                  // Activity
+                  ActivityPanel(dateStr: dateStr),
+        
+                  // Nutrition
+                  NutritionPanel(dateStr: dateStr),
                 ],
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  void _editSleep(BuildContext context, AppProvider provider, String dateStr, int currentMins) {
-    int h = currentMins ~/ 60;
-    int m = currentMins % 60;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text("LOG SLEEP CYCLE", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        content: Row(
-          children:[
-            Expanded(child: TextField(decoration: const InputDecoration(labelText: "HOURS", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => h = int.tryParse(v) ?? h, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'))),
-            const SizedBox(width: 16),
-            Expanded(child: TextField(decoration: const InputDecoration(labelText: "MINUTES", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'))),
-          ],
-        ),
-        actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
-          ElevatedButton(
-            onPressed: () {
-              provider.updateSleep(dateStr, h * 60 + m);
-              Navigator.pop(ctx);
-            }, 
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black), 
-            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
-          ),
-        ],
-      )
-    );
-  }
-
-  void _editActivity(BuildContext context, AppProvider provider, String dateStr, double curDist, int curMin) {
-    double d = curDist;
-    int m = curMin;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text("LOG PHYSICAL ACTIVITY", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children:[
-            TextField(decoration: const InputDecoration(labelText: "WALK DISTANCE (KM)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (v) => d = double.tryParse(v) ?? d, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
-            const SizedBox(height: 16),
-            TextField(decoration: const InputDecoration(labelText: "WORKOUT DURATION (MIN)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
-          ],
-        ),
-        actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
-          ElevatedButton(
-            onPressed: () {
-              provider.updateActivity(dateStr, d, m);
-              Navigator.pop(ctx);
-            }, 
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black), 
-            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
-          ),
-        ],
-      )
     );
   }
 }
@@ -14375,6 +14335,35 @@ class AIService {
         onLog: onLog);
 
     return (result['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> getMealInsights({
+    required String mealName,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Provide a detailed but concise nutritional breakdown and health benefits of the meal: '$mealName'.
+    
+    Output JSON ONLY:
+    {
+      "description": "Short description of the meal and its general profile",
+      "benefits": ["Benefit 1", "Benefit 2"],
+      "warnings": ["Warning 1 (e.g. high sodium, allergens)"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
   }
 
   Future<Map<String, dynamic>> generatePersonDetails({
@@ -24215,7 +24204,7 @@ class _ChartCarouselState extends State<ChartCarousel> {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: ValorantCard(
-                  borderColor: AppTheme.fhAccentRed.withValues(alpha: 0.5),
+                  borderColor: AppTheme.fhBgDark.withValues(alpha: 0.5),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -28955,7 +28944,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             children:[
                Expanded(
                  child: ValorantButton(
-                   label: "ADVANCED PROTOCOLS",
+                   label: "ADVANCED",
                    icon: MdiIcons.hexagonMultipleOutline,
                    isPrimary: false,
                    color: AppTheme.fhAccentPurple.withOpacity(0.1),
@@ -30611,7 +30600,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                       children: [
                         Container(width: 4, height: 16, color: task.taskColor),
                         const SizedBox(width: 8),
-                        Text('ACTIVE CONTRACTS',
+                        Text('ACTIVE TASKS',
                             style: theme.textTheme.titleMedium?.copyWith(
                                 fontFamily: AppTheme.fontDisplay,
                                 color: AppTheme.fhTextPrimary,
@@ -30641,7 +30630,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   child: Column(
                     children: [
                       const Text(
-                          'NO ACTIVE CONTRACTS',
+                          'NO ACTIVE TASKS',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
                       ),
@@ -31419,7 +31408,6 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:arcane/src/widgets/ui/jwe_compact_engage_button.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -31553,15 +31541,6 @@ class _CheckpointItemState extends State<CheckpointItem> {
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: Icon(MdiIcons.fileTree, size: 14, color: color),
-              ),
-
-            if (widget.onPlay != null && !isInfo)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                child: JweCompactEngageButton(
-                  isRunning: widget.isRunning,
-                  onPressed: widget.onPlay!,
-                ),
               ),
 
             PopupMenuButton<String>(
@@ -31949,10 +31928,18 @@ class ScheduleHeroWidget extends StatelessWidget {
                     children: [
                       if (isCheckpoint) ...[
                         _buildCompactButton(
+                          label: isRunning ? "HALT" : "ENGAGE",
+                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
+                          color: isRunning ? AppTheme.fhAccentRed : PersonInfoTheme.spideyCyan,
+                          isFilled: true,
+                          onTap: onPlayPause
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
                           label: "FINISH",
                           icon: MdiIcons.checkAll,
                           color: PersonInfoTheme.spideyCyan,
-                          isFilled: true,
+                          isFilled: false,
                           onTap: onFinishCheckpoint
                         ),
                         const SizedBox(height: 8),
@@ -33471,16 +33458,8 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               hasSubsteps: step.substeps.isNotEmpty,
               accentColor: widget.accentColor,
               onTap: () => _navigateToStepDetail(context, step),
-              onPlay: () {
-                final isRunning = provider.activeTimers[widget.subTaskId]?.isRunning ?? false;
-                if (isRunning) {
-                  provider.pauseTimer(widget.subTaskId);
-                  provider.logTimerAndReset(widget.subTaskId);
-                } else {
-                  provider.startTimer(widget.subTaskId, 'subtask', widget.mainTaskId);
-                }
-              },
-              isRunning: provider.activeTimers[widget.subTaskId]?.isRunning ?? false,
+              onPlay: null, // Removed engage button from checkpoints
+              isRunning: false,
               onToggle: () {
                 if (step.completed) {
                   provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
@@ -34305,7 +34284,8 @@ class HealthCombinedChart extends StatelessWidget {
       
       // 1. Sleep
       final log = provider.healthLogs[dateStr];
-      final sleepHrs = (log?.sleepMinutes ?? 0) / 60.0;
+      final sleepMins = log?.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) ?? 0;
+      final sleepHrs = sleepMins / 60.0;
       sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
 
       // 2. Work (Time spent on tasks)
@@ -34412,6 +34392,699 @@ class _LegendItem extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+
+--- START OF FILE lib/src/widgets/health/sleep_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/add_sleep_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class SleepPanel extends StatelessWidget {
+  final String dateStr;
+  const SleepPanel({super.key, required this.dateStr});
+
+  void _showAddDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AddSleepDialog(dateStr: dateStr),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final log = provider.getDailyHealthLog(dateStr);
+    final totalMinutes = log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes);
+
+    return JwePanel(
+      title: "SLEEP METRICS",
+      accentColor: JweTheme.accentCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("TOTAL SLEEP", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("${(totalMinutes / 60).floor()}h ${totalMinutes % 60}m", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (log.sleepLogs.isEmpty)
+             const Text("No sleep data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: log.sleepLogs.length,
+              itemBuilder: (ctx, i) {
+                final sLog = log.sleepLogs[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children:[
+                      Icon(MdiIcons.bedOutline, color: JweTheme.textMuted, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${DateFormat('HH:mm').format(sLog.startTime)} - ${DateFormat('HH:mm').format(sLog.endTime)}", 
+                              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+                            ),
+                            Text(
+                              "${(sLog.durationMinutes / 60).floor()}h ${sLog.durationMinutes % 60}m", 
+                              style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)
+                            ),
+                          ],
+                        )
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
+                        onPressed: () => provider.deleteSleepLog(dateStr, sLog.id),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      )
+                    ],
+                  ),
+                );
+              }
+            ),
+
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: Text("ADD SLEEP RECORD", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: JweTheme.accentCyan,
+              side: const BorderSide(color: JweTheme.accentCyan),
+              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+            ),
+            onPressed: () => _showAddDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/sleep_panel.dart ---
+
+--- START OF FILE lib/src/widgets/health/activity_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class ActivityPanel extends StatelessWidget {
+  final String dateStr;
+  const ActivityPanel({super.key, required this.dateStr});
+
+  void _showAddDialog(BuildContext context, AppProvider provider) {
+    double d = 0.0;
+    int m = 0;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text("LOG PHYSICAL ACTIVITY", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children:[
+            TextField(decoration: const InputDecoration(labelText: "WALK DISTANCE (KM)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (v) => d = double.tryParse(v) ?? d, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
+            const SizedBox(height: 16),
+            TextField(decoration: const InputDecoration(labelText: "WORKOUT DURATION (MIN)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
+          ],
+        ),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+          ElevatedButton(
+            onPressed: () {
+              if (d > 0 || m > 0) {
+                 provider.addActivityLog(dateStr, ActivityLog(id: const Uuid().v4(), walkDistanceKm: d, workoutMinutes: m, timestamp: DateTime.now()));
+              }
+              Navigator.pop(ctx);
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black), 
+            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
+          ),
+        ],
+      )
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final log = provider.getDailyHealthLog(dateStr);
+    
+    final totalKm = log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
+    final totalMin = log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
+
+    return JwePanel(
+      title: "PHYSICAL ACTIVITY",
+      accentColor: JweTheme.accentAmber,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("DISTANCE", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("${totalKm.toStringAsFixed(1)} KM", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentAmber)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text("WORKOUT", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("${totalMin} MIN", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentAmber)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (log.activityLogs.isEmpty)
+             const Text("No activity data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: log.activityLogs.length,
+              itemBuilder: (ctx, i) {
+                final aLog = log.activityLogs[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children:[
+                      Icon(MdiIcons.run, color: JweTheme.textMuted, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text("${aLog.walkDistanceKm > 0 ? '${aLog.walkDistanceKm.toStringAsFixed(1)} KM' : ''}${aLog.walkDistanceKm > 0 && aLog.workoutMinutes > 0 ? ' | ' : ''}${aLog.workoutMinutes > 0 ? '${aLog.workoutMinutes} MIN' : ''}", style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold))),
+                      Text(DateFormat('HH:mm').format(aLog.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
+                        onPressed: () => provider.deleteActivityLog(dateStr, aLog.id),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      )
+                    ],
+                  ),
+                );
+              }
+            ),
+
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: Text("LOG ACTIVITY", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: JweTheme.accentAmber,
+              side: const BorderSide(color: JweTheme.accentAmber),
+              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+            ),
+            onPressed: () => _showAddDialog(context, provider),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/activity_panel.dart ---
+
+--- START OF FILE lib/src/widgets/health/nutrition_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/food_logging_dialog.dart';
+import 'package:arcane/src/widgets/health/meal_insight_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class NutritionPanel extends StatelessWidget {
+  final String dateStr;
+  const NutritionPanel({super.key, required this.dateStr});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final log = provider.getDailyHealthLog(dateStr);
+
+    int totalCalories = 0;
+    double totalProtein = 0;
+    for (var m in log.meals) {
+      final food = provider.foodItems.where((f) => f.id == m.foodItemId).firstOrNull;
+      if (food != null) {
+        totalCalories += food.calories;
+        totalProtein += food.protein;
+      }
+    }
+
+    return JwePanel(
+      title: "NUTRITIONAL INTAKE",
+      accentColor: JweTheme.accentCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:[
+                  const Text("CALORIES", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("$totalCalories KCAL", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children:[
+                  const Text("PROTEIN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("${totalProtein.toStringAsFixed(1)} G", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentCyan)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          if (log.meals.isEmpty)
+             const Text("No nutritional data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: log.meals.length,
+              itemBuilder: (ctx, i) {
+                final mLog = log.meals[i];
+                final food = provider.foodItems.where((f) => f.id == mLog.foodItemId).firstOrNull;
+                if (food == null) return const SizedBox.shrink();
+
+                return InkWell(
+                  onTap: () {
+                    showDialog(context: context, builder: (_) => MealInsightDialog(foodItem: food));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentCyan.withOpacity(0.05),
+                      border: Border.all(color: JweTheme.accentCyan.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children:[
+                        Icon(MdiIcons.foodAppleOutline, color: JweTheme.accentCyan, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(food.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text("${food.calories} kcal | ${food.protein}g protein", style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono')),
+                            ],
+                          ),
+                        ),
+                        // Log Again
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: JweTheme.accentAmber, size: 18),
+                          tooltip: "Log Again",
+                          onPressed: () => provider.logMealAgain(dateStr, mLog),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 12),
+                        // Delete
+                        IconButton(
+                          icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 18),
+                          onPressed: () => provider.deleteMealLog(dateStr, mLog.id),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              }
+            ),
+          
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: Text("LOG MEAL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: JweTheme.accentCyan,
+              side: const BorderSide(color: JweTheme.accentCyan),
+              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+            ),
+            onPressed: () => showDialog(context: context, builder: (_) => FoodLoggingDialog(dateStr: dateStr)),
+          )
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/nutrition_panel.dart ---
+
+--- START OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class MealInsightDialog extends StatefulWidget {
+  final FoodItem foodItem;
+  
+  const MealInsightDialog({super.key, required this.foodItem});
+
+  @override
+  State<MealInsightDialog> createState() => _MealInsightDialogState();
+}
+
+class _MealInsightDialogState extends State<MealInsightDialog> {
+  Map<String, dynamic>? _insights;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.foodItem.description != null && widget.foodItem.description!.isNotEmpty) {
+      // Use existing insights
+      _insights = {
+        'description': widget.foodItem.description,
+        'benefits': widget.foodItem.benefits,
+        'warnings': widget.foodItem.warnings,
+      };
+      _isLoading = false;
+    } else {
+      _fetchInsights();
+    }
+  }
+
+  Future<void> _fetchInsights() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    try {
+      final res = await provider.aiService.getMealInsights(
+        mealName: widget.foodItem.name,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (i) => provider.setApiKeyIndex(i),
+        onLog: (_) {},
+      );
+      
+      // Save data back to the FoodItem so we don't have to fetch again
+      widget.foodItem.description = res['description'];
+      widget.foodItem.benefits = (res['benefits'] as List?)?.map((e) => e.toString()).toList();
+      widget.foodItem.warnings = (res['warnings'] as List?)?.map((e) => e.toString()).toList();
+      provider.updateFoodItem(widget.foodItem);
+
+      if (mounted) setState(() { _insights = res; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      title: Text("NUTRITIONAL INSIGHT", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: _isLoading 
+          ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: JweTheme.accentCyan)))
+          : _error != null
+            ? Text("Error: $_error", style: const TextStyle(color: JweTheme.accentRed))
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.foodItem.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  
+                  Text(_insights?['description'] ?? 'No description available.', style: const TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4)),
+                  const SizedBox(height: 16),
+                  
+                  if (_insights?['benefits'] != null) ...[
+                    const Text("BENEFITS", style: TextStyle(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_insights!['benefits'] as List).map((b) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("• ", style: TextStyle(color: JweTheme.accentCyan)),
+                          Expanded(child: Text(b.toString(), style: const TextStyle(color: JweTheme.textWhite, fontSize: 12))),
+                        ],
+                      ),
+                    )),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (_insights?['warnings'] != null && (_insights!['warnings'] as List).isNotEmpty) ...[
+                    const Text("WARNINGS / ALERTS", style: TextStyle(color: JweTheme.accentRed, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_insights!['warnings'] as List).map((w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("! ", style: TextStyle(color: JweTheme.accentRed)),
+                          Expanded(child: Text(w.toString(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
+                        ],
+                      ),
+                    )),
+                  ],
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE", style: TextStyle(color: JweTheme.textMuted))),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/meal_insight_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/health_models.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
+
+class AddSleepDialog extends StatefulWidget {
+  final String dateStr;
+  const AddSleepDialog({super.key, required this.dateStr});
+
+  @override
+  State<AddSleepDialog> createState() => _AddSleepDialogState();
+}
+
+class _AddSleepDialogState extends State<AddSleepDialog> {
+  late DateTime _startDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the currently selected date in the dashboard
+    _startDate = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
+    // Default sleep range guess
+    _startTime = const TimeOfDay(hour: 23, minute: 0);
+    _endTime = const TimeOfDay(hour: 7, minute: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      title: Text(
+        "LOG SLEEP RECORD", 
+        style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDatePickerRow("DATE RECORDED", _startDate, (val) => setState(() => _startDate = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("BED TIME", _startTime, (val) => setState(() => _startTime = val)),
+            const SizedBox(height: 16),
+            _buildTimePickerRow("WAKE TIME", _endTime, (val) => setState(() => _endTime = val)),
+            if (_startTime != null && _endTime != null) ...[
+               const SizedBox(height: 16),
+               Builder(builder: (context) {
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
+                  if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+                  final diff = end.difference(start);
+                  
+                  return Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: JweTheme.textMuted, size: 14),
+                      const SizedBox(width: 8),
+                      Text(
+                        end.day != start.day 
+                          ? "Crosses midnight (${diff.inHours}h ${diff.inMinutes % 60}m)" 
+                          : "Same day (${diff.inHours}h ${diff.inMinutes % 60}m)", 
+                        style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)
+                      )
+                    ],
+                  );
+               })
+            ]
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black),
+          onPressed: (_startTime != null && _endTime != null)
+              ? () {
+                  final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
+                  var end = DateTime(_startDate.year, _startDate.month, _startDate.day, _endTime!.hour, _endTime!.minute);
+                  
+                  if (end.isBefore(start)) {
+                      end = end.add(const Duration(days: 1));
+                  }
+                  
+                  final provider = Provider.of<AppProvider>(context, listen: false);
+                  provider.addSleepLog(widget.dateStr, SleepLog(
+                    id: const Uuid().v4(),
+                    startTime: start,
+                    endTime: end,
+                  ));
+                  
+                  Navigator.pop(context);
+                }
+              : null,
+          child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
+    return Container(
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase,
+        border: Border.all(color: JweTheme.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now().add(const Duration(days: 1)),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: JweTheme.accentCyan,
+                      onPrimary: Colors.black,
+                      surface: JweTheme.panel,
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                ),
+              );
+              if (picked != null) onSelect(picked);
+            },
+            child: Text(
+              DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
+              style: const TextStyle(
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 14,
+                color: JweTheme.accentCyan
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
+    return Container(
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase,
+        border: Border.all(color: JweTheme.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          InkWell(
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: time ?? TimeOfDay.now(),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: JweTheme.accentCyan,
+                      onPrimary: Colors.black,
+                      surface: JweTheme.panel,
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                ),
+              );
+              if (picked != null) onSelect(picked);
+            },
+            child: Text(
+              time?.format(context) ?? "--:--",
+              style: const TextStyle(
+                fontFamily: "RobotoMono",
+                fontWeight: FontWeight.bold, 
+                fontSize: 16,
+                color: JweTheme.accentCyan
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/health/add_sleep_dialog.dart ---
 
 --- START OF FILE lib/theme/valorant_theme.dart ---
 import 'package:flutter/material.dart';

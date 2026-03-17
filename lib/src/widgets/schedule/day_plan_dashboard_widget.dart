@@ -3,6 +3,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,10 +20,7 @@ class DayPlanDashboardWidget extends StatelessWidget {
 
     if (plan.isEmpty) return const SizedBox.shrink();
 
-    // Map IDs to actual active widgets for the horizontal list
     List<Widget> queueItems = [];
-
-    // Track what we've rendered so we don't render the top item again if it's currently active in the hero
     bool isFirstItem = true;
 
     for (String compId in plan) {
@@ -38,25 +37,23 @@ class DayPlanDashboardWidget extends StatelessWidget {
       final isCheckpoint = parts.length == 3;
       bool isCompleted = false;
       String title = sub.name;
-      String typeLabel = "MISSION";
+      String? cpId;
 
       if (isCheckpoint) {
-        final cpId = parts[2];
+        cpId = parts[2];
         final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == cpId);
         if (cp == null) continue;
         
         isCompleted = cp.completed;
         title = cp.name;
-        typeLabel = "CHECKPOINT";
       } else {
         isCompleted = sub.completed;
       }
       
-      // Skip completed items, or the very first incomplete item since it's in the Hero Widget
       if (isCompleted) continue;
       if (isFirstItem) {
          isFirstItem = false;
-         continue; // Skip the active up-next
+         continue; 
       }
 
       queueItems.add(_buildCard(
@@ -64,6 +61,20 @@ class DayPlanDashboardWidget extends StatelessWidget {
         title: title,
         parentName: isCheckpoint ? sub.name : task.name,
         color: isCheckpoint ? PersonInfoTheme.spideyCyan : PersonInfoTheme.spideyRed,
+        onTap: () {
+          if (isCheckpoint && cpId != null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+              mainTaskId: mainId,
+              parentSubTaskId: subId,
+              checkpointId: cpId!,
+            )));
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
+              parentTask: task,
+              subTask: sub,
+            )));
+          }
+        },
       ));
     }
 
@@ -84,7 +95,7 @@ class DayPlanDashboardWidget extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 65, // More compact horizontal card height
+          height: 65, 
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -103,36 +114,40 @@ class DayPlanDashboardWidget extends StatelessWidget {
     required String title,
     required String parentName,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: PersonInfoTheme.bgPanel,
-        border: Border(left: BorderSide(color: color, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: GoogleFonts.chakraPetch(
-              color: AppTheme.fhTextPrimary, 
-              fontSize: 12, 
-              fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: PersonInfoTheme.bgPanel,
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: GoogleFonts.chakraPetch(
+                color: AppTheme.fhTextPrimary, 
+                fontSize: 12, 
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            parentName,
-            style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              parentName,
+              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

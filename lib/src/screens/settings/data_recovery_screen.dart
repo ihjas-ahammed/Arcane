@@ -37,8 +37,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         final backupDir = Directory('${docsDir.path}/backups');
         if (await backupDir.exists()) {
           final files = backupDir.listSync().whereType<File>().toList();
-          files.sort(
-              (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+          files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
           setState(() {
             _backupFiles = files;
           });
@@ -56,15 +55,10 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Restore Backup?"),
-        content: const Text(
-            "This will overwrite your current data with the data from this backup. Are you sure?"),
+        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?"),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Restore")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore")),
         ],
       ),
     );
@@ -73,14 +67,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       try {
         await context.read<AppProvider>().restoreFromLocalSnapshot(file);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Backup restored successfully.")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup restored successfully.")));
           Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Error restoring backup: $e")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error restoring backup: $e")));
         }
       }
     }
@@ -93,13 +85,8 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         title: const Text("Delete Backup?"),
         content: const Text("This action cannot be undone."),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Delete",
-                  style: TextStyle(color: AppTheme.fhAccentRed))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
         ],
       ),
     );
@@ -116,13 +103,11 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       final data = provider.getAppStateAsMap();
       await _exportService.exportJson(data, 'arcane_export');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Export initiated.")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Export initiated.")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Export failed: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e")));
       }
     }
   }
@@ -135,30 +120,23 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text("Import Data?"),
-            content: const Text(
-                "This will overwrite your current data with the imported file. Are you sure?"),
+            content: const Text("This will overwrite your current data with the imported file. Are you sure?"),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text("Cancel")),
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text("Import")),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import")),
             ],
           ),
         );
 
         if (confirm == true && mounted) {
           context.read<AppProvider>().loadAppStateFromMap(importedData);
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Data imported successfully.")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data imported successfully.")));
           Navigator.pop(context);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Import failed: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e")));
       }
     }
   }
@@ -166,14 +144,20 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   Future<void> _backupToFirestore() async {
     try {
       final provider = context.read<AppProvider>();
-      await provider.forceLocalBackup(); // Auto make local backup first
-      await provider.performFirestoreBackup(); // Then Firestore
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Initiating secure cloud backup..."), duration: Duration(seconds: 1))
+      );
+      
+      await provider.forceLocalBackup(); 
+      await provider.performFirestoreBackup(); 
       
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."))
+          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."), backgroundColor: AppTheme.fhAccentGreen)
         );
-        _loadBackups(); // Refresh local list
+        _loadBackups(); 
       }
     } catch(e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
@@ -289,8 +273,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.fhBgDark,
                         foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(
-                            color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                        side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
                       ),
                       onPressed: _exportData,
                     ),
@@ -303,8 +286,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.fhBgDark,
                         foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(
-                            color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
+                        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
                       ),
                       onPressed: _importData,
                     ),
@@ -341,17 +323,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                           final size = file.lengthSync();
         
                           return ListTile(
-                            leading: Icon(MdiIcons.fileClockOutline,
-                                color: AppTheme.fhTextSecondary),
+                            leading: Icon(MdiIcons.fileClockOutline, color: AppTheme.fhTextSecondary),
                             title: Text(
                               "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
-                              style: const TextStyle(
-                                  color: AppTheme.fhTextPrimary),
+                              style: const TextStyle(color: AppTheme.fhTextPrimary),
                             ),
-                            subtitle: Text(
-                                "${(size / 1024).toStringAsFixed(1)} KB",
-                                style: const TextStyle(
-                                    color: AppTheme.fhTextSecondary)),
+                            subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: AppTheme.fhTextSecondary)),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -361,9 +338,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                                   onPressed: () => _restoreBackup(file),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.delete_outline,
-                                      color: AppTheme.fhAccentRed
-                                          .withValues(alpha: 0.7)),
+                                  icon: Icon(Icons.delete_outline, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
                                   tooltip: "Delete",
                                   onPressed: () => _deleteBackup(file),
                                 ),

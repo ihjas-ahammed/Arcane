@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/math_utils.dart';
 import 'package:arcane/src/widgets/dialogs/add_savings_log_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -17,41 +16,26 @@ class SavingsDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    
-    // Use firstWhereOrNull to prevent StateError when the goal is deleted
     final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
     
-    // If the goal is deleted, return an empty scaffold to avoid errors while popping
     if (goal == null) {
-      return const Scaffold(
-        backgroundColor: AppTheme.fhBgDeepDark,
-        body: SizedBox.shrink(),
-      );
+      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: SizedBox.shrink());
     }
     
-    // Progress logic
     final actualProgress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
     
     final totalDuration = goal.targetDate.difference(goal.createdAt).inMilliseconds;
     final elapsed = DateTime.now().difference(goal.createdAt).inMilliseconds;
     final expectedProgress = totalDuration > 0 ? (elapsed / totalDuration).clamp(0.0, 1.0) : 0.0;
 
-    // Linear Regression Prediction
     DateTime? predictedDate;
-    if (goal.logs.isNotEmpty) {
-      List<Point<double>> points = [const Point(0.0, 0.0)];
-      double cumulative = 0;
-      // Sort logs chronologically for regression
-      final sortedLogs = List.from(goal.logs)..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      for (var log in sortedLogs) {
-        final days = log.timestamp.difference(goal.createdAt).inSeconds / 86400.0;
-        cumulative += log.amount;
-        points.add(Point(days, cumulative));
-      }
-      final reg = MathUtils.linearRegression(points);
-      if (reg['slope']! > 0) {
-        final targetDays = MathUtils.predictX(goal.targetAmount, reg['slope']!, reg['intercept']!);
-        predictedDate = goal.createdAt.add(Duration(seconds: (targetDays * 86400).toInt()));
+    if (goal.currentAmount > 0 && goal.currentAmount < goal.targetAmount) {
+      final daysSinceCreation = max(1, DateTime.now().difference(goal.createdAt).inDays);
+      final dailyAvg = goal.currentAmount / daysSinceCreation;
+      if (dailyAvg > 0) {
+        final amountLeft = goal.targetAmount - goal.currentAmount;
+        final daysLeft = (amountLeft / dailyAvg).ceil();
+        predictedDate = DateTime.now().add(Duration(days: daysLeft));
       }
     }
 
@@ -74,7 +58,6 @@ class SavingsDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Stats
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -96,7 +79,6 @@ class SavingsDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             
-            // Progress Bar Stack
             const Text("PROGRESS TRAJECTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
