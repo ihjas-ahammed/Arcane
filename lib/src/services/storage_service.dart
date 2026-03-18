@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 
 const String _userCollection = 'users'; 
 const String _userSubcollectionDocId = 'data';
@@ -31,22 +32,33 @@ class StorageService {
       if (snap.exists && snap.value != null) {
         return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
-        return await getFirestoreBackup(userId);
+        return null;
       }
     } catch (e) {
-      return await getFirestoreBackup(userId);
+      return null;
     }
   }
 
-  // Live Sync Stream
-  Stream<Map<String, dynamic>> watchUserData(String userId) {
+  // --- Metadata/Timestamp ---
+  Future<int> getLastModified(String userId) async {
+    if (userId.isEmpty) return 0;
+    try {
+      final snap = await _rtdb.ref('users/$userId/lastModified').get();
+      return (snap.value as num?)?.toInt() ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<void> setLastModified(String userId, int timestamp) async {
+    if (userId.isEmpty) return;
+    await _rtdb.ref('users/$userId/lastModified').set(timestamp);
+  }
+
+  Stream<int> watchLastModified(String userId) {
     if (userId.isEmpty) return const Stream.empty();
-    
-    return _rtdb.ref('users/$userId/data').onValue.map((event) {
-      if (event.snapshot.exists && event.snapshot.value != null) {
-        return _parseRtdbData(event.snapshot.value as Map<dynamic, dynamic>);
-      }
-      return {};
+    return _rtdb.ref('users/$userId/lastModified').onValue.map((event) {
+      return (event.snapshot.value as num?)?.toInt() ?? 0;
     });
   }
 
@@ -57,7 +69,6 @@ class StorageService {
     if (raw[_docFinance] is String) fullData.addAll(jsonDecode(raw[_docFinance] as String));
     if (raw[_docHealth] is String) fullData.addAll(jsonDecode(raw[_docHealth] as String));
     
-    // Safely parse chunked maps or legacy strings to fix Type Cast errors
     if (raw['history'] != null) {
       if (raw['history'] is String) {
         fullData.addAll(jsonDecode(raw['history'] as String));
@@ -100,7 +111,6 @@ class StorageService {
     }
   }
 
-  // Optimized Chunked Saving for large arrays (History/Reflections)
   Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
@@ -119,135 +129,12 @@ class StorageService {
   Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
+      final logs = data['reflectionLogs'] as List<dynamic>? ??[];
       final Map<String, dynamic> updates = {};
       for (var log in logs) {
         updates[log['id']] = jsonEncode(log);
       }
-      // Use Set to overwrite node, dropping locally deleted elements from DB implicitly
       await _rtdb.ref('users/$userId/data/reflections').set(updates); 
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // --- Firestore Database (Backup & Archival) ---
-
-  DocumentReference<Map<String, dynamic>> _firestoreDocRef(String userId, String docId) {
-    return _firestore
-        .collection(_userCollection)
-        .doc(userId)
-        .collection(_userSubcollectionDocId)
-        .doc(docId);
-  }
-
-  Future<Map<String, dynamic>?> getFirestoreBackup(String userId) async {
-    if (userId.isEmpty) return null;
-
-    try {
-      // Load base state
-      final baseSnap = await _firestoreDocRef(userId, 'base_state').get();
-      Map<String, dynamic> fullData = {};
-      
-      if (baseSnap.exists) {
-        fullData.addAll(baseSnap.data()!);
-      } else {
-        // Legacy fallback handling for older snapshots
-        final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
-        if (oldDocSnap.exists) return oldDocSnap.data();
-        
-        final tasksSnap = await _firestoreDocRef(userId, 'tasks').get();
-        if (tasksSnap.exists) {
-           final historySnap = await _firestoreDocRef(userId, 'history').get();
-           final reflectionsSnap = await _firestoreDocRef(userId, 'reflections').get();
-           final settingsSnap = await _firestoreDocRef(userId, 'settings').get();
-           final financeSnap = await _firestoreDocRef(userId, 'finance').get();
-           final healthSnap = await _firestoreDocRef(userId, 'health').get();
-
-           if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
-           if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
-           if (historySnap.exists) fullData.addAll(historySnap.data()!);
-           if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-           if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
-           if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
-           return fullData;
-        }
-        return null;
-      }
-
-      // Reconstruct Chunked Tasks
-      final tasksCol = await _firestore.collection(_userCollection).doc(userId).collection('tasks_backup').get();
-      if (tasksCol.docs.isNotEmpty) {
-        fullData['mainTasks'] = tasksCol.docs.map((doc) => doc.data()).toList();
-      }
-
-      // Reconstruct Chunked History
-      final historyCol = await _firestore.collection(_userCollection).doc(userId).collection('history_backup').get();
-      if (historyCol.docs.isNotEmpty) {
-        fullData['completedByDay'] = {};
-        for (var doc in historyCol.docs) {
-          fullData['completedByDay'][doc.id] = doc.data();
-        }
-      }
-
-      // Reconstruct Chunked Reflections
-      final refCol = await _firestore.collection(_userCollection).doc(userId).collection('reflections_backup').get();
-      if (refCol.docs.isNotEmpty) {
-        fullData['reflectionLogs'] = refCol.docs.map((doc) => doc.data()).toList();
-      }
-
-      return fullData;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Bypassing 1MB Document Limits by aggressively chunking to subcollections
-  Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
-    if (userId.isEmpty) return false;
-
-    // Clone mapping to avoid mutating active memory state
-    final Map<String, dynamic> baseData = Map.from(fullData);
-    final historyData = baseData.remove('completedByDay') as Map<String, dynamic>? ?? {};
-    final reflectionsData = baseData.remove('reflectionLogs') as List<dynamic>? ?? [];
-    final tasksDataList = baseData.remove('mainTasks') as List<dynamic>? ?? [];
-
-    try {
-      final batches = [_firestore.batch()];
-      int ops = 0;
-      int batchIndex = 0;
-
-      void addSet(DocumentReference ref, Map<String, dynamic> data) {
-        batches[batchIndex].set(ref, data);
-        ops++;
-        if (ops >= 490) { // Keep under 500 max writes per batch limit
-          batches.add(_firestore.batch());
-          batchIndex++;
-          ops = 0;
-        }
-      }
-
-      addSet(_firestoreDocRef(userId, 'base_state'), baseData);
-
-      final tasksCol = _firestore.collection(_userCollection).doc(userId).collection('tasks_backup');
-      for(var task in tasksDataList) {
-        addSet(tasksCol.doc(task['id']), task as Map<String, dynamic>);
-      }
-
-      final historyCol = _firestore.collection(_userCollection).doc(userId).collection('history_backup');
-      historyData.forEach((date, data) {
-        addSet(historyCol.doc(date), data as Map<String, dynamic>);
-      });
-
-      final refCol = _firestore.collection(_userCollection).doc(userId).collection('reflections_backup');
-      for(var log in reflectionsData) {
-        addSet(refCol.doc(log['id']), log as Map<String, dynamic>);
-      }
-
-      for (var b in batches) {
-        await b.commit();
-      }
       return true;
     } catch (e) {
       return false;
@@ -257,11 +144,11 @@ class StorageService {
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      await _rtdb.ref('users/$userId/data').remove();
+      await _rtdb.ref('users/$userId').remove();
 
       final batch = _firestore.batch();
-      batch.delete(_firestoreDocRef(userId, _gameStateDocId));
-      batch.delete(_firestoreDocRef(userId, 'base_state'));
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc(_gameStateDocId));
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc('base_state'));
       await batch.commit();
       
       return true;

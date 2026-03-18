@@ -1,12 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +19,7 @@ class DataRecoveryScreen extends StatefulWidget {
 }
 
 class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
-  List<File> _backupFiles = [];
+  List<File> _backupFiles =[];
   bool _isLoading = true;
   final DataExportService _exportService = DataExportService();
 
@@ -50,15 +50,37 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  Future<void> _createLocalBackup() async {
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory('${docsDir.path}/backups');
+      if (!await backupDir.exists()) await backupDir.create(recursive: true);
+      
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final file = File('${backupDir.path}/manual_backup_$timestamp.json');
+      
+      final provider = context.read<AppProvider>();
+      final data = provider.getAppStateAsMap();
+      
+      await file.writeAsString(jsonEncode(data));
+      
+      _loadBackups();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local backup created successfully.")));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating backup: $e")));
+    }
+  }
+
   Future<void> _restoreBackup(File file) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Restore Backup?"),
-        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore")),
+        backgroundColor: JweTheme.panel,
+        title: const Text("Restore Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore", style: TextStyle(color: JweTheme.accentCyan))),
         ],
       ),
     );
@@ -82,11 +104,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Backup?"),
-        content: const Text("This action cannot be undone."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
+        backgroundColor: JweTheme.panel,
+        title: const Text("Delete Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content: const Text("This action cannot be undone.", style: TextStyle(color: JweTheme.textMuted)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: JweTheme.accentRed))),
         ],
       ),
     );
@@ -119,11 +142,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text("Import Data?"),
-            content: const Text("This will overwrite your current data with the imported file. Are you sure?"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import")),
+            backgroundColor: JweTheme.panel,
+            title: const Text("Import Data?", style: TextStyle(color: JweTheme.textWhite)),
+            content: const Text("This will overwrite your current data with the imported file. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+            actions:[
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import", style: TextStyle(color: JweTheme.accentCyan))),
             ],
           ),
         );
@@ -141,215 +165,117 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
-  Future<void> _backupToFirestore() async {
-    try {
-      final provider = context.read<AppProvider>();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Initiating secure cloud backup..."), duration: Duration(seconds: 1))
-      );
-      
-      await provider.forceLocalBackup(); 
-      await provider.performFirestoreBackup(); 
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."), backgroundColor: AppTheme.fhAccentGreen)
-        );
-        _loadBackups(); 
-      }
-    } catch(e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
-    }
-  }
-
-  Future<void> _restoreFromFirestore() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Restore Firestore Snapshot?"),
-        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("Restore")
-          ),
-        ],
-      )
-    );
-    if (confirm == true && mounted) {
-       try {
-         await context.read<AppProvider>().restoreFromFirestoreBackup();
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
-       } catch(e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
-       }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
-        title: const Text("Data Recovery"),
-        backgroundColor: AppTheme.fhBgDeepDark,
+        title: Text("DATA ARCHIVE & RECOVERY", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // --- CLOUD SNAPSHOT SECTION ---
-            Container(
-              margin: const EdgeInsets.all(16),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: PersonInfoTheme.bgPanel,
-                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
-                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
-              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
-                      const SizedBox(width: 12),
-                      Text(
-                        "FIRESTORE SNAPSHOT",
-                        style: GoogleFonts.rajdhani(
-                          color: PersonInfoTheme.spideyRed,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children:[
+                  JwePanel(
+                    title: "EXTERNAL EXPORT / IMPORT",
+                    accentColor: JweTheme.accentCyan,
+                    child: Row(
+                      children:[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _exportData,
+                            icon: Icon(MdiIcons.fileExportOutline, size: 18),
+                            label: Text("EXPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: JweTheme.accentCyan,
+                              side: const BorderSide(color: JweTheme.accentCyan),
+                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _importData,
+                            icon: Icon(MdiIcons.fileImportOutline, size: 18),
+                            label: Text("IMPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: JweTheme.accentCyan,
+                              side: const BorderSide(color: JweTheme.accentCyan),
+                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                            ),
+                          ),
+                        ),
+                      ]
+                    )
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
-                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ValorantButton(
-                          label: "BACKUP",
-                          icon: MdiIcons.cloudUploadOutline,
-                          color: PersonInfoTheme.spideyCyan,
-                          isPrimary: false,
-                          onPressed: _backupToFirestore,
+                  
+                  JwePanel(
+                    title: "LOCAL DEVICE CACHE",
+                    accentColor: JweTheme.textWhite,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children:[
+                        ElevatedButton.icon(
+                          onPressed: _createLocalBackup,
+                          icon: Icon(MdiIcons.harddiskPlus, size: 18),
+                          label: Text("CREATE LOCAL BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: Colors.black)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: JweTheme.textWhite,
+                            foregroundColor: Colors.black,
+                            shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ValorantButton(
-                          label: "RESTORE",
-                          icon: MdiIcons.cloudDownloadOutline,
-                          color: PersonInfoTheme.spideyRed,
-                          isPrimary: true,
-                          onPressed: _restoreFromFirestore,
-                        ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        if (_isLoading)
+                          const Center(child: CircularProgressIndicator(color: JweTheme.textWhite))
+                        else if (_backupFiles.isEmpty)
+                          const Text("No local backups found.", style: TextStyle(color: JweTheme.textMuted))
+                        else
+                          ..._backupFiles.map((file) {
+                            final date = file.lastModifiedSync();
+                            final size = file.lengthSync();
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: JweTheme.border.withOpacity(0.3),
+                                border: const Border(left: BorderSide(color: JweTheme.textMuted, width: 2))
+                              ),
+                              child: Row(
+                                children:[
+                                  Icon(MdiIcons.fileClockOutline, color: JweTheme.textMuted, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children:[
+                                        Text(DateFormat('yyyy-MM-dd HH:mm').format(date), style: const TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
+                                        Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                                      ]
+                                    )
+                                  ),
+                                  IconButton(icon: const Icon(Icons.restore, color: JweTheme.textWhite), onPressed: () => _restoreBackup(file)),
+                                  IconButton(icon: const Icon(Icons.delete, color: JweTheme.accentRed), onPressed: () => _deleteBackup(file)),
+                                ]
+                              )
+                            );
+                          })
+                      ]
+                    )
                   )
-                ],
-              ),
-            ),
-        
-            // --- MANUAL EXPORT SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.upload, size: 18),
-                      label: const Text("EXPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _exportData,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.download, size: 18),
-                      label: const Text("IMPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _importData,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(color: AppTheme.fhBorderColor, height: 32),
-            
-            // --- LOCAL BACKUPS SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "LOCAL CACHE ARCHIVES", 
-                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _isLoading
-                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
-                : _backupFiles.isEmpty
-                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _backupFiles.length,
-                        itemBuilder: (context, index) {
-                          final file = _backupFiles[index];
-                          final date = file.lastModifiedSync();
-                          final size = file.lengthSync();
-        
-                          return ListTile(
-                            leading: Icon(MdiIcons.fileClockOutline, color: AppTheme.fhTextSecondary),
-                            title: Text(
-                              "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
-                              style: const TextStyle(color: AppTheme.fhTextPrimary),
-                            ),
-                            subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: AppTheme.fhTextSecondary)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.restore),
-                                  tooltip: "Restore",
-                                  onPressed: () => _restoreBackup(file),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
-                                  tooltip: "Delete",
-                                  onPressed: () => _deleteBackup(file),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-          ],
-        ),
-      ),
-    );
+                ]
+              )
+            )
+          )
+        )
+      ));
   }
 }

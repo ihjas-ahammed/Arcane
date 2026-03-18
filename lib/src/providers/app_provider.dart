@@ -98,11 +98,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       if (currentUser != null) {
-        scheduleRealtimeSync(); 
+        syncIfDirty(); 
       }
     } else if (state == AppLifecycleState.resumed) {
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
+        _syncWithCloudInBackground(currentUser!.uid);
       }
     }
   }
@@ -158,24 +159,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   Future<void> _syncWithCloudInBackground(String uid) async {
     try {
-      final cloudData = await _cloudStorage.getUserData(uid);
-      if (cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null) {
-        int cloudTs = cloudData['settings']['lastModified'] ?? 0;
-        int localTs = settings.lastModified;
-
-        if (cloudTs > localTs) {
-          loadStateFromMap(cloudData);
-          await forceLocalBackup(); 
-          notifyListeners();
-        } else if (localTs > cloudTs) {
-          scheduleRealtimeSync(); 
-        }
-      } else if (settings.lastModified > 0) {
-        scheduleRealtimeSync(); 
-      } else {
-        // Pristine user
-        setLastLoginDate(helper.getTodayDateString());
-        scheduleRealtimeSync();
+      final remoteTs = await _cloudStorage.getLastModified(uid);
+      if (remoteTs > settings.lastModified) {
+        await manuallyLoadFromCloud();
+      } else if (settings.lastModified > remoteTs) {
+        await syncIfDirty();
       }
     } catch (_) {} // Gracefully ignore offline cloud errors
 
@@ -478,9 +466,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
     
+    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
+      fullContext: allLogsContext,
       modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
@@ -488,7 +479,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       onLog: (m) => debugPrint(m)
     );
 
-    // Auto-capture newly identified grateful assets
     if (result['grateful_assets'] != null) {
       final extracted = result['grateful_assets'] as List<dynamic>;
       final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
@@ -519,7 +509,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (changed) updateGratitudeList(currentAssets);
     }
 
-    // Auto-capture newly identified grateful people
     if (result['grateful_people'] != null) {
       final extracted = result['grateful_people'] as List<dynamic>;
       final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
@@ -553,7 +542,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         subTasks: task.subTasks.map((sub) {
           if (sub.sessions.length <= 1) return sub;
           final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
-          final List<TaskSession> cleaned = [sorted.first];
+          final List<TaskSession> cleaned =[sorted.first];
           for (int i = 1; i < sorted.length; i++) {
             final current = sorted[i];
             final previous = cleaned.last;
@@ -755,10 +744,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
     final eval = await _aiService.evaluateReflection(
       trigger: trigger, emotion: emotion, reason: reason, action: action,
       modelCandidates: settings.liteModels, 
-      customApiKeys: settings.customApiKeys
+      customApiKeys: settings.customApiKeys,
+      recentContext: recentContext,
     );
     final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
     

@@ -1096,6 +1096,7 @@ macos/Flutter/Generated.xcconfig
 macos/Flutter/ephemeral_dir_path
 macos/Flutter/ephemeral.app
 macos/Flutter/Flutter- আরো একবার.h
+lib/src/config/api_keys.dart
 
 --- END OF FILE .gitignore ---
 
@@ -3026,11 +3027,11 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
+          
           if (appProvider.authLoading) {
             return const Scaffold(
               backgroundColor: AppTheme.fhBgDeepDark,
-              body: Center(
-                  child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
             );
           }
 
@@ -3043,26 +3044,7 @@ class _MyAppState extends State<MyApp> {
 
           return Theme(
             data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-            child: Stack(
-              children: [
-                const HomeScreen(),
-                
-                // Unobtrusive loading bar at the top instead of a full screen blocker
-                if (appProvider.isManuallyLoading)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: SafeArea(
-                      child: const LinearProgressIndicator(
-                        color: AppTheme.fhAccentTeal,
-                        backgroundColor: Colors.transparent,
-                        minHeight: 4,
-                      ),
-                    ),
-                  )
-              ],
-            ),
+            child: const HomeScreen(),
           );
         },
       ),
@@ -3070,16 +3052,6 @@ class _MyAppState extends State<MyApp> {
   }
 }
 --- END OF FILE lib/src/app.dart ---
-
---- START OF FILE lib/src/config/api_keys.dart ---
-// lib/src/config/api_keys.dart
-// IMPORTANT: Add this file to your .gitignore
-// ignore_for_file: constant_identifier_names
-const List<String> geminiApiKeys = ['AIzaSyAXj8HyXxz7DLvay3XXf_6FtXu4lMYqv2M'];
-
-const String geminiModelName = 'gemini-flash-latest'; // Updated to consistent model name
-
---- END OF FILE lib/src/config/api_keys.dart ---
 
 --- START OF FILE lib/src/config/api_keys_structure.dart ---
 // lib/src/config/api_keys.dart
@@ -4809,11 +4781,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       if (currentUser != null) {
-        scheduleRealtimeSync(); 
+        syncIfDirty(); 
       }
     } else if (state == AppLifecycleState.resumed) {
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
+        _syncWithCloudInBackground(currentUser!.uid);
       }
     }
   }
@@ -4835,63 +4808,53 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (authLoading && currentUser != null && user != null && currentUser!.uid == user.uid) return;
-
-    setAuthLoading(true);
-
     if (user != null) {
-      setCurrentUser(user);
-
-      try {
-        final cloudData = await _cloudStorage.getUserData(user.uid);
-        final localData = await _localStorage.loadState();
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
         
-        bool hasCloud = cloudData != null && cloudData.isNotEmpty && cloudData['settings'] != null;
-        bool hasLocal = localData != null && localData.isNotEmpty && localData['settings'] != null;
-
-        if (hasCloud) {
-          int cloudTs = cloudData!['settings']['lastModified'] ?? 0;
-          int localTs = hasLocal ? (localData!['settings']['lastModified'] ?? 0) : 0;
-
-          if (cloudTs >= localTs || !hasLocal) {
-            loadStateFromMap(cloudData);
-            await forceLocalBackup(); // Force save to local
-          } else {
-            loadStateFromMap(localData!);
-            scheduleRealtimeSync(); // Local is newer, push to cloud
-          }
-        } else if (hasLocal) {
-          // Cloud is empty but local exists (e.g. wiped RTDB by mistake)
-          loadStateFromMap(localData!);
-          scheduleRealtimeSync(); 
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
         } else {
-          // Both empty, pristine user
+          // Completely new local state, wait for cloud sync in background
           await _resetToInitialState();
-          setLastLoginDate(helper.getTodayDateString());
-          scheduleRealtimeSync();
         }
-
-        _cleanOverlappingSessions();
-        _fixTimerAnomalies();
-        await _taskActions.recalibrateTimeLogs(silent: true);
-        _handleDailyReset();
-        
-        await fetchDailyReportsFromCloud();
-        startRealtimeSyncListener();
-
-      } catch (e) {
-        debugPrint("Cloud init failed: $e");
-      } finally {
-        setAuthLoading(false);
+        setAuthLoading(false); // Unblocks UI instantly
       }
+
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
+      // Fire and forget cloud sync
+      _syncWithCloudInBackground(user.uid);
 
     } else {
       setCurrentUser(null);
       stopRealtimeSyncListener();
       await _resetToInitialState();
-      await _localStorage.clearState();
       setAuthLoading(false);
     }
+  }
+
+  Future<void> _syncWithCloudInBackground(String uid) async {
+    try {
+      final remoteTs = await _cloudStorage.getLastModified(uid);
+      if (remoteTs > settings.lastModified) {
+        await manuallyLoadFromCloud();
+      } else if (settings.lastModified > remoteTs) {
+        await syncIfDirty();
+      }
+    } catch (_) {} // Gracefully ignore offline cloud errors
+
+    try {
+      await fetchDailyReportsFromCloud();
+    } catch (_) {}
+    
+    startRealtimeSyncListener();
   }
 
   Future<void> fetchDailyReportsFromCloud() async {
@@ -5055,7 +5018,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> clearAllData() async {
     if (currentUser == null) return;
     await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState();
+    await _localStorage.clearState(currentUser!.uid);
     await _resetToInitialState();
     markDirty('settings');
     markDirty('tasks');
@@ -5261,7 +5224,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         subTasks: task.subTasks.map((sub) {
           if (sub.sessions.length <= 1) return sub;
           final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
-          final List<TaskSession> cleaned = [sorted.first];
+          final List<TaskSession> cleaned =[sorted.first];
           for (int i = 1; i < sorted.length; i++) {
             final current = sorted[i];
             final previous = cleaned.last;
@@ -7813,14 +7776,11 @@ class JournalingActions {
 
 --- START OF FILE lib/src/providers/mixins/sync_mixin.dart ---
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:path_provider/path_provider.dart';
 
 /// Handles Cloud Synchronization and Local Persistence
 mixin SyncMixin on ChangeNotifier {
@@ -7841,6 +7801,8 @@ mixin SyncMixin on ChangeNotifier {
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
 
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+
   // Dependencies to be implemented by AppProvider
   User? get currentUser;
   AppSettings get settings;
@@ -7849,7 +7811,6 @@ mixin SyncMixin on ChangeNotifier {
 
   void initSync() {
     _autoSaveTimer?.cancel();
-    // Faster check interval (5s) for Realtime DB syncs
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_hasUnsavedChanges &&
           currentUser != null &&
@@ -7864,17 +7825,11 @@ mixin SyncMixin on ChangeNotifier {
     _rtdbSubscription?.cancel();
     if (currentUser == null) return;
     
-    _rtdbSubscription = _storageService.watchUserData(currentUser!.uid).listen((cloudData) {
-      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops during manual sync/load
-      if (cloudData.isNotEmpty) {
-        int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-        // Only accept data that is genuinely newer than our last push
-        if (cloudTs > settings.lastModified) {
-          debugPrint("Realtime Update Triggered: Cloud ($cloudTs) > Local (${settings.lastModified})");
-          loadStateFromMap(cloudData);
-          _saveLocalSnapshot();
-          notifyListeners();
-        }
+    // Instead of listening to entire data payload, listen to the lightweight timestamp
+    _rtdbSubscription = _storageService.watchLastModified(currentUser!.uid).listen((remoteTs) async {
+      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops
+      if (remoteTs > settings.lastModified) {
+        await manuallyLoadFromCloud();
       }
     });
   }
@@ -7891,17 +7846,23 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   void markDirty(String collection) {
+    settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); // Always persist locally immediately
+    _saveLocalSnapshot(); // Always persist locally immediately for absolute offline-first behavior
     notifyListeners();
   }
 
   void scheduleRealtimeSync() {
-    _hasUnsavedChanges = true;
     _saveLocalSnapshot();
-    if (settings.autoSaveEnabled) {
+    if (settings.autoSaveEnabled && _hasUnsavedChanges) {
       notifyListeners();
+    }
+  }
+
+  Future<void> syncIfDirty() async {
+    if (_hasUnsavedChanges) {
+      await _performActualSave();
     }
   }
 
@@ -7911,39 +7872,13 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
+    if (currentUser == null) return;
     try {
       final fullData = getFullAppState();
-      await _localStorageService.saveState(fullData);
-      
-      if (forceFlush && (Platform.isAndroid || Platform.isWindows)) {
-        _createBackupFile(fullData);
-      }
+      await _localStorageService.saveState(currentUser!.uid, fullData);
     } catch (e) {
       debugPrint("Local snapshot failed: $e");
     }
-  }
-
-  Future<void> _createBackupFile(Map<String, dynamic> data) async {
-    try {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${docsDir.path}/backups');
-      if (!await backupDir.exists()) await backupDir.create(recursive: true);
-      
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-      final file = File('${backupDir.path}/backup_$timestamp.json');
-      
-      final jsonString = await compute((Map<String, dynamic> d) => jsonEncode(d), data);
-      await file.writeAsString(jsonString);
-      
-      // Cleanup old backups (keep last 5)
-      final files = backupDir.listSync().whereType<File>().toList();
-      files.sort((a, b) => a.path.compareTo(b.path));
-      if (files.length > 5) {
-        for (var i = 0; i < files.length - 5; i++) {
-          await files[i].delete();
-        }
-      }
-    } catch (_) {}
   }
 
   // --- Realtime DB Methods ---
@@ -7951,7 +7886,6 @@ mixin SyncMixin on ChangeNotifier {
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
     await _performActualSave(force: true);
-    // A manual trigger is a good time to auto-snapshot to Firestore too
     await performFirestoreBackup();
   }
 
@@ -7975,13 +7909,21 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<void> _performActualSave({bool force = false}) async {
     if (currentUser == null) return;
-    if (_isSyncing) return; // Prevent concurrent syncs
+    if (_isSyncing) return; // Lock
 
     _isSyncing = true;
-    notifyListeners();
+    notifyListeners(); // Shows compact indicator
 
     try {
-      settings.lastModified = DateTime.now().millisecondsSinceEpoch;
+      // FIX: Multi-device sync - check remote timestamp first
+      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
+      if (remoteTs > settings.lastModified) {
+        // Remote has newer data! We should load it instead of overwriting.
+        _isSyncing = false;
+        await manuallyLoadFromCloud();
+        return;
+      }
+
       final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
@@ -8011,7 +7953,7 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // Pushing changes to Realtime Database
+      // Pushing to Realtime Database incrementally
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }
@@ -8032,6 +7974,7 @@ mixin SyncMixin on ChangeNotifier {
       }
 
       if (success) {
+        await _storageService.setLastModified(currentUser!.uid, settings.lastModified);
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();
@@ -11474,14 +11417,14 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
 
 --- START OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/services/data_export_service.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11494,7 +11437,7 @@ class DataRecoveryScreen extends StatefulWidget {
 }
 
 class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
-  List<File> _backupFiles = [];
+  List<File> _backupFiles =[];
   bool _isLoading = true;
   final DataExportService _exportService = DataExportService();
 
@@ -11525,15 +11468,37 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  Future<void> _createLocalBackup() async {
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory('${docsDir.path}/backups');
+      if (!await backupDir.exists()) await backupDir.create(recursive: true);
+      
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final file = File('${backupDir.path}/manual_backup_$timestamp.json');
+      
+      final provider = context.read<AppProvider>();
+      final data = provider.getAppStateAsMap();
+      
+      await file.writeAsString(jsonEncode(data));
+      
+      _loadBackups();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local backup created successfully.")));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating backup: $e")));
+    }
+  }
+
   Future<void> _restoreBackup(File file) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Restore Backup?"),
-        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore")),
+        backgroundColor: JweTheme.panel,
+        title: const Text("Restore Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore", style: TextStyle(color: JweTheme.accentCyan))),
         ],
       ),
     );
@@ -11557,11 +11522,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Backup?"),
-        content: const Text("This action cannot be undone."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
+        backgroundColor: JweTheme.panel,
+        title: const Text("Delete Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content: const Text("This action cannot be undone.", style: TextStyle(color: JweTheme.textMuted)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: JweTheme.accentRed))),
         ],
       ),
     );
@@ -11594,11 +11560,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text("Import Data?"),
-            content: const Text("This will overwrite your current data with the imported file. Are you sure?"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import")),
+            backgroundColor: JweTheme.panel,
+            title: const Text("Import Data?", style: TextStyle(color: JweTheme.textWhite)),
+            content: const Text("This will overwrite your current data with the imported file. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+            actions:[
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import", style: TextStyle(color: JweTheme.accentCyan))),
             ],
           ),
         );
@@ -11630,12 +11597,18 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud Snapshot & Local Backup Secured."), backgroundColor: AppTheme.fhAccentGreen)
+          const SnackBar(content: Text("Cloud Snapshot Secured."), backgroundColor: JweTheme.accentCyan)
         );
         _loadBackups(); 
       }
     } catch(e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $e")));
+      if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('RESOURCE_EXHAUSTED') || errorMsg.contains('Quota')) {
+          errorMsg = "Cloud quota exceeded. Please try again tomorrow.";
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $errorMsg")));
+      }
     }
   }
 
@@ -11643,14 +11616,15 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Restore Firestore Snapshot?"),
-        content: const Text("This will overwrite your live Realtime DB state with the archived Firestore snapshot. Proceed?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+        backgroundColor: JweTheme.panel,
+        title: const Text("Restore Cloud Snapshot?", style: TextStyle(color: JweTheme.textWhite)),
+        content: const Text("This will overwrite your live state with the archived Firestore snapshot. Proceed?", style: TextStyle(color: JweTheme.textMuted)),
+        actions:[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black),
             onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("Restore")
+            child: const Text("Restore", style: TextStyle(fontWeight: FontWeight.bold))
           ),
         ],
       )
@@ -11658,7 +11632,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     if (confirm == true && mounted) {
        try {
          await context.read<AppProvider>().restoreFromFirestoreBackup();
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Firestore.")));
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Cloud.")));
        } catch(e) {
          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
        }
@@ -11668,164 +11642,156 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
-        title: const Text("Data Recovery"),
-        backgroundColor: AppTheme.fhBgDeepDark,
+        title: Text("DATA ARCHIVE & RECOVERY", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // --- CLOUD SNAPSHOT SECTION ---
-            Container(
-              margin: const EdgeInsets.all(16),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: PersonInfoTheme.bgPanel,
-                border: Border(left: const BorderSide(color: PersonInfoTheme.spideyRed, width: 4)),
-                boxShadow: [BoxShadow(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.05), blurRadius: 10)],
-              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(MdiIcons.cloudLockOutline, color: PersonInfoTheme.spideyRed, size: 24),
-                      const SizedBox(width: 12),
-                      Text(
-                        "FIRESTORE SNAPSHOT",
-                        style: GoogleFonts.rajdhani(
-                          color: PersonInfoTheme.spideyRed,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children:[
+                  JwePanel(
+                    title: "FIRESTORE SNAPSHOT (CLOUD FAILSAFE)",
+                    accentColor: JweTheme.accentAmber,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:[
+                        const Text("Uploads your entire state in optimized chunks (<0.5 MB), bypassing document size limits and rate throttling.", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                        const SizedBox(height: 16),
+                        Row(
+                          children:[
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _backupToFirestore,
+                                icon: Icon(MdiIcons.cloudUploadOutline, size: 18),
+                                label: Text("BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: JweTheme.accentAmber,
+                                  side: const BorderSide(color: JweTheme.accentAmber),
+                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _restoreFromFirestore,
+                                icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
+                                label: Text("RESTORE", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: JweTheme.accentAmber,
+                                  foregroundColor: Colors.black,
+                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                              ),
+                            ),
+                          ]
+                        )
+                      ]
+                    )
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Primary sync runs on ultra-fast Realtime DB. Create a permanent snapshot in Firestore as a failsafe recovery point.",
-                    style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, height: 1.4),
+                  
+                  JwePanel(
+                    title: "EXTERNAL EXPORT / IMPORT",
+                    accentColor: JweTheme.accentCyan,
+                    child: Row(
+                      children:[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _exportData,
+                            icon: Icon(MdiIcons.fileExportOutline, size: 18),
+                            label: Text("EXPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: JweTheme.accentCyan,
+                              side: const BorderSide(color: JweTheme.accentCyan),
+                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _importData,
+                            icon: Icon(MdiIcons.fileImportOutline, size: 18),
+                            label: Text("IMPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: JweTheme.accentCyan,
+                              side: const BorderSide(color: JweTheme.accentCyan),
+                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                            ),
+                          ),
+                        ),
+                      ]
+                    )
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ValorantButton(
-                          label: "BACKUP",
-                          icon: MdiIcons.cloudUploadOutline,
-                          color: PersonInfoTheme.spideyCyan,
-                          isPrimary: false,
-                          onPressed: _backupToFirestore,
+                  
+                  JwePanel(
+                    title: "LOCAL DEVICE CACHE",
+                    accentColor: JweTheme.textWhite,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children:[
+                        ElevatedButton.icon(
+                          onPressed: _createLocalBackup,
+                          icon: Icon(MdiIcons.harddiskPlus, size: 18),
+                          label: Text("CREATE LOCAL BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: Colors.black)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: JweTheme.textWhite,
+                            foregroundColor: Colors.black,
+                            shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ValorantButton(
-                          label: "RESTORE",
-                          icon: MdiIcons.cloudDownloadOutline,
-                          color: PersonInfoTheme.spideyRed,
-                          isPrimary: true,
-                          onPressed: _restoreFromFirestore,
-                        ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        if (_isLoading)
+                          const Center(child: CircularProgressIndicator(color: JweTheme.textWhite))
+                        else if (_backupFiles.isEmpty)
+                          const Text("No local backups found.", style: TextStyle(color: JweTheme.textMuted))
+                        else
+                          ..._backupFiles.map((file) {
+                            final date = file.lastModifiedSync();
+                            final size = file.lengthSync();
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: JweTheme.border.withOpacity(0.3),
+                                border: const Border(left: BorderSide(color: JweTheme.textMuted, width: 2))
+                              ),
+                              child: Row(
+                                children:[
+                                  Icon(MdiIcons.fileClockOutline, color: JweTheme.textMuted, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children:[
+                                        Text(DateFormat('yyyy-MM-dd HH:mm').format(date), style: const TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
+                                        Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                                      ]
+                                    )
+                                  ),
+                                  IconButton(icon: const Icon(Icons.restore, color: JweTheme.textWhite), onPressed: () => _restoreBackup(file)),
+                                  IconButton(icon: const Icon(Icons.delete, color: JweTheme.accentRed), onPressed: () => _deleteBackup(file)),
+                                ]
+                              )
+                            );
+                          })
+                      ]
+                    )
                   )
-                ],
-              ),
-            ),
-        
-            // --- MANUAL EXPORT SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.upload, size: 18),
-                      label: const Text("EXPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _exportData,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(MdiIcons.download, size: 18),
-                      label: const Text("IMPORT DATA"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhBgDark,
-                        foregroundColor: AppTheme.fhTextPrimary,
-                        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
-                      ),
-                      onPressed: _importData,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(color: AppTheme.fhBorderColor, height: 32),
-            
-            // --- LOCAL BACKUPS SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "LOCAL CACHE ARCHIVES", 
-                  style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0)
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _isLoading
-                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
-                : _backupFiles.isEmpty
-                    ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No local backups found.")))
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _backupFiles.length,
-                        itemBuilder: (context, index) {
-                          final file = _backupFiles[index];
-                          final date = file.lastModifiedSync();
-                          final size = file.lengthSync();
-        
-                          return ListTile(
-                            leading: Icon(MdiIcons.fileClockOutline, color: AppTheme.fhTextSecondary),
-                            title: Text(
-                              "Backup ${DateFormat('yyyy-MM-dd HH:mm').format(date)}",
-                              style: const TextStyle(color: AppTheme.fhTextPrimary),
-                            ),
-                            subtitle: Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: AppTheme.fhTextSecondary)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.restore),
-                                  tooltip: "Restore",
-                                  onPressed: () => _restoreBackup(file),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: AppTheme.fhAccentRed.withValues(alpha: 0.7)),
-                                  tooltip: "Delete",
-                                  onPressed: () => _deleteBackup(file),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-          ],
-        ),
-      ),
-    );
+                ]
+              )
+            )
+          )
+        )
+      ));
   }
 }
 --- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
@@ -13631,18 +13597,17 @@ class AIService {
     final List<String> apiKeysToTry = <String>{
       ...geminiApiKeys,
       if (customApiKeys != null) ...customApiKeys
-    }.toList();
+    }.where((k) => !k.contains('YOUR_GEMINI_API_KEY')).toList();
 
     if (apiKeysToTry.isEmpty) {
-      throw Exception("No valid Gemini API keys found.");
+      onLog("No valid Gemini API keys found. Returning fallback data.");
+      throw Exception("OFFLINE_MOCK_DATA");
     }
 
     for (final model in modelCandidates) {
       for (int i = 0; i < apiKeysToTry.length; i++) {
         int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
         String effectiveKey = apiKeysToTry[effectiveIndex];
-
-        if (effectiveKey.startsWith('YOUR_GEMINI_API_KEY')) continue;
 
         try {
           if (kDebugMode) {
@@ -13661,8 +13626,7 @@ class AIService {
         }
       }
     }
-    throw Exception(
-        "All models and API keys failed. Please check your connection or settings.");
+    throw Exception("All models and API keys failed. Please check your connection or settings.");
   }
 
   Future<Map<String, dynamic>> makeAICall({
@@ -13674,26 +13638,37 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        
-        final contentParts = parts ?? [genai.TextPart(prompt!)];
-        final response = await model.generateContent([genai.Content.multi(contentParts)]);
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          
+          final contentParts = parts ?? [genai.TextPart(prompt!)];
+          final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
-        String? rawResponseText = response.text;
-        if (rawResponseText == null || rawResponseText.trim().isEmpty) {
-          throw Exception("AI response was empty.");
+          String? rawResponseText = response.text;
+          if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+            throw Exception("AI response was empty.");
+          }
+          
+          return JsonUtils.tryDecode(rawResponseText);
+        },
+      );
+    } catch (e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) {
+        // Fallback structures so the app doesn't crash without an API key
+        if (prompt != null && prompt.contains("System Start-Up Sequence")) {
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "metrics": [], "directives": ["Add your Gemini API Key in Settings."] };
         }
-        
-        return JsonUtils.tryDecode(rawResponseText);
-      },
-    );
+        return {};
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> generateActionPlanSteps({
@@ -13776,25 +13751,30 @@ class AIService {
     ]
     """;
 
-    final result = await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        String? raw = response.text;
-        if (raw == null) throw Exception("Empty AI response");
-        return JsonUtils.tryDecode(raw);
-      },
-    );
+    try {
+      final result = await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          String? raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          return JsonUtils.tryDecode(raw);
+        },
+      );
 
-    if (result is List) {
-      return result.map((e) => e as Map<String, dynamic>).toList();
+      if (result is List) {
+        return result.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return[];
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
+      rethrow;
     }
-    return[];
   }
 
   Future<String> queryNeuralArchive({
@@ -13812,18 +13792,23 @@ class AIService {
     USER: "$query"
     """;
 
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        return response.text ?? "Archive data corrupted or empty.";
-      },
-    );
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          return response.text ?? "Archive data corrupted or empty.";
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return "Offline mock response: Connect API Key.";
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> generateProjectFromPrompt({
@@ -14532,16 +14517,14 @@ String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
 Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
 
 class LocalStorageService {
-  static const String _fileName = 'arcane_local_cache.json';
-
-  Future<File> get _localFile async {
+  Future<File> _localFile(String userId) async {
     final directory = await getApplicationDocumentsDirectory();
-    return File('${directory.path}/$_fileName');
+    return File('${directory.path}/arcane_local_cache_$userId.json');
   }
 
-  Future<void> saveState(Map<String, dynamic> state) async {
+  Future<void> saveState(String userId, Map<String, dynamic> state) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       // Offload heavy JSON serialization to a background isolate
       final jsonString = await compute(_encodeJson, state);
       await file.writeAsString(jsonString, flush: true);
@@ -14550,9 +14533,9 @@ class LocalStorageService {
     }
   }
 
-  Future<Map<String, dynamic>?> loadState() async {
+  Future<Map<String, dynamic>?> loadState(String userId) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       if (await file.exists()) {
         final contents = await file.readAsString();
         if (contents.isEmpty) return null;
@@ -14565,9 +14548,9 @@ class LocalStorageService {
     return null;
   }
 
-  Future<void> clearState() async {
+  Future<void> clearState(String userId) async {
     try {
-      final file = await _localFile;
+      final file = await _localFile(userId);
       if (await file.exists()) {
         await file.delete();
       }
@@ -14583,14 +14566,13 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 
 const String _userCollection = 'users'; 
 const String _userSubcollectionDocId = 'data';
 const String _gameStateDocId = 'gameState';
 
 const String _docTasks = 'tasks';
-const String _docHistory = 'history';
-const String _docReflections = 'reflections';
 const String _docSettings = 'settings';
 const String _docFinance = 'finance';
 const String _docHealth = 'health';
@@ -14614,41 +14596,71 @@ class StorageService {
       if (snap.exists && snap.value != null) {
         return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
-        // Migration Fallback: If no RTDB data, pull from Firestore and return it.
         return await getFirestoreBackup(userId);
       }
     } catch (e) {
-      // In case of extreme failure, fallback to Firestore
       return await getFirestoreBackup(userId);
     }
   }
 
-  // Live Sync Stream
-  Stream<Map<String, dynamic>> watchUserData(String userId) {
+  // --- Metadata/Timestamp ---
+  Future<int> getLastModified(String userId) async {
+    if (userId.isEmpty) return 0;
+    try {
+      final snap = await _rtdb.ref('users/$userId/lastModified').get();
+      return (snap.value as num?)?.toInt() ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<void> setLastModified(String userId, int timestamp) async {
+    if (userId.isEmpty) return;
+    await _rtdb.ref('users/$userId/lastModified').set(timestamp);
+  }
+
+  Stream<int> watchLastModified(String userId) {
     if (userId.isEmpty) return const Stream.empty();
-    
-    return _rtdb.ref('users/$userId/data').onValue.map((event) {
-      if (event.snapshot.exists && event.snapshot.value != null) {
-        return _parseRtdbData(event.snapshot.value as Map<dynamic, dynamic>);
-      }
-      return {};
+    return _rtdb.ref('users/$userId/lastModified').onValue.map((event) {
+      return (event.snapshot.value as num?)?.toInt() ?? 0;
     });
   }
 
   Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     Map<String, dynamic> fullData = {};
-    if (raw[_docSettings] != null) fullData.addAll(jsonDecode(raw[_docSettings] as String));
-    if (raw[_docTasks] != null) fullData.addAll(jsonDecode(raw[_docTasks] as String));
-    if (raw[_docHistory] != null) fullData.addAll(jsonDecode(raw[_docHistory] as String));
-    if (raw[_docReflections] != null) fullData.addAll(jsonDecode(raw[_docReflections] as String));
-    if (raw[_docFinance] != null) fullData.addAll(jsonDecode(raw[_docFinance] as String));
-    if (raw[_docHealth] != null) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    if (raw[_docSettings] is String) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] is String) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docFinance] is String) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] is String) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    
+    if (raw['history'] != null) {
+      if (raw['history'] is String) {
+        fullData.addAll(jsonDecode(raw['history'] as String));
+      } else if (raw['history'] is Map) {
+        Map<String, dynamic> history = {};
+        (raw['history'] as Map).forEach((date, jsonStr) {
+          history[date.toString()] = jsonDecode(jsonStr.toString());
+        });
+        fullData['completedByDay'] = history;
+      }
+    }
+    
+    if (raw['reflections'] != null) {
+      if (raw['reflections'] is String) {
+        fullData.addAll(jsonDecode(raw['reflections'] as String));
+      } else if (raw['reflections'] is Map) {
+        List<dynamic> reflections = [];
+        (raw['reflections'] as Map).forEach((id, jsonStr) {
+          reflections.add(jsonDecode(jsonStr.toString()));
+        });
+        fullData['reflectionLogs'] = reflections;
+      }
+    }
+    
     return fullData;
   }
 
   Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
-  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHistory, data);
-  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docReflections, data);
   Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
   Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
@@ -14657,6 +14669,36 @@ class StorageService {
     if (userId.isEmpty) return false;
     try {
       await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
+      final Map<String, dynamic> updates = {};
+      history.forEach((date, dayData) {
+        updates[date] = jsonEncode(dayData);
+      });
+      await _rtdb.ref('users/$userId/data/history').update(updates);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final logs = data['reflectionLogs'] as List<dynamic>? ??[];
+      final Map<String, dynamic> updates = {};
+      for (var log in logs) {
+        updates[log['id']] = jsonEncode(log);
+      }
+      await _rtdb.ref('users/$userId/data/reflections').set(updates); 
       return true;
     } catch (e) {
       return false;
@@ -14677,79 +14719,124 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      final tasksSnap = await _firestoreDocRef(userId, _docTasks).get();
-      final historySnap = await _firestoreDocRef(userId, _docHistory).get();
-      final reflectionsSnap = await _firestoreDocRef(userId, _docReflections).get();
-      final settingsSnap = await _firestoreDocRef(userId, _docSettings).get();
-      final financeSnap = await _firestoreDocRef(userId, _docFinance).get();
-      final healthSnap = await _firestoreDocRef(userId, _docHealth).get();
+      final backupRef = _firestore.collection(_userCollection).doc(userId).collection('backups').doc('latest');
+      final docSnap = await backupRef.get();
+      
+      if (docSnap.exists && docSnap.data() != null && docSnap.data()!.containsKey('chunksCount')) {
+        final count = docSnap.data()!['chunksCount'] as int;
+        final StringBuffer sb = StringBuffer();
+        
+        for (int i = 0; i < count; i++) {
+          final chunkSnap = await backupRef.collection('chunks').doc('chunk_$i').get();
+          if (chunkSnap.exists && chunkSnap.data() != null && chunkSnap.data()!.containsKey('data')) {
+            sb.write(chunkSnap.data()!['data'] as String);
+          } else {
+            throw Exception("Corrupted backup: Missing chunk_$i");
+          }
+        }
+        
+        final fullJson = sb.toString();
+        if (fullJson.isEmpty) return await _getLegacyFirestoreBackup(userId);
+        
+        return jsonDecode(fullJson);
+      } else {
+         return await _getLegacyFirestoreBackup(userId);
+      }
+    } catch (e) {
+      debugPrint("Firestore Restore Error: $e");
+      return await _getLegacyFirestoreBackup(userId);
+    }
+  }
 
-      bool hasNewData = tasksSnap.exists || historySnap.exists || settingsSnap.exists || financeSnap.exists || healthSnap.exists;
+  Future<Map<String, dynamic>?> _getLegacyFirestoreBackup(String userId) async {
+    try {
+      final baseSnap = await _firestoreDocRef(userId, 'base_state').get();
+      Map<String, dynamic> fullData = {};
+      
+      if (baseSnap.exists) {
+        fullData.addAll(baseSnap.data()!);
+      } else {
+        final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
+        if (oldDocSnap.exists) return oldDocSnap.data();
+        
+        final tasksSnap = await _firestoreDocRef(userId, 'tasks').get();
+        if (tasksSnap.exists) {
+           final historySnap = await _firestoreDocRef(userId, 'history').get();
+           final reflectionsSnap = await _firestoreDocRef(userId, 'reflections').get();
+           final settingsSnap = await _firestoreDocRef(userId, 'settings').get();
+           final financeSnap = await _firestoreDocRef(userId, 'finance').get();
+           final healthSnap = await _firestoreDocRef(userId, 'health').get();
 
-      if (hasNewData) {
-        Map<String, dynamic> fullData = {};
-        if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
-        if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
-        if (historySnap.exists) fullData.addAll(historySnap.data()!);
-        if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-        if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
-        if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
-        return fullData;
+           if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
+           if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
+           if (historySnap.exists) fullData.addAll(historySnap.data()!);
+           if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
+           if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
+           if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
+           return fullData;
+        }
+        return null;
       }
 
-      final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
-      if (oldDocSnap.exists) {
-        return oldDocSnap.data();
+      final tasksCol = await _firestore.collection(_userCollection).doc(userId).collection('tasks_backup').get();
+      if (tasksCol.docs.isNotEmpty) {
+        fullData['mainTasks'] = tasksCol.docs.map((doc) => doc.data()).toList();
       }
 
-      return null;
+      final historyCol = await _firestore.collection(_userCollection).doc(userId).collection('history_backup').get();
+      if (historyCol.docs.isNotEmpty) {
+        fullData['completedByDay'] = {};
+        for (var doc in historyCol.docs) {
+          fullData['completedByDay'][doc.id] = doc.data();
+        }
+      }
+
+      final refCol = await _firestore.collection(_userCollection).doc(userId).collection('reflections_backup').get();
+      if (refCol.docs.isNotEmpty) {
+        fullData['reflectionLogs'] = refCol.docs.map((doc) => doc.data()).toList();
+      }
+
+      return fullData;
     } catch (e) {
       return null;
     }
   }
 
+  // Bypassing 1MB Document Limits by aggressively chunking the entire JSON payload to subcollections
   Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
     if (userId.isEmpty) return false;
 
-    final tasksData = <String, dynamic>{};
-    if (fullData.containsKey('mainTasks')) tasksData['mainTasks'] = fullData['mainTasks'];
-
-    final historyData = <String, dynamic>{};
-    if (fullData.containsKey('completedByDay')) historyData['completedByDay'] = fullData['completedByDay'];
-
-    final reflectionsData = <String, dynamic>{};
-    if (fullData.containsKey('reflectionLogs')) reflectionsData['reflectionLogs'] = fullData['reflectionLogs'];
-
-    final financeData = <String, dynamic>{};
-    if (fullData.containsKey('transactions')) financeData['transactions'] = fullData['transactions'];
-    if (fullData.containsKey('categories')) financeData['categories'] = fullData['categories'];
-    if (fullData.containsKey('savingsGoals')) financeData['savingsGoals'] = fullData['savingsGoals'];
-
-    final healthData = <String, dynamic>{};
-    if (fullData.containsKey('foodItems')) healthData['foodItems'] = fullData['foodItems'];
-    if (fullData.containsKey('healthLogs')) healthData['healthLogs'] = fullData['healthLogs'];
-
-    final settingsData = Map<String, dynamic>.from(fullData);
-    settingsData.remove('mainTasks');
-    settingsData.remove('completedByDay');
-    settingsData.remove('reflectionLogs');
-    settingsData.remove('transactions');
-    settingsData.remove('categories');
-    settingsData.remove('savingsGoals');
-    settingsData.remove('foodItems');
-    settingsData.remove('healthLogs');
-
     try {
-      final batch = _firestore.batch();
-      batch.set(_firestoreDocRef(userId, _docTasks), tasksData);
-      batch.set(_firestoreDocRef(userId, _docHistory), historyData);
-      batch.set(_firestoreDocRef(userId, _docReflections), reflectionsData);
-      batch.set(_firestoreDocRef(userId, _docSettings), settingsData);
-      batch.set(_firestoreDocRef(userId, _docFinance), financeData);
-      batch.set(_firestoreDocRef(userId, _docHealth), healthData);
-      await batch.commit();
+      final jsonStr = jsonEncode(fullData);
+      
+      // Fix for "RESOURCE_EXHAUSTED Quota exceeded":
+      // Reduce chunk size to 250000 chars (< 0.5 MB) to stay safely below the 1MB document limit.
+      // Additionally, write sequentially instead of using a single massive batch to avoid batch limits.
+      final chunkSize = 250000; 
+      final chunks = <String>[];
+      
+      for (int i = 0; i < jsonStr.length; i += chunkSize) {
+        chunks.add(jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize));
+      }
+
+      final backupRef = _firestore.collection(_userCollection).doc(userId).collection('backups').doc('latest');
+      
+      // 1. Write each chunk sequentially to avoid rate limits
+      for (int i = 0; i < chunks.length; i++) {
+        final chunkRef = backupRef.collection('chunks').doc('chunk_$i');
+        await chunkRef.set({'data': chunks[i]});
+        await Future.delayed(const Duration(milliseconds: 150)); 
+      }
+      
+      // 2. Write the metadata document LAST so it's only valid if all chunks succeeded
+      await backupRef.set({
+        'timestamp': FieldValue.serverTimestamp(),
+        'chunksCount': chunks.length,
+      });
+
       return true;
     } catch (e) {
+      debugPrint("Firestore backup failed: $e");
       return false;
     }
   }
@@ -14757,18 +14844,11 @@ class StorageService {
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      // Clear RTDB
-      await _rtdb.ref('users/$userId/data').remove();
+      await _rtdb.ref('users/$userId').remove();
 
-      // Clear Firestore
       final batch = _firestore.batch();
       batch.delete(_firestoreDocRef(userId, _gameStateDocId));
-      batch.delete(_firestoreDocRef(userId, _docTasks));
-      batch.delete(_firestoreDocRef(userId, _docHistory));
-      batch.delete(_firestoreDocRef(userId, _docReflections));
-      batch.delete(_firestoreDocRef(userId, _docSettings));
-      batch.delete(_firestoreDocRef(userId, _docFinance));
-      batch.delete(_firestoreDocRef(userId, _docHealth));
+      batch.delete(_firestoreDocRef(userId, 'base_state'));
       await batch.commit();
       
       return true;
@@ -14777,7 +14857,7 @@ class StorageService {
     }
   }
 
-  // --- Historical Archives (Remain in Firestore) ---
+  // --- Historical Archives ---
 
   Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
@@ -16017,13 +16097,14 @@ class _KeepAliveWrapperState extends State<KeepAliveWrapper>
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
   final VoidCallback? onOpenPersona; 
-  final Widget? customAction; // Added to support injecting Settings button
+  final Widget? customAction; 
 
   const HeaderWidget(
       {super.key, required this.currentViewLabel, this.onOpenPersona, this.customAction});
@@ -16076,28 +16157,39 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       ),
       centerTitle: true,
       actions: <Widget>[
-        if (appProvider.loadingTaskName != null) ...[
+        if (appProvider.loadingTaskName != null || appProvider.isSyncing) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: JweTheme.accentCyan.withOpacity(0.1),
+              border: Border.all(color: JweTheme.accentCyan, width: 1),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  width: 12, height: 12,
+                const SizedBox(
+                  width: 10, height: 10,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.fhAccentTeal),
+                    valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentCyan),
                   ),
                 ),
+                const SizedBox(width: 6),
+                Text(
+                  appProvider.loadingTaskName != null ? "AI PROCESSING" : "SYNCING",
+                  style: const TextStyle(
+                    color: JweTheme.accentCyan,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'RobotoMono'
+                  ),
+                )
               ],
             ),
           ),
           const SizedBox(width: 8),
         ],
 
-        // Removed Balance Widget from Header
-
-        // Custom Action (e.g., Settings on Wallet tab)
         if (customAction != null)
           customAction!,
 
@@ -35704,7 +35796,7 @@ if "%OS%"=="Windows_NT" endlocal
 --- START OF FILE android/local.properties ---
 sdk.dir=/home/ihjas/Android/Sdk
 flutter.sdk=/mnt/sda2/home/flutter
-flutter.buildMode=release
+flutter.buildMode=debug
 flutter.versionName=2026.1.25
 flutter.versionCode=712
 --- END OF FILE android/local.properties ---

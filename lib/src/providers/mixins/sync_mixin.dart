@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Handles Cloud Synchronization and Local Persistence
 mixin SyncMixin on ChangeNotifier {
   final StorageService _storageService = StorageService();
   final LocalStorageService _localStorageService = LocalStorageService();
@@ -25,7 +23,8 @@ mixin SyncMixin on ChangeNotifier {
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
 
-  // Dependencies to be implemented by AppProvider
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+
   User? get currentUser;
   AppSettings get settings;
   Map<String, dynamic> getFullAppState(); 
@@ -47,15 +46,10 @@ mixin SyncMixin on ChangeNotifier {
     _rtdbSubscription?.cancel();
     if (currentUser == null) return;
     
-    _rtdbSubscription = _storageService.watchUserData(currentUser!.uid).listen((cloudData) {
-      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops
-      if (cloudData.isNotEmpty) {
-        int cloudTs = cloudData['settings']?['lastModified'] ?? 0;
-        if (cloudTs > settings.lastModified) {
-          loadStateFromMap(cloudData);
-          _saveLocalSnapshot();
-          notifyListeners();
-        }
+    _rtdbSubscription = _storageService.watchLastModified(currentUser!.uid).listen((remoteTs) async {
+      if (_isSyncing || _isManuallyLoading) return;
+      if (remoteTs > settings.lastModified) {
+        await manuallyLoadFromCloud();
       }
     });
   }
@@ -72,17 +66,23 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   void markDirty(String collection) {
+    settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); // Always persist locally immediately for absolute offline-first behavior
+    _saveLocalSnapshot(); 
     notifyListeners();
   }
 
   void scheduleRealtimeSync() {
-    _hasUnsavedChanges = true;
     _saveLocalSnapshot();
-    if (settings.autoSaveEnabled) {
+    if (settings.autoSaveEnabled && _hasUnsavedChanges) {
       notifyListeners();
+    }
+  }
+
+  Future<void> syncIfDirty() async {
+    if (_hasUnsavedChanges) {
+      await _performActualSave();
     }
   }
 
@@ -101,12 +101,9 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
-  // --- Realtime DB Methods ---
-
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
     await _performActualSave(force: true);
-    await performFirestoreBackup();
   }
 
   Future<void> manuallyLoadFromCloud() async {
@@ -129,13 +126,19 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<void> _performActualSave({bool force = false}) async {
     if (currentUser == null) return;
-    if (_isSyncing) return; // Lock
+    if (_isSyncing) return; 
 
     _isSyncing = true;
-    notifyListeners(); // Shows compact indicator
+    notifyListeners();
 
     try {
-      settings.lastModified = DateTime.now().millisecondsSinceEpoch;
+      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
+      if (remoteTs > settings.lastModified) {
+        _isSyncing = false;
+        await manuallyLoadFromCloud();
+        return;
+      }
+
       final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
@@ -165,7 +168,6 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // Pushing to Realtime Database incrementally
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }
@@ -186,6 +188,7 @@ mixin SyncMixin on ChangeNotifier {
       }
 
       if (success) {
+        await _storageService.setLastModified(currentUser!.uid, settings.lastModified);
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();
@@ -195,36 +198,6 @@ mixin SyncMixin on ChangeNotifier {
       debugPrint("Cloud Sync Error: $e");
     } finally {
       _isSyncing = false;
-      notifyListeners();
-    }
-  }
-
-  // --- Firestore Backup Methods ---
-
-  Future<void> performFirestoreBackup() async {
-    if (currentUser == null) return;
-    try {
-      final appData = getFullAppState();
-      await _storageService.backupToFirestore(currentUser!.uid, appData);
-    } catch (e) {
-      debugPrint("Firestore backup failed: $e");
-    }
-  }
-
-  Future<void> restoreFromFirestoreBackup() async {
-    if (currentUser == null) return;
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final cloudData = await _storageService.getFirestoreBackup(currentUser!.uid);
-      if (cloudData != null) {
-        loadStateFromMap(cloudData);
-        _hasUnsavedChanges = true;
-        await _saveLocalSnapshot(forceFlush: true);
-        await _performActualSave(force: true); // Push restored data to RTDB immediately
-      }
-    } finally {
-      _isManuallyLoading = false;
       notifyListeners();
     }
   }

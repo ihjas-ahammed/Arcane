@@ -1,17 +1,24 @@
 Make the following changes:
 
-    - Fix Data Sync:
-        I had gotten API Key error when I create a new user like my api key is exposed (help me setup gitgnore)
+    - Update AI Prompts:
+        Add the following element to Startup Note, Briefing and Insight:
+            Make it work in an optimistic way, like yk something bad happened and let AI help in finding something good from it
+            ALso make sure all this reports get access to previous data, as for both berifing it should have access to entire reflections, as for insight give access to last week reflections
+            but make sure the output focus on the present
+        
+        Update briefing:
+            Allow it to mention people names, both main and weekly
+    Update startup report:
+            Replace the system status by using another progress bar:
+                Relative increase and decrease in the xp of each well-being elements (since it was calculated only for last 7 days data)
 
-        Make the app work offline, like by default our app is offline, and every cloud activity is async and only indicated by that loading screen in action bar
+    Update wellbeing info alert:
+            Along with 7-DAY MOMENTUM, below it add a graph of current well being card (decrease and increase in last 7 days) (similar to our work-sleep curved graph)
 
-        Fix that I had lost all data when I try to login as a new user
+    Remove firestore recovery backup (because it didnt work because of quota issue anyway)
+        
+    
 
-        Also fix firestore backup, make it by chunks becuase there was a limit of 1MB at a time
-
-        also if there was such a limit for realtimedb, do the same make the cloud sync work in chunks
-
-        Main task is to make initial loading so quick that app just works offline very well 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

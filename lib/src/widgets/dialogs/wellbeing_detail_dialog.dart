@@ -3,17 +3,20 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:arcane/src/widgets/charts/wellbeing_trend_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class WellbeingDetailDialog extends StatelessWidget {
   final Skill skill;
   final int xpGainedToday;
+  final Map<int, double> weeklyXp;
 
   const WellbeingDetailDialog({
     super.key,
     required this.skill,
     required this.xpGainedToday,
+    required this.weeklyXp,
   });
 
   @override
@@ -122,6 +125,8 @@ class WellbeingDetailDialog extends StatelessWidget {
                 ],
               ),
             ),
+            
+            WellbeingTrendChart(weeklyXp: weeklyXp, color: color),
             
             const SizedBox(height: 32),
             SizedBox(

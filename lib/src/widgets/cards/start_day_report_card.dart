@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/system_metric_widget.dart';
+import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
 import 'package:arcane/src/widgets/ui/tactical_directives_list.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -19,15 +19,8 @@ class StartDayReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Legacy support or fallback if fields missing
     final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal. Ready for input.";
     
-    final metricsRaw = report['metrics'] as List<dynamic>?;
-    List<Map<String, dynamic>> metrics = [];
-    if (metricsRaw != null) {
-      metrics = metricsRaw.map((e) => e as Map<String, dynamic>).toList();
-    }
-
     final directivesRaw = (report['directives'] as List<dynamic>?) ?? (report['projected_ops'] as List<dynamic>?);
     final directives = directivesRaw?.map((e) => e.toString()).toList() ?? [];
 
@@ -123,37 +116,10 @@ class StartDayReportCard extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // METRICS & DIRECTIVES GRID (Responsive logic via Column for mobile)
-                if (metrics.isNotEmpty) ...[
-                  const Text(
-                    "SYSTEM STATUS",
-                    style: TextStyle(
-                      color: AppTheme.fhTextSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...metrics.map((m) {
-                    Color? c;
-                    if (m['color_hex'] != null) {
-                      try {
-                        String hex = m['color_hex'].toString().replaceAll('#', '');
-                        c = Color(int.parse("0xFF$hex"));
-                      } catch (_) {}
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: SystemMetricWidget(
-                        label: m['label'] ?? 'Metric',
-                        value: (m['value'] as num? ?? 50).toInt(),
-                        color: c,
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 20),
-                ],
+                // NEW COMPACT JWE DIVERGING BAR CHART
+                const StartupWellbeingMetrics(),
+                
+                const SizedBox(height: 20),
 
                 // DIRECTIVES
                 if (directives.isNotEmpty)

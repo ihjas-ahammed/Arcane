@@ -14,11 +14,9 @@ class ReportActions {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
-    // Gather Reflections Context
     final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
 
-    // Gather Sessions Context
     final sessionsStrBuffer = StringBuffer();
     for (var task in _provider.mainTasks) {
       for (var sub in task.subTasks) {
@@ -36,18 +34,17 @@ class ReportActions {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
+        modelCandidates: _provider.settings.heavyModels, 
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ReportAI] $msg"),
       );
 
-      // Save report to today's history via Provider method
       final today = getTodayDateString();
       _provider.saveStartDayReport(today, result);
 
-      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+      return [];
 
     } catch (e) {
       debugPrint("Error generating start day report: $e");

@@ -53,8 +53,8 @@ class AIService {
   }
 
   Future<Map<String, dynamic>> makeAICall({
-    String? prompt, // Keeping for backward compatibility where only text is needed
-    List<genai.Part>? parts, // Multi-modal input
+    String? prompt, 
+    List<genai.Part>? parts, 
     required List<String> modelCandidates,
     List<String>? customApiKeys,
     required int currentApiKeyIndex,
@@ -84,9 +84,8 @@ class AIService {
       );
     } catch (e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) {
-        // Fallback structures so the app doesn't crash without an API key
         if (prompt != null && prompt.contains("System Start-Up Sequence")) {
-          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "metrics": [], "directives": ["Add your Gemini API Key in Settings."] };
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "directives": ["Add your Gemini API Key in Settings."] };
         }
         return {};
       }
@@ -329,7 +328,7 @@ class AIService {
     required String reason,
     required String action,
     required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
+    String? recentContext,
     List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
@@ -343,9 +342,12 @@ class AIService {
     Reason: $reason
     Action Planned: $action
     
+    Recent Context (Last 7 Days):
+    ${recentContext ?? 'No recent context available.'}
+    
     1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    2. Adopt an optimistic perspective (e.g., finding the silver lining or growth opportunity in bad situations). Focus on present actionability. Use recent context to understand patterns, but keep your feedback focused on THIS specific log.
+    3. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
 
     Output JSON: {
       "feedback": "string", 
@@ -434,6 +436,7 @@ class AIService {
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
     required List<String> previousBriefings,
+    required String fullContext,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -443,16 +446,16 @@ class AIService {
     final prompt = """
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
+    Entire Reflection History (Context): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     
     Tone: Empathetic, psychologically wise, therapist.
     
     Task:
-    1. Create a concise summary.
+    1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. Extract people to be grateful for based on today's logs.
+    3. Extract people to be grateful for based on today's logs (You MAY use their real names).
     4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 120 words)",
@@ -483,8 +486,8 @@ class AIService {
   }) async {
     final prompt = """
     Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
-    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
+    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
+    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
     3. Output JSON: 
     { 
       "summary": "string", 
@@ -546,15 +549,12 @@ class AIService {
     
     Task:
     1. Analyze the user's momentum.
-    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today based on yesterday's logs).
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimistically—help them find the good in recent bad events. Focus on the present day actionability.
+    3. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     
     Output JSON ONLY:
     {
       "forecast": "string",
-      "metrics":[ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.

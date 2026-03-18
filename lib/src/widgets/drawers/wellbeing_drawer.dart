@@ -71,11 +71,25 @@ class WellbeingDrawer extends StatelessWidget {
                   skill: skill,
                   onTap: () {
                     final xpToday = appProvider.get7DayWellbeingMomentum(skill.name) ~/ 7;
+                    
+                    Map<int, double> weeklyXp = {};
+                    for (int i = 6; i >= 0; i--) {
+                      final date = DateTime.now().subtract(Duration(days: i));
+                      double dayXp = 0;
+                      for (var log in appProvider.reflectionLogs) {
+                        if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
+                          dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+                        }
+                      }
+                      weeklyXp[6 - i] = dayXp;
+                    }
+
                     showDialog(
                       context: context,
                       builder: (_) => WellbeingDetailDialog(
                         skill: skill,
                         xpGainedToday: xpToday,
+                        weeklyXp: weeklyXp,
                       ),
                     );
                   },
