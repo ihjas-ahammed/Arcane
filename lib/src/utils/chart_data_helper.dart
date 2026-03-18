@@ -30,7 +30,6 @@ class ChartDataHelper {
       double maxMinsForTask = 0;
 
       if (isToday) {
-        // Live data calculation for today
         for (var task in provider.mainTasks) {
           if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
             continue;
@@ -44,7 +43,6 @@ class ChartDataHelper {
           }
         }
       } else {
-        // Stored data for past days
         final dayData = provider.completedByDay[dateStr];
         if (dayData != null && dayData['taskTimes'] != null) {
           final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
@@ -55,7 +53,6 @@ class ChartDataHelper {
                   MainTask(id: '', name: 'Unknown', description: '', theme: ''),
             );
 
-            // Apply Filter
             if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
               return;
             }
@@ -84,7 +81,7 @@ class ChartDataHelper {
 
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
-          if (selectedVirtueFilter != null && WellbeingTheme.getCategory(k) != selectedVirtueFilter) {
+          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
             return;
           }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
@@ -97,7 +94,7 @@ class ChartDataHelper {
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = WellbeingTheme.getCategoryColor(WellbeingTheme.getCategory(maxVirtue.key));
+        dominantVirtueColor = WellbeingTheme.getColor(maxVirtue.key);
       }
       virtueColors[i] = dominantVirtueColor;
     }

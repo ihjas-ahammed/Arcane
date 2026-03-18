@@ -67,90 +67,96 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
         final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
 
-        return SingleChildScrollView(
-          // Removed top padding to eliminate space above header
-          padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TaskHeaderCard(
-                task: task,
-                yesterdayTime: yesterdayTime,
-                weeklyCompletion: weeklyCompletion,
-              ),
-
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(width: 4, height: 16, color: task.taskColor),
-                        const SizedBox(width: 8),
-                        Text('ACTIVE TASKS',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                                fontFamily: AppTheme.fontDisplay,
-                                color: AppTheme.fhTextPrimary,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0
-                            )),
-                      ],
-                    ),
-                    IconButton(
-                      icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
-                      onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                      tooltip: "New Contract",
-                    )
-                  ],
+        return RefreshIndicator(
+          color: AppTheme.fhAccentTeal,
+          backgroundColor: AppTheme.fhBgDark,
+          onRefresh: () async {
+            await appProvider.performManualSync();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TaskHeaderCard(
+                  task: task,
+                  yesterdayTime: yesterdayTime,
+                  weeklyCompletion: weeklyCompletion,
                 ),
-              ),
 
-              if (activeSubtasks.isEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(24.0),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    color: AppTheme.fhBgDark.withOpacity(0.3)
-                  ),
-                  child: Column(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                          'NO ACTIVE TASKS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                      Row(
+                        children: [
+                          Container(width: 4, height: 16, color: task.taskColor),
+                          const SizedBox(width: 8),
+                          Text('ACTIVE TASKS',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                  fontFamily: AppTheme.fontDisplay,
+                                  color: AppTheme.fhTextPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0
+                              )),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      TextButton(
+                      IconButton(
+                        icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
                         onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                        child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                        tooltip: "New Contract",
                       )
                     ],
                   ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  child: Column(
-                    children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
-                  ),
                 ),
 
-              // Padding inside sections to align with cards
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-              ),
+                if (activeSubtasks.isEmpty)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(24.0),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                      color: AppTheme.fhBgDark.withOpacity(0.3)
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                            'NO ACTIVE TASKS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
+                          child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                        )
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: Column(
+                      children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
+                    ),
+                  ),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
+                ),
 
-              const SizedBox(height: 40),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         );
       },

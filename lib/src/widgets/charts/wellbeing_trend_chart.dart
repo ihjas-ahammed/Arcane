@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:intl/intl.dart';
 
 class WellbeingTrendChart extends StatelessWidget {
   final Map<int, double> weeklyXp;
@@ -40,13 +41,28 @@ class WellbeingTrendChart extends StatelessWidget {
             bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           borderData: FlBorderData(show: false),
-          lineTouchData: const LineTouchData(handleBuiltInTouches: false),
+          lineTouchData: LineTouchData(
+            handleBuiltInTouches: true,
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (group) => JweTheme.panel,
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  final daysAgo = 6 - spot.x.toInt();
+                  final date = DateTime.now().subtract(Duration(days: daysAgo));
+                  return LineTooltipItem(
+                    "${DateFormat('MMM dd').format(date)}\n+${spot.y.toInt()} XP",
+                    TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)
+                  );
+                }).toList();
+              }
+            )
+          ),
           lineBarsData: [
             LineChartBarData(
               spots: spots,
               color: color,
               isCurved: true,
-              dotData: const FlDotData(show: false),
+              dotData: const FlDotData(show: true),
               barWidth: 2,
               belowBarData: BarAreaData(show: true, color: color.withOpacity(0.1)),
             ),

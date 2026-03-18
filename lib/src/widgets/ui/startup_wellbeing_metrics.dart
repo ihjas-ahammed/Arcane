@@ -55,11 +55,11 @@ class StartupWellbeingMetrics extends StatelessWidget {
         const SizedBox(height: 12),
         ...deltas.map((d) {
           final delta = d['delta'] as int;
-          if (delta == 0) return const SizedBox.shrink(); // Only show changed traits to keep compact
+          if (delta == 0) return const SizedBox.shrink(); 
 
           final fraction = (delta.abs() / maxAbsDelta).clamp(0.0, 1.0);
           final isPositive = delta > 0;
-          final color = isPositive ? JweTheme.accentCyan : JweTheme.accentAmber;
+          final color = d['color'] as Color;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 6.0),
@@ -69,7 +69,7 @@ class StartupWellbeingMetrics extends StatelessWidget {
                   width: 80,
                   child: Text(
                     d['name'].toString().toUpperCase(),
-                    style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.rajdhani(color: color, fontSize: 11, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -107,14 +107,6 @@ class StartupWellbeingMetrics extends StatelessWidget {
                     },
                   ),
                 ),
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    "${isPositive ? '+' : ''}$delta",
-                    textAlign: TextAlign.right,
-                    style: GoogleFonts.rajdhani(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                )
               ],
             ),
           );

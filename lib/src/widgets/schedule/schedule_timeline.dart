@@ -59,8 +59,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Filter out short sessions (< 5 mins) to keep UI clean
-    final filtered = entries.where((e) => e.durationSeconds >= 5 * 60).toList();
+    // Show all sessions >= 1 minute (60 seconds) to ensure even the smallest are visible
+    final filtered = entries.where((e) => e.durationSeconds >= 60).toList();
 
     if (filtered.isEmpty) return [];
 
@@ -166,8 +166,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     final startTotalHours =
                         entry.startTime.hour + (entry.startTime.minute / 60.0);
                     final top = startTotalHours * pixelsPerHour;
-                    final height =
-                        (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    final height = rawHeight.clamp(24.0, double.infinity); // Min height to prevent layout breaks
 
                     const double leftGutter = 60.0;
                     // Ensure padding even on narrow screens
@@ -188,7 +188,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       top: top,
                       left: left,
                       width: (widthPerCol - 4).clamp(0.0, double.infinity),
-                      height: height.clamp(20.0, double.infinity), // Min height for vis
+                      height: height,
                       child: GestureDetector(
                         onTap: () => widget.onEditEntry(entry),
                         child: Container(
@@ -203,46 +203,48 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  if (isPredicted)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                          right: 4.0),
-                                      child: Icon(Icons.auto_awesome,
-                                          size: 10, color: borderColor),
+                          // Use ClipRect to ensure text does not overflow out of small height boxes
+                          child: ClipRect(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    if (isPredicted)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            right: 4.0),
+                                        child: Icon(Icons.auto_awesome,
+                                            size: 10, color: borderColor),
+                                      ),
+                                    Expanded(
+                                      child: Text(entry.title,
+                                          style: TextStyle(
+                                              color: isPredicted
+                                                  ? Colors.white70
+                                                  : Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: isPredicted
+                                                  ? FontWeight.normal
+                                                  : FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
                                     ),
-                                  Expanded(
-                                    child: Text(entry.title,
-                                        style: TextStyle(
-                                            color: isPredicted
-                                                ? Colors.white70
-                                                : Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: isPredicted
-                                                ? FontWeight.normal
-                                                : FontWeight.bold),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis),
-                                  ),
-                                ],
-                              ),
-                              if (height > 30) // Only show time if height allows
-                                Text(
-                                  "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                  style: TextStyle(
-                                      color:
-                                          Colors.white.withOpacity(0.7),
-                                      fontSize: 9,
-                                      fontFamily: 'RobotoMono'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                )
-                            ],
+                                  ],
+                                ),
+                                if (height > 32) // Only show time text if height allows without clipping heavily
+                                  Text(
+                                    "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                    style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 9,
+                                        fontFamily: 'RobotoMono'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -144,11 +144,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
       final data = provider.getLast7DaysData();
+      final wellbeingDiff = provider.getWeeklyWellbeingComparison();
       final aiService = provider.aiService;
       
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
         timeStatsText: data['times'] as String,
+        wellbeingStatsText: wellbeingDiff,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,

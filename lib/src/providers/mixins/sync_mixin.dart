@@ -9,8 +9,6 @@ mixin SyncMixin on ChangeNotifier {
   final StorageService _storageService = StorageService();
   final LocalStorageService _localStorageService = LocalStorageService();
   
-  Timer? _autoSaveTimer;
-  StreamSubscription? _rtdbSubscription;
   final Set<String> _dirtyCollections = {};
   bool _hasUnsavedChanges = false;
   
@@ -30,38 +28,15 @@ mixin SyncMixin on ChangeNotifier {
   Map<String, dynamic> getFullAppState(); 
   void loadStateFromMap(Map<String, dynamic> data);
 
-  void initSync() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_hasUnsavedChanges &&
-          currentUser != null &&
-          !_isManuallyLoading &&
-          settings.autoSaveEnabled) {
-        _performActualSave();
-      }
-    });
-  }
+  // App is offline-first. Automatic listeners and sync timers have been removed.
+  void initSync() {}
   
-  void startRealtimeSyncListener() {
-    _rtdbSubscription?.cancel();
-    if (currentUser == null) return;
-    
-    _rtdbSubscription = _storageService.watchLastModified(currentUser!.uid).listen((remoteTs) async {
-      if (_isSyncing || _isManuallyLoading) return;
-      if (remoteTs > settings.lastModified) {
-        await manuallyLoadFromCloud();
-      }
-    });
-  }
+  void startRealtimeSyncListener() {}
 
-  void stopRealtimeSyncListener() {
-    _rtdbSubscription?.cancel();
-  }
+  void stopRealtimeSyncListener() {}
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
-    _rtdbSubscription?.cancel();
     super.dispose();
   }
 
@@ -75,15 +50,10 @@ mixin SyncMixin on ChangeNotifier {
 
   void scheduleRealtimeSync() {
     _saveLocalSnapshot();
-    if (settings.autoSaveEnabled && _hasUnsavedChanges) {
-      notifyListeners();
-    }
   }
 
   Future<void> syncIfDirty() async {
-    if (_hasUnsavedChanges) {
-      await _performActualSave();
-    }
+    // Kept for backward compatibility, currently offline default
   }
 
   Future<void> forceLocalBackup() async {
@@ -101,32 +71,8 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
-  Future<void> manuallySaveToCloud() async {
-    if (currentUser == null) return;
-    await _performActualSave(force: true);
-  }
-
-  Future<void> manuallyLoadFromCloud() async {
-    if (currentUser == null) return;
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final cloudData = await _storageService.getUserData(currentUser!.uid);
-      if (cloudData != null) {
-        loadStateFromMap(cloudData);
-        _hasUnsavedChanges = false;
-        _dirtyCollections.clear();
-        await _saveLocalSnapshot(forceFlush: true);
-      }
-    } finally {
-      _isManuallyLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _performActualSave({bool force = false}) async {
-    if (currentUser == null) return;
-    if (_isSyncing) return; 
+  Future<void> performManualSync() async {
+    if (currentUser == null || _isSyncing) return;
 
     _isSyncing = true;
     notifyListeners();
@@ -134,11 +80,54 @@ mixin SyncMixin on ChangeNotifier {
     try {
       final remoteTs = await _storageService.getLastModified(currentUser!.uid);
       if (remoteTs > settings.lastModified) {
-        _isSyncing = false;
-        await manuallyLoadFromCloud();
-        return;
+        await _manuallyLoadFromCloudInternal();
+      } else if (settings.lastModified > remoteTs || _hasUnsavedChanges) {
+        await _performActualSaveInternal(force: true);
       }
+    } catch (e) {
+      debugPrint("Sync Error: $e");
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
 
+  Future<void> _manuallyLoadFromCloudInternal() async {
+    final cloudData = await _storageService.getUserData(currentUser!.uid);
+    if (cloudData != null) {
+      loadStateFromMap(cloudData);
+      _hasUnsavedChanges = false;
+      _dirtyCollections.clear();
+      await _saveLocalSnapshot(forceFlush: true);
+    }
+  }
+
+  Future<void> manuallySaveToCloud() async {
+    if (currentUser == null) return;
+    _isSyncing = true;
+    notifyListeners();
+    try {
+      await _performActualSaveInternal(force: true);
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> manuallyLoadFromCloud() async {
+    if (currentUser == null) return;
+    _isManuallyLoading = true;
+    notifyListeners();
+    try {
+      await _manuallyLoadFromCloudInternal();
+    } finally {
+      _isManuallyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _performActualSaveInternal({bool force = false}) async {
+    try {
       final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
@@ -196,9 +185,6 @@ mixin SyncMixin on ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Cloud Sync Error: $e");
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
     }
   }
 }

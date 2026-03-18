@@ -478,6 +478,7 @@ class AIService {
   Future<Map<String, dynamic>> generateWeeklyReport({
     required String logsText,
     required String timeStatsText,
+    required String wellbeingStatsText,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -487,16 +488,19 @@ class AIService {
     final prompt = """
     Task:
     1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
-    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
-    3. Output JSON: 
+    2. Compare the user's wellbeing progress to last week. Highlight areas of major growth or decline.
+    3. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
+    4. Output JSON: 
     { 
       "summary": "string", 
+      "wellbeing_analysis": "string",
       "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
       "time_insight": "string",
       "grateful_people": [ {"name": "string", "reason": "string"} ]
     } 
     Logs: $logsText. 
     Time: $timeStatsText. 
+    Wellbeing Progress: $wellbeingStatsText.
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);

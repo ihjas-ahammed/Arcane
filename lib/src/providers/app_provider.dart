@@ -96,14 +96,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (currentUser != null) {
-        syncIfDirty(); 
-      }
-    } else if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
-        _syncWithCloudInBackground(currentUser!.uid);
       }
     }
   }
@@ -119,7 +114,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
-    initSync(); 
     
     fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
@@ -134,10 +128,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         if (localData != null) {
           loadStateFromMap(localData);
         } else {
-          // Completely new local state, wait for cloud sync in background
           await _resetToInitialState();
         }
-        setAuthLoading(false); // Unblocks UI instantly
+        setAuthLoading(false); 
       }
 
       // Background Validation and Maintenance
@@ -146,32 +139,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       await _taskActions.recalibrateTimeLogs(silent: true);
       _handleDailyReset();
       
-      // Fire and forget cloud sync
-      _syncWithCloudInBackground(user.uid);
+      try {
+        await fetchDailyReportsFromCloud();
+      } catch (_) {}
 
     } else {
       setCurrentUser(null);
-      stopRealtimeSyncListener();
       await _resetToInitialState();
       setAuthLoading(false);
     }
-  }
-
-  Future<void> _syncWithCloudInBackground(String uid) async {
-    try {
-      final remoteTs = await _cloudStorage.getLastModified(uid);
-      if (remoteTs > settings.lastModified) {
-        await manuallyLoadFromCloud();
-      } else if (settings.lastModified > remoteTs) {
-        await syncIfDirty();
-      }
-    } catch (_) {} // Gracefully ignore offline cloud errors
-
-    try {
-      await fetchDailyReportsFromCloud();
-    } catch (_) {}
-    
-    startRealtimeSyncListener();
   }
 
   Future<void> fetchDailyReportsFromCloud() async {
@@ -211,7 +187,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
-    // Reset health logs handled by loading empty maps
   }
 
   // --- Mixin Implementations & Legacy Compat ---
@@ -343,7 +318,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     markDirty('reflections');
     markDirty('finance');
     markDirty('health');
-    scheduleRealtimeSync();
   }
 
   Future<void> restoreFromLocalSnapshot(File backupFile) async {
@@ -351,7 +325,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
       loadStateFromMap(data);
-      scheduleRealtimeSync();
     } catch (e) {
       rethrow;
     }
@@ -405,6 +378,33 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
         .join("\n");
     return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+  
+  String getWeeklyWellbeingComparison() {
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (var skill in getBaseWellbeingSkills()) {
+      final curr = currentXp[skill.name] ?? 0;
+      final prev = prevXp[skill.name] ?? 0;
+      if (curr > 0 || prev > 0) {
+        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+      }
+    }
+    return buffer.toString();
   }
 
   Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
@@ -528,7 +528,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (changed) {
         chatbotMemory.people = currentPeople;
         markDirty('settings');
-        scheduleRealtimeSync();
       }
     }
 
@@ -573,7 +572,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   void _fixTimerAnomalies() {
-    // Logic handles in mixin or here if specialized
+    // Handled in mixins
   }
 
   Future<void> _handleDailyReset() async {
@@ -748,51 +747,59 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     
-    final eval = await _aiService.evaluateReflection(
+    // Quick save instantly before insight tracking begins (Failsafe)
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId, timestamp: timestamp ?? DateTime.now(),
       trigger: trigger, emotion: emotion, reason: reason, action: action,
-      modelCandidates: settings.liteModels, 
-      customApiKeys: settings.customApiKeys,
-      recentContext: recentContext,
+      aiFeedback: "Pending AI analysis...", xpGained: {}
     );
-    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
-    
-    final newSkills = List<Skill>.from(skills);
-    for (var entry in xpGained.entries) {
-      if (entry.value > 0) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) skill.addXp(entry.value);
+    setReflectionLogs([...reflectionLogs, log]);
+
+    try {
+      final eval = await _aiService.evaluateReflection(
+        trigger: trigger, emotion: emotion, reason: reason, action: action,
+        modelCandidates: settings.liteModels, 
+        customApiKeys: settings.customApiKeys,
+        recentContext: recentContext,
+      );
+      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      
+      final newSkills = List<Skill>.from(skills);
+      for (var entry in xpGained.entries) {
+        if (entry.value > 0) {
+          final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+          if (skill != null) skill.addXp(entry.value);
+        }
       }
+      setSkills(newSkills);
+
+      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
+      
+      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+    } catch (e) {
+      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
+      rethrow;
     }
-    setSkills(newSkills);
-
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: eval['feedback'] ?? '', xpGained: xpGained
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-    
-    return {'log': log, 'xpGained': xpGained};
   }
 
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) {
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: "Quick Save", xpGained: {}
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-  }
-
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) {
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
-      final log = reflectionLogs[index];
-      if (trigger != null) log.trigger = trigger;
-      if (emotion != null) log.emotion = emotion;
-      if (reason != null) log.reason = reason;
-      if (action != null) log.action = action;
-      setReflectionLogs(List.from(reflectionLogs));
+      final old = reflectionLogs[index];
+      final updated = ReflectionLog(
+        id: old.id,
+        timestamp: old.timestamp,
+        trigger: trigger ?? old.trigger,
+        emotion: emotion ?? old.emotion,
+        reason: reason ?? old.reason,
+        action: action ?? old.action,
+        aiFeedback: aiFeedback ?? old.aiFeedback,
+        xpGained: xpGained ?? old.xpGained,
+      );
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      newLogs[index] = updated;
+      setReflectionLogs(newLogs);
     }
   }
 

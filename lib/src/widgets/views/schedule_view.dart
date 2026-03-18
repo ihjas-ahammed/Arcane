@@ -8,6 +8,8 @@ import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/utils/task_calculations.dart';
@@ -387,6 +389,22 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
               provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onTitleTap: () {
+            if (nextMainTask != null && nextSubTask != null) {
+              if (nextCheckpoint != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                  mainTaskId: nextMainTask!.id,
+                  parentSubTaskId: nextSubTask!.id,
+                  checkpointId: nextCheckpoint!.id,
+                )));
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
+                  parentTask: nextMainTask!,
+                  subTask: nextSubTask!,
+                )));
+              }
             }
           },
         ),

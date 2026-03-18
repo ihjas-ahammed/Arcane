@@ -19,22 +19,15 @@ class WellbeingPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Map<String, int> categoryTotals = {
-      'Emotional': 0,
-      'Psychological': 0,
-      'Social & Purpose': 0,
-      'Vitality & Growth': 0,
-    };
+    Map<String, int> categoryTotals = {};
     
     for (var log in logs) {
       log.xpGained.forEach((key, value) {
         if (value > 0) {
-           String cat = WellbeingTheme.getCategory(key);
-           categoryTotals[cat] = (categoryTotals[cat] ?? 0) + value;
+           categoryTotals[key] = (categoryTotals[key] ?? 0) + value;
         }
       });
     }
-    categoryTotals.removeWhere((key, value) => value <= 0);
 
     if (categoryTotals.isEmpty) {
       return Center(
@@ -62,9 +55,11 @@ class WellbeingPieChart extends StatelessWidget {
       centerTopText = selectedVirtue!.toUpperCase();
       if (centerTopText.contains(' ')) {
         centerTopText = centerTopText.replaceAll(' ', '\n');
+      } else if (centerTopText.contains('-')) {
+        centerTopText = centerTopText.replaceAll('-', '-\n');
       }
       centerBottomText = "+${categoryTotals[selectedVirtue]}";
-      centerColor = WellbeingTheme.getCategoryColor(selectedVirtue!);
+      centerColor = WellbeingTheme.getColor(selectedVirtue!);
     }
 
     return Stack(
@@ -77,7 +72,7 @@ class WellbeingPieChart extends StatelessWidget {
             sections: entries.map((e) {
               final isSelected = e.key == selectedVirtue;
               return PieChartSectionData(
-                color: WellbeingTheme.getCategoryColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                color: WellbeingTheme.getColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
                 value: e.value.toDouble(),
                 title: '',
                 radius: isSelected ? 20 : 15,

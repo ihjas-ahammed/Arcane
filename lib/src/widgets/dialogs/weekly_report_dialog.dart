@@ -14,6 +14,7 @@ class WeeklyReportDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = reportData['summary'] as String? ?? "No summary available.";
+    final wellbeingAnalysis = reportData['wellbeing_analysis'] as String? ?? "";
     final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
     final timeInsight = reportData['time_insight'] as String? ?? "";
     final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
@@ -126,9 +127,31 @@ class WeeklyReportDialog extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
+                    if (wellbeingAnalysis.isNotEmpty) ...[
+                        _SectionHeader(title: "WELL-BEING TRAJECTORY", icon: MdiIcons.heartPulse, delay: 350),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                            border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                          ),
+                          child: Text(
+                            wellbeingAnalysis,
+                            style: const TextStyle(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: 400.ms, duration: 500.ms),
+                        const SizedBox(height: 32),
+                    ],
+
                     // Abilities Section
                     if (abilities.isNotEmpty) ...[
-                      _SectionHeader(title: "KEY IMPROVEMENTS", icon: MdiIcons.arrowUpBoldCircleOutline, delay: 400),
+                      _SectionHeader(title: "KEY IMPROVEMENTS", icon: MdiIcons.arrowUpBoldCircleOutline, delay: 450),
                       const SizedBox(height: 12),
                       ...abilities.asMap().entries.map((entry) {
                         final index = entry.key;

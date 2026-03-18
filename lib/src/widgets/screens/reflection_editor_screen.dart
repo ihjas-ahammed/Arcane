@@ -128,20 +128,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       return;
     }
 
-    // New Log
-    if (!analyze) {
-      appProvider.quickSaveReflection(
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-        action: _actionController.text.trim(),
-        timestamp: _selectedDateTime,
-      );
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
-      return;
-    }
-
     setState(() => _isLoading = true);
     
     try {
@@ -153,6 +139,14 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
           timestamp: _selectedDateTime,
         );
 
+        if (!analyze) {
+           if (mounted) {
+             Navigator.pop(context);
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved locally.")));
+           }
+           return;
+        }
+
         final xpGained = result['xpGained'] as Map<String, int>;
         final log = result['log'] as ReflectionLog?;
         final feedback = log?.aiFeedback ?? "";
@@ -160,19 +154,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP + Insight Dialog
           await showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.85),
             builder: (ctx) => XpGainDialog(
               xpGained: xpGained,
-              insightText: feedback, // Pass feedback text
+              insightText: feedback, 
             ),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+          // Log was already saved pre-emptively inside processReflection
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Saved locally. AI Analysis failed: $e")));
+          Navigator.pop(context);
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);

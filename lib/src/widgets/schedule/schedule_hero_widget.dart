@@ -17,6 +17,7 @@ class ScheduleHeroWidget extends StatelessWidget {
   final VoidCallback onOpenPlan;
   final VoidCallback onPostpone;
   final VoidCallback onFinishCheckpoint;
+  final VoidCallback onTitleTap; // Added click action callback
 
   const ScheduleHeroWidget({
     super.key,
@@ -29,6 +30,7 @@ class ScheduleHeroWidget extends StatelessWidget {
     required this.onOpenPlan,
     required this.onPostpone,
     required this.onFinishCheckpoint,
+    required this.onTitleTap,
   });
 
   @override
@@ -105,54 +107,65 @@ class ScheduleHeroWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
-                        style: GoogleFonts.chakraPetch(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          height: 1.1,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  child: InkWell(
+                    onTap: isEmpty ? null : onTitleTap,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.05),
+                        border: Border(left: BorderSide(color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.5), width: 2)),
                       ),
-                      const SizedBox(height: 6),
-                      if (!isEmpty)
-                        Text(
-                          isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
-                          style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
+                            style: GoogleFonts.chakraPetch(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              height: 1.1,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        
-                      if (!isCheckpoint && !isEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
-                            const SizedBox(width: 4),
+                          const SizedBox(height: 6),
+                          if (!isEmpty)
                             Text(
-                              "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
-                              style: const TextStyle(
-                                fontFamily: "RobotoMono",
+                              isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
+                              style: TextStyle(
                                 color: AppTheme.fhTextSecondary,
                                 fontSize: 10,
-                                fontWeight: FontWeight.bold
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppTheme.fontDisplay,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            
+                          if (!isCheckpoint && !isEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
+                                  style: const TextStyle(
+                                    fontFamily: "RobotoMono",
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                )
+                              ],
                             )
-                          ],
-                        )
-                      ]
-                    ],
+                          ]
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 

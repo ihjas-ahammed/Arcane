@@ -3,8 +3,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ReflectionProgressWidget extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -38,6 +38,12 @@ class ReflectionProgressWidget extends StatelessWidget {
       else if (h >= 16 && h < 19) eve = true;
       else if (h >= 19 && h <= 23) night = true;
     }
+
+    // Auto-fill logic
+    if (night) { eve = true; aft = true; morn = true; wake = true; }
+    else if (eve) { aft = true; morn = true; wake = true; }
+    else if (aft) { morn = true; wake = true; }
+    else if (morn) { wake = true; }
 
     final total = [wake, morn, aft, eve, night].where((e) => e).length;
 

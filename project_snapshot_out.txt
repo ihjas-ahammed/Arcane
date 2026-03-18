@@ -2324,7 +2324,7 @@ flutter:
 --- END OF FILE targets.md ---
 
 --- START OF FILE future.md ---
-- 
+
 --- END OF FILE future.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
@@ -4779,14 +4779,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (currentUser != null) {
-        syncIfDirty(); 
-      }
-    } else if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
-        _syncWithCloudInBackground(currentUser!.uid);
       }
     }
   }
@@ -4802,7 +4797,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
-    initSync(); 
     
     fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
@@ -4817,10 +4811,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         if (localData != null) {
           loadStateFromMap(localData);
         } else {
-          // Completely new local state, wait for cloud sync in background
           await _resetToInitialState();
         }
-        setAuthLoading(false); // Unblocks UI instantly
+        setAuthLoading(false); 
       }
 
       // Background Validation and Maintenance
@@ -4829,32 +4822,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       await _taskActions.recalibrateTimeLogs(silent: true);
       _handleDailyReset();
       
-      // Fire and forget cloud sync
-      _syncWithCloudInBackground(user.uid);
+      try {
+        await fetchDailyReportsFromCloud();
+      } catch (_) {}
 
     } else {
       setCurrentUser(null);
-      stopRealtimeSyncListener();
       await _resetToInitialState();
       setAuthLoading(false);
     }
-  }
-
-  Future<void> _syncWithCloudInBackground(String uid) async {
-    try {
-      final remoteTs = await _cloudStorage.getLastModified(uid);
-      if (remoteTs > settings.lastModified) {
-        await manuallyLoadFromCloud();
-      } else if (settings.lastModified > remoteTs) {
-        await syncIfDirty();
-      }
-    } catch (_) {} // Gracefully ignore offline cloud errors
-
-    try {
-      await fetchDailyReportsFromCloud();
-    } catch (_) {}
-    
-    startRealtimeSyncListener();
   }
 
   Future<void> fetchDailyReportsFromCloud() async {
@@ -4894,7 +4870,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
-    // Reset health logs handled by loading empty maps
   }
 
   // --- Mixin Implementations & Legacy Compat ---
@@ -5026,7 +5001,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     markDirty('reflections');
     markDirty('finance');
     markDirty('health');
-    scheduleRealtimeSync();
   }
 
   Future<void> restoreFromLocalSnapshot(File backupFile) async {
@@ -5034,7 +5008,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
       loadStateFromMap(data);
-      scheduleRealtimeSync();
     } catch (e) {
       rethrow;
     }
@@ -5088,6 +5061,33 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
         .join("\n");
     return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+  
+  String getWeeklyWellbeingComparison() {
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (var skill in getBaseWellbeingSkills()) {
+      final curr = currentXp[skill.name] ?? 0;
+      final prev = prevXp[skill.name] ?? 0;
+      if (curr > 0 || prev > 0) {
+        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+      }
+    }
+    return buffer.toString();
   }
 
   Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
@@ -5149,9 +5149,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
     
+    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
+      fullContext: allLogsContext,
       modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
@@ -5159,7 +5162,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       onLog: (m) => debugPrint(m)
     );
 
-    // Auto-capture newly identified grateful assets
     if (result['grateful_assets'] != null) {
       final extracted = result['grateful_assets'] as List<dynamic>;
       final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
@@ -5190,7 +5192,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (changed) updateGratitudeList(currentAssets);
     }
 
-    // Auto-capture newly identified grateful people
     if (result['grateful_people'] != null) {
       final extracted = result['grateful_people'] as List<dynamic>;
       final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
@@ -5210,7 +5211,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (changed) {
         chatbotMemory.people = currentPeople;
         markDirty('settings');
-        scheduleRealtimeSync();
       }
     }
 
@@ -5255,7 +5255,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   void _fixTimerAnomalies() {
-    // Logic handles in mixin or here if specialized
+    // Handled in mixins
   }
 
   Future<void> _handleDailyReset() async {
@@ -5426,50 +5426,63 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
-    final eval = await _aiService.evaluateReflection(
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      modelCandidates: settings.liteModels, 
-      customApiKeys: settings.customApiKeys
-    );
-    final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     
-    final newSkills = List<Skill>.from(skills);
-    for (var entry in xpGained.entries) {
-      if (entry.value > 0) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) skill.addXp(entry.value);
+    // Quick save instantly before insight tracking begins (Failsafe)
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId, timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Pending AI analysis...", xpGained: {}
+    );
+    setReflectionLogs([...reflectionLogs, log]);
+
+    try {
+      final eval = await _aiService.evaluateReflection(
+        trigger: trigger, emotion: emotion, reason: reason, action: action,
+        modelCandidates: settings.liteModels, 
+        customApiKeys: settings.customApiKeys,
+        recentContext: recentContext,
+      );
+      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      
+      final newSkills = List<Skill>.from(skills);
+      for (var entry in xpGained.entries) {
+        if (entry.value > 0) {
+          final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
+          if (skill != null) skill.addXp(entry.value);
+        }
       }
+      setSkills(newSkills);
+
+      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
+      
+      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+    } catch (e) {
+      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
+      rethrow;
     }
-    setSkills(newSkills);
-
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: eval['feedback'] ?? '', xpGained: xpGained
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-    
-    return {'log': log, 'xpGained': xpGained};
   }
 
-  void quickSaveReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) {
-    final log = ReflectionLog(
-      id: const Uuid().v4(), timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: "Quick Save", xpGained: {}
-    );
-    setReflectionLogs([...reflectionLogs, log]);
-  }
-
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action}) {
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
-      final log = reflectionLogs[index];
-      if (trigger != null) log.trigger = trigger;
-      if (emotion != null) log.emotion = emotion;
-      if (reason != null) log.reason = reason;
-      if (action != null) log.action = action;
-      setReflectionLogs(List.from(reflectionLogs));
+      final old = reflectionLogs[index];
+      final updated = ReflectionLog(
+        id: old.id,
+        timestamp: old.timestamp,
+        trigger: trigger ?? old.trigger,
+        emotion: emotion ?? old.emotion,
+        reason: reason ?? old.reason,
+        action: action ?? old.action,
+        aiFeedback: aiFeedback ?? old.aiFeedback,
+        xpGained: xpGained ?? old.xpGained,
+      );
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      newLogs[index] = updated;
+      setReflectionLogs(newLogs);
     }
   }
 
@@ -6480,11 +6493,9 @@ class ReportActions {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
-    // Gather Reflections Context
     final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
 
-    // Gather Sessions Context
     final sessionsStrBuffer = StringBuffer();
     for (var task in _provider.mainTasks) {
       for (var sub in task.subTasks) {
@@ -6502,18 +6513,17 @@ class ReportActions {
       final result = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.heavyModels, // Using Pro Models
+        modelCandidates: _provider.settings.heavyModels, 
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ReportAI] $msg"),
       );
 
-      // Save report to today's history via Provider method
       final today = getTodayDateString();
       _provider.saveStartDayReport(today, result);
 
-      return (result['value_updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+      return [];
 
     } catch (e) {
       debugPrint("Error generating start day report: $e");
@@ -7782,13 +7792,10 @@ import 'package:arcane/src/services/storage_service.dart';
 import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Handles Cloud Synchronization and Local Persistence
 mixin SyncMixin on ChangeNotifier {
   final StorageService _storageService = StorageService();
   final LocalStorageService _localStorageService = LocalStorageService();
   
-  Timer? _autoSaveTimer;
-  StreamSubscription? _rtdbSubscription;
   final Set<String> _dirtyCollections = {};
   bool _hasUnsavedChanges = false;
   
@@ -7803,45 +7810,20 @@ mixin SyncMixin on ChangeNotifier {
 
   bool get hasUnsavedChanges => _hasUnsavedChanges;
 
-  // Dependencies to be implemented by AppProvider
   User? get currentUser;
   AppSettings get settings;
   Map<String, dynamic> getFullAppState(); 
   void loadStateFromMap(Map<String, dynamic> data);
 
-  void initSync() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_hasUnsavedChanges &&
-          currentUser != null &&
-          !_isManuallyLoading &&
-          settings.autoSaveEnabled) {
-        _performActualSave();
-      }
-    });
-  }
+  // App is offline-first. Automatic listeners and sync timers have been removed.
+  void initSync() {}
   
-  void startRealtimeSyncListener() {
-    _rtdbSubscription?.cancel();
-    if (currentUser == null) return;
-    
-    // Instead of listening to entire data payload, listen to the lightweight timestamp
-    _rtdbSubscription = _storageService.watchLastModified(currentUser!.uid).listen((remoteTs) async {
-      if (_isSyncing || _isManuallyLoading) return; // Prevent echo loops
-      if (remoteTs > settings.lastModified) {
-        await manuallyLoadFromCloud();
-      }
-    });
-  }
+  void startRealtimeSyncListener() {}
 
-  void stopRealtimeSyncListener() {
-    _rtdbSubscription?.cancel();
-  }
+  void stopRealtimeSyncListener() {}
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
-    _rtdbSubscription?.cancel();
     super.dispose();
   }
 
@@ -7849,21 +7831,16 @@ mixin SyncMixin on ChangeNotifier {
     settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); // Always persist locally immediately for absolute offline-first behavior
+    _saveLocalSnapshot(); 
     notifyListeners();
   }
 
   void scheduleRealtimeSync() {
     _saveLocalSnapshot();
-    if (settings.autoSaveEnabled && _hasUnsavedChanges) {
-      notifyListeners();
-    }
   }
 
   Future<void> syncIfDirty() async {
-    if (_hasUnsavedChanges) {
-      await _performActualSave();
-    }
+    // Kept for backward compatibility, currently offline default
   }
 
   Future<void> forceLocalBackup() async {
@@ -7881,12 +7858,47 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
-  // --- Realtime DB Methods ---
+  Future<void> performManualSync() async {
+    if (currentUser == null || _isSyncing) return;
+
+    _isSyncing = true;
+    notifyListeners();
+
+    try {
+      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
+      if (remoteTs > settings.lastModified) {
+        await _manuallyLoadFromCloudInternal();
+      } else if (settings.lastModified > remoteTs || _hasUnsavedChanges) {
+        await _performActualSaveInternal(force: true);
+      }
+    } catch (e) {
+      debugPrint("Sync Error: $e");
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _manuallyLoadFromCloudInternal() async {
+    final cloudData = await _storageService.getUserData(currentUser!.uid);
+    if (cloudData != null) {
+      loadStateFromMap(cloudData);
+      _hasUnsavedChanges = false;
+      _dirtyCollections.clear();
+      await _saveLocalSnapshot(forceFlush: true);
+    }
+  }
 
   Future<void> manuallySaveToCloud() async {
     if (currentUser == null) return;
-    await _performActualSave(force: true);
-    await performFirestoreBackup();
+    _isSyncing = true;
+    notifyListeners();
+    try {
+      await _performActualSaveInternal(force: true);
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
   }
 
   Future<void> manuallyLoadFromCloud() async {
@@ -7894,36 +7906,15 @@ mixin SyncMixin on ChangeNotifier {
     _isManuallyLoading = true;
     notifyListeners();
     try {
-      final cloudData = await _storageService.getUserData(currentUser!.uid);
-      if (cloudData != null) {
-        loadStateFromMap(cloudData);
-        _hasUnsavedChanges = false;
-        _dirtyCollections.clear();
-        await _saveLocalSnapshot(forceFlush: true);
-      }
+      await _manuallyLoadFromCloudInternal();
     } finally {
       _isManuallyLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> _performActualSave({bool force = false}) async {
-    if (currentUser == null) return;
-    if (_isSyncing) return; // Lock
-
-    _isSyncing = true;
-    notifyListeners(); // Shows compact indicator
-
+  Future<void> _performActualSaveInternal({bool force = false}) async {
     try {
-      // FIX: Multi-device sync - check remote timestamp first
-      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
-      if (remoteTs > settings.lastModified) {
-        // Remote has newer data! We should load it instead of overwriting.
-        _isSyncing = false;
-        await manuallyLoadFromCloud();
-        return;
-      }
-
       final appData = getFullAppState();
       
       final tasksData = {'mainTasks': appData['mainTasks']};
@@ -7953,7 +7944,6 @@ mixin SyncMixin on ChangeNotifier {
 
       bool success = true;
 
-      // Pushing to Realtime Database incrementally
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
       }
@@ -7982,39 +7972,6 @@ mixin SyncMixin on ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Cloud Sync Error: $e");
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
-    }
-  }
-
-  // --- Firestore Backup Methods ---
-
-  Future<void> performFirestoreBackup() async {
-    if (currentUser == null) return;
-    try {
-      final appData = getFullAppState();
-      await _storageService.backupToFirestore(currentUser!.uid, appData);
-    } catch (e) {
-      debugPrint("Firestore backup failed: $e");
-    }
-  }
-
-  Future<void> restoreFromFirestoreBackup() async {
-    if (currentUser == null) return;
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final cloudData = await _storageService.getFirestoreBackup(currentUser!.uid);
-      if (cloudData != null) {
-        loadStateFromMap(cloudData);
-        _hasUnsavedChanges = true;
-        await _saveLocalSnapshot(forceFlush: true);
-        await _performActualSave(force: true); // Push restored data to RTDB immediately
-      }
-    } finally {
-      _isManuallyLoading = false;
-      notifyListeners();
     }
   }
 }
@@ -11583,62 +11540,6 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
-  Future<void> _backupToFirestore() async {
-    try {
-      final provider = context.read<AppProvider>();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Initiating secure cloud backup..."), duration: Duration(seconds: 1))
-      );
-      
-      await provider.forceLocalBackup(); 
-      await provider.performFirestoreBackup(); 
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud Snapshot Secured."), backgroundColor: JweTheme.accentCyan)
-        );
-        _loadBackups(); 
-      }
-    } catch(e) {
-      if (mounted) {
-        String errorMsg = e.toString();
-        if (errorMsg.contains('RESOURCE_EXHAUSTED') || errorMsg.contains('Quota')) {
-          errorMsg = "Cloud quota exceeded. Please try again tomorrow.";
-        }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Backup failed: $errorMsg")));
-      }
-    }
-  }
-
-  Future<void> _restoreFromFirestore() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: const Text("Restore Cloud Snapshot?", style: TextStyle(color: JweTheme.textWhite)),
-        content: const Text("This will overwrite your live state with the archived Firestore snapshot. Proceed?", style: TextStyle(color: JweTheme.textMuted)),
-        actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("Restore", style: TextStyle(fontWeight: FontWeight.bold))
-          ),
-        ],
-      )
-    );
-    if (confirm == true && mounted) {
-       try {
-         await context.read<AppProvider>().restoreFromFirestoreBackup();
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data restored from Cloud.")));
-       } catch(e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Restore failed: $e")));
-       }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -11657,47 +11558,6 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children:[
-                  JwePanel(
-                    title: "FIRESTORE SNAPSHOT (CLOUD FAILSAFE)",
-                    accentColor: JweTheme.accentAmber,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[
-                        const Text("Uploads your entire state in optimized chunks (<0.5 MB), bypassing document size limits and rate throttling.", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
-                        const SizedBox(height: 16),
-                        Row(
-                          children:[
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _backupToFirestore,
-                                icon: Icon(MdiIcons.cloudUploadOutline, size: 18),
-                                label: Text("BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: JweTheme.accentAmber,
-                                  side: const BorderSide(color: JweTheme.accentAmber),
-                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _restoreFromFirestore,
-                                icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
-                                label: Text("RESTORE", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: JweTheme.accentAmber,
-                                  foregroundColor: Colors.black,
-                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                                ),
-                              ),
-                            ),
-                          ]
-                        )
-                      ]
-                    )
-                  ),
-                  
                   JwePanel(
                     title: "EXTERNAL EXPORT / IMPORT",
                     accentColor: JweTheme.accentCyan,
@@ -13630,8 +13490,8 @@ class AIService {
   }
 
   Future<Map<String, dynamic>> makeAICall({
-    String? prompt, // Keeping for backward compatibility where only text is needed
-    List<genai.Part>? parts, // Multi-modal input
+    String? prompt, 
+    List<genai.Part>? parts, 
     required List<String> modelCandidates,
     List<String>? customApiKeys,
     required int currentApiKeyIndex,
@@ -13661,9 +13521,8 @@ class AIService {
       );
     } catch (e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) {
-        // Fallback structures so the app doesn't crash without an API key
         if (prompt != null && prompt.contains("System Start-Up Sequence")) {
-          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "metrics": [], "directives": ["Add your Gemini API Key in Settings."] };
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "directives": ["Add your Gemini API Key in Settings."] };
         }
         return {};
       }
@@ -13906,7 +13765,7 @@ class AIService {
     required String reason,
     required String action,
     required List<String> modelCandidates,
-    List<Map<String, String>>? dailyReflections,
+    String? recentContext,
     List<String>? customApiKeys,
     String? systemInstruction,
   }) async {
@@ -13920,9 +13779,12 @@ class AIService {
     Reason: $reason
     Action Planned: $action
     
+    Recent Context (Last 7 Days):
+    ${recentContext ?? 'No recent context available.'}
+    
     1. Provide constructive feedback. ($instruction)
-    2. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
-    3. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    2. Adopt an optimistic perspective (e.g., finding the silver lining or growth opportunity in bad situations). Focus on present actionability. Use recent context to understand patterns, but keep your feedback focused on THIS specific log.
+    3. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
 
     Output JSON: {
       "feedback": "string", 
@@ -14011,6 +13873,7 @@ class AIService {
   Future<Map<String, dynamic>> generateDailySummary({
     required List<Map<String, String>> reflections,
     required List<String> previousBriefings,
+    required String fullContext,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -14020,16 +13883,16 @@ class AIService {
     final prompt = """
     Generate a Tactical Briefing based on today's reflections.
     Current Logs: ${jsonEncode(reflections)}
+    Entire Reflection History (Context): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     
     Tone: Empathetic, psychologically wise, therapist.
     
     Task:
-    1. Create a concise summary.
+    1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
     2. Identify specific ability improvements or growth by comparing with previous context.
-    3. Extract people to be grateful for based on today's logs.
+    3. Extract people to be grateful for based on today's logs (You MAY use their real names).
     4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned. Use generic terms.
     
     Output JSON: {
       "summary": "string (max 120 words)",
@@ -14052,6 +13915,7 @@ class AIService {
   Future<Map<String, dynamic>> generateWeeklyReport({
     required String logsText,
     required String timeStatsText,
+    required String wellbeingStatsText,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -14060,17 +13924,20 @@ class AIService {
   }) async {
     final prompt = """
     Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed.
-    2. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (Use generic terms if real names are present).
-    3. Output JSON: 
+    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
+    2. Compare the user's wellbeing progress to last week. Highlight areas of major growth or decline.
+    3. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
+    4. Output JSON: 
     { 
       "summary": "string", 
+      "wellbeing_analysis": "string",
       "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
       "time_insight": "string",
       "grateful_people": [ {"name": "string", "reason": "string"} ]
     } 
     Logs: $logsText. 
     Time: $timeStatsText. 
+    Wellbeing Progress: $wellbeingStatsText.
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
@@ -14123,15 +13990,12 @@ class AIService {
     
     Task:
     1. Analyze the user's momentum.
-    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today based on yesterday's logs).
-    3. Determine 3 key 'System Metrics' (e.g., 'Willpower', 'Clarity', 'Momentum', 'Rest') with a value 0-100 based on the logs.
-    4. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    5. CONFIDENTIALITY: Do not use specific names of people mentioned in logs. Use generic terms like 'friend', 'partner', 'colleague', or 'family member'.
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimistically—help them find the good in recent bad events. Focus on the present day actionability.
+    3. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     
     Output JSON ONLY:
     {
       "forecast": "string",
-      "metrics":[ {"label": "string", "value": int, "color_hex": "string (optional hex)"} ],
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -14596,10 +14460,10 @@ class StorageService {
       if (snap.exists && snap.value != null) {
         return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
-        return await getFirestoreBackup(userId);
+        return null;
       }
     } catch (e) {
-      return await getFirestoreBackup(userId);
+      return null;
     }
   }
 
@@ -14705,150 +14569,14 @@ class StorageService {
     }
   }
 
-  // --- Firestore Database (Backup & Archival) ---
-
-  DocumentReference<Map<String, dynamic>> _firestoreDocRef(String userId, String docId) {
-    return _firestore
-        .collection(_userCollection)
-        .doc(userId)
-        .collection(_userSubcollectionDocId)
-        .doc(docId);
-  }
-
-  Future<Map<String, dynamic>?> getFirestoreBackup(String userId) async {
-    if (userId.isEmpty) return null;
-
-    try {
-      final backupRef = _firestore.collection(_userCollection).doc(userId).collection('backups').doc('latest');
-      final docSnap = await backupRef.get();
-      
-      if (docSnap.exists && docSnap.data() != null && docSnap.data()!.containsKey('chunksCount')) {
-        final count = docSnap.data()!['chunksCount'] as int;
-        final StringBuffer sb = StringBuffer();
-        
-        for (int i = 0; i < count; i++) {
-          final chunkSnap = await backupRef.collection('chunks').doc('chunk_$i').get();
-          if (chunkSnap.exists && chunkSnap.data() != null && chunkSnap.data()!.containsKey('data')) {
-            sb.write(chunkSnap.data()!['data'] as String);
-          } else {
-            throw Exception("Corrupted backup: Missing chunk_$i");
-          }
-        }
-        
-        final fullJson = sb.toString();
-        if (fullJson.isEmpty) return await _getLegacyFirestoreBackup(userId);
-        
-        return jsonDecode(fullJson);
-      } else {
-         return await _getLegacyFirestoreBackup(userId);
-      }
-    } catch (e) {
-      debugPrint("Firestore Restore Error: $e");
-      return await _getLegacyFirestoreBackup(userId);
-    }
-  }
-
-  Future<Map<String, dynamic>?> _getLegacyFirestoreBackup(String userId) async {
-    try {
-      final baseSnap = await _firestoreDocRef(userId, 'base_state').get();
-      Map<String, dynamic> fullData = {};
-      
-      if (baseSnap.exists) {
-        fullData.addAll(baseSnap.data()!);
-      } else {
-        final oldDocSnap = await _firestoreDocRef(userId, _gameStateDocId).get();
-        if (oldDocSnap.exists) return oldDocSnap.data();
-        
-        final tasksSnap = await _firestoreDocRef(userId, 'tasks').get();
-        if (tasksSnap.exists) {
-           final historySnap = await _firestoreDocRef(userId, 'history').get();
-           final reflectionsSnap = await _firestoreDocRef(userId, 'reflections').get();
-           final settingsSnap = await _firestoreDocRef(userId, 'settings').get();
-           final financeSnap = await _firestoreDocRef(userId, 'finance').get();
-           final healthSnap = await _firestoreDocRef(userId, 'health').get();
-
-           if (settingsSnap.exists) fullData.addAll(settingsSnap.data()!);
-           if (tasksSnap.exists) fullData.addAll(tasksSnap.data()!);
-           if (historySnap.exists) fullData.addAll(historySnap.data()!);
-           if (reflectionsSnap.exists) fullData.addAll(reflectionsSnap.data()!);
-           if (financeSnap.exists) fullData.addAll(financeSnap.data()!);
-           if (healthSnap.exists) fullData.addAll(healthSnap.data()!);
-           return fullData;
-        }
-        return null;
-      }
-
-      final tasksCol = await _firestore.collection(_userCollection).doc(userId).collection('tasks_backup').get();
-      if (tasksCol.docs.isNotEmpty) {
-        fullData['mainTasks'] = tasksCol.docs.map((doc) => doc.data()).toList();
-      }
-
-      final historyCol = await _firestore.collection(_userCollection).doc(userId).collection('history_backup').get();
-      if (historyCol.docs.isNotEmpty) {
-        fullData['completedByDay'] = {};
-        for (var doc in historyCol.docs) {
-          fullData['completedByDay'][doc.id] = doc.data();
-        }
-      }
-
-      final refCol = await _firestore.collection(_userCollection).doc(userId).collection('reflections_backup').get();
-      if (refCol.docs.isNotEmpty) {
-        fullData['reflectionLogs'] = refCol.docs.map((doc) => doc.data()).toList();
-      }
-
-      return fullData;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Bypassing 1MB Document Limits by aggressively chunking the entire JSON payload to subcollections
-  Future<bool> backupToFirestore(String userId, Map<String, dynamic> fullData) async {
-    if (userId.isEmpty) return false;
-
-    try {
-      final jsonStr = jsonEncode(fullData);
-      
-      // Fix for "RESOURCE_EXHAUSTED Quota exceeded":
-      // Reduce chunk size to 250000 chars (< 0.5 MB) to stay safely below the 1MB document limit.
-      // Additionally, write sequentially instead of using a single massive batch to avoid batch limits.
-      final chunkSize = 250000; 
-      final chunks = <String>[];
-      
-      for (int i = 0; i < jsonStr.length; i += chunkSize) {
-        chunks.add(jsonStr.substring(i, i + chunkSize > jsonStr.length ? jsonStr.length : i + chunkSize));
-      }
-
-      final backupRef = _firestore.collection(_userCollection).doc(userId).collection('backups').doc('latest');
-      
-      // 1. Write each chunk sequentially to avoid rate limits
-      for (int i = 0; i < chunks.length; i++) {
-        final chunkRef = backupRef.collection('chunks').doc('chunk_$i');
-        await chunkRef.set({'data': chunks[i]});
-        await Future.delayed(const Duration(milliseconds: 150)); 
-      }
-      
-      // 2. Write the metadata document LAST so it's only valid if all chunks succeeded
-      await backupRef.set({
-        'timestamp': FieldValue.serverTimestamp(),
-        'chunksCount': chunks.length,
-      });
-
-      return true;
-    } catch (e) {
-      debugPrint("Firestore backup failed: $e");
-      return false;
-    }
-  }
-
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
       await _rtdb.ref('users/$userId').remove();
 
       final batch = _firestore.batch();
-      batch.delete(_firestoreDocRef(userId, _gameStateDocId));
-      batch.delete(_firestoreDocRef(userId, 'base_state'));
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc(_gameStateDocId));
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc('base_state'));
       await batch.commit();
       
       return true;
@@ -15483,7 +15211,6 @@ class ChartDataHelper {
       double maxMinsForTask = 0;
 
       if (isToday) {
-        // Live data calculation for today
         for (var task in provider.mainTasks) {
           if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
             continue;
@@ -15497,7 +15224,6 @@ class ChartDataHelper {
           }
         }
       } else {
-        // Stored data for past days
         final dayData = provider.completedByDay[dateStr];
         if (dayData != null && dayData['taskTimes'] != null) {
           final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
@@ -15508,7 +15234,6 @@ class ChartDataHelper {
                   MainTask(id: '', name: 'Unknown', description: '', theme: ''),
             );
 
-            // Apply Filter
             if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
               return;
             }
@@ -15537,7 +15262,7 @@ class ChartDataHelper {
 
       for (var ref in reflections) {
         ref.xpGained.forEach((k, v) {
-          if (selectedVirtueFilter != null && WellbeingTheme.getCategory(k) != selectedVirtueFilter) {
+          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
             return;
           }
           virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
@@ -15550,7 +15275,7 @@ class ChartDataHelper {
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = WellbeingTheme.getCategoryColor(WellbeingTheme.getCategory(maxVirtue.key));
+        dominantVirtueColor = WellbeingTheme.getColor(maxVirtue.key);
       }
       virtueColors[i] = dominantVirtueColor;
     }
@@ -17423,8 +17148,7 @@ class ProjectStatsCard extends StatelessWidget {
 --- START OF FILE lib/src/widgets/cards/start_day_report_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/system_metric_widget.dart';
-import 'package:arcane/src/widgets/ui/tactical_directives_list.dart';
+import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -17442,17 +17166,7 @@ class StartDayReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Legacy support or fallback if fields missing
     final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal. Ready for input.";
-    
-    final metricsRaw = report['metrics'] as List<dynamic>?;
-    List<Map<String, dynamic>> metrics = [];
-    if (metricsRaw != null) {
-      metrics = metricsRaw.map((e) => e as Map<String, dynamic>).toList();
-    }
-
-    final directivesRaw = (report['directives'] as List<dynamic>?) ?? (report['projected_ops'] as List<dynamic>?);
-    final directives = directivesRaw?.map((e) => e.toString()).toList() ?? [];
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -17546,41 +17260,8 @@ class StartDayReportCard extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // METRICS & DIRECTIVES GRID (Responsive logic via Column for mobile)
-                if (metrics.isNotEmpty) ...[
-                  const Text(
-                    "SYSTEM STATUS",
-                    style: TextStyle(
-                      color: AppTheme.fhTextSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...metrics.map((m) {
-                    Color? c;
-                    if (m['color_hex'] != null) {
-                      try {
-                        String hex = m['color_hex'].toString().replaceAll('#', '');
-                        c = Color(int.parse("0xFF$hex"));
-                      } catch (_) {}
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: SystemMetricWidget(
-                        label: m['label'] ?? 'Metric',
-                        value: (m['value'] as num? ?? 50).toInt(),
-                        color: c,
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 20),
-                ],
-
-                // DIRECTIVES
-                if (directives.isNotEmpty)
-                  TacticalDirectivesList(directives: directives),
+                // COMPACT JWE DIVERGING BAR CHART
+                const StartupWellbeingMetrics(),
               ],
             ),
           ),
@@ -18774,22 +18455,15 @@ class WellbeingPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Map<String, int> categoryTotals = {
-      'Emotional': 0,
-      'Psychological': 0,
-      'Social & Purpose': 0,
-      'Vitality & Growth': 0,
-    };
+    Map<String, int> categoryTotals = {};
     
     for (var log in logs) {
       log.xpGained.forEach((key, value) {
         if (value > 0) {
-           String cat = WellbeingTheme.getCategory(key);
-           categoryTotals[cat] = (categoryTotals[cat] ?? 0) + value;
+           categoryTotals[key] = (categoryTotals[key] ?? 0) + value;
         }
       });
     }
-    categoryTotals.removeWhere((key, value) => value <= 0);
 
     if (categoryTotals.isEmpty) {
       return Center(
@@ -18817,9 +18491,11 @@ class WellbeingPieChart extends StatelessWidget {
       centerTopText = selectedVirtue!.toUpperCase();
       if (centerTopText.contains(' ')) {
         centerTopText = centerTopText.replaceAll(' ', '\n');
+      } else if (centerTopText.contains('-')) {
+        centerTopText = centerTopText.replaceAll('-', '-\n');
       }
       centerBottomText = "+${categoryTotals[selectedVirtue]}";
-      centerColor = WellbeingTheme.getCategoryColor(selectedVirtue!);
+      centerColor = WellbeingTheme.getColor(selectedVirtue!);
     }
 
     return Stack(
@@ -18832,7 +18508,7 @@ class WellbeingPieChart extends StatelessWidget {
             sections: entries.map((e) {
               final isSelected = e.key == selectedVirtue;
               return PieChartSectionData(
-                color: WellbeingTheme.getCategoryColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                color: WellbeingTheme.getColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
                 value: e.value.toDouble(),
                 title: '',
                 radius: isSelected ? 20 : 15,
@@ -18874,6 +18550,83 @@ class WellbeingPieChart extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/charts/wellbeing_pie_chart.dart ---
+
+--- START OF FILE lib/src/widgets/charts/wellbeing_trend_chart.dart ---
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:intl/intl.dart';
+
+class WellbeingTrendChart extends StatelessWidget {
+  final Map<int, double> weeklyXp;
+  final Color color;
+
+  const WellbeingTrendChart({super.key, required this.weeklyXp, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    if (weeklyXp.isEmpty || !weeklyXp.values.any((v) => v > 0)) {
+      return const SizedBox.shrink(); // Hide if no data
+    }
+
+    final List<FlSpot> spots = [];
+    for (int i = 0; i <= 6; i++) {
+      spots.add(FlSpot(i.toDouble(), weeklyXp[i] ?? 0.0));
+    }
+
+    return Container(
+      height: 80,
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withValues(alpha: 0.5),
+        border: Border.all(color: JweTheme.border),
+      ),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            getDrawingHorizontalLine: (val) => FlLine(color: JweTheme.border.withValues(alpha: 0.5), strokeWidth: 1),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(show: false),
+          lineTouchData: LineTouchData(
+            handleBuiltInTouches: true,
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (group) => JweTheme.panel,
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  final daysAgo = 6 - spot.x.toInt();
+                  final date = DateTime.now().subtract(Duration(days: daysAgo));
+                  return LineTooltipItem(
+                    "${DateFormat('MMM dd').format(date)}\n+${spot.y.toInt()} XP",
+                    TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)
+                  );
+                }).toList();
+              }
+            )
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              color: color,
+              isCurved: true,
+              dotData: const FlDotData(show: true),
+              barWidth: 2,
+              belowBarData: BarAreaData(show: true, color: color.withOpacity(0.1)),
+            ),
+          ]
+        )
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/charts/wellbeing_trend_chart.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
@@ -20518,6 +20271,7 @@ class WeeklyReportDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = reportData['summary'] as String? ?? "No summary available.";
+    final wellbeingAnalysis = reportData['wellbeing_analysis'] as String? ?? "";
     final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
     final timeInsight = reportData['time_insight'] as String? ?? "";
     final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
@@ -20630,9 +20384,31 @@ class WeeklyReportDialog extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
+                    if (wellbeingAnalysis.isNotEmpty) ...[
+                        _SectionHeader(title: "WELL-BEING TRAJECTORY", icon: MdiIcons.heartPulse, delay: 350),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                            border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                          ),
+                          child: Text(
+                            wellbeingAnalysis,
+                            style: const TextStyle(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: 400.ms, duration: 500.ms),
+                        const SizedBox(height: 32),
+                    ],
+
                     // Abilities Section
                     if (abilities.isNotEmpty) ...[
-                      _SectionHeader(title: "KEY IMPROVEMENTS", icon: MdiIcons.arrowUpBoldCircleOutline, delay: 400),
+                      _SectionHeader(title: "KEY IMPROVEMENTS", icon: MdiIcons.arrowUpBoldCircleOutline, delay: 450),
                       const SizedBox(height: 12),
                       ...abilities.asMap().entries.map((entry) {
                         final index = entry.key;
@@ -21763,17 +21539,20 @@ import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:arcane/src/widgets/charts/wellbeing_trend_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class WellbeingDetailDialog extends StatelessWidget {
   final Skill skill;
   final int xpGainedToday;
+  final Map<int, double> weeklyXp;
 
   const WellbeingDetailDialog({
     super.key,
     required this.skill,
     required this.xpGainedToday,
+    required this.weeklyXp,
   });
 
   @override
@@ -21882,6 +21661,8 @@ class WellbeingDetailDialog extends StatelessWidget {
                 ],
               ),
             ),
+            
+            WellbeingTrendChart(weeklyXp: weeklyXp, color: color),
             
             const SizedBox(height: 32),
             SizedBox(
@@ -22031,20 +21812,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       return;
     }
 
-    // New Log
-    if (!analyze) {
-      appProvider.quickSaveReflection(
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-        action: _actionController.text.trim(),
-        timestamp: _selectedDateTime,
-      );
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved (No analysis).")));
-      return;
-    }
-
     setState(() => _isLoading = true);
     
     try {
@@ -22056,6 +21823,14 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
           timestamp: _selectedDateTime,
         );
 
+        if (!analyze) {
+           if (mounted) {
+             Navigator.pop(context);
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved locally.")));
+           }
+           return;
+        }
+
         final xpGained = result['xpGained'] as Map<String, int>;
         final log = result['log'] as ReflectionLog?;
         final feedback = log?.aiFeedback ?? "";
@@ -22063,19 +21838,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         if (mounted) {
           Navigator.pop(context); 
           
-          // Show XP + Insight Dialog
           await showDialog(
             context: context,
             barrierColor: Colors.black.withValues(alpha: 0.85),
             builder: (ctx) => XpGainDialog(
               xpGained: xpGained,
-              insightText: feedback, // Pass feedback text
+              insightText: feedback, 
             ),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+          // Log was already saved pre-emptively inside processReflection
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Saved locally. AI Analysis failed: $e")));
+          Navigator.pop(context);
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -26367,8 +26143,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ReflectionProgressWidget extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -26402,6 +26178,12 @@ class ReflectionProgressWidget extends StatelessWidget {
       else if (h >= 16 && h < 19) eve = true;
       else if (h >= 19 && h <= 23) night = true;
     }
+
+    // Auto-fill logic
+    if (night) { eve = true; aft = true; morn = true; wake = true; }
+    else if (eve) { aft = true; morn = true; wake = true; }
+    else if (aft) { morn = true; wake = true; }
+    else if (morn) { wake = true; }
 
     final total = [wake, morn, aft, eve, night].where((e) => e).length;
 
@@ -27542,6 +27324,193 @@ class JweCompactEngageButton extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/jwe_compact_engage_button.dart ---
 
+--- START OF FILE lib/src/widgets/ui/startup_wellbeing_metrics.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class StartupWellbeingMetrics extends StatelessWidget {
+  const StartupWellbeingMetrics({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in provider.reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final skills = provider.getBaseWellbeingSkills();
+    List<Map<String, dynamic>> deltas = [];
+    int maxAbsDelta = 1;
+
+    for (var skill in skills) {
+      final current = currentXp[skill.name] ?? 0;
+      final previous = prevXp[skill.name] ?? 0;
+      final delta = current - previous;
+      if (delta.abs() > maxAbsDelta) maxAbsDelta = delta.abs();
+      deltas.add({'name': skill.name, 'delta': delta, 'color': WellbeingTheme.getColor(skill.name)});
+    }
+
+    deltas.sort((a, b) => (b['delta'] as int).compareTo(a['delta'] as int));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "WELL-BEING TRAJECTORY (7-DAY)",
+          style: TextStyle(
+            color: JweTheme.textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...deltas.map((d) {
+          final delta = d['delta'] as int;
+          if (delta == 0) return const SizedBox.shrink(); 
+
+          final fraction = (delta.abs() / maxAbsDelta).clamp(0.0, 1.0);
+          final isPositive = delta > 0;
+          final color = d['color'] as Color;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    d['name'].toString().toUpperCase(),
+                    style: GoogleFonts.rajdhani(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      return SizedBox(
+                        height: 6,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(width: 1, height: 8, color: JweTheme.border), // Center line
+                            if (isPositive)
+                              Positioned(
+                                left: width / 2,
+                                child: Container(
+                                  height: 6,
+                                  width: (width / 2) * fraction,
+                                  color: color,
+                                ),
+                              )
+                            else
+                              Positioned(
+                                right: width / 2,
+                                child: Container(
+                                  height: 6,
+                                  width: (width / 2) * fraction,
+                                  color: color,
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/startup_wellbeing_metrics.dart ---
+
+--- START OF FILE lib/src/widgets/ui/jwe_sync_overlay.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class JweSyncOverlay extends StatelessWidget {
+  const JweSyncOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: JweTheme.bgBase.withValues(alpha: 0.85),
+        child: Center(
+          child: Container(
+            width: 280,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: JweTheme.panel,
+              border: Border.all(color: JweTheme.accentCyan, width: 2),
+              boxShadow: [
+                BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.15), blurRadius: 30)
+              ]
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  height: 40,
+                  width: 40,
+                  child: CircularProgressIndicator(
+                    color: JweTheme.accentCyan,
+                    strokeWidth: 3,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  "SYNCHRONIZING DATABANKS",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.rajdhani(
+                    color: JweTheme.accentCyan,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Uplink in progress. Validating local cache and remote server parity.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: JweTheme.textMuted,
+                    fontSize: 11,
+                    fontFamily: 'RobotoMono',
+                    height: 1.4,
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/jwe_sync_overlay.dart ---
+
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -28665,11 +28634,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
       final data = provider.getLast7DaysData();
+      final wellbeingDiff = provider.getWeeklyWellbeingComparison();
       final aiService = provider.aiService;
       
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
         timeStatsText: data['times'] as String,
+        wellbeingStatsText: wellbeingDiff,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,
@@ -30615,90 +30586,96 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
         final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
 
-        return SingleChildScrollView(
-          // Removed top padding to eliminate space above header
-          padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TaskHeaderCard(
-                task: task,
-                yesterdayTime: yesterdayTime,
-                weeklyCompletion: weeklyCompletion,
-              ),
-
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(width: 4, height: 16, color: task.taskColor),
-                        const SizedBox(width: 8),
-                        Text('ACTIVE TASKS',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                                fontFamily: AppTheme.fontDisplay,
-                                color: AppTheme.fhTextPrimary,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0
-                            )),
-                      ],
-                    ),
-                    IconButton(
-                      icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
-                      onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                      tooltip: "New Contract",
-                    )
-                  ],
+        return RefreshIndicator(
+          color: AppTheme.fhAccentTeal,
+          backgroundColor: AppTheme.fhBgDark,
+          onRefresh: () async {
+            await appProvider.performManualSync();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TaskHeaderCard(
+                  task: task,
+                  yesterdayTime: yesterdayTime,
+                  weeklyCompletion: weeklyCompletion,
                 ),
-              ),
 
-              if (activeSubtasks.isEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(24.0),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    color: AppTheme.fhBgDark.withOpacity(0.3)
-                  ),
-                  child: Column(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                          'NO ACTIVE TASKS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                      Row(
+                        children: [
+                          Container(width: 4, height: 16, color: task.taskColor),
+                          const SizedBox(width: 8),
+                          Text('ACTIVE TASKS',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                  fontFamily: AppTheme.fontDisplay,
+                                  color: AppTheme.fhTextPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0
+                              )),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      TextButton(
+                      IconButton(
+                        icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
                         onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                        child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                        tooltip: "New Contract",
                       )
                     ],
                   ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  child: Column(
-                    children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
-                  ),
                 ),
 
-              // Padding inside sections to align with cards
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-              ),
+                if (activeSubtasks.isEmpty)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(24.0),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                      color: AppTheme.fhBgDark.withOpacity(0.3)
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                            'NO ACTIVE TASKS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
+                          child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                        )
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: Column(
+                      children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
+                    ),
+                  ),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
+                ),
 
-              const SizedBox(height: 40),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         );
       },
@@ -31380,11 +31357,25 @@ class WellbeingDrawer extends StatelessWidget {
                   skill: skill,
                   onTap: () {
                     final xpToday = appProvider.get7DayWellbeingMomentum(skill.name) ~/ 7;
+                    
+                    Map<int, double> weeklyXp = {};
+                    for (int i = 6; i >= 0; i--) {
+                      final date = DateTime.now().subtract(Duration(days: i));
+                      double dayXp = 0;
+                      for (var log in appProvider.reflectionLogs) {
+                        if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
+                          dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+                        }
+                      }
+                      weeklyXp[6 - i] = dayXp;
+                    }
+
                     showDialog(
                       context: context,
                       builder: (_) => WellbeingDetailDialog(
                         skill: skill,
                         xpGainedToday: xpToday,
+                        weeklyXp: weeklyXp,
                       ),
                     );
                   },
