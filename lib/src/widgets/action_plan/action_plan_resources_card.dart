@@ -8,17 +8,23 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
 
 class ActionPlanResourcesCard extends StatelessWidget {
   final String initialResources;
   final ValueChanged<String> onChanged;
   final Color accentColor;
+  // Added to enable auto-assignment context
+  final String? mainTaskId;
+  final String? subTaskId;
 
   const ActionPlanResourcesCard({
     super.key,
     required this.initialResources,
     required this.onChanged,
     required this.accentColor,
+    this.mainTaskId,
+    this.subTaskId,
   });
 
   List<String> _getSelectedIds() {
@@ -29,7 +35,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
         return decoded.map((e) => e.toString()).toList();
       }
     } catch (_) {
-      // Fallback for old comma-separated strings if any
       return initialResources.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     }
     return [];
@@ -53,6 +58,7 @@ class ActionPlanResourcesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedIds = _getSelectedIds();
+    final provider = Provider.of<AppProvider>(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,15 +81,30 @@ class ActionPlanResourcesCard extends StatelessWidget {
                   letterSpacing: 1.0,
                 ),
               ),
-              InkWell(
-                onTap: () => _openSelector(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
-                  child: Text(
-                    "ASSIGN ASSET",
-                    style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  if (mainTaskId != null && subTaskId != null)
+                    InkWell(
+                      onTap: provider.loadingTaskName == "Scanning Assets..." ? null : () => provider.aiGenerationActions.autoAssignAssets(mainTaskId!, subTaskId!),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                        child: Text(
+                          provider.loadingTaskName == "Scanning Assets..." ? "SCANNING..." : "AUTO-ASSIGN (AI)",
+                          style: TextStyle(color: PersonInfoTheme.spideyCyan, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  InkWell(
+                    onTap: () => _openSelector(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                      child: Text(
+                        "ASSIGN ASSET",
+                        style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               )
             ],
           ),
@@ -135,7 +156,7 @@ class _ResourceChipBuilder extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
-        if (item == null) return const SizedBox.shrink(); // Hide if deleted
+        if (item == null) return const SizedBox.shrink(); 
         var name = item.name;
         if(item.name.length > 40) name = name.substring(0,40)+"...";
 
@@ -154,6 +175,7 @@ class _ResourceChipBuilder extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(_getIconForType(item.type), size: 14, color: accentColor),
                 const SizedBox(width: 6),

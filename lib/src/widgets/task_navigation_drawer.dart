@@ -4,6 +4,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
+import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -156,6 +158,9 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    
     return Container(
       width: 300,
       color: AppTheme.fhBgDeepDark,
@@ -178,66 +183,103 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
           ),
           
           Expanded(
-            child: ListView.builder(
+            child: ListView(
               padding: const EdgeInsets.all(12),
-              itemCount: appProvider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = appProvider.mainTasks[index];
-                final isSelected = appProvider.selectedTaskId == task.id;
-                final color = task.taskColor;
+              children: [
+                if (activeTasks.isNotEmpty) ...[
+                  ...activeTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+                    final color = task.taskColor;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ValorantCard(
-                    isSelected: isSelected,
-                    borderColor: isSelected ? color : null,
-                    onTap: () {
-                      appProvider.setSelectedTaskId(task.id);
-                      if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
-                    },
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48, height: 48,
-                          decoration: BoxDecoration(
-                            color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
-                            border: Border.all(color: isSelected ? color : Colors.transparent),
-                          ),
-                          child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: ValorantCard(
+                        isSelected: isSelected,
+                        borderColor: isSelected ? color : null,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48, height: 48,
+                              decoration: BoxDecoration(
+                                color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
+                                border: Border.all(color: isSelected ? color : Colors.transparent),
+                              ),
+                              child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task.name.toUpperCase(),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontDisplay,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                      letterSpacing: 1.0,
+                                    ),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    task.theme.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10, 
+                                      color: isSelected ? color : AppTheme.fhTextDisabled,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w600
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                task.name.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontDisplay,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
-                                  letterSpacing: 1.0,
-                                ),
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                task.theme.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10, 
-                                  color: isSelected ? color : AppTheme.fhTextDisabled,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w600
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
+                      ),
+                    );
+                  }).toList(),
+                ],
+                
+                if (inactiveTasks.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                    child: Text("INACTIVE ARCHIVE", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)),
                   ),
-                );
-              },
+                  ...inactiveTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: JweCompactTaskCard(
+                        task: task,
+                        isSelected: isSelected,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ]
+              ],
             ),
           ),
 

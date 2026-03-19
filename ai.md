@@ -1,6 +1,9 @@
 Make the following changes:
 
-    - 
+    - Add a new option in mission list:
+        - Make it possible to temporary disable tasks just like we do with projects (make it possible by longclicking on mission item )
+        also make disabled tasks be just like archived but they are incompletd and I can reenable them
+
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

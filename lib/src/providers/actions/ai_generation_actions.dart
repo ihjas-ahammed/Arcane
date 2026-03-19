@@ -1,8 +1,8 @@
-// lib/src/providers/actions/ai_generation_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
 class AIGenerationActions {
   final AppProvider _provider;
@@ -157,10 +157,8 @@ class AIGenerationActions {
       final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
       final what = result['what'] as String? ?? '';
 
-      // Update Subtask with "What"
       _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
 
-      // Add Steps
       for (var step in steps) {
         _provider.addSubSubtask(mainTaskId, subTaskId, {
           'name': step['name'] ?? 'Action Step',
@@ -173,6 +171,54 @@ class AIGenerationActions {
       debugPrint("Error generating action plan: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> autoAssignAssets(String mainTaskId, String subTaskId) async {
+    _provider.setLoadingTask("Scanning Assets...");
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+
+      final taskContext = """
+      Mission: ${mainTask.name}
+      Objective: ${subTask.name}
+      Why: ${subTask.why}
+      What: ${subTask.what}
+      Sub-routines: ${subTask.subSubTasks.map((e) => e.name).join(', ')}
+      """;
+
+      final assetsListStr = _provider.chatbotMemory.gratitudeList.map((a) => "${a.id} | ${a.name} | ${a.type} | ${a.why} | ${a.what}").join('\n');
+
+      if (assetsListStr.trim().isEmpty) {
+        _logToApp("No assets available to assign.");
+        return;
+      }
+
+      final assetIds = await _aiService.autoAssignAssetsToTask(
+        taskContext: taskContext,
+        assetsList: assetsListStr,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      if (assetIds.isNotEmpty) {
+        // Merge with existing
+        List<String> currentIds = [];
+        try {
+          currentIds = (jsonDecode(subTask.resources) as List).map((e) => e.toString()).toList();
+        } catch (_) {}
+
+        final newSet = Set<String>.from(currentIds)..addAll(assetIds);
+        _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'resources': jsonEncode(newSet.toList())});
+      }
+    } catch (e) {
+      debugPrint("Error auto-assigning assets: $e");
+    } finally {
       _provider.setLoadingTask(null);
     }
   }

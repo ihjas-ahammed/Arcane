@@ -93,6 +93,95 @@ class AIService {
     }
   }
 
+  // ... (Other methods remain identical, showing only modified ones)
+
+  Future<List<String>> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+
+    RULES:
+    1. Answer based on the provided context if applicable.
+    2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
+    3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
+    4. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
+    Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
+    """;
+
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          final raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          
+          final decoded = JsonUtils.tryDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+          return ["system error: could not parse response sequence."];
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return ["offline mock response: connect api key."];
+      rethrow;
+    }
+  }
+
+  Future<List<String>> autoAssignAssetsToTask({
+    required String taskContext,
+    required String assetsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following Task context and select the most appropriate IDs from the provided Asset List that are required or helpful to complete this task.
+    
+    TASK CONTEXT:
+    $taskContext
+    
+    ASSET LIST (Format: ID | Name | Type | Why | What):
+    $assetsList
+    
+    Task:
+    Match the task requirements with the asset list. Select the IDs of the assets that fit.
+    
+    Output JSON ONLY with an array of IDs:
+    {
+      "asset_ids": ["id_1", "id_2"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['asset_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
@@ -195,40 +284,6 @@ class AIService {
       return[];
     } catch(e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
-      rethrow;
-    }
-  }
-
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    $logsContext
-    
-    USER: "$query"
-    """;
-
-    try {
-      return await _executeWithModelAndKeyRotation(
-        currentApiKeyIndex: currentApiKeyIndex,
-        customApiKeys: customApiKeys,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog,
-        modelCandidates: modelCandidates,
-        requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response = await model.generateContent([genai.Content.text(prompt)]);
-          return response.text ?? "Archive data corrupted or empty.";
-        },
-      );
-    } catch(e) {
-      if (e.toString().contains("OFFLINE_MOCK_DATA")) return "Offline mock response: Connect API Key.";
       rethrow;
     }
   }

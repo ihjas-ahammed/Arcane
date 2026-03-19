@@ -252,7 +252,7 @@ class TaskActions {
       subSubTasks: [],
       why: subtaskData['why'] as String? ?? '',
       what: subtaskData['what'] as String? ?? '',
-      resources: subtaskData['resources'] as String? ?? '', // Parse resources
+      resources: subtaskData['resources'] as String? ?? '', 
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -280,7 +280,7 @@ class TaskActions {
     if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
-    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; // Update resources
+    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -544,6 +544,17 @@ class TaskActions {
     recalibrateTimeLogs(silent: true);
   }
 
+  // --- Task Toggling ---
+  void toggleTaskStatus(String taskId, bool isActive) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == taskId) {
+        return task.copyWith(isActive: isActive);
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   // --- Utility ---
 
   Future<void> recalibrateTimeLogs({bool silent = false}) async {
@@ -623,6 +634,7 @@ class TaskActions {
       description: description,
       theme: theme,
       colorHex: colorHex,
+      isActive: true,
     );
     _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
   }

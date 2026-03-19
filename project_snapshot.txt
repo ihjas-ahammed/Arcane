@@ -1,1079 +1,582 @@
-
---- START OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:intl/intl.dart';
-
-class ScheduleTimeline extends StatefulWidget {
-  final List<TimelineEntry> entries;
-  final VoidCallback onAddSession;
-  final Function(TimelineEntry) onEditEntry;
-  final double initialScrollOffset;
-
-  const ScheduleTimeline({
-    super.key,
-    required this.entries,
-    required this.onAddSession,
-    required this.onEditEntry,
-    this.initialScrollOffset = 0,
-  });
-
-  @override
-  State<ScheduleTimeline> createState() => _ScheduleTimelineState();
-}
-
-class _ScheduleTimelineState extends State<ScheduleTimeline> {
-  final double _basePixelsPerHour = 120.0;
-  late ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController =
-        ScrollController(initialScrollOffset: widget.initialScrollOffset);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Auto-scroll to earliest relevant time or 8am
-      if (widget.entries.isNotEmpty) {
-        double earliestHour = 24;
-        for (var e in widget.entries) {
-          final h = e.startTime.hour + (e.startTime.minute / 60.0);
-          if (h < earliestHour) earliestHour = h;
-        }
-        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
-        }
-      } else {
-        final offset = 8 * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Show all sessions >= 1 minute (60 seconds) to ensure even the smallest are visible
-    final filtered = entries.where((e) => e.durationSeconds >= 60).toList();
-
-    if (filtered.isEmpty) return [];
-
-    final sorted = List<TimelineEntry>.from(filtered)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    final List<_LayoutEntry> layout = [];
-    final List<List<_LayoutEntry>> columns = [];
-
-    for (var entry in sorted) {
-      int columnIndex = 0;
-      bool placed = false;
-
-      while (!placed) {
-        if (columnIndex >= columns.length) {
-          columns.add([]);
-        }
-
-        bool hasOverlap = false;
-        for (var colEntry in columns[columnIndex]) {
-          if (entry.startTime.isBefore(colEntry.entry.endTime) &&
-              entry.endTime.isAfter(colEntry.entry.startTime)) {
-            hasOverlap = true;
-            break;
-          }
-        }
-
-        if (!hasOverlap) {
-          final le = _LayoutEntry(entry, columnIndex);
-          columns[columnIndex].add(le);
-          layout.add(le);
-          placed = true;
-        } else {
-          columnIndex++;
-        }
-      }
-    }
-
-    for (var le in layout) {
-      le.totalCols = columns.length;
-    }
-
-    return layout;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const int hoursCount = 24;
-    final double pixelsPerHour = _basePixelsPerHour;
-    final double totalHeight = pixelsPerHour * hoursCount;
-
-    final layoutEntries = _calculateLayout(widget.entries);
-
-    return LayoutBuilder(builder: (context, constraints) {
-      return Container(
-        color: AppTheme.fhBgDeepDark,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: GestureDetector(
-            onTapUp: (details) {
-              widget.onAddSession();
-            },
-            child: Container(
-              height: totalHeight,
-              width: double.infinity,
-              color: Colors.transparent,
-              child: Stack(
-                children: [
-                  // Grid
-                  ...List.generate(hoursCount, (index) {
-                    return Positioned(
-                      top: index * pixelsPerHour,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: pixelsPerHour,
-                        decoration: BoxDecoration(
-                          border: Border(
-                              top: BorderSide(
-                                  color:
-                                      AppTheme.fhBorderColor.withOpacity(0.2),
-                                  width: 1)),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8, top: 4),
-                          child: Text("${index.toString().padLeft(2, '0')}:00",
-                              style: TextStyle(
-                                  color:
-                                      AppTheme.fhTextSecondary.withOpacity(0.5),
-                                  fontSize: 10,
-                                  fontFamily: 'RobotoMono')),
-                        ),
-                      ),
-                    );
-                  }),
-
-                  // Current Time
-                  _buildCurrentTimeIndicator(pixelsPerHour),
-
-                  // Entries
-                  ...layoutEntries.map((le) {
-                    final entry = le.entry;
-                    final startTotalHours =
-                        entry.startTime.hour + (entry.startTime.minute / 60.0);
-                    final top = startTotalHours * pixelsPerHour;
-                    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
-                    final height = rawHeight.clamp(24.0, double.infinity); // Min height to prevent layout breaks
-
-                    const double leftGutter = 60.0;
-                    // Ensure padding even on narrow screens
-                    final double availableWidth =
-                        (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
-                    final double widthPerCol = availableWidth / le.totalCols;
-                    final double left = leftGutter + (le.col * widthPerCol);
-
-                    final isPredicted = entry.isPredicted;
-                    final effectiveColor = isPredicted
-                        ? entry.color.withOpacity(0.15)
-                        : entry.color.withOpacity(0.25);
-                    final borderColor = isPredicted
-                        ? entry.color.withOpacity(0.3)
-                        : entry.color;
-
-                    return Positioned(
-                      top: top,
-                      left: left,
-                      width: (widthPerCol - 4).clamp(0.0, double.infinity),
-                      height: height,
-                      child: GestureDetector(
-                        onTap: () => widget.onEditEntry(entry),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: effectiveColor,
-                            border: Border.all(
-                                color: borderColor,
-                                width: isPredicted ? 1 : 1,
-                                style: BorderStyle.solid // Could dash if wanted
-                                ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          // Use ClipRect to ensure text does not overflow out of small height boxes
-                          child: ClipRect(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (isPredicted)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                            right: 4.0),
-                                        child: Icon(Icons.auto_awesome,
-                                            size: 10, color: borderColor),
-                                      ),
-                                    Expanded(
-                                      child: Text(entry.title,
-                                          style: TextStyle(
-                                              color: isPredicted
-                                                  ? Colors.white70
-                                                  : Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: isPredicted
-                                                  ? FontWeight.normal
-                                                  : FontWeight.bold),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
-                                    ),
-                                  ],
-                                ),
-                                if (height > 32) // Only show time text if height allows without clipping heavily
-                                  Text(
-                                    "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                    style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
-                                        fontSize: 9,
-                                        fontFamily: 'RobotoMono'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  )
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    });
-  }
-
-  Widget _buildCurrentTimeIndicator(double pixelsPerHour) {
-    final now = DateTime.now();
-    final currentHour = now.hour + (now.minute / 60.0);
-    final top = currentHour * pixelsPerHour;
-
-    return Positioned(
-      top: top,
-      left: 0,
-      right: 0,
-      child: Row(
-        children: [
-          Container(
-            width: 55,
-            padding: const EdgeInsets.only(right: 4),
-            alignment: Alignment.centerRight,
-            child: Text(
-              DateFormat('HH:mm').format(now),
-              style: const TextStyle(
-                  color: AppTheme.fhAccentRed,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                  fontFamily: 'RobotoMono'),
-            ),
-          ),
-          const Expanded(
-              child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LayoutEntry {
-  final TimelineEntry entry;
-  final int col;
-  int totalCols = 0;
-  _LayoutEntry(this.entry, this.col);
-}
---- END OF FILE lib/src/widgets/schedule/schedule_timeline.dart ---
-
---- START OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+--- START OF FILE lib/src/widgets/valorant/valorant_card.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-class ScheduleHeroWidget extends StatelessWidget {
-  final MainTask? mainTask;
-  final SubTask? subTask;
-  final SubSubTask? checkpoint;
-  final bool isRunning;
-  final double totalTodaySeconds;
-  
-  final VoidCallback onPlayPause;
-  final VoidCallback onOpenPlan;
-  final VoidCallback onPostpone;
-  final VoidCallback onFinishCheckpoint;
-  final VoidCallback onTitleTap; // Added click action callback
+class ValorantCard extends StatelessWidget {
+  final Widget child;
+  final Color? borderColor;
+  final Color? backgroundColor;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double cornerCut;
 
-  const ScheduleHeroWidget({
+  const ValorantCard({
     super.key,
-    this.mainTask,
-    this.subTask,
-    this.checkpoint,
-    required this.isRunning,
-    required this.totalTodaySeconds,
-    required this.onPlayPause,
-    required this.onOpenPlan,
-    required this.onPostpone,
-    required this.onFinishCheckpoint,
-    required this.onTitleTap,
+    required this.child,
+    this.borderColor,
+    this.backgroundColor,
+    this.isSelected = false,
+    this.onTap,
+    this.onLongPress,
+    this.padding,
+    this.margin,
+    this.cornerCut = 12.0, // Size of the corner cut
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isEmpty = subTask == null;
-    final bool isCheckpoint = checkpoint != null;
-    
-    final Color mainColor = isEmpty 
-        ? AppTheme.fhTextDisabled 
-        : (isCheckpoint ? PersonInfoTheme.spideyCyan : (mainTask?.taskColor ?? PersonInfoTheme.spideyRed));
+    final effectiveBorderColor = borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3);
+    final effectiveBgColor = backgroundColor ?? AppTheme.fhBgDark.withValues(alpha: 0.6);
 
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: PersonInfoTheme.bgPanel,
-        border: Border(left: BorderSide(color: mainColor, width: 4)),
-        boxShadow: [
-          BoxShadow(
-            color: mainColor.withOpacity(0.15),
-            blurRadius: 15,
-            spreadRadius: 2,
-          )
-        ]
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(isCheckpoint ? MdiIcons.rhombusOutline : MdiIcons.targetAccount, color: mainColor, size: 14),
-                    const SizedBox(width: 8),
-                    Text(
-                      isEmpty ? "QUEUE EMPTY" : (isCheckpoint ? "CHECKPOINT TARGET" : "PRIMARY TARGET"),
-                      style: GoogleFonts.rajdhani(
-                        color: mainColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                  ],
-                ),
-                InkWell(
-                  onTap: onOpenPlan,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhTextSecondary.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(MdiIcons.formatListBulleted, size: 12, color: AppTheme.fhTextSecondary),
-                        const SizedBox(width: 4),
-                        const Text("DAY PLAN", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      margin: margin,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          // Custom shape for ink splash to match beveled border
+          customBorder: BeveledRectangleBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(cornerCut),
+              bottomRight: Radius.circular(cornerCut),
             ),
           ),
-          
-          // Main Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: isEmpty ? null : onTitleTap,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.05),
-                        border: Border(left: BorderSide(color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.5), width: 2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
-                            style: GoogleFonts.chakraPetch(
-                              color: AppTheme.fhTextPrimary,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                              height: 1.1,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 6),
-                          if (!isEmpty)
-                            Text(
-                              isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
-                              style: TextStyle(
-                                color: AppTheme.fhTextSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: AppTheme.fontDisplay,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            
-                          if (!isCheckpoint && !isEmpty) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
-                                  style: const TextStyle(
-                                    fontFamily: "RobotoMono",
-                                    color: AppTheme.fhTextSecondary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold
-                                  ),
-                                )
-                              ],
-                            )
-                          ]
-                        ],
-                      ),
-                    ),
-                  ),
+          child: Container(
+            padding: padding ?? const EdgeInsets.all(16),
+            decoration: ShapeDecoration(
+              color: effectiveBgColor,
+              shape: BeveledRectangleBorder(
+                side: BorderSide(
+                  color: effectiveBorderColor,
+                  width: isSelected ? 1.5 : 1.0,
                 ),
-                
-                if (!isEmpty) ...[
-                  const SizedBox(width: 16),
-                  
-                  // Action Buttons Column
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isCheckpoint) ...[
-                        _buildCompactButton(
-                          label: isRunning ? "HALT" : "ENGAGE",
-                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
-                          color: isRunning ? AppTheme.fhAccentRed : PersonInfoTheme.spideyCyan,
-                          isFilled: true,
-                          onTap: onPlayPause
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "FINISH",
-                          icon: MdiIcons.checkAll,
-                          color: PersonInfoTheme.spideyCyan,
-                          isFilled: false,
-                          onTap: onFinishCheckpoint
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: PersonInfoTheme.spideyRed,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
-                      ] else ...[
-                        _buildCompactButton(
-                          label: isRunning ? "HALT" : "ENGAGE",
-                          icon: isRunning ? MdiIcons.pause : MdiIcons.play,
-                          color: isRunning ? AppTheme.fhAccentRed : mainColor,
-                          isFilled: true,
-                          onTap: onPlayPause
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: AppTheme.fhTextSecondary,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
-                      ]
-                    ],
-                  )
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(cornerCut),
+                  bottomRight: Radius.circular(cornerCut),
+                ),
+              ),
+            ),
+            child: Stack(
+              children: [
+                child,
+                // Decorative squares for selected/active state
+                if (isSelected) ...[
+                  Positioned(
+                    top: 0, left: 0,
+                    child: Container(width: 6, height: 6, color: borderColor),
+                  ),
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: Container(width: 6, height: 6, color: borderColor),
+                  ),
+                ] else ...[
+                   // Subtle decoration for normal state
+                   Positioned(
+                    top: 0, left: 0,
+                    child: Container(width: 4, height: 4, color: AppTheme.fhBorderColor),
+                  ),
                 ]
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildCompactButton({required String label, required IconData icon, required Color color, required bool isFilled, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: isFilled ? color : Colors.transparent,
-          border: Border.all(color: color, width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: isFilled ? Colors.black : color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.rajdhani(
-                color: isFilled ? Colors.black : color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12
-              ),
-            )
-          ],
         ),
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/schedule/schedule_hero_widget.dart ---
+--- END OF FILE lib/src/widgets/valorant/valorant_card.dart ---
 
---- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+--- START OF FILE lib/src/widgets/ui/jwe_compact_task_card.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
-import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
-import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
 
-class ScheduleView extends StatefulWidget {
-  const ScheduleView({super.key});
+class JweCompactTaskCard extends StatelessWidget {
+  final MainTask task;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-  @override
-  State<ScheduleView> createState() => _ScheduleViewState();
-}
-
-class _ScheduleViewState extends State<ScheduleView> {
-  DateTime _selectedDate = DateTime.now();
-  List<TimelineEntry> _predictedEntries = [];
-  bool _isPredicting = false;
-
-  // --- Date Control ---
-  void _shiftDate(int days) {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: days));
-      _predictedEntries.clear(); 
-    });
-  }
-
-  Future<void> _pickDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTeal,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _predictedEntries.clear();
-      });
-    }
-  }
-
-  // --- Prediction ---
-  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
-    if (!_isSameDay(_selectedDate, DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
-      return;
-    }
-    setState(() => _isPredicting = true);
-    try {
-      final newEntries = await provider.scheduleActions.predictSchedule();
-      setState(() {
-        _predictedEntries = newEntries;
-      });
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isPredicting = false);
-    }
-  }
-
-  // --- Entries Merging ---
-  List<TimelineEntry> _buildEntries(AppProvider provider) {
-    final List<TimelineEntry> entries = [];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-
-    for (var pred in _predictedEntries) {
-      bool overlaps = false;
-      for (var real in entries) {
-        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (!overlaps) entries.add(pred);
-    }
-
-    return entries;
-  }
-
-  // --- Handlers ---
-  void _openProtocolControl(BuildContext context, AppProvider provider) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.85,
-        child: ProtocolControlPanel(
-          protocols: provider.mainTasks,
-          selectedProtocolId: provider.selectedTaskId,
-          onSelect: (id) => provider.setSelectedTaskId(id),
-          onAdd: () => _showAddProtocolDialog(context, provider),
-          onEdit: (updatedTask) {
-            provider.editMainTask(
-              updatedTask.id,
-              name: updatedTask.name,
-              description: updatedTask.description,
-              theme: updatedTask.theme,
-              colorHex: updatedTask.colorHex,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgMedium,
-        title: const Text("NEW PROTOCOL"),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: "NAME"),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty) {
-                provider.addMainTask(
-                  name: nameCtrl.text,
-                  description: "New Protocol",
-                  theme: "general",
-                  colorHex: "FF00F8F8" 
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text("CREATE"),
-          )
-        ],
-      )
-    );
-  }
-
-  void _handleAddSession(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
-    );
-
-    if (result != null && mounted) {
-      final start = result['start']!;
-      final end = result['end']!;
-      _showTaskSelectorAndAdd(context, provider, start, end);
-    }
-  }
-
-  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppTheme.fhBgMedium,
-          title: const Text("SELECT MISSION"),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: provider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = provider.mainTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
-                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
-
-                return ExpansionTile(
-                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
-                  children: activeSubtasks.map((sub) {
-                    return ListTile(
-                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
-                      onTap: () {
-                        provider.addSessionToSubtask(task.id, sub.id, start, end);
-                        Navigator.pop(ctx);
-                      },
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ),
-        );
-      }
-    );
-  }
-
-  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
-    if (entry.isPredicted) {
-      _handlePredictedEntryTap(context, provider, entry);
-      return;
-    }
-
-    if (entry.originalObject is! TaskSession) return;
-    final session = entry.originalObject as TaskSession;
-    
-    String? mainTaskId;
-    String? subTaskId;
-    for (var m in provider.mainTasks) {
-      for (var s in m.subTasks) {
-        if (s.sessions.any((sess) => sess.id == session.id)) {
-          mainTaskId = m.id;
-          subTaskId = s.id;
-          break;
-        }
-      }
-      if (mainTaskId != null) break;
-    }
-
-    if (mainTaskId == null || subTaskId == null) return;
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-        initialStart: session.startTime,
-        initialEnd: session.endTime,
-      ),
-    );
-
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
-      }
-    }
-  }
-
-  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(entry.title),
-        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _predictedEntries.removeWhere((e) => e.id == entry.id);
-              });
-              Navigator.pop(ctx);
-            }, 
-            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
-            }, 
-            child: const Text("LOG REAL SESSION")
-          )
-        ],
-      )
-    );
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
+  const JweCompactTaskCard({
+    super.key,
+    required this.task,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final entries = _buildEntries(provider);
-    final isToday = _isSameDay(_selectedDate, DateTime.now());
-
-    // Resolve Next Task from Day Plan
-    String? nextQueueId;
-    SubTask? nextSubTask;
-    MainTask? nextMainTask;
-    SubSubTask? nextCheckpoint;
-
-    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
-    
-    for (String idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-        
-        if (sTask != null && !sTask.completed) {
-          if (parts.length == 3) {
-            // It's a checkpoint
-            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
-            if (cp != null && !cp.completed) {
-              nextQueueId = idPair;
-              nextMainTask = mTask;
-              nextSubTask = sTask;
-              nextCheckpoint = cp;
-              break;
-            }
-          } else {
-            // It's a subtask
-            nextQueueId = idPair;
-            nextMainTask = mTask;
-            nextSubTask = sTask;
-            break;
-          }
-        }
-      }
-    }
-
-    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
-    final totalTodaySeconds = nextSubTask != null 
-        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
-        : 0.0;
-
-    return Column(
-      children: [
-        // HERO SECTION
-        ScheduleHeroWidget(
-          mainTask: nextMainTask,
-          subTask: nextSubTask,
-          checkpoint: nextCheckpoint,
-          isRunning: isRunning,
-          totalTodaySeconds: totalTodaySeconds,
-          onOpenPlan: () {
-             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
-          },
-          onPlayPause: () {
-            if (nextSubTask == null || nextMainTask == null) return;
-            if (isRunning) {
-              provider.pauseTimer(nextSubTask!.id);
-              provider.logTimerAndReset(nextSubTask!.id);
-            } else {
-              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
-            }
-          },
-          onPostpone: () {
-            if (nextQueueId != null) {
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
-            }
-          },
-          onFinishCheckpoint: () {
-            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
-              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
-            }
-          },
-          onTitleTap: () {
-            if (nextMainTask != null && nextSubTask != null) {
-              if (nextCheckpoint != null) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                  mainTaskId: nextMainTask!.id,
-                  parentSubTaskId: nextSubTask!.id,
-                  checkpointId: nextCheckpoint!.id,
-                )));
-              } else {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
-                  parentTask: nextMainTask!,
-                  subTask: nextSubTask!,
-                )));
-              }
-            }
-          },
-        ),
-        
-        // --- NEW QUEUE DASHBOARD ---
-        if (isToday)
-          const DayPlanDashboardWidget(),
-
-        // CONTROLS
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+            color: isSelected ? JweTheme.accentCyan.withOpacity(0.1) : JweTheme.panel,
+            border: Border(
+              left: BorderSide(color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, width: 3),
+              top: const BorderSide(color: JweTheme.border),
+              right: const BorderSide(color: JweTheme.border),
+              bottom: const BorderSide(color: JweTheme.border),
+            ),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(-1),
-                  ),
-                  InkWell(
-                    onTap: () => _pickDate(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTeal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(1),
-                  ),
-                ],
+              Icon(
+                MdiIcons.archiveOutline, 
+                color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, 
+                size: 18
               ),
-              Row(
-                children: [
-                  if (isToday)
-                    IconButton(
-                      icon: _isPredicting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
-                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
-                      tooltip: "PREDICT SCHEDULE",
-                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.name.toUpperCase(),
+                      style: GoogleFonts.rajdhani(
+                        color: isSelected ? JweTheme.textWhite : JweTheme.textMuted,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        letterSpacing: 1.0,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  IconButton(
-                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
-                    tooltip: "PROTOCOL CONTROL",
-                    onPressed: () => _openProtocolControl(context, provider),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: Stack(
-            children: [
-              ScheduleTimeline(
-                entries: entries,
-                onAddSession: () => _handleAddSession(context, provider),
-                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
-                initialScrollOffset: 0,
-              ),
-              Positioned(
-                right: 20,
-                bottom: 20,
-                child: FloatingActionButton(
-                  backgroundColor: AppTheme.fhAccentRed,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                  onPressed: () => _handleAddSession(context, provider),
+                    Text(
+                      "STANDBY / ARCHIVED",
+                      style: TextStyle(
+                        color: JweTheme.textMuted.withOpacity(0.7),
+                        fontSize: 9,
+                        fontFamily: 'RobotoMono',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
---- END OF FILE lib/src/widgets/views/schedule_view.dart ---
+--- END OF FILE lib/src/widgets/ui/jwe_compact_task_card.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/jwe_task_options_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class JweTaskOptionsDialog extends StatelessWidget {
+  final MainTask task;
+
+  const JweTaskOptionsDialog({super.key, required this.task});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final isActive = task.isActive;
+
+    return Dialog(
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: JweTheme.accentCyan, width: 2),
+        borderRadius: BorderRadius.zero,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(MdiIcons.consoleLine, color: JweTheme.accentCyan, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "PROTOCOL CONFIG",
+                      style: GoogleFonts.rajdhani(
+                        color: JweTheme.textWhite,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: JweTheme.bgBase,
+                  border: Border.all(color: JweTheme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "TARGET:",
+                      style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      task.name.toUpperCase(),
+                      style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                icon: Icon(isActive ? MdiIcons.pauseOctagonOutline : MdiIcons.playCircleOutline, size: 18),
+                label: Text(isActive ? "SUSPEND PROTOCOL" : "REACTIVATE PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isActive ? JweTheme.accentAmber : JweTheme.accentCyan,
+                  side: BorderSide(color: isActive ? JweTheme.accentAmber : JweTheme.accentCyan),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  provider.taskActions.toggleTaskStatus(task.id, !isActive);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.textMuted,
+                  side: const BorderSide(color: JweTheme.border),
+                  shape: const BeveledRectangleBorder(),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CANCEL"),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/jwe_task_options_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/task_navigation_drawer.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
+import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class TaskNavigationDrawer extends StatefulWidget {
+  const TaskNavigationDrawer({super.key});
+
+  @override
+  State<TaskNavigationDrawer> createState() => _TaskNavigationDrawerState();
+}
+
+class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
+  final _newTaskNameController = TextEditingController();
+  final _newTaskDescController = TextEditingController();
+
+  String _dialogSelectedTheme = 'tech';
+  // ignore: deprecated_member_use
+  String _dialogSelectedColorHex = AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
+
+  final List<Map<String, dynamic>> _availableThemes = [
+    {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
+    {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
+    {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
+    {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
+    {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
+    {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
+  ];
+
+  Color _getColorForTheme(String themeName) {
+    return _availableThemes.firstWhere((t) => t['name'] == themeName,
+        orElse: () => {'color': AppTheme.fhAccentTealFixed})['color'] as Color;
+  }
+
+  IconData _getThemeIcon(String? themeName) {
+    return _availableThemes.firstWhere((t) => t['name'] == themeName,
+        orElse: () => _availableThemes.last)['icon'] as IconData;
+  }
+
+  @override
+  void dispose() {
+    _newTaskNameController.dispose();
+    _newTaskDescController.dispose();
+    super.dispose();
+  }
+
+  void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
+    _newTaskNameController.clear();
+    _newTaskDescController.clear();
+    _dialogSelectedTheme = 'tech';
+    // ignore: deprecated_member_use
+    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setStateDialog) {
+          final currentColor = Color(int.parse("0xFF$_dialogSelectedColorHex"));
+
+          return AlertDialog(
+            title: const Text('NEW PROTOCOL'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextField(controller: _newTaskNameController, decoration: const InputDecoration(labelText: 'CODENAME')),
+                  const SizedBox(height: 12),
+                  TextField(controller: _newTaskDescController, decoration: const InputDecoration(labelText: 'BRIEFING'), maxLines: 2),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'CLASS'),
+                    dropdownColor: AppTheme.fhBgDark,
+                    // ignore: deprecated_member_use
+                    value: _dialogSelectedTheme,
+                    items: _availableThemes.map((themeMap) => DropdownMenuItem(
+                      value: themeMap['name'] as String,
+                      child: Text((themeMap['name'] as String).toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay))
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setStateDialog(() {
+                          _dialogSelectedTheme = val;
+                          // ignore: deprecated_member_use
+                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("CLASS COLOR", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => ColorSelectorDialog(
+                          selectedColor: currentColor,
+                          onColorSelected: (color) {
+                            setStateDialog(() {
+                              // ignore: deprecated_member_use
+                              _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
+                            });
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 40,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: currentColor,
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
+                    ),
+                  )
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(child: const Text('ABORT'), onPressed: () => Navigator.pop(dialogContext)),
+              ValorantButton(
+                label: 'INITIALIZE',
+                onPressed: () {
+                  if (_newTaskNameController.text.isNotEmpty) {
+                    appProvider.addMainTask(
+                      name: _newTaskNameController.text,
+                      description: _newTaskDescController.text,
+                      theme: _dialogSelectedTheme,
+                      colorHex: _dialogSelectedColorHex,
+                    );
+                    Navigator.pop(dialogContext);
+                  }
+                },
+              )
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    
+    return Container(
+      width: 300,
+      color: AppTheme.fhBgDeepDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor, width: 1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("PROTOCOLS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+                const SizedBox(height: 4),
+                Text("SELECT MISSION PROFILE", style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 2.0)),
+              ],
+            ),
+          ),
+          
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                if (activeTasks.isNotEmpty) ...[
+                  ...activeTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+                    final color = task.taskColor;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: ValorantCard(
+                        isSelected: isSelected,
+                        borderColor: isSelected ? color : null,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48, height: 48,
+                              decoration: BoxDecoration(
+                                color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
+                                border: Border.all(color: isSelected ? color : Colors.transparent),
+                              ),
+                              child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task.name.toUpperCase(),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontDisplay,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                      letterSpacing: 1.0,
+                                    ),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    task.theme.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10, 
+                                      color: isSelected ? color : AppTheme.fhTextDisabled,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w600
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ],
+                
+                if (inactiveTasks.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                    child: Text("INACTIVE ARCHIVE", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)),
+                  ),
+                  ...inactiveTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: JweCompactTaskCard(
+                        task: task,
+                        isSelected: isSelected,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ]
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ValorantButton(
+              label: "NEW AGENT",
+              icon: MdiIcons.plus,
+              isPrimary: false,
+              onPressed: () => _showAddTaskDialog(context, appProvider),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/task_navigation_drawer.dart ---

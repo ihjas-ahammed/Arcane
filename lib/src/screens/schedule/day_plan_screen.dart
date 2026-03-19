@@ -63,7 +63,9 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
     // Build available list
     List<Widget> availableWidgets = [];
-    for (var task in provider.mainTasks) {
+    final activeTasks = provider.mainTasks.where((t) => t.isActive).toList(); // Only active
+    
+    for (var task in activeTasks) {
       final activeSubs = task.subTasks.where((s) => !s.completed).toList();
       if (activeSubs.isEmpty) continue;
 
@@ -186,7 +188,6 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
                             
                             if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
 
-                            // Determine if it's a checkpoint or subtask
                             final isCheckpoint = parts.length == 3;
                             String title = sub.name;
                             String subtitle = task.name;

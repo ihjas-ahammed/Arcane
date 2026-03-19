@@ -4,6 +4,8 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 
 class ProtocolControlPanel extends StatelessWidget {
   final List<MainTask> protocols;
@@ -23,6 +25,8 @@ class ProtocolControlPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
     return Container(
       color: AppTheme.fhBgDeepDark,
       child: Column(
@@ -77,7 +81,7 @@ class ProtocolControlPanel extends StatelessWidget {
                         color: isSelected ? protocol.taskColor : AppTheme.fhBorderColor.withOpacity(0.3),
                         width: isSelected ? 2 : 1
                       ),
-                      borderRadius: BorderRadius.circular(4), // Slightly rounded for comfort
+                      borderRadius: BorderRadius.circular(4), 
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -88,7 +92,7 @@ class ProtocolControlPanel extends StatelessWidget {
                           child: Container(
                             width: 16, height: 16,
                             decoration: BoxDecoration(
-                              color: protocol.taskColor,
+                              color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
                               border: Border.all(color: Colors.white30),
                             ),
                           ),
@@ -103,17 +107,18 @@ class ProtocolControlPanel extends StatelessWidget {
                               Text(
                                 protocol.name.toUpperCase(),
                                 style: TextStyle(
-                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                  color: protocol.isActive ? (isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary) : AppTheme.fhTextDisabled,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   fontFamily: AppTheme.fontDisplay,
-                                  letterSpacing: 1.0
+                                  letterSpacing: 1.0,
+                                  decoration: protocol.isActive ? null : TextDecoration.lineThrough,
                                 ),
                               ),
                               Text(
-                                protocol.theme.toUpperCase(),
+                                protocol.isActive ? protocol.theme.toUpperCase() : "INACTIVE",
                                 style: TextStyle(
-                                  color: isSelected ? protocol.taskColor : AppTheme.fhTextDisabled,
+                                  color: protocol.isActive ? (isSelected ? protocol.taskColor : AppTheme.fhTextDisabled) : AppTheme.fhTextDisabled,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 1.5
@@ -121,6 +126,15 @@ class ProtocolControlPanel extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                        
+                        // Toggle Active State
+                        IconButton(
+                          icon: Icon(protocol.isActive ? MdiIcons.pauseCircleOutline : MdiIcons.playCircleOutline, size: 20, color: AppTheme.fhTextSecondary),
+                          onPressed: () {
+                            provider.taskActions.toggleTaskStatus(protocol.id, !protocol.isActive);
+                          },
+                          tooltip: protocol.isActive ? "Deactivate" : "Activate",
                         ),
                         
                         // Edit Action
@@ -161,10 +175,6 @@ class ProtocolControlPanel extends StatelessWidget {
         selectedColor: protocol.taskColor,
         onColorSelected: (color) {
           final hex = color.value.toRadixString(16).toUpperCase().substring(2);
-          // We need to trigger an update. Since MainTask is immutable-ish in provider lists without action,
-          // we use the onEdit callback or a direct action if available.
-          // For simplicity, we assume onEdit handles full updates, but here we just want color.
-          // Let's modify the copy and pass it to onEdit.
           final updated = protocol.copyWith(colorHex: hex);
           onEdit(updated);
         },

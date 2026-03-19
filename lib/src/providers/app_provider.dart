@@ -856,11 +856,43 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
     session.messages.add(userMsg);
     markDirty('settings'); 
+
+    // Gather Context bounded by session dates
+    final start = session.startDate;
+    final end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+
+    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+
+    final List<String> sessionStrs = [];
+    for (var task in mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var sess in sub.sessions) {
+          if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+            sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+          }
+        }
+      }
+    }
+
+    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
+    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+
+    final fullContext = """
+    SYSTEM: You are NORA. Tone: ${session.tone}.
+    ${session.customContext ?? ''}
+
+    CONTEXT DATA FOR REQUESTED PERIOD:
+    Reflections: $refStr
+    Sessions: ${sessionStrs.join(" | ")}
+    Known Entities: $peopleStr
+    Known Assets: $assetsStr
+    """;
     
     try {
-      final prompt = "You are ${session.tone}. User: $text";
-      final responseText = await _aiService.queryNeuralArchive(
-        query: text, logsContext: prompt, 
+      final responses = await _aiService.queryNeuralArchive(
+        query: text, 
+        logsContext: fullContext, 
         modelCandidates: settings.liteModels, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
@@ -868,10 +900,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         onLog: (m) {}
       );
       
-      final botMsg = ChatbotMessage(id: const Uuid().v4(), text: responseText, sender: MessageSender.bot, timestamp: DateTime.now());
-      session.messages.add(botMsg);
-      markDirty('settings');
-      notifyListeners();
+      for (String resp in responses) {
+        // dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+        session.messages.add(botMsg);
+        markDirty('settings');
+        notifyListeners();
+      }
     } catch(e) {
       final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
       session.messages.add(errorMsg);

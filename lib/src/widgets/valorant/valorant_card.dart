@@ -7,6 +7,7 @@ class ValorantCard extends StatelessWidget {
   final Color? backgroundColor;
   final bool isSelected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final double cornerCut;
@@ -18,6 +19,7 @@ class ValorantCard extends StatelessWidget {
     this.backgroundColor,
     this.isSelected = false,
     this.onTap,
+    this.onLongPress,
     this.padding,
     this.margin,
     this.cornerCut = 12.0, // Size of the corner cut
@@ -34,6 +36,7 @@ class ValorantCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           // Custom shape for ink splash to match beveled border
           customBorder: BeveledRectangleBorder(
             borderRadius: BorderRadius.only(

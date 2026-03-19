@@ -42,6 +42,7 @@ class MainTask {
   String colorHex;
   int dailyTimeSpent;
   String? lastWorkedDate;
+  bool isActive; // Added for Disabling Tasks
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -54,6 +55,7 @@ class MainTask {
     this.colorHex = "FF00F8F8",
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
+    this.isActive = true,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -69,6 +71,7 @@ class MainTask {
     String? colorHex,
     int? dailyTimeSpent,
     String? lastWorkedDate,
+    bool? isActive,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -81,6 +84,7 @@ class MainTask {
       colorHex: colorHex ?? this.colorHex,
       dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
       lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
+      isActive: isActive ?? this.isActive,
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
@@ -111,6 +115,7 @@ class MainTask {
       colorHex: json['colorHex'] as String? ?? "FF00F8F8",
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
       weeklyCompletionStatus:
           weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
       subTasks: (json['subTasks'] as List<dynamic>?)
@@ -134,6 +139,7 @@ class MainTask {
       'colorHex': colorHex,
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
+      'isActive': isActive,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
       'projects': projects.map((p) => p.toJson()).toList(),
@@ -164,7 +170,7 @@ class SubTask {
   
   String why; 
   String what;
-  String resources; // NEW: Added resources field
+  String resources; 
 
   bool isRecurring;
   DateTime? lastCompletedDate; 
@@ -208,7 +214,7 @@ class SubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
-      resources: json['resources'] as String? ?? '', // Parse resources
+      resources: json['resources'] as String? ?? '', 
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -245,7 +251,7 @@ class SubTask {
       'currentCount': currentCount,
       'why': why,
       'what': what,
-      'resources': resources, // Serialize resources
+      'resources': resources, 
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
@@ -253,6 +259,15 @@ class SubTask {
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
+  }
+
+  double calculateProgress() {
+    if (subSubTasks.isEmpty) return completed ? 1.0 : 0.0;
+    double total = 0;
+    for (var sst in subSubTasks) {
+      total += sst.calculateProgress();
+    }
+    return total / subSubTasks.length;
   }
 }
 
@@ -264,7 +279,7 @@ class SubSubTask {
   int targetCount;
   int currentCount;
   String? completionTimestamp;
-  String type; // 'check' or 'info'
+  String type; 
   List<SubSubTask> substeps; 
   
   String why;
@@ -321,8 +336,11 @@ class SubSubTask {
   
   double calculateProgress() {
     if (substeps.isEmpty) return completed ? 1.0 : 0.0;
-    int done = substeps.where((s) => s.completed).length;
-    return done / substeps.length;
+    double total = 0;
+    for (var sst in substeps) {
+      total += sst.calculateProgress();
+    }
+    return total / substeps.length;
   }
 }
 

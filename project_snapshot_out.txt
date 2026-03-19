@@ -2328,43 +2328,43 @@ flutter:
 --- END OF FILE future.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
-version.json,1773655455926,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
-manifest.json,1773655459197,92824ff17269d17368d9a0b9709e313dcae9136423d210eccf4b3968a147e27c
-index.html,1773655205181,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
-flutter_service_worker.js,1773655459903,36f956738bb041b25ed5ed0a1fea519bb3e47d1299601bdbcdc789b3649feb29
-favicon.png,1773655459197,89d30aa752917b7383e1ccc971caa7ec1be57be2818abc6bc8d7ad379abc9195
-flutter_bootstrap.js,1773655205119,3ab50b9f725d71ba5fbda25300761dae4b54c231429dc443ab86fcaa18caf3fd
-flutter.js,1773655205079,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
-icons/Icon-192.png,1773655459201,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
-icons/Icon-maskable-192.png,1773655459199,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
-assets/FontManifest.json,1773655456149,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
-assets/AssetManifest.bin.json,1773655456147,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
-assets/AssetManifest.bin,1773655456144,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
-assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1773655459175,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
-assets/shaders/ink_sparkle.frag,1773655456399,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
-assets/shaders/stretch_effect.frag,1773655456394,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
-assets/fonts/MaterialIcons-Regular.otf,1773655459175,293058293fbe4f6e0e8101f02ac6ef108eed5b522e5bc3b47e446eb2cf68eeaf
-assets/assets/fonts/OpenSans-Regular.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/RobotoCondensed-Regular.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-SemiBold.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/RobotoCondensed-Bold.ttf,1773655459135,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-canvaskit/skwasm_heavy.js,1773655204965,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
-canvaskit/skwasm.js,1773655204910,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
-canvaskit/canvaskit.js,1773655204941,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
-canvaskit/chromium/canvaskit.js,1773655205054,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
-icons/Icon-maskable-512.png,1773655459202,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
-icons/Icon-512.png,1773655459198,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
-assets/NOTICES,1773655456149,e05ace101f0cba8113452e5bea32e7656b2a87c08b6296bcd26f5198554c9cc4
-canvaskit/chromium/canvaskit.js.symbols,1773655205066,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
-canvaskit/canvaskit.js.symbols,1773655204954,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
-canvaskit/skwasm.js.symbols,1773655204844,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
-canvaskit/skwasm_heavy.js.symbols,1773655204926,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
-assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1773655459191,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
-canvaskit/skwasm.wasm,1773655204872,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
-main.dart.js,1773655455898,3c54cbacbc7c02831756f424b231270be1fbcd9b92d334c158fa792e64ad478d
-canvaskit/chromium/canvaskit.wasm,1773655204996,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
-canvaskit/skwasm_heavy.wasm,1773655204777,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
-canvaskit/canvaskit.wasm,1773655204668,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
+version.json,1773848921910,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
+manifest.json,1773848925136,92824ff17269d17368d9a0b9709e313dcae9136423d210eccf4b3968a147e27c
+main.dart.js,1773848921875,a50a93015036c70f01b51847dc85a222b97cba9b9739653021956cfeb97f9e20
+favicon.png,1773848925136,89d30aa752917b7383e1ccc971caa7ec1be57be2818abc6bc8d7ad379abc9195
+icons/Icon-maskable-512.png,1773848925137,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
+icons/Icon-maskable-192.png,1773848925137,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
+icons/Icon-512.png,1773848925136,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
+icons/Icon-192.png,1773848925137,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
+assets/NOTICES,1773848922112,e05ace101f0cba8113452e5bea32e7656b2a87c08b6296bcd26f5198554c9cc4
+assets/FontManifest.json,1773848922111,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
+assets/AssetManifest.bin.json,1773848922111,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
+assets/AssetManifest.bin,1773848922111,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
+assets/shaders/stretch_effect.frag,1773848922367,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
+assets/shaders/ink_sparkle.frag,1773848922361,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
+assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1773848925116,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
+assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1773848925120,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
+assets/fonts/MaterialIcons-Regular.otf,1773848925124,293058293fbe4f6e0e8101f02ac6ef108eed5b522e5bc3b47e446eb2cf68eeaf
+assets/assets/fonts/RobotoCondensed-Regular.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/RobotoCondensed-Bold.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-SemiBold.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-Regular.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+index.html,1773890204480,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
+flutter_service_worker.js,1773890433459,574bfb115266d96efdd85af6a3292efa8d299dc72b75d2c93114213706303b45
+flutter.js,1773890202939,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
+flutter_bootstrap.js,1773890204470,1d9da15ab5ab37ec30209313c395f17fdc0c32dc705d5a923b8679c36368d365
+canvaskit/skwasm_heavy.js,1773890202826,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
+canvaskit/skwasm.js,1773890202759,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
+canvaskit/canvaskit.js,1773890202797,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
+canvaskit/chromium/canvaskit.js,1773890202917,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
+canvaskit/chromium/canvaskit.js.symbols,1773890202926,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
+canvaskit/canvaskit.js.symbols,1773890202807,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
+canvaskit/skwasm.js.symbols,1773890202674,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
+canvaskit/skwasm_heavy.js.symbols,1773890202770,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
+canvaskit/skwasm.wasm,1773890202702,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
+canvaskit/chromium/canvaskit.wasm,1773890202848,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
+canvaskit/skwasm_heavy.wasm,1773890202594,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
+canvaskit/canvaskit.wasm,1773890202498,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
 
 --- END OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 
@@ -3954,6 +3954,7 @@ class MainTask {
   String colorHex;
   int dailyTimeSpent;
   String? lastWorkedDate;
+  bool isActive; // Added for Disabling Tasks
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -3966,6 +3967,7 @@ class MainTask {
     this.colorHex = "FF00F8F8",
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
+    this.isActive = true,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -3981,6 +3983,7 @@ class MainTask {
     String? colorHex,
     int? dailyTimeSpent,
     String? lastWorkedDate,
+    bool? isActive,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -3993,6 +3996,7 @@ class MainTask {
       colorHex: colorHex ?? this.colorHex,
       dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
       lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
+      isActive: isActive ?? this.isActive,
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
@@ -4023,6 +4027,7 @@ class MainTask {
       colorHex: json['colorHex'] as String? ?? "FF00F8F8",
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
       weeklyCompletionStatus:
           weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
       subTasks: (json['subTasks'] as List<dynamic>?)
@@ -4046,6 +4051,7 @@ class MainTask {
       'colorHex': colorHex,
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
+      'isActive': isActive,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
       'projects': projects.map((p) => p.toJson()).toList(),
@@ -4076,7 +4082,7 @@ class SubTask {
   
   String why; 
   String what;
-  String resources; // NEW: Added resources field
+  String resources; 
 
   bool isRecurring;
   DateTime? lastCompletedDate; 
@@ -4120,7 +4126,7 @@ class SubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
-      resources: json['resources'] as String? ?? '', // Parse resources
+      resources: json['resources'] as String? ?? '', 
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -4157,7 +4163,7 @@ class SubTask {
       'currentCount': currentCount,
       'why': why,
       'what': what,
-      'resources': resources, // Serialize resources
+      'resources': resources, 
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
@@ -4165,6 +4171,15 @@ class SubTask {
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
+  }
+
+  double calculateProgress() {
+    if (subSubTasks.isEmpty) return completed ? 1.0 : 0.0;
+    double total = 0;
+    for (var sst in subSubTasks) {
+      total += sst.calculateProgress();
+    }
+    return total / subSubTasks.length;
   }
 }
 
@@ -4176,7 +4191,7 @@ class SubSubTask {
   int targetCount;
   int currentCount;
   String? completionTimestamp;
-  String type; // 'check' or 'info'
+  String type; 
   List<SubSubTask> substeps; 
   
   String why;
@@ -4233,8 +4248,11 @@ class SubSubTask {
   
   double calculateProgress() {
     if (substeps.isEmpty) return completed ? 1.0 : 0.0;
-    int done = substeps.where((s) => s.completed).length;
-    return done / substeps.length;
+    double total = 0;
+    for (var sst in substeps) {
+      total += sst.calculateProgress();
+    }
+    return total / substeps.length;
   }
 }
 
@@ -5539,11 +5557,43 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
     session.messages.add(userMsg);
     markDirty('settings'); 
+
+    // Gather Context bounded by session dates
+    final start = session.startDate;
+    final end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+
+    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+
+    final List<String> sessionStrs = [];
+    for (var task in mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var sess in sub.sessions) {
+          if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+            sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+          }
+        }
+      }
+    }
+
+    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
+    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+
+    final fullContext = """
+    SYSTEM: You are NORA. Tone: ${session.tone}.
+    ${session.customContext ?? ''}
+
+    CONTEXT DATA FOR REQUESTED PERIOD:
+    Reflections: $refStr
+    Sessions: ${sessionStrs.join(" | ")}
+    Known Entities: $peopleStr
+    Known Assets: $assetsStr
+    """;
     
     try {
-      final prompt = "You are ${session.tone}. User: $text";
-      final responseText = await _aiService.queryNeuralArchive(
-        query: text, logsContext: prompt, 
+      final responses = await _aiService.queryNeuralArchive(
+        query: text, 
+        logsContext: fullContext, 
         modelCandidates: settings.liteModels, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
@@ -5551,10 +5601,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         onLog: (m) {}
       );
       
-      final botMsg = ChatbotMessage(id: const Uuid().v4(), text: responseText, sender: MessageSender.bot, timestamp: DateTime.now());
-      session.messages.add(botMsg);
-      markDirty('settings');
-      notifyListeners();
+      for (String resp in responses) {
+        // dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+        session.messages.add(botMsg);
+        markDirty('settings');
+        notifyListeners();
+      }
     } catch(e) {
       final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
       session.messages.add(errorMsg);
@@ -5582,11 +5636,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
 --- START OF FILE lib/src/providers/actions/ai_generation_actions.dart ---
-// lib/src/providers/actions/ai_generation_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
 class AIGenerationActions {
   final AppProvider _provider;
@@ -5741,10 +5795,8 @@ class AIGenerationActions {
       final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
       final what = result['what'] as String? ?? '';
 
-      // Update Subtask with "What"
       _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
 
-      // Add Steps
       for (var step in steps) {
         _provider.addSubSubtask(mainTaskId, subTaskId, {
           'name': step['name'] ?? 'Action Step',
@@ -5757,6 +5809,54 @@ class AIGenerationActions {
       debugPrint("Error generating action plan: $e");
     } finally {
       _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> autoAssignAssets(String mainTaskId, String subTaskId) async {
+    _provider.setLoadingTask("Scanning Assets...");
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+
+      final taskContext = """
+      Mission: ${mainTask.name}
+      Objective: ${subTask.name}
+      Why: ${subTask.why}
+      What: ${subTask.what}
+      Sub-routines: ${subTask.subSubTasks.map((e) => e.name).join(', ')}
+      """;
+
+      final assetsListStr = _provider.chatbotMemory.gratitudeList.map((a) => "${a.id} | ${a.name} | ${a.type} | ${a.why} | ${a.what}").join('\n');
+
+      if (assetsListStr.trim().isEmpty) {
+        _logToApp("No assets available to assign.");
+        return;
+      }
+
+      final assetIds = await _aiService.autoAssignAssetsToTask(
+        taskContext: taskContext,
+        assetsList: assetsListStr,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      if (assetIds.isNotEmpty) {
+        // Merge with existing
+        List<String> currentIds = [];
+        try {
+          currentIds = (jsonDecode(subTask.resources) as List).map((e) => e.toString()).toList();
+        } catch (_) {}
+
+        final newSet = Set<String>.from(currentIds)..addAll(assetIds);
+        _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'resources': jsonEncode(newSet.toList())});
+      }
+    } catch (e) {
+      debugPrint("Error auto-assigning assets: $e");
+    } finally {
       _provider.setLoadingTask(null);
     }
   }
@@ -6855,7 +6955,7 @@ class TaskActions {
       subSubTasks: [],
       why: subtaskData['why'] as String? ?? '',
       what: subtaskData['what'] as String? ?? '',
-      resources: subtaskData['resources'] as String? ?? '', // Parse resources
+      resources: subtaskData['resources'] as String? ?? '', 
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -6883,7 +6983,7 @@ class TaskActions {
     if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
-    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; // Update resources
+    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -7147,6 +7247,17 @@ class TaskActions {
     recalibrateTimeLogs(silent: true);
   }
 
+  // --- Task Toggling ---
+  void toggleTaskStatus(String taskId, bool isActive) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == taskId) {
+        return task.copyWith(isActive: isActive);
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   // --- Utility ---
 
   Future<void> recalibrateTimeLogs({bool silent = false}) async {
@@ -7226,6 +7337,7 @@ class TaskActions {
       description: description,
       theme: theme,
       colorHex: colorHex,
+      isActive: true,
     );
     _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
   }
@@ -13047,7 +13159,9 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
     // Build available list
     List<Widget> availableWidgets = [];
-    for (var task in provider.mainTasks) {
+    final activeTasks = provider.mainTasks.where((t) => t.isActive).toList(); // Only active
+    
+    for (var task in activeTasks) {
       final activeSubs = task.subTasks.where((s) => !s.completed).toList();
       if (activeSubs.isEmpty) continue;
 
@@ -13170,7 +13284,6 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
                             
                             if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
 
-                            // Determine if it's a checkpoint or subtask
                             final isCheckpoint = parts.length == 3;
                             String title = sub.name;
                             String subtitle = task.name;
@@ -13530,6 +13643,95 @@ class AIService {
     }
   }
 
+  // ... (Other methods remain identical, showing only modified ones)
+
+  Future<List<String>> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+
+    RULES:
+    1. Answer based on the provided context if applicable.
+    2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
+    3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
+    4. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
+    Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
+    """;
+
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          final raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          
+          final decoded = JsonUtils.tryDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+          return ["system error: could not parse response sequence."];
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return ["offline mock response: connect api key."];
+      rethrow;
+    }
+  }
+
+  Future<List<String>> autoAssignAssetsToTask({
+    required String taskContext,
+    required String assetsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following Task context and select the most appropriate IDs from the provided Asset List that are required or helpful to complete this task.
+    
+    TASK CONTEXT:
+    $taskContext
+    
+    ASSET LIST (Format: ID | Name | Type | Why | What):
+    $assetsList
+    
+    Task:
+    Match the task requirements with the asset list. Select the IDs of the assets that fit.
+    
+    Output JSON ONLY with an array of IDs:
+    {
+      "asset_ids": ["id_1", "id_2"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['asset_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
   Future<Map<String, dynamic>> generateActionPlanSteps({
     required String taskName,
     required String why,
@@ -13632,40 +13834,6 @@ class AIService {
       return[];
     } catch(e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
-      rethrow;
-    }
-  }
-
-  Future<String> queryNeuralArchive({
-    required String query,
-    required String logsContext,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-    $logsContext
-    
-    USER: "$query"
-    """;
-
-    try {
-      return await _executeWithModelAndKeyRotation(
-        currentApiKeyIndex: currentApiKeyIndex,
-        customApiKeys: customApiKeys,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog,
-        modelCandidates: modelCandidates,
-        requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response = await model.generateContent([genai.Content.text(prompt)]);
-          return response.text ?? "Archive data corrupted or empty.";
-        },
-      );
-    } catch(e) {
-      if (e.toString().contains("OFFLINE_MOCK_DATA")) return "Offline mock response: Connect API Key.";
       rethrow;
     }
   }
@@ -16093,6 +16261,9 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    
     return Container(
       width: 300,
       color: AppTheme.fhBgDeepDark,
@@ -16115,66 +16286,134 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
           ),
           
           Expanded(
-            child: ListView.builder(
+            child: ListView(
               padding: const EdgeInsets.all(12),
-              itemCount: appProvider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = appProvider.mainTasks[index];
-                final isSelected = appProvider.selectedTaskId == task.id;
-                final color = task.taskColor;
+              children: [
+                if (activeTasks.isNotEmpty) ...[
+                  ...activeTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+                    final color = task.taskColor;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ValorantCard(
-                    isSelected: isSelected,
-                    borderColor: isSelected ? color : null,
-                    onTap: () {
-                      appProvider.setSelectedTaskId(task.id);
-                      if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
-                    },
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48, height: 48,
-                          decoration: BoxDecoration(
-                            color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
-                            border: Border.all(color: isSelected ? color : Colors.transparent),
-                          ),
-                          child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: ValorantCard(
+                        isSelected: isSelected,
+                        borderColor: isSelected ? color : null,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48, height: 48,
+                              decoration: BoxDecoration(
+                                color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
+                                border: Border.all(color: isSelected ? color : Colors.transparent),
+                              ),
+                              child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task.name.toUpperCase(),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontDisplay,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                      letterSpacing: 1.0,
+                                    ),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    task.theme.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10, 
+                                      color: isSelected ? color : AppTheme.fhTextDisabled,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w600
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                    );
+                  }).toList(),
+                ],
+                
+                if (inactiveTasks.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                    child: Text("INACTIVE", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)),
+                  ),
+                  ...inactiveTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+
+                    return Opacity(
+                      opacity: 0.5,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: ValorantCard(
+                          isSelected: isSelected,
+                          borderColor: isSelected ? AppTheme.fhTextDisabled : null,
+                          onTap: () {
+                            appProvider.setSelectedTaskId(task.id);
+                            if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                          },
+                          child: Row(
                             children: [
-                              Text(
-                                task.name.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontDisplay,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
-                                  letterSpacing: 1.0,
+                              Container(
+                                width: 48, height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  border: Border.all(color: isSelected ? AppTheme.fhTextDisabled : Colors.transparent),
                                 ),
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                child: Icon(_getThemeIcon(task.theme), color: AppTheme.fhTextDisabled),
                               ),
-                              Text(
-                                task.theme.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10, 
-                                  color: isSelected ? color : AppTheme.fhTextDisabled,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w600
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      task.name.toUpperCase(),
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontDisplay,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                        letterSpacing: 1.0,
+                                      ),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const Text(
+                                      "INACTIVE",
+                                      style: TextStyle(
+                                        fontSize: 10, 
+                                        color: AppTheme.fhTextDisabled,
+                                        letterSpacing: 1.5,
+                                        fontWeight: FontWeight.w600
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                              )
                             ],
                           ),
-                        )
-                      ],
-                    ),
-                  ),
-                );
-              },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ]
+              ],
             ),
           ),
 
@@ -17623,6 +17862,7 @@ import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/widgets/ui/hextech_components.dart';
 import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17673,31 +17913,25 @@ class SubmissionCard extends StatelessWidget {
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     double total7Days = 0;
 
-    // Filter sessions belonging to this specific subtask in the last 7 days
     for (var session in currentSubTask.sessions) {
       if (session.startTime.isAfter(sevenDaysAgo)) {
         total7Days += session.durationSeconds;
       }
     }
     
-    // Average calculation (prevent div by zero)
     double avgSeconds = total7Days / 7.0;
-    // Minimum 5 minutes baseline to show progress visual if avg is too low
     if (avgSeconds < 300) avgSeconds = 300; 
     
-    // Calculate current total time spent today
     final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-    
-    // Progress relative to 7-day average
     double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
 
-    // Style Constants
     final Color activeAccent = parentTask.taskColor;
     final bool isActive = isRunning; 
     
-    // Text Colors
     final Color titleColor = isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary;
     final Color statusColor = isCompleted ? AppTheme.fhTextDisabled : (isActive ? activeAccent : AppTheme.fhTextSecondary);
+
+    final hierarchicalProgress = currentSubTask.calculateProgress();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -17723,23 +17957,22 @@ class SubmissionCard extends StatelessWidget {
               provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
               return false; 
             } else {
-              provider.completeSubtask(parentTask.id, currentSubTask.id);
+              provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
               return false; 
             }
           }
         },
         onDismissed: (direction) {
           if (direction == DismissDirection.endToStart) {
-            provider.deleteSubtask(parentTask.id, currentSubTask.id);
+            provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
           }
         },
         child: GestureDetector(
           onTap: () => _openDetailScreen(context),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            height: 100,
+            // Height removed to let content dictate size, accommodating new progress bar
             decoration: BoxDecoration(
-              // Gradient changes based on state
               gradient: LinearGradient(
                 colors: isActive 
                   ? [activeAccent.withOpacity(0.2), AppTheme.fhBgDark.withOpacity(0.95)]
@@ -17751,7 +17984,6 @@ class SubmissionCard extends StatelessWidget {
                 color: isActive ? activeAccent : AppTheme.fhBorderColor.withOpacity(0.3),
                 width: isActive ? 1.5 : 1
               ),
-              // Beveled corners like Valorant cards
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 bottomRight: Radius.circular(16)
@@ -17760,159 +17992,172 @@ class SubmissionCard extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                // Progress Bar Background Fill (Horizontal from left)
                 if (isActive || usageProgress > 0)
-                  FractionallySizedBox(
-                    widthFactor: usageProgress,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [activeAccent.withOpacity(0.1), Colors.transparent],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight
-                        )
+                  Positioned.fill(
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: usageProgress,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [activeAccent.withOpacity(0.1), Colors.transparent],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight
+                          )
+                        ),
                       ),
-                    ),
-                  ).animate().fadeIn(),
+                    ).animate().fadeIn(),
+                  ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Leading Visual (Hexagon or Icon)
-                      SizedBox(
-                        width: 50, height: 50,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            if (!isCompleted)
-                              HexProgressRing(
-                                progress: usageProgress, 
-                                color: activeAccent,
-                                size: 48,
-                              ).animate().fade(duration: 500.ms),
-                            Icon(
-                              isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
-                              color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
-                              size: 22,
-                              shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
-                            ).animate(target: isActive ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.1,1.1), duration: 1.seconds, curve: Curves.easeInOut).then().scale(begin: const Offset(1.1,1.1), end: const Offset(1,1)),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 16),
-
-                      // Text Content
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Flexible text to show full name
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                currentSubTask.name.toUpperCase(),
-                                style: GoogleFonts.chakraPetch(
-                                  color: titleColor,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.8,
-                                  decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 50, height: 50,
+                            child: Stack(
+                              alignment: Alignment.center,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  color: statusColor.withOpacity(0.1),
+                                if (!isCompleted)
+                                  HexProgressRing(
+                                    progress: usageProgress, 
+                                    color: activeAccent,
+                                    size: 48,
+                                  ).animate().fade(duration: 500.ms),
+                                Icon(
+                                  isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
+                                  color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
+                                  size: 22,
+                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
+                                ).animate(target: isActive ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.1,1.1), duration: 1.seconds, curve: Curves.easeInOut).then().scale(begin: const Offset(1.1,1.1), end: const Offset(1,1)),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(width: 16),
+
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
                                   child: Text(
-                                    isCompleted ? "ARCHIVED" : (isActive ? "ENGAGED" : "PENDING"),
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
+                                    currentSubTask.name.toUpperCase(),
+                                    style: GoogleFonts.chakraPetch(
+                                      color: titleColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.8,
+                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
                                     ),
                                   ),
                                 ),
-                                if (currentSubTask.isRecurring)
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      color: statusColor.withOpacity(0.1),
+                                      child: Text(
+                                        isCompleted ? "ARCHIVED" : (isActive ? "ENGAGED" : "PENDING"),
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                    if (currentSubTask.isRecurring)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 6.0),
+                                        child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
+                                      ),
+                                  ],
+                                ),
+                                if (linkedInfo != null)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 6.0),
-                                    child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: LinkedTaskIndicator(
+                                      label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
+                                      onUnlink: () => provider.projectActions.unlinkStep(
+                                          linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
+                                        ),
+                                    ),
                                   ),
                               ],
                             ),
-                            if (linkedInfo != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6.0),
-                                child: LinkedTaskIndicator(
-                                  label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
-                                  onUnlink: () => provider.projectActions.unlinkStep(
-                                      linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
-                                    ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-
-                      // Right Action / Timer
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ValorantTimerText(
-                            isRunning: isRunning,
-                            startTime: timerState?.startTime,
-                            accumulatedTime: displayBaseTime,
-                            style: TextStyle(
-                              fontFamily: "RobotoMono",
-                              color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 8)] : null
-                            ),
                           ),
-                          const SizedBox(height: 8),
-                          if (!isCompleted)
-                            GestureDetector(
-                              onTap: () {
-                                if (isRunning) {
-                                  provider.pauseTimer(subTask.id); 
-                                  provider.logTimerAndReset(subTask.id); 
-                                } else {
-                                  provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor),
-                                  color: isActive ? activeAccent.withOpacity(0.1) : Colors.transparent,
-                                ),
-                                child: Text(
-                                  isActive ? "HALT" : "EXECUTE",
-                                  style: TextStyle(
-                                    color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                  ),
+
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              ValorantTimerText(
+                                isRunning: isRunning,
+                                startTime: timerState?.startTime,
+                                accumulatedTime: displayBaseTime,
+                                style: TextStyle(
+                                  fontFamily: "RobotoMono",
+                                  color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 8)] : null
                                 ),
                               ),
-                            )
+                              const SizedBox(height: 8),
+                              if (!isCompleted)
+                                GestureDetector(
+                                  onTap: () {
+                                    if (isRunning) {
+                                      provider.timerActions.pauseTimer(subTask.id); 
+                                      provider.timerActions.logTimerAndReset(subTask.id); 
+                                    } else {
+                                      provider.timerActions.startTimer(subTask.id, 'subtask', parentTask.id);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor),
+                                      color: isActive ? activeAccent.withOpacity(0.1) : Colors.transparent,
+                                    ),
+                                    child: Text(
+                                      isActive ? "HALT" : "EXECUTE",
+                                      style: TextStyle(
+                                        color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                            ],
+                          )
                         ],
-                      )
+                      ),
+                      
+                      // Hierarchical Progress Bar if it has sub-tasks
+                      if (currentSubTask.subSubTasks.isNotEmpty && !isCompleted)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: JweProgressBar(
+                            progress: hierarchicalProgress,
+                            color: activeAccent,
+                            label: "SUB-ROUTINES [ ${(hierarchicalProgress * 100).toInt()}% ]"
+                          ),
+                        ),
                     ],
                   ),
                 ),
                 
-                // Bottom decorative line showing 7-day average relation
                 if (!isCompleted)
                   Positioned(
                     bottom: 0,
@@ -17924,7 +18169,7 @@ class SubmissionCard extends StatelessWidget {
                         duration: const Duration(milliseconds: 800),
                         curve: Curves.easeOutExpo,
                         height: 2,
-                        width: MediaQuery.of(context).size.width * 0.9 * usageProgress, // Approximate width relative to card
+                        width: MediaQuery.of(context).size.width * 0.9 * usageProgress, 
                         decoration: BoxDecoration(
                           color: activeAccent,
                           boxShadow: [BoxShadow(color: activeAccent, blurRadius: 6)]
@@ -22365,6 +22610,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
+                            mainTaskId: widget.parentTask.id,
+                            subTaskId: liveSubTask.id,
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
@@ -27511,6 +27758,72 @@ class JweSyncOverlay extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/jwe_sync_overlay.dart ---
 
+--- START OF FILE lib/src/widgets/ui/jwe_progress_bar.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class JweProgressBar extends StatelessWidget {
+  final double progress;
+  final Color color;
+  final String? label;
+
+  const JweProgressBar({
+    super.key,
+    required this.progress,
+    required this.color,
+    this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Text(
+              label!,
+              style: GoogleFonts.rajdhani(
+                color: color.withOpacity(0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+        Container(
+          height: 6,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            border: Border.all(color: color.withOpacity(0.3), width: 1),
+            borderRadius: BorderRadius.zero,
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: progress.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: color,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.5),
+                    blurRadius: 4,
+                  )
+                ]
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/jwe_progress_bar.dart ---
+
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -29308,6 +29621,8 @@ import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/utils/task_calculations.dart';
@@ -29687,6 +30002,22 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
               provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onTitleTap: () {
+            if (nextMainTask != null && nextSubTask != null) {
+              if (nextCheckpoint != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                  mainTaskId: nextMainTask!.id,
+                  parentSubTaskId: nextSubTask!.id,
+                  checkpointId: nextCheckpoint!.id,
+                )));
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
+                  parentTask: nextMainTask!,
+                  subTask: nextSubTask!,
+                )));
+              }
             }
           },
         ),
@@ -31435,6 +31766,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -31449,10 +31781,11 @@ class CheckpointItem extends StatefulWidget {
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
   final VoidCallback? onToggleType;
-  final VoidCallback? onTap; // For opening detail
-  final VoidCallback? onPlay; // For engaging timer
+  final VoidCallback? onTap; 
+  final VoidCallback? onPlay; 
   final bool isRunning;
-  final bool hasSubsteps; // To show visual indicator
+  final bool hasSubsteps; 
+  final double progress; // Passed in or calculated
 
   const CheckpointItem({
     super.key,
@@ -31470,6 +31803,7 @@ class CheckpointItem extends StatefulWidget {
     this.onPlay,
     this.isRunning = false,
     this.hasSubsteps = false,
+    this.progress = 0.0,
   });
 
   @override
@@ -31509,10 +31843,10 @@ class _CheckpointItemState extends State<CheckpointItem> {
     final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
     final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
     final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
-    final textColor = AppTheme.fhTextPrimary; // Never dim completely
+    final textColor = AppTheme.fhTextPrimary; 
 
     return GestureDetector(
-      onTap: widget.onTap, // Open detail on card tap
+      onTap: widget.onTap, 
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
@@ -31520,88 +31854,102 @@ class _CheckpointItemState extends State<CheckpointItem> {
           color: bgColor,
           border: Border(left: BorderSide(color: borderColor, width: 4)),
         ),
-        child: Row(
-          children:[
-            // Checkbox logic overrides tap on the left side
-            if (!isInfo)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: RhombusCheckbox(
-                  checked: _localCompleted,
-                  onChanged: (_) => _handleToggle(),
-                  size: CheckboxSize.small,
-                ),
-              )
-            else 
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
-              ),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children:[
-                  Text(
-                    widget.title.toUpperCase(),
-                    style: GoogleFonts.chakraPetch(
-                      color: textColor,
-                      fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
-                      decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
-                      fontSize: 14,
-                      letterSpacing: 0.5,
+        child: Column(
+          children: [
+            Row(
+              children:[
+                if (!isInfo)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: RhombusCheckbox(
+                      checked: _localCompleted,
+                      onChanged: (_) => _handleToggle(),
+                      size: CheckboxSize.small,
                     ),
+                  )
+                else 
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
                   ),
-                  if (widget.linkedLabel != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: LinkedTaskIndicator(
-                        label: widget.linkedLabel!,
-                        onUnlink: widget.onUnlink,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            
-            if (widget.hasSubsteps)
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Icon(MdiIcons.fileTree, size: 14, color: color),
-              ),
 
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
-              color: AppTheme.fhBgDark,
-              onSelected: (value) {
-                if (value == 'delete') widget.onDelete();
-                if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
-                if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
-                if (value == 'open' && widget.onTap != null) widget.onTap!();
-              },
-              itemBuilder: (context) =>[
-                  PopupMenuItem(
-                  value: 'open',
-                  child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children:[
+                      Text(
+                        widget.title.toUpperCase(),
+                        style: GoogleFonts.chakraPetch(
+                          color: textColor,
+                          fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                          decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                          fontSize: 14,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (widget.linkedLabel != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: LinkedTaskIndicator(
+                            label: widget.linkedLabel!,
+                            onUnlink: widget.onUnlink,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                  PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
-                ),
-                PopupMenuItem(
-                  value: 'toggle_type',
-                  child: Row(children:[
-                    Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
-                    const SizedBox(width: 8), 
-                    Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
-                  ]),
-                ),
-                  PopupMenuItem(
-                  value: 'delete',
-                  child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                
+                if (widget.hasSubsteps)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Icon(MdiIcons.fileTree, size: 14, color: color),
+                  ),
+
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+                  color: AppTheme.fhBgDark,
+                  onSelected: (value) {
+                    if (value == 'delete') widget.onDelete();
+                    if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                    if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                    if (value == 'open' && widget.onTap != null) widget.onTap!();
+                  },
+                  itemBuilder: (context) =>[
+                      PopupMenuItem(
+                      value: 'open',
+                      child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                    ),
+                      PopupMenuItem(
+                      value: 'duplicate',
+                      child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                    ),
+                    PopupMenuItem(
+                      value: 'toggle_type',
+                      child: Row(children:[
+                        Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                        const SizedBox(width: 8), 
+                        Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                      ]),
+                    ),
+                      PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                    ),
+                  ],
                 ),
               ],
             ),
+            
+            // JWE Progress Bar if it has sub-steps
+            if (widget.hasSubsteps && !_localCompleted)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: JweProgressBar(
+                  progress: widget.progress,
+                  color: color,
+                  label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
+                ),
+              ),
           ],
         ),
       ),
@@ -31617,6 +31965,8 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
 
 class ProtocolControlPanel extends StatelessWidget {
   final List<MainTask> protocols;
@@ -31636,6 +31986,8 @@ class ProtocolControlPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
     return Container(
       color: AppTheme.fhBgDeepDark,
       child: Column(
@@ -31690,7 +32042,7 @@ class ProtocolControlPanel extends StatelessWidget {
                         color: isSelected ? protocol.taskColor : AppTheme.fhBorderColor.withOpacity(0.3),
                         width: isSelected ? 2 : 1
                       ),
-                      borderRadius: BorderRadius.circular(4), // Slightly rounded for comfort
+                      borderRadius: BorderRadius.circular(4), 
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -31701,7 +32053,7 @@ class ProtocolControlPanel extends StatelessWidget {
                           child: Container(
                             width: 16, height: 16,
                             decoration: BoxDecoration(
-                              color: protocol.taskColor,
+                              color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
                               border: Border.all(color: Colors.white30),
                             ),
                           ),
@@ -31716,17 +32068,18 @@ class ProtocolControlPanel extends StatelessWidget {
                               Text(
                                 protocol.name.toUpperCase(),
                                 style: TextStyle(
-                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
+                                  color: protocol.isActive ? (isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary) : AppTheme.fhTextDisabled,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   fontFamily: AppTheme.fontDisplay,
-                                  letterSpacing: 1.0
+                                  letterSpacing: 1.0,
+                                  decoration: protocol.isActive ? null : TextDecoration.lineThrough,
                                 ),
                               ),
                               Text(
-                                protocol.theme.toUpperCase(),
+                                protocol.isActive ? protocol.theme.toUpperCase() : "INACTIVE",
                                 style: TextStyle(
-                                  color: isSelected ? protocol.taskColor : AppTheme.fhTextDisabled,
+                                  color: protocol.isActive ? (isSelected ? protocol.taskColor : AppTheme.fhTextDisabled) : AppTheme.fhTextDisabled,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 1.5
@@ -31734,6 +32087,15 @@ class ProtocolControlPanel extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                        
+                        // Toggle Active State
+                        IconButton(
+                          icon: Icon(protocol.isActive ? MdiIcons.pauseCircleOutline : MdiIcons.playCircleOutline, size: 20, color: AppTheme.fhTextSecondary),
+                          onPressed: () {
+                            provider.taskActions.toggleTaskStatus(protocol.id, !protocol.isActive);
+                          },
+                          tooltip: protocol.isActive ? "Deactivate" : "Activate",
                         ),
                         
                         // Edit Action
@@ -31774,10 +32136,6 @@ class ProtocolControlPanel extends StatelessWidget {
         selectedColor: protocol.taskColor,
         onColorSelected: (color) {
           final hex = color.value.toRadixString(16).toUpperCase().substring(2);
-          // We need to trigger an update. Since MainTask is immutable-ish in provider lists without action,
-          // we use the onEdit callback or a direct action if available.
-          // For simplicity, we assume onEdit handles full updates, but here we just want color.
-          // Let's modify the copy and pass it to onEdit.
           final updated = protocol.copyWith(colorHex: hex);
           onEdit(updated);
         },
@@ -31807,6 +32165,7 @@ class ScheduleHeroWidget extends StatelessWidget {
   final VoidCallback onOpenPlan;
   final VoidCallback onPostpone;
   final VoidCallback onFinishCheckpoint;
+  final VoidCallback onTitleTap; // Added click action callback
 
   const ScheduleHeroWidget({
     super.key,
@@ -31819,6 +32178,7 @@ class ScheduleHeroWidget extends StatelessWidget {
     required this.onOpenPlan,
     required this.onPostpone,
     required this.onFinishCheckpoint,
+    required this.onTitleTap,
   });
 
   @override
@@ -31895,54 +32255,65 @@ class ScheduleHeroWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
-                        style: GoogleFonts.chakraPetch(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          height: 1.1,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  child: InkWell(
+                    onTap: isEmpty ? null : onTitleTap,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.05),
+                        border: Border(left: BorderSide(color: isEmpty ? Colors.transparent : mainColor.withOpacity(0.5), width: 2)),
                       ),
-                      const SizedBox(height: 6),
-                      if (!isEmpty)
-                        Text(
-                          isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
-                          style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontDisplay,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEmpty ? "NO PLAN SET" : (isCheckpoint ? checkpoint!.name.toUpperCase() : subTask!.name.toUpperCase()),
+                            style: GoogleFonts.chakraPetch(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              height: 1.1,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        
-                      if (!isCheckpoint && !isEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
-                            const SizedBox(width: 4),
+                          const SizedBox(height: 6),
+                          if (!isEmpty)
                             Text(
-                              "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
-                              style: const TextStyle(
-                                fontFamily: "RobotoMono",
+                              isCheckpoint ? "${mainTask?.name} > ${subTask!.name}".toUpperCase() : mainTask!.name.toUpperCase(),
+                              style: TextStyle(
                                 color: AppTheme.fhTextSecondary,
                                 fontSize: 10,
-                                fontWeight: FontWeight.bold
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppTheme.fontDisplay,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            
+                          if (!isCheckpoint && !isEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(MdiIcons.clockOutline, size: 12, color: AppTheme.fhTextSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "TIME SPENT: ${helper.formatTime(totalTodaySeconds)}",
+                                  style: const TextStyle(
+                                    fontFamily: "RobotoMono",
+                                    color: AppTheme.fhTextSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                )
+                              ],
                             )
-                          ],
-                        )
-                      ]
-                    ],
+                          ]
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 
@@ -32098,8 +32469,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Filter out short sessions (< 5 mins) to keep UI clean
-    final filtered = entries.where((e) => e.durationSeconds >= 5 * 60).toList();
+    // Show all sessions >= 1 minute (60 seconds) to ensure even the smallest are visible
+    final filtered = entries.where((e) => e.durationSeconds >= 60).toList();
 
     if (filtered.isEmpty) return [];
 
@@ -32205,8 +32576,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     final startTotalHours =
                         entry.startTime.hour + (entry.startTime.minute / 60.0);
                     final top = startTotalHours * pixelsPerHour;
-                    final height =
-                        (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    final height = rawHeight.clamp(24.0, double.infinity); // Min height to prevent layout breaks
 
                     const double leftGutter = 60.0;
                     // Ensure padding even on narrow screens
@@ -32227,7 +32598,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       top: top,
                       left: left,
                       width: (widthPerCol - 4).clamp(0.0, double.infinity),
-                      height: height.clamp(20.0, double.infinity), // Min height for vis
+                      height: height,
                       child: GestureDetector(
                         onTap: () => widget.onEditEntry(entry),
                         child: Container(
@@ -32242,46 +32613,48 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  if (isPredicted)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                          right: 4.0),
-                                      child: Icon(Icons.auto_awesome,
-                                          size: 10, color: borderColor),
+                          // Use ClipRect to ensure text does not overflow out of small height boxes
+                          child: ClipRect(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    if (isPredicted)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            right: 4.0),
+                                        child: Icon(Icons.auto_awesome,
+                                            size: 10, color: borderColor),
+                                      ),
+                                    Expanded(
+                                      child: Text(entry.title,
+                                          style: TextStyle(
+                                              color: isPredicted
+                                                  ? Colors.white70
+                                                  : Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: isPredicted
+                                                  ? FontWeight.normal
+                                                  : FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
                                     ),
-                                  Expanded(
-                                    child: Text(entry.title,
-                                        style: TextStyle(
-                                            color: isPredicted
-                                                ? Colors.white70
-                                                : Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: isPredicted
-                                                ? FontWeight.normal
-                                                : FontWeight.bold),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis),
-                                  ),
-                                ],
-                              ),
-                              if (height > 30) // Only show time if height allows
-                                Text(
-                                  "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                  style: TextStyle(
-                                      color:
-                                          Colors.white.withOpacity(0.7),
-                                      fontSize: 9,
-                                      fontFamily: 'RobotoMono'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                )
-                            ],
+                                  ],
+                                ),
+                                if (height > 32) // Only show time text if height allows without clipping heavily
+                                  Text(
+                                    "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                                    style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 9,
+                                        fontFamily: 'RobotoMono'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -33586,17 +33959,23 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/task_models.dart';
 
 class ActionPlanResourcesCard extends StatelessWidget {
   final String initialResources;
   final ValueChanged<String> onChanged;
   final Color accentColor;
+  // Added to enable auto-assignment context
+  final String? mainTaskId;
+  final String? subTaskId;
 
   const ActionPlanResourcesCard({
     super.key,
     required this.initialResources,
     required this.onChanged,
     required this.accentColor,
+    this.mainTaskId,
+    this.subTaskId,
   });
 
   List<String> _getSelectedIds() {
@@ -33607,7 +33986,6 @@ class ActionPlanResourcesCard extends StatelessWidget {
         return decoded.map((e) => e.toString()).toList();
       }
     } catch (_) {
-      // Fallback for old comma-separated strings if any
       return initialResources.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     }
     return [];
@@ -33631,6 +34009,7 @@ class ActionPlanResourcesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedIds = _getSelectedIds();
+    final provider = Provider.of<AppProvider>(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -33653,15 +34032,30 @@ class ActionPlanResourcesCard extends StatelessWidget {
                   letterSpacing: 1.0,
                 ),
               ),
-              InkWell(
-                onTap: () => _openSelector(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
-                  child: Text(
-                    "ASSIGN ASSET",
-                    style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  if (mainTaskId != null && subTaskId != null)
+                    InkWell(
+                      onTap: provider.loadingTaskName == "Scanning Assets..." ? null : () => provider.aiGenerationActions.autoAssignAssets(mainTaskId!, subTaskId!),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                        child: Text(
+                          provider.loadingTaskName == "Scanning Assets..." ? "SCANNING..." : "AUTO-ASSIGN (AI)",
+                          style: TextStyle(color: PersonInfoTheme.spideyCyan, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  InkWell(
+                    onTap: () => _openSelector(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                      child: Text(
+                        "ASSIGN ASSET",
+                        style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               )
             ],
           ),
@@ -33713,7 +34107,7 @@ class _ResourceChipBuilder extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
-        if (item == null) return const SizedBox.shrink(); // Hide if deleted
+        if (item == null) return const SizedBox.shrink(); 
         var name = item.name;
         if(item.name.length > 40) name = name.substring(0,40)+"...";
 
@@ -33732,6 +34126,7 @@ class _ResourceChipBuilder extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(_getIconForType(item.type), size: 14, color: accentColor),
                 const SizedBox(width: 6),

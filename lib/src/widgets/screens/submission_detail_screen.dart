@@ -310,6 +310,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
+                            mainTaskId: widget.parentTask.id,
+                            subTaskId: liveSubTask.id,
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
