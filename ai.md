@@ -1,9 +1,6 @@
 Make the following changes:
 
-    - show all sessions even the smallest ones in the schedule view: fix overflow errors
-
-    - Add click action to PRIMARY TARGET in schdule dashbord:
-        when I click on the title, navigate the page to that corresponding task
+    - 
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
