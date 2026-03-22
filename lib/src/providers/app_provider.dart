@@ -726,15 +726,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       
       if (logsChanged) {
         setReflectionLogs(newLogs);
-        
-        final freshSkills = getBaseWellbeingSkills();
-        for (var log in newLogs) {
-          log.xpGained.forEach((trait, xp) {
-             final s = freshSkills.firstWhereOrNull((x) => x.name.toLowerCase() == trait.toLowerCase());
-             if (s != null) s.addXp(xp);
-          });
-        }
-        setSkills(freshSkills);
       }
       
     } finally {
@@ -747,13 +738,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     
-    // Quick save instantly before insight tracking begins (Failsafe)
     final logId = const Uuid().v4();
     final log = ReflectionLog(
       id: logId, timestamp: timestamp ?? DateTime.now(),
       trigger: trigger, emotion: emotion, reason: reason, action: action,
       aiFeedback: "Pending AI analysis...", xpGained: {}
     );
+    // Setting logs triggers the 7-day recalculation in mixin natively
     setReflectionLogs([...reflectionLogs, log]);
 
     try {
@@ -765,15 +756,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
       
-      final newSkills = List<Skill>.from(skills);
-      for (var entry in xpGained.entries) {
-        if (entry.value > 0) {
-          final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-          if (skill != null) skill.addXp(entry.value);
-        }
-      }
-      setSkills(newSkills);
-
       updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
       
       return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
@@ -806,16 +788,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void deleteReflectionLog(String id) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
-      final log = reflectionLogs[index];
-      final newSkills = List<Skill>.from(skills);
-      for (var entry in log.xpGained.entries) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) {
-           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
-        }
-      }
-      setSkills(newSkills);
-      
       final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
       setReflectionLogs(newLogs);
     }

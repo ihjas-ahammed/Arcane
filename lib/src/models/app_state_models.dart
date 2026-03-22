@@ -1,4 +1,5 @@
 // lib/src/models/app_state_models.dart
+import 'package:arcane/src/models/habit_models.dart';
 
 class AppSettings {
   bool descriptionsVisible;
@@ -16,10 +17,13 @@ class AppSettings {
   int dataVersion;
   int lastModified; 
   
-  // NEW: Security and Nora AI Settings
+  // Security and Nora AI Settings
   String? journalPin;
   bool noraAccessSessions;
   bool noraAccessFinance;
+
+  // Habit / Override Framework
+  List<HabitRule> habitRules;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -47,6 +51,7 @@ class AppSettings {
     this.journalPin,
     this.noraAccessSessions = false,
     this.noraAccessFinance = false,
+    this.habitRules = const [],
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -87,6 +92,9 @@ class AppSettings {
       journalPin: json['journalPin'] as String?,
       noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
       noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
+      habitRules: (json['habitRules'] as List<dynamic>?)
+              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
     );
   }
   
@@ -109,6 +117,7 @@ class AppSettings {
       'journalPin': journalPin,
       'noraAccessSessions': noraAccessSessions,
       'noraAccessFinance': noraAccessFinance,
+      'habitRules': habitRules.map((e) => e.toJson()).toList(),
     };
   }
 }

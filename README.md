@@ -1,16 +1,23 @@
 # Task Dominion: Arcane Edition
 
 ## What is this?
-Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
+Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
 
 ## Why?
 Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
+
+## Leveling System (Wellbeing Momentum)
+The agent's leveling system is entirely dynamic, designed to reflect recent momentum rather than permanent accumulation. 
+*   **Rolling Window**: Level and XP are calculated *strictly* from the XP gained over the last 7 days. If you stop logging, your levels will naturally decay, promoting consistent reflection.
+*   **Exponential Limit**: The XP required to level up increases slightly exponentially each level to provide a balanced challenge.
+*   **Equation**: `MaxXP(Level) = round(100 * (1.15 ^ (Level - 1)))`
 
 ## How it works
 The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
 * **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
 * **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
 * **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
+* **Behavioral Overrides**: Includes an Atomic Habits framework tool to manage dopamine and screen-time.
 
 ---
 

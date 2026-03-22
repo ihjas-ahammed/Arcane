@@ -219,6 +219,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             type: child.type,
                             accentColor: agentColor,
                             hasSubsteps: child.substeps.isNotEmpty,
+                            progress: child.calculateProgress(), // Passing correct progress manually calculated
                             onTap: () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
                                 mainTaskId: widget.mainTaskId,

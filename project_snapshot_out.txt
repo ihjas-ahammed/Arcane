@@ -17,16 +17,23 @@
 # Task Dominion: Arcane Edition
 
 ## What is this?
-Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
+Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
 
 ## Why?
 Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
+
+## Leveling System (Wellbeing Momentum)
+The agent's leveling system is entirely dynamic, designed to reflect recent momentum rather than permanent accumulation. 
+*   **Rolling Window**: Level and XP are calculated *strictly* from the XP gained over the last 7 days. If you stop logging, your levels will naturally decay, promoting consistent reflection.
+*   **Exponential Limit**: The XP required to level up increases slightly exponentially each level to provide a balanced challenge.
+*   **Equation**: `MaxXP(Level) = round(100 * (1.15 ^ (Level - 1)))`
 
 ## How it works
 The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
 * **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
 * **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
 * **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
+* **Behavioral Overrides**: Includes an Atomic Habits framework tool to manage dopamine and screen-time.
 
 ---
 
@@ -2324,7 +2331,26 @@ flutter:
 --- END OF FILE targets.md ---
 
 --- START OF FILE future.md ---
+- Someday List: Add someday or maybe list to the settings as a new option. based on below:
 
+Got it. Clean and simple — capture without commitment, archive when done with it.Here are the fundamental requirements for the Someday List, rooted in GTD's core principle: **get it out of your head, without it becoming a commitment.**The 4 fundamental requirements:
+
+**① Zero-friction capture** — Adding an item must be one tap, one field (title). The moment you add friction (forcing a tag, a category, a date), the brain resists capturing — and the idea dies unrecorded. GTD calls this the "trusted system" — it only works if capturing feels effortless.
+
+**② No commitment fields** — No due date, no priority, no status. The psychological weight of those fields is exactly what Someday/Maybe is designed to remove. An item in Someday carries no obligation, which is the whole point.
+
+**③ Weekly review nudge** — GTD is explicit: the Someday list is *only useful if you revisit it*. The app should prompt a periodic review — not auto-act, not nag — just surface the list and let the user decide each item's fate consciously.
+
+**④ Two and only two exit paths** — Keep it (stays in Someday) or Archive/Delete it. No promoting to active tasks since you said that's out of scope. Keeping the exits minimal respects the GTD philosophy: the list should never feel like a to-do pile waiting to explode into your active system.
+
+
+- Nora Controls and Starts with Nora:
+    In nora assistand, add a controls settings, where I can rewrite the prompt the way I want, also set the amount of texts she can send me, also the model used and ofc the range of info she can access from reflection logs with a date range, assets, all kind of data we have in app core.
+    Also the start with nora, is an update to system startup that will be a button which starts a new nora session to talk about system startup
+
+- Make it possible to delete assigned assets from a task by clicking on them rather than using assign assets option
+
+- Update README in a way it explain every feature of our app 
 --- END OF FILE future.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
@@ -3428,15 +3454,15 @@ class Skill {
     };
   }
 
-  // Returns true if leveled up
+  // Fallback direct modifier (System relies on recalculateFromTotal7DayXp primarily)
   bool addXp(int amount) {
     currentXp += amount;
     bool leveledUp = false;
     while (currentXp >= maxXp) {
       currentXp -= maxXp;
       level++;
-      // Increase requirement by 20% each level
-      maxXp = (maxXp * 1.2).round();
+      // Exponentially increasing requirement
+      maxXp = (maxXp * 1.15).round();
       leveledUp = true;
     }
     return leveledUp;
@@ -3449,7 +3475,7 @@ class ReflectionLog {
   String trigger;
   String emotion;
   String reason;
-  String action; // Added action field
+  String action; 
   final String aiFeedback;
   final Map<String, int> xpGained;
 
@@ -3471,7 +3497,7 @@ class ReflectionLog {
       trigger: json['trigger'] as String? ?? '',
       emotion: json['emotion'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
-      action: json['action'] as String? ?? '', // Fallback for old data
+      action: json['action'] as String? ?? '', 
       aiFeedback: json['aiFeedback'] as String? ?? '',
       xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
     );
@@ -3490,11 +3516,11 @@ class ReflectionLog {
     };
   }
 }
-
 --- END OF FILE lib/src/models/skill_models.dart ---
 
 --- START OF FILE lib/src/models/app_state_models.dart ---
 // lib/src/models/app_state_models.dart
+import 'package:arcane/src/models/habit_models.dart';
 
 class AppSettings {
   bool descriptionsVisible;
@@ -3512,10 +3538,13 @@ class AppSettings {
   int dataVersion;
   int lastModified; 
   
-  // NEW: Security and Nora AI Settings
+  // Security and Nora AI Settings
   String? journalPin;
   bool noraAccessSessions;
   bool noraAccessFinance;
+
+  // Habit / Override Framework
+  List<HabitRule> habitRules;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -3543,6 +3572,7 @@ class AppSettings {
     this.journalPin,
     this.noraAccessSessions = false,
     this.noraAccessFinance = false,
+    this.habitRules = const [],
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -3583,6 +3613,9 @@ class AppSettings {
       journalPin: json['journalPin'] as String?,
       noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
       noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
+      habitRules: (json['habitRules'] as List<dynamic>?)
+              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
     );
   }
   
@@ -3605,6 +3638,7 @@ class AppSettings {
       'journalPin': journalPin,
       'noraAccessSessions': noraAccessSessions,
       'noraAccessFinance': noraAccessFinance,
+      'habitRules': habitRules.map((e) => e.toJson()).toList(),
     };
   }
 }
@@ -4328,7 +4362,9 @@ class SubSubTask {
     for (var sst in substeps) {
       total += sst.calculateProgress();
     }
-    return total / substeps.length;
+    double prog = total / substeps.length;
+    completed = prog >= 1.0; 
+    return prog;
   }
 }
 
@@ -4773,6 +4809,54 @@ class DailyHealthLog {
   }
 }
 --- END OF FILE lib/src/models/health_models.dart ---
+
+--- START OF FILE lib/src/models/habit_models.dart ---
+import 'package:uuid/uuid.dart';
+
+class HabitRule {
+  String id;
+  String appName;
+  bool isGrayscale;
+  int frictionDelaySeconds;
+  int dailyLimitMinutes;
+  int todayUsageMinutes;
+  int currentStreakDays;
+
+  HabitRule({
+    required this.id,
+    required this.appName,
+    this.isGrayscale = false,
+    this.frictionDelaySeconds = 0,
+    this.dailyLimitMinutes = 0,
+    this.todayUsageMinutes = 0,
+    this.currentStreakDays = 0,
+  });
+
+  factory HabitRule.fromJson(Map<String, dynamic> json) {
+    return HabitRule(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      appName: json['appName'] as String? ?? 'Unknown',
+      isGrayscale: json['isGrayscale'] as bool? ?? false,
+      frictionDelaySeconds: (json['frictionDelaySeconds'] as num? ?? 0).toInt(),
+      dailyLimitMinutes: (json['dailyLimitMinutes'] as num? ?? 0).toInt(),
+      todayUsageMinutes: (json['todayUsageMinutes'] as num? ?? 0).toInt(),
+      currentStreakDays: (json['currentStreakDays'] as num? ?? 0).toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'appName': appName,
+      'isGrayscale': isGrayscale,
+      'frictionDelaySeconds': frictionDelaySeconds,
+      'dailyLimitMinutes': dailyLimitMinutes,
+      'todayUsageMinutes': todayUsageMinutes,
+      'currentStreakDays': currentStreakDays,
+    };
+  }
+}
+--- END OF FILE lib/src/models/habit_models.dart ---
 
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
@@ -5503,15 +5587,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       
       if (logsChanged) {
         setReflectionLogs(newLogs);
-        
-        final freshSkills = getBaseWellbeingSkills();
-        for (var log in newLogs) {
-          log.xpGained.forEach((trait, xp) {
-             final s = freshSkills.firstWhereOrNull((x) => x.name.toLowerCase() == trait.toLowerCase());
-             if (s != null) s.addXp(xp);
-          });
-        }
-        setSkills(freshSkills);
       }
       
     } finally {
@@ -5524,13 +5599,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     
-    // Quick save instantly before insight tracking begins (Failsafe)
     final logId = const Uuid().v4();
     final log = ReflectionLog(
       id: logId, timestamp: timestamp ?? DateTime.now(),
       trigger: trigger, emotion: emotion, reason: reason, action: action,
       aiFeedback: "Pending AI analysis...", xpGained: {}
     );
+    // Setting logs triggers the 7-day recalculation in mixin natively
     setReflectionLogs([...reflectionLogs, log]);
 
     try {
@@ -5542,15 +5617,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
       
-      final newSkills = List<Skill>.from(skills);
-      for (var entry in xpGained.entries) {
-        if (entry.value > 0) {
-          final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-          if (skill != null) skill.addXp(entry.value);
-        }
-      }
-      setSkills(newSkills);
-
       updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
       
       return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
@@ -5583,16 +5649,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void deleteReflectionLog(String id) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
-      final log = reflectionLogs[index];
-      final newSkills = List<Skill>.from(skills);
-      for (var entry in log.xpGained.entries) {
-        final skill = newSkills.firstWhereOrNull((s) => s.name.toLowerCase() == entry.key.toLowerCase());
-        if (skill != null) {
-           skill.currentXp = (skill.currentXp - entry.value).clamp(0, skill.maxXp);
-        }
-      }
-      setSkills(newSkills);
-      
       final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
       setReflectionLogs(newLogs);
     }
@@ -8362,6 +8418,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/habit_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/providers/mixins/sync_mixin.dart';
 
@@ -8422,17 +8479,18 @@ mixin UserMixin on ChangeNotifier {
 
   void setSkills(List<Skill> s) {
     _skills = s;
-    sync.markDirty('settings'); // Skills stored in settings chunk usually
+    sync.markDirty('settings');
   }
 
   void setReflectionLogs(List<ReflectionLog> l) {
     _reflectionLogs = l;
+    recalculateAllSkills(); 
     sync.markDirty('reflections');
   }
 
   void setChatbotMemory(ChatbotMemory m) {
     _chatbotMemory = m;
-    sync.markDirty('settings'); // Memory in settings chunk
+    sync.markDirty('settings'); 
   }
 
   void setApiKeyIndex(int i) {
@@ -8458,12 +8516,52 @@ mixin UserMixin on ChangeNotifier {
   }
 
   void initializeSkills() {
-    // Check if empty OR if it contains the legacy "Wisdom" virtue or missing Meaning to force an override to the 12 wellbeing traits
     bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
-    
     if (_skills.isEmpty || hasLegacy) {
       _skills = getBaseWellbeingSkills();
     }
+  }
+
+  void recalculateAllSkills() {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    Map<String, int> rollingXp = {};
+    for (var log in _reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
+      }
+    }
+    
+    final newSkills = getBaseWellbeingSkills();
+    for (var skill in newSkills) {
+      int xp = rollingXp[skill.name] ?? 0;
+      skill.level = 1;
+      skill.maxXp = 100;
+      int remainingXp = xp;
+      while (remainingXp >= skill.maxXp) {
+        remainingXp -= skill.maxXp;
+        skill.level++;
+        skill.maxXp = (skill.maxXp * 1.15).round();
+      }
+      skill.currentXp = remainingXp;
+    }
+    _skills = newSkills;
+    sync.markDirty('settings');
+  }
+
+  // --- Habit Rule Methods ---
+  void addHabitRule(HabitRule rule) {
+    final newRules = List<HabitRule>.from(_settings.habitRules)..add(rule);
+    setSettings(_settings..habitRules = newRules);
+  }
+  
+  void updateHabitRule(HabitRule rule) {
+    final newRules = _settings.habitRules.map((r) => r.id == rule.id ? rule : r).toList();
+    setSettings(_settings..habitRules = newRules);
+  }
+
+  void deleteHabitRule(String id) {
+    final newRules = _settings.habitRules.where((r) => r.id != id).toList();
+    setSettings(_settings..habitRules = newRules);
   }
 
   void loadUserState(Map<String, dynamic> data) {
@@ -8480,6 +8578,9 @@ mixin UserMixin on ChangeNotifier {
     if (data['reflectionLogs'] != null) {
       _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
     }
+    
+    // Auto-recalculate levels based purely on the 7-day window of logs.
+    recalculateAllSkills();
 
     if (data['chatbotMemory'] != null) {
       _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);
@@ -9988,11 +10089,13 @@ class _HomeScreenState extends State<HomeScreen> {
 --- START OF FILE lib/src/screens/more_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
 import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
+import 'package:arcane/src/screens/settings/habit_control_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -10078,6 +10181,18 @@ class MoreScreen extends StatelessWidget {
               style: theme.textTheme.labelMedium?.copyWith(
                   color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.brain,
+              title: "Behavioral Override",
+              subtitle: "Habit control & dopamine regulation",
+              colorOverride: JweTheme.accentAmber,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const HabitControlScreen()));
+          }),
 
           _buildMenuTile(context,
               icon: MdiIcons.cogOutline,
@@ -11862,6 +11977,229 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   }
 }
 --- END OF FILE lib/src/screens/settings/data_recovery_screen.dart ---
+
+--- START OF FILE lib/src/screens/settings/habit_control_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/dialogs/add_habit_rule_dialog.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class HabitControlScreen extends StatelessWidget {
+  const HabitControlScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final rules = provider.settings.habitRules;
+
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      appBar: AppBar(
+        title: Text("BEHAVIORAL OVERRIDE", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  JwePanel(
+                    title: "ATOMIC FRAMEWORK",
+                    accentColor: JweTheme.textMuted,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Habits are driven by a continuous loop. Overriding the loop requires attacking these specific vectors:", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontStyle: FontStyle.italic)),
+                        const SizedBox(height: 12),
+                        _buildFrameworkItem(MdiIcons.eyeOff, "CUE REMOVAL", "Hide triggers. Enable scheduled grayscale.", JweTheme.textMuted),
+                        _buildFrameworkItem(MdiIcons.timerSand, "FRICTION BOOST", "Mandatory delay before response execution.", JweTheme.accentCyan),
+                        _buildFrameworkItem(MdiIcons.lockAlert, "USAGE CAP", "Hard daily limit restrictions on response.", JweTheme.accentAmber),
+                        _buildFrameworkItem(MdiIcons.history, "ACCOUNTABILITY LOG", "Visibility of lost streaks to remove reward.", JweTheme.accentRed),
+                      ],
+                    )
+                  ),
+                  
+                  JwePanel(
+                    title: "GLOBAL CUE REMOVAL",
+                    accentColor: JweTheme.accentCyan,
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text("SYSTEM GRAYSCALE", style: TextStyle(color: JweTheme.textWhite, fontSize: 14)),
+                          subtitle: const Text("Desaturate interface to reduce dopamine response.", style: TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                          value: false, // Mock toggle
+                          activeColor: JweTheme.accentCyan,
+                          onChanged: (val) {
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("To enable grayscale, use your device's native Digital Wellbeing / Accessibility settings.")));
+                          },
+                        ),
+                      ],
+                    )
+                  ),
+
+                  JwePanel(
+                    title: "ACTIVE RESTRICTIONS",
+                    accentColor: JweTheme.accentRed,
+                    child: Column(
+                      children: [
+                        if (rules.isEmpty)
+                           const Padding(
+                             padding: EdgeInsets.all(16.0),
+                             child: Text("No behavioral overrides configured.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic)),
+                           )
+                        else
+                           ...rules.map((r) => Container(
+                             margin: const EdgeInsets.only(bottom: 12),
+                             decoration: BoxDecoration(
+                               border: Border.all(color: JweTheme.border),
+                               color: JweTheme.panel,
+                             ),
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 // Header
+                                 Container(
+                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                   decoration: const BoxDecoration(
+                                     border: Border(bottom: BorderSide(color: JweTheme.border)),
+                                     color: Color(0x0DFFFFFF),
+                                   ),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                     children: [
+                                       Text(r.appName.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
+                                       IconButton(
+                                         icon: const Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
+                                         padding: EdgeInsets.zero,
+                                         constraints: const BoxConstraints(),
+                                         onPressed: () => provider.deleteHabitRule(r.id),
+                                       )
+                                     ],
+                                   ),
+                                 ),
+                                 // Stats
+                                 Padding(
+                                   padding: const EdgeInsets.all(12.0),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                     children: [
+                                       _buildStatCol("FRICTION", "${r.frictionDelaySeconds}s", JweTheme.accentCyan),
+                                       _buildStatCol("LIMIT", "${r.dailyLimitMinutes}m", JweTheme.accentAmber),
+                                       _buildStatCol("STREAK", "${r.currentStreakDays}d", JweTheme.textWhite),
+                                     ],
+                                   ),
+                                 ),
+                                 // Actions
+                                 Padding(
+                                   padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                   child: Row(
+                                     children: [
+                                       Expanded(
+                                         child: OutlinedButton(
+                                           style: OutlinedButton.styleFrom(
+                                             foregroundColor: JweTheme.textWhite,
+                                             side: const BorderSide(color: JweTheme.border),
+                                             shape: const BeveledRectangleBorder()
+                                           ),
+                                           onPressed: () {
+                                             final updated = r..currentStreakDays += 1;
+                                             provider.updateHabitRule(updated);
+                                           },
+                                           child: const Text("LOG CLEAN DAY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                         ),
+                                       ),
+                                       const SizedBox(width: 8),
+                                       Expanded(
+                                         child: OutlinedButton(
+                                           style: OutlinedButton.styleFrom(
+                                             foregroundColor: JweTheme.accentRed,
+                                             side: const BorderSide(color: JweTheme.accentRed),
+                                             shape: const BeveledRectangleBorder()
+                                           ),
+                                           onPressed: () {
+                                             final updated = r..currentStreakDays = 0;
+                                             provider.updateHabitRule(updated);
+                                           },
+                                           child: const Text("RESET STREAK", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                         ),
+                                       )
+                                     ],
+                                   ),
+                                 )
+                               ],
+                             ),
+                           )),
+
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text("ADD OVERRIDE"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: JweTheme.accentRed,
+                              foregroundColor: Colors.white,
+                              shape: const BeveledRectangleBorder()
+                            ),
+                            onPressed: () {
+                              showDialog(context: context, builder: (_) => const AddHabitRuleDialog());
+                            },
+                          ),
+                        )
+                      ],
+                    )
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFrameworkItem(IconData icon, String title, String desc, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0)),
+                Text(desc, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCol(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(value, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/screens/settings/habit_control_screen.dart ---
 
 --- START OF FILE lib/src/screens/finance/finance_dashboard_screen.dart ---
 import 'package:flutter/material.dart';
@@ -22146,6 +22484,126 @@ class JweTaskOptionsDialog extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/dialogs/jwe_task_options_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/habit_models.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class AddHabitRuleDialog extends StatefulWidget {
+  const AddHabitRuleDialog({super.key});
+
+  @override
+  State<AddHabitRuleDialog> createState() => _AddHabitRuleDialogState();
+}
+
+class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
+  final _nameController = TextEditingController();
+  final _delayController = TextEditingController(text: '10');
+  final _limitController = TextEditingController(text: '30');
+  bool _isGrayscale = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _delayController.dispose();
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentRed, width: 2)),
+      title: Text("CONFIGURE RESTRICTION", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("APP/BEHAVIOR NAME", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+                hintText: "e.g. Instagram"
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            const Text("FRICTION DELAY (SECONDS)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _delayController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            const Text("DAILY CAP (MINUTES)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _limitController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            SwitchListTile(
+              title: const Text("Grayscale Context", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
+              value: _isGrayscale,
+              activeColor: JweTheme.accentRed,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) => setState(() => _isGrayscale = val),
+            )
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
+          onPressed: () {
+            if (_nameController.text.trim().isNotEmpty) {
+              final rule = HabitRule(
+                id: '',
+                appName: _nameController.text.trim(),
+                frictionDelaySeconds: int.tryParse(_delayController.text) ?? 0,
+                dailyLimitMinutes: int.tryParse(_limitController.text) ?? 0,
+                isGrayscale: _isGrayscale,
+              );
+              Provider.of<AppProvider>(context, listen: false).addHabitRule(rule);
+              Navigator.pop(context);
+            }
+          }, 
+          child: const Text("ENFORCE")
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23161,6 +23619,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             type: child.type,
                             accentColor: agentColor,
                             hasSubsteps: child.substeps.isNotEmpty,
+                            progress: child.calculateProgress(), // Passing correct progress manually calculated
                             onTap: () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
                                 mainTaskId: widget.mainTaskId,
@@ -34304,6 +34763,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 isCompleted: step.completed,
                 type: step.type,
                 hasSubsteps: step.substeps.isNotEmpty,
+                progress: step.calculateProgress(), // Provide calculated progress here
                 accentColor: widget.accentColor,
                 onTap: () => _navigateToStepDetail(context, step),
                 onPlay: null,

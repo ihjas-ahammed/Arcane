@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/screens/bus_schedule_screen.dart';
 import 'package:arcane/src/screens/database_editor_screen.dart';
 import 'package:arcane/src/screens/timetable_screen.dart';
 import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
+import 'package:arcane/src/screens/settings/habit_control_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -90,6 +92,18 @@ class MoreScreen extends StatelessWidget {
               style: theme.textTheme.labelMedium?.copyWith(
                   color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
           const SizedBox(height: 12),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.brain,
+              title: "Behavioral Override",
+              subtitle: "Habit control & dopamine regulation",
+              colorOverride: JweTheme.accentAmber,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const HabitControlScreen()));
+          }),
 
           _buildMenuTile(context,
               icon: MdiIcons.cogOutline,

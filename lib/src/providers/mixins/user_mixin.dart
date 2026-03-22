@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/habit_models.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/providers/mixins/sync_mixin.dart';
 
@@ -62,17 +63,18 @@ mixin UserMixin on ChangeNotifier {
 
   void setSkills(List<Skill> s) {
     _skills = s;
-    sync.markDirty('settings'); // Skills stored in settings chunk usually
+    sync.markDirty('settings');
   }
 
   void setReflectionLogs(List<ReflectionLog> l) {
     _reflectionLogs = l;
+    recalculateAllSkills(); 
     sync.markDirty('reflections');
   }
 
   void setChatbotMemory(ChatbotMemory m) {
     _chatbotMemory = m;
-    sync.markDirty('settings'); // Memory in settings chunk
+    sync.markDirty('settings'); 
   }
 
   void setApiKeyIndex(int i) {
@@ -98,12 +100,52 @@ mixin UserMixin on ChangeNotifier {
   }
 
   void initializeSkills() {
-    // Check if empty OR if it contains the legacy "Wisdom" virtue or missing Meaning to force an override to the 12 wellbeing traits
     bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
-    
     if (_skills.isEmpty || hasLegacy) {
       _skills = getBaseWellbeingSkills();
     }
+  }
+
+  void recalculateAllSkills() {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    Map<String, int> rollingXp = {};
+    for (var log in _reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
+      }
+    }
+    
+    final newSkills = getBaseWellbeingSkills();
+    for (var skill in newSkills) {
+      int xp = rollingXp[skill.name] ?? 0;
+      skill.level = 1;
+      skill.maxXp = 100;
+      int remainingXp = xp;
+      while (remainingXp >= skill.maxXp) {
+        remainingXp -= skill.maxXp;
+        skill.level++;
+        skill.maxXp = (skill.maxXp * 1.15).round();
+      }
+      skill.currentXp = remainingXp;
+    }
+    _skills = newSkills;
+    sync.markDirty('settings');
+  }
+
+  // --- Habit Rule Methods ---
+  void addHabitRule(HabitRule rule) {
+    final newRules = List<HabitRule>.from(_settings.habitRules)..add(rule);
+    setSettings(_settings..habitRules = newRules);
+  }
+  
+  void updateHabitRule(HabitRule rule) {
+    final newRules = _settings.habitRules.map((r) => r.id == rule.id ? rule : r).toList();
+    setSettings(_settings..habitRules = newRules);
+  }
+
+  void deleteHabitRule(String id) {
+    final newRules = _settings.habitRules.where((r) => r.id != id).toList();
+    setSettings(_settings..habitRules = newRules);
   }
 
   void loadUserState(Map<String, dynamic> data) {
@@ -120,6 +162,9 @@ mixin UserMixin on ChangeNotifier {
     if (data['reflectionLogs'] != null) {
       _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
     }
+    
+    // Auto-recalculate levels based purely on the 7-day window of logs.
+    recalculateAllSkills();
 
     if (data['chatbotMemory'] != null) {
       _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);

@@ -416,7 +416,9 @@ class SubSubTask {
     for (var sst in substeps) {
       total += sst.calculateProgress();
     }
-    return total / substeps.length;
+    double prog = total / substeps.length;
+    completed = prog >= 1.0; 
+    return prog;
   }
 }
 

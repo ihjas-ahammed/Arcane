@@ -1,3 +1,218 @@
+
+--- START OF FILE README.md ---
+# Task Dominion: Arcane Edition
+
+## What is this?
+Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
+
+## Why?
+Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
+
+## Leveling System (Wellbeing Momentum)
+The agent's leveling system is entirely dynamic, designed to reflect recent momentum rather than permanent accumulation. 
+*   **Rolling Window**: Level and XP are calculated *strictly* from the XP gained over the last 7 days. If you stop logging, your levels will naturally decay, promoting consistent reflection.
+*   **Exponential Limit**: The XP required to level up increases slightly exponentially each level to provide a balanced challenge.
+*   **Equation**: `MaxXP(Level) = round(100 * (1.15 ^ (Level - 1)))`
+
+## How it works
+The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
+* **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
+* **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
+* **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
+* **Behavioral Overrides**: Includes an Atomic Habits framework tool to manage dopamine and screen-time.
+
+---
+
+## Developer Setup
+
+### 1. Prerequisites
+Ensure you have the Flutter SDK installed.
+* Run `flutter doctor` to verify your environment.
+* Install project dependencies: `flutter pub get`
+
+### 2. Firebase Configuration
+This project relies heavily on Firebase. 
+1. Ensure you have the FlutterFire CLI installed: `npm install -g firebase-tools` then `dart pub global activate flutterfire_cli`.
+2. Run `flutterfire configure` in the project root and link it to your Firebase project.
+
+### 3. Enable Realtime Database (Primary Data Layer)
+Realtime Database is used for live state syncing.
+1. Open the Firebase Console.
+2. Navigate to **Build > Realtime Database** and click **Create Database**.
+3. Choose a location and start in **Locked mode**.
+4. Update the Rules to allow authenticated user access to their own nodes:
+```json
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    }
+  }
+}
+```
+
+### 4. Enable Cloud Firestore (Backup & Archival Layer)
+Firestore is used for manual snapshots and archived weekly reports.
+1. Navigate to **Build > Firestore Database** and click **Create Database**.
+2. Update the Security Rules:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+### 5. API Keys Configuration
+AI features require Gemini API keys.
+1. Create a file `lib/src/config/api_keys.dart`.
+2. Add your Gemini API keys:
+```dart
+// lib/src/config/api_keys.dart
+// IMPORTANT: Add this file to your .gitignore
+const List<String> geminiApiKeys = ['YOUR_GEMINI_API_KEY_1_HERE'];
+const String geminiModelName = 'gemini-2.0-flash'; 
+```
+*Note: Make sure this file is added to your `.gitignore` to prevent exposing your keys.*
+--- END OF FILE README.md ---
+
+--- START OF FILE lib/src/models/skill_models.dart ---
+// lib/src/models/skill_models.dart
+
+class Skill {
+  final String id;
+  final String name;
+  final String description;
+  int level;
+  int currentXp;
+  int maxXp;
+
+  Skill({
+    required this.id,
+    required this.name,
+    required this.description,
+    this.level = 1,
+    this.currentXp = 0,
+    this.maxXp = 100,
+  });
+
+  factory Skill.fromJson(Map<String, dynamic> json) {
+    String name = (json['name'] as String? ??
+            json['skillName'] as String? ??
+            'Unknown Virtue')
+        .trim();
+
+    // Attempt to recover ID if missing or generic
+    String id = json['id'] as String? ?? 'unknown_skill';
+    if (id == 'unknown_skill') {
+      final n = name.toLowerCase();
+      if (n.contains('wisdom') ||
+          n.contains('tech') ||
+          n.contains('learning')) {
+        id = 'wis';
+      } else if (n.contains('courage') || n.contains('health')) {
+        id = 'cou';
+      } else if (n.contains('humanity') || n.contains('social')) {
+        id = 'hum';
+      } else if (n.contains('justice') || n.contains('work')) {
+        id = 'jus';
+      } else if (n.contains('temperance') || n.contains('order')) {
+        id = 'tem';
+      } else if (n.contains('transcendence') || n.contains('creative')) {
+        id = 'tra';
+      }
+    }
+
+    return Skill(
+        id: id,
+        name: name,
+        level: (json['level'] as num?)?.toInt() ?? 1,
+        currentXp: (json['currentXp'] as num?)?.toInt() ?? 0,
+        maxXp: (json['maxXp'] as num?)?.toInt() ?? 100,
+        description: json['description'] as String? ?? "A core virtue.");
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'level': level,
+      'currentXp': currentXp,
+      'maxXp': maxXp,
+      'description': description,
+    };
+  }
+
+  // Fallback direct modifier (System relies on recalculateFromTotal7DayXp primarily)
+  bool addXp(int amount) {
+    currentXp += amount;
+    bool leveledUp = false;
+    while (currentXp >= maxXp) {
+      currentXp -= maxXp;
+      level++;
+      // Exponentially increasing requirement
+      maxXp = (maxXp * 1.15).round();
+      leveledUp = true;
+    }
+    return leveledUp;
+  }
+}
+
+class ReflectionLog {
+  final String id;
+  final DateTime timestamp;
+  String trigger;
+  String emotion;
+  String reason;
+  String action; 
+  final String aiFeedback;
+  final Map<String, int> xpGained;
+
+  ReflectionLog({
+    required this.id,
+    required this.timestamp,
+    required this.trigger,
+    required this.emotion,
+    required this.reason,
+    this.action = '',
+    required this.aiFeedback,
+    required this.xpGained,
+  });
+
+  factory ReflectionLog.fromJson(Map<String, dynamic> json) {
+    return ReflectionLog(
+      id: json['id'] as String? ?? 'unknown',
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      trigger: json['trigger'] as String? ?? '',
+      emotion: json['emotion'] as String? ?? '',
+      reason: json['reason'] as String? ?? '',
+      action: json['action'] as String? ?? '', 
+      aiFeedback: json['aiFeedback'] as String? ?? '',
+      xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'timestamp': timestamp.toIso8601String(),
+      'trigger': trigger,
+      'emotion': emotion,
+      'reason': reason,
+      'action': action,
+      'aiFeedback': aiFeedback,
+      'xpGained': xpGained,
+    };
+  }
+}
+--- END OF FILE lib/src/models/skill_models.dart ---
+
 --- START OF FILE lib/src/models/task_models.dart ---
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
@@ -417,7 +632,9 @@ class SubSubTask {
     for (var sst in substeps) {
       total += sst.calculateProgress();
     }
-    return total / substeps.length;
+    double prog = total / substeps.length;
+    completed = prog >= 1.0; 
+    return prog;
   }
 }
 
@@ -438,1428 +655,1315 @@ class MainTaskTemplate {
 }
 --- END OF FILE lib/src/models/task_models.dart ---
 
---- START OF FILE lib/src/providers/actions/task_actions.dart ---
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/task_models.dart';
+--- START OF FILE lib/src/models/habit_models.dart ---
+import 'package:uuid/uuid.dart';
+
+class HabitRule {
+  String id;
+  String appName;
+  bool isGrayscale;
+  int frictionDelaySeconds;
+  int dailyLimitMinutes;
+  int todayUsageMinutes;
+  int currentStreakDays;
+
+  HabitRule({
+    required this.id,
+    required this.appName,
+    this.isGrayscale = false,
+    this.frictionDelaySeconds = 0,
+    this.dailyLimitMinutes = 0,
+    this.todayUsageMinutes = 0,
+    this.currentStreakDays = 0,
+  });
+
+  factory HabitRule.fromJson(Map<String, dynamic> json) {
+    return HabitRule(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      appName: json['appName'] as String? ?? 'Unknown',
+      isGrayscale: json['isGrayscale'] as bool? ?? false,
+      frictionDelaySeconds: (json['frictionDelaySeconds'] as num? ?? 0).toInt(),
+      dailyLimitMinutes: (json['dailyLimitMinutes'] as num? ?? 0).toInt(),
+      todayUsageMinutes: (json['todayUsageMinutes'] as num? ?? 0).toInt(),
+      currentStreakDays: (json['currentStreakDays'] as num? ?? 0).toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'appName': appName,
+      'isGrayscale': isGrayscale,
+      'frictionDelaySeconds': frictionDelaySeconds,
+      'dailyLimitMinutes': dailyLimitMinutes,
+      'todayUsageMinutes': todayUsageMinutes,
+      'currentStreakDays': currentStreakDays,
+    };
+  }
+}
+--- END OF FILE lib/src/models/habit_models.dart ---
+
+--- START OF FILE lib/src/models/app_state_models.dart ---
+// lib/src/models/app_state_models.dart
+import 'package:arcane/src/models/habit_models.dart';
+
+class AppSettings {
+  bool descriptionsVisible;
+  bool dailyAutoGenerateContent;
+  bool autoSaveEnabled;
+  int wakeupTimeHour;
+  int wakeupTimeMinute;
+  List<String> liteModels;
+  List<String> heavyModels;
+  List<String> customApiKeys; 
+  String? customChatbotPrompt;
+  String? customReflectionPrompt;
+  List<String> savedPrompts;
+  int startOfWeek;
+  int dataVersion;
+  int lastModified; 
+  
+  // Security and Nora AI Settings
+  String? journalPin;
+  bool noraAccessSessions;
+  bool noraAccessFinance;
+
+  // Habit / Override Framework
+  List<HabitRule> habitRules;
+
+  AppSettings({
+    this.descriptionsVisible = true,
+    this.dailyAutoGenerateContent = true,
+    this.autoSaveEnabled = true,
+    this.wakeupTimeHour = 7,
+    this.wakeupTimeMinute = 0,
+    this.liteModels = const [
+      'gemini-2.0-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ],
+    this.heavyModels = const [
+      'gemini-2.0-flash',
+      'gemini-2.0-pro-exp-02-05',
+      'gemini-1.5-pro'
+    ],
+    this.customApiKeys = const [],
+    this.customChatbotPrompt,
+    this.customReflectionPrompt,
+    this.savedPrompts = const [],
+    this.startOfWeek = 1,
+    this.dataVersion = 0,
+    int? lastModified,
+    this.journalPin,
+    this.noraAccessSessions = false,
+    this.noraAccessFinance = false,
+    this.habitRules = const [],
+  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    List<String> keys = [];
+    if (json['customApiKeys'] != null) {
+      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
+    } else if (json['customApiKey'] != null &&
+        json['customApiKey'].toString().isNotEmpty) {
+      keys.add(json['customApiKey'].toString());
+    }
+
+    return AppSettings(
+      descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
+      dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
+          json['autoGenerateContent'] as bool? ??
+          true,
+      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
+      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
+      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
+      liteModels: (json['liteModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+      heavyModels: (json['heavyModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
+      customApiKeys: keys,
+      customChatbotPrompt: json['customChatbotPrompt'] as String?,
+      customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      startOfWeek: json['startOfWeek'] as int? ?? 1,
+      dataVersion: json['dataVersion'] as int? ?? 0,
+      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      journalPin: json['journalPin'] as String?,
+      noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
+      noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
+      habitRules: (json['habitRules'] as List<dynamic>?)
+              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'descriptionsVisible': descriptionsVisible,
+      'dailyAutoGenerateContent': dailyAutoGenerateContent,
+      'autoSaveEnabled': autoSaveEnabled,
+      'wakeupTimeHour': wakeupTimeHour,
+      'wakeupTimeMinute': wakeupTimeMinute,
+      'liteModels': liteModels,
+      'heavyModels': heavyModels,
+      'customApiKeys': customApiKeys,
+      'customChatbotPrompt': customChatbotPrompt,
+      'customReflectionPrompt': customReflectionPrompt,
+      'savedPrompts': savedPrompts,
+      'startOfWeek': startOfWeek,
+      'dataVersion': dataVersion,
+      'lastModified': lastModified,
+      'journalPin': journalPin,
+      'noraAccessSessions': noraAccessSessions,
+      'noraAccessFinance': noraAccessFinance,
+      'habitRules': habitRules.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class ActiveTimerInfo {
+  DateTime startTime;
+  double accumulatedDisplayTime; // In seconds
+  bool isRunning;
+  String type;
+  String mainTaskId;
+
+  ActiveTimerInfo({
+    required this.startTime,
+    this.accumulatedDisplayTime = 0,
+    required this.isRunning,
+    required this.type,
+    required this.mainTaskId,
+  });
+
+  factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
+    return ActiveTimerInfo(
+      startTime: DateTime.parse(json['startTime'] as String),
+      accumulatedDisplayTime:
+          (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
+      isRunning: json['isRunning'] as bool? ?? false,
+      type: json['type'] as String? ?? 'subtask',
+      mainTaskId: json['mainTaskId'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'startTime': startTime.toIso8601String(),
+      'accumulatedDisplayTime': accumulatedDisplayTime,
+      'isRunning': isRunning,
+      'type': type,
+      'mainTaskId': mainTaskId,
+    };
+  }
+}
+
+--- END OF FILE lib/src/models/app_state_models.dart ---
+
+--- START OF FILE lib/src/providers/mixins/user_mixin.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/habit_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
 
-class TaskActions {
-  final AppProvider _provider;
+mixin UserMixin on ChangeNotifier {
+  // Auth
+  User? _currentUser;
+  bool _authLoading = true;
+  bool _isUsernameMissing = false;
+  String? _lastLoginDate;
 
-  TaskActions(this._provider);
+  // Settings & Profile
+  AppSettings _settings = AppSettings();
+  List<Skill> _skills = [];
+  List<ReflectionLog> _reflectionLogs = [];
+  
+  // AI Memory
+  ChatbotMemory _chatbotMemory = ChatbotMemory();
+  int _apiKeyIndex = 0;
 
-  // --- Helper for SubSubTask Recursion ---
-  List<SubSubTask> _recursiveNodeOperation(List<SubSubTask> nodes, String targetId, String action, dynamic payload) {
-    List<SubSubTask> newNodes = [];
+  // Getters
+  User? get currentUser => _currentUser;
+  bool get authLoading => _authLoading;
+  bool get isUsernameMissing => _isUsernameMissing;
+  String? get lastLoginDate => _lastLoginDate;
+  AppSettings get settings => _settings;
+  List<Skill> get skills => _skills;
+  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+  ChatbotMemory get chatbotMemory => _chatbotMemory;
+  int get apiKeyIndex => _apiKeyIndex;
+
+  // Sync Dependency
+  SyncMixin get sync => this as SyncMixin;
+
+  void setCurrentUser(User? user) {
+    _currentUser = user;
+    if (user != null) {
+      _isUsernameMissing = user.displayName == null || user.displayName!.isEmpty;
+    }
+    notifyListeners();
+  }
+
+  void setAuthLoading(bool loading) {
+    _authLoading = loading;
+    notifyListeners();
+  }
+
+  void setSettings(AppSettings s) {
+    _settings = s;
+    sync.markDirty('settings');
+  }
+
+  void setLastLoginDate(String? date) {
+    if (_lastLoginDate != date) {
+      _lastLoginDate = date;
+      sync.markDirty('settings');
+    }
+  }
+
+  void setSkills(List<Skill> s) {
+    _skills = s;
+    sync.markDirty('settings');
+  }
+
+  void setReflectionLogs(List<ReflectionLog> l) {
+    _reflectionLogs = l;
+    recalculateAllSkills(); 
+    sync.markDirty('reflections');
+  }
+
+  void setChatbotMemory(ChatbotMemory m) {
+    _chatbotMemory = m;
+    sync.markDirty('settings'); 
+  }
+
+  void setApiKeyIndex(int i) {
+    _apiKeyIndex = i;
+    sync.markDirty('settings');
+  }
+
+  List<Skill> getBaseWellbeingSkills() {
+    return [
+      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in one’s daily life.'),
+      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in one’s daily life.'),
+      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of one’s life overall.'),
+      Skill(id: 'vit', name: 'Vitality', description: 'Vitality: a positive subjective sense of physical health and energy.'),
+      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit one’s needs and desires.'),
+      Skill(id: 'rel', name: 'Relationships', description: 'Positive relationships: feeling loved, supported, and valued by others.'),
+      Skill(id: 'acc', name: 'Self-Acceptance', description: 'Self-acceptance: positive attitudes toward self; a sense of self-worth.'),
+      Skill(id: 'mas', name: 'Mastery', description: 'Mastery: feelings of competence in accomplishing challenging tasks.'),
+      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make one’s own choices in life.'),
+      Skill(id: 'gro', name: 'Growth', description: 'Personal growth: continually seeking development and improvement.'),
+      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in one’s daily activities.'),
+      Skill(id: 'mea', name: 'Meaning', description: 'Meaning: feeling that life has purpose and direction.'),
+    ];
+  }
+
+  void initializeSkills() {
+    bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
+    if (_skills.isEmpty || hasLegacy) {
+      _skills = getBaseWellbeingSkills();
+    }
+  }
+
+  void recalculateAllSkills() {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    Map<String, int> rollingXp = {};
+    for (var log in _reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
+      }
+    }
     
-    for (var node in nodes) {
-      if (node.id == targetId) {
-        if (action == 'delete') {
-          continue; 
-        } else if (action == 'update') {
-          final updates = payload as Map<String, dynamic>;
-          final updatedNode = node.copyWith(
-            name: updates['name'] as String?,
-            completed: updates['completed'] as bool?,
-            isCountable: updates['isCountable'] as bool?,
-            targetCount: updates['targetCount'] as int?,
-            currentCount: updates['currentCount'] as int?,
-            completionTimestamp: updates['completionTimestamp'] as String?,
-            type: updates['type'] as String?,
-            why: updates['why'] as String?,
-            what: updates['what'] as String?,
-          );
-          if (updatedNode.isCountable) updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
-          newNodes.add(updatedNode);
-        } else if (action == 'duplicate') {
-          newNodes.add(node);
-          final copy = node.copyWith(
-            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_copy_${node.name.hashCode}',
-            name: "${node.name} (Copy)",
-            completed: false,
-            currentCount: 0,
-            completionTimestamp: null,
-            substeps: List.from(node.substeps),
-          );
-          newNodes.add(copy);
-        } else if (action == 'add_child') {
-          final data = payload as Map<String, dynamic>;
-          final newChild = SubSubTask(
-            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${data['name']?.hashCode ?? 0}',
-            name: data['name'] as String,
-            isCountable: data['isCountable'] as bool? ?? false,
-            targetCount: data['isCountable'] as bool? ?? false ? (data['targetCount'] as int? ?? 1) : 0,
-            type: data['type'] as String? ?? 'check',
-            why: data['why'] as String? ?? '',
-            what: data['what'] as String? ?? '',
-          );
-          final updatedNode = node.copyWith(substeps: [...node.substeps, newChild]);
-          newNodes.add(updatedNode);
-        }
-      } else {
-        final newChildren = _recursiveNodeOperation(node.substeps, targetId, action, payload);
-        final updatedNode = node.copyWith(substeps: newChildren);
-        newNodes.add(updatedNode);
+    final newSkills = getBaseWellbeingSkills();
+    for (var skill in newSkills) {
+      int xp = rollingXp[skill.name] ?? 0;
+      skill.level = 1;
+      skill.maxXp = 100;
+      int remainingXp = xp;
+      while (remainingXp >= skill.maxXp) {
+        remainingXp -= skill.maxXp;
+        skill.level++;
+        skill.maxXp = (skill.maxXp * 1.15).round();
+      }
+      skill.currentXp = remainingXp;
+    }
+    _skills = newSkills;
+    sync.markDirty('settings');
+  }
+
+  // --- Habit Rule Methods ---
+  void addHabitRule(HabitRule rule) {
+    final newRules = List<HabitRule>.from(_settings.habitRules)..add(rule);
+    setSettings(_settings..habitRules = newRules);
+  }
+  
+  void updateHabitRule(HabitRule rule) {
+    final newRules = _settings.habitRules.map((r) => r.id == rule.id ? rule : r).toList();
+    setSettings(_settings..habitRules = newRules);
+  }
+
+  void deleteHabitRule(String id) {
+    final newRules = _settings.habitRules.where((r) => r.id != id).toList();
+    setSettings(_settings..habitRules = newRules);
+  }
+
+  void loadUserState(Map<String, dynamic> data) {
+    _lastLoginDate = data['lastLoginDate'];
+    if (data['settings'] != null) {
+      _settings = AppSettings.fromJson(data['settings']);
+    }
+    
+    if (data['skills'] != null) {
+      _skills = (data['skills'] as List).map((e) => Skill.fromJson(e)).toList();
+    }
+    initializeSkills();
+
+    if (data['reflectionLogs'] != null) {
+      _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
+    }
+    
+    // Auto-recalculate levels based purely on the 7-day window of logs.
+    recalculateAllSkills();
+
+    if (data['chatbotMemory'] != null) {
+      _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);
+    }
+    
+    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
+  }
+
+  Map<String, dynamic> getUserStateMap() {
+    return {
+      'lastLoginDate': _lastLoginDate,
+      'settings': _settings.toJson(),
+      'skills': _skills.map((e) => e.toJson()).toList(),
+      'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
+      'chatbotMemory': _chatbotMemory.toJson(),
+      'apiKeyIndex': _apiKeyIndex,
+    };
+  }
+}
+--- END OF FILE lib/src/providers/mixins/user_mixin.dart ---
+
+--- START OF FILE lib/src/providers/app_provider.dart ---
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/history_helper.dart'; 
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/finance_models.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// Import Mixins
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:arcane/src/providers/mixins/task_mixin.dart';
+import 'package:arcane/src/providers/mixins/finance_mixin.dart';
+import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
+
+// Import Actions
+import 'package:arcane/src/providers/actions/task_actions.dart';
+import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
+import 'package:arcane/src/providers/actions/timer_actions.dart';
+import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart';
+import 'package:arcane/src/providers/actions/finance_actions.dart';
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
+
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
+  
+  final AIService _aiService = AIService();
+  final DataExportService _exportService = DataExportService();
+  final StorageService _cloudStorage = StorageService();
+  final LocalStorageService _localStorage = LocalStorageService();
+
+  AIService get aiService => _aiService;
+
+  // UI State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+  
+  bool get isDataLoadingAfterLogin => false; 
+
+  // Actions
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions;
+  late final FinanceActions _financeActions;
+  late final JournalingActions _journalingActions;
+
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  TimerActions get timerActions => _timerActions;
+  ProjectActions get projectActions => _projectActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions;
+  FinanceActions get financeActions => _financeActions;
+  JournalingActions get journalingActions => _journalingActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
+    _journalingActions = JournalingActions(this);
+
+    _initialize();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (currentUser != null) {
+        fetchDailyReportsFromCloud();
       }
     }
-    return newNodes;
   }
 
-  // --- Day Plan Management ---
-  List<String> getDayPlan(String dateStr) {
-    final dayData = _provider.completedByDay[dateStr];
-    if (dayData == null) return [];
-    return List<String>.from(dayData['dailyPlan'] ?? []);
+  @override
+  Future<void> manuallyLoadFromCloud() async {
+    await super.manuallyLoadFromCloud();
+    await fetchDailyReportsFromCloud();
   }
 
-  void updateDayPlan(String dateStr, List<String> plan) {
-    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
-    if (!newHistory.containsKey(dateStr)) {
-      newHistory[dateStr] = {
-        'taskTimes': <String, int>{},
-        'subtasksCompleted': <Map<String, dynamic>>[],
-        'checkpointsCompleted': <Map<String, dynamic>>[],
-      };
-    }
-    newHistory[dateStr]['dailyPlan'] = plan;
-    _provider.setProviderState(completedByDay: newHistory);
+  // --- Initialization ---
+
+  Future<void> _initialize() async {
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
 
-  // --- SubSubTask Actions ---
-
-  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) {
-    if (parentCheckpointId != null) {
-      final newMainTasks = _provider.mainTasks.map((task) {
-        if (task.id == mainTaskId) {
-          return task.copyWith(subTasks: task.subTasks.map((st) {
-            if (st.id == parentSubtaskId) {
-              return st.copyWith(
-                subSubTasks: _recursiveNodeOperation(st.subSubTasks, parentCheckpointId, 'add_child', subSubtaskData),
-                updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList());
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (user != null) {
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
+        
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
+        } else {
+          await _resetToInitialState();
         }
-        return task;
-      }).toList();
-      _provider.setProviderState(mainTasks: newMainTasks);
-      return "";
+        setAuthLoading(false); 
+      }
+
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
+      try {
+        await fetchDailyReportsFromCloud();
+      } catch (_) {}
+
     } else {
-      final newSubSubtask = SubSubTask(
-        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
-        name: subSubtaskData['name'] as String,
-        isCountable: subSubtaskData['isCountable'] as bool? ?? false,
-        targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
-        completionTimestamp: null,
-        type: subSubtaskData['type'] as String? ?? 'check',
-        why: subSubtaskData['why'] as String? ?? '',
-        what: subSubtaskData['what'] as String? ?? '',
-      );
-      final newMainTasks = _provider.mainTasks.map((task) {
-        if (task.id == mainTaskId) {
-          return task.copyWith(subTasks: task.subTasks.map((st) {
-            if (st.id == parentSubtaskId) {
-              return st.copyWith(
-                subSubTasks: [...st.subSubTasks, newSubSubtask],
-                updatedAt: DateTime.now(),
-              );
-            }
-            return st;
-          }).toList());
+      setCurrentUser(null);
+      await _resetToInitialState();
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> fetchDailyReportsFromCloud() async {
+    if (currentUser == null) return;
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    if (recentDaily.isNotEmpty) {
+      final newHistory = Map<String, dynamic>.from(completedByDay);
+      recentDaily.forEach((date, data) {
+        final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
+        bool changed = false;
+        if (data.containsKey('briefing')) {
+          dayData['aiBriefing'] = data['briefing'];
+          changed = true;
         }
-        return task;
+        if (data.containsKey('report')) {
+          dayData['startDayReport'] = data['report'];
+          changed = true;
+        }
+        if (changed) {
+          newHistory[date] = dayData;
+        }
+      });
+      setCompletedByDay(newHistory);
+    }
+  }
+
+  Future<void> _resetToInitialState() async {
+    setLastLoginDate(null);
+    setSettings(AppSettings());
+    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
+    setCompletedByDay({});
+    setActiveTimers({});
+    setReflectionLogs([]);
+    setTransactions([]);
+    setCategories([]);
+    setSavingsGoals([]);
+    setChatbotMemory(ChatbotMemory());
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+  }
+
+  // --- Mixin Implementations & Legacy Compat ---
+
+  @override
+  Map<String, dynamic> getFullAppState() {
+    final map = <String, dynamic>{};
+    map.addAll(getTaskStateMap());
+    map.addAll(getFinanceStateMap());
+    map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
+    return map;
+  }
+
+  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
+  
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+
+  @override
+  void loadStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadFinanceState(data);
+    loadUserState(data);
+    loadHealthState(data);
+    
+    if (settings.dataVersion < 1) {
+      settings.dataVersion = 1;
+      markDirty('settings');
+    }
+  }
+
+  // --- UI Helpers ---
+
+  void setLoadingTask(String? name) {
+    _loadingTaskName = name;
+    notifyListeners();
+  }
+
+  void setProviderAISubquestLoading(bool loading) {
+    _isGeneratingSubquestsForTask = loading;
+    notifyListeners();
+  }
+
+  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
+
+  // --- State Bridge ---
+  
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, dynamic>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
+    if (mainTasks != null) setMainTasks(mainTasks);
+    if (completedByDay != null) setCompletedByDay(completedByDay);
+    if (activeTimers != null) setActiveTimers(activeTimers);
+    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
+    if (transactions != null) setTransactions(transactions);
+    if (categories != null) setCategories(categories);
+    if (savingsGoals != null) setSavingsGoals(savingsGoals);
+    
+    if (doNotify) notifyListeners();
+  }
+
+  // --- Delegated Actions ---
+
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
+
+  // --- Auth & Wrappers ---
+
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> logoutUser() async => await fb_service.signOut();
+  Future<void> signupUser(String email, String password, String username) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName(username);
+      await user.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
+  Future<void> updateUserDisplayName(String name) async {
+    if (currentUser != null) {
+      await currentUser!.updateDisplayName(name);
+      await currentUser!.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+
+  Future<void> clearAllData() async {
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState(currentUser!.uid);
+    await _resetToInitialState();
+    markDirty('settings');
+    markDirty('tasks');
+    markDirty('history');
+    markDirty('reflections');
+    markDirty('finance');
+    markDirty('health');
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadStateFromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  void initializeChatbotMemory() {
+    notifyListeners(); 
+  }
+
+  Future<void> exportReflections() async {
+    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      final currentIds = reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      if (newLogs.isNotEmpty) {
+        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
+      }
+    }
+  }
+
+  // --- Gratitude Actions ---
+  void updateGratitudeList(List<GratitudeItem> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.gratitudeList = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+
+  // --- Reports Logic ---
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
+    final recentReflections = reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+  
+  String getWeeklyWellbeingComparison() {
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (var skill in getBaseWellbeingSkills()) {
+      final curr = currentXp[skill.name] ?? 0;
+      final prev = prevXp[skill.name] ?? 0;
+      if (curr > 0 || prev > 0) {
+        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+      }
+    }
+    return buffer.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (currentUser == null) return[];
+    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
+    }
+  }
+
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+    }
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Map<String, dynamic>? getTacticalBriefing(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
+      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
+      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
+    }
+    
+    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      fullContext: allLogsContext,
+      modelCandidates: settings.heavyModels, 
+      currentApiKeyIndex: apiKeyIndex, 
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+      }
+    }
+
+    return result;
+  }
+
+  void _cleanOverlappingSessions() {
+    bool changed = false;
+    final newMainTasks = mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned =[sorted.first];
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
+
+    if (changed) setMainTasks(newMainTasks);
+  }
+
+  void _fixTimerAnomalies() {
+    // Handled in mixins
+  }
+
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    if (lastLoginDate != todayStr) {
+      bool changed = false;
+      final newMainTasks = mainTasks.map((task) {
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+             bool shouldReset = false;
+             if (st.completed && st.lastCompletedDate != null) {
+                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+             } else if (st.completed) {
+                shouldReset = true;
+             }
+             if (shouldReset) {
+               changed = true;
+               return SubTask(
+                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
+                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
+                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+               );
+             }
+          }
+          return st;
+        }).toList();
+        
+        if (task.dailyTimeSpent > 0) {
+          changed = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
       }).toList();
-      _provider.setProviderState(mainTasks: newMainTasks);
-      return newSubSubtask.id;
+
+      setLastLoginDate(todayStr);
+      if (changed) setMainTasks(newMainTasks);
     }
   }
 
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'update', updates),
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday;
+    final startOffset = settings.startOfWeek;
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    final startOfWeekDate = now.subtract(Duration(days: diff));
 
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'delete', null),
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break;
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
       }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void duplicateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            return st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'duplicate', null),
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
-    updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
     }
-    logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
+    return weeklyStatus;
   }
 
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    final updates = {'completed': false, 'completionTimestamp': null};
-    updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  int get7DayWellbeingMomentum(String skillName) {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<void> syncWeeklyWellbeing() async {
+    setLoadingTask("Analyzing Weekly Wellbeing...");
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+      if (recentLogs.isEmpty) {
+        throw Exception("No reflection logs in the past 7 days to analyze.");
+      }
+      
+      final logsPayload = recentLogs.map((l) => {
+        "log_id": l.id,
+        "trigger": l.trigger,
+        "emotion": l.emotion,
+        "action": l.action,
+      }).toList();
+      
+      final updates = await aiService.evaluateBatchReflections(
+        logsPayload: logsPayload,
+        modelCandidates: settings.heavyModels, 
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      bool logsChanged = false;
+      for (var update in updates) {
+        final logId = update['log_id'];
+        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final idx = newLogs.indexWhere((l) => l.id == logId);
+        if (idx != -1) {
+          newLogs[idx] = ReflectionLog(
+            id: newLogs[idx].id,
+            timestamp: newLogs[idx].timestamp,
+            trigger: newLogs[idx].trigger,
+            emotion: newLogs[idx].emotion,
+            reason: newLogs[idx].reason,
+            action: newLogs[idx].action,
+            aiFeedback: newLogs[idx].aiFeedback,
+            xpGained: xpMap, 
+          );
+          logsChanged = true;
+        }
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId, timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Pending AI analysis...", xpGained: {}
+    );
+    // Setting logs triggers the 7-day recalculation in mixin natively
+    setReflectionLogs([...reflectionLogs, log]);
+
+    try {
+      final eval = await _aiService.evaluateReflection(
+        trigger: trigger, emotion: emotion, reason: reason, action: action,
+        modelCandidates: settings.liteModels, 
+        customApiKeys: settings.customApiKeys,
+        recentContext: recentContext,
+      );
+      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      
+      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
+      
+      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+    } catch (e) {
+      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
+      rethrow;
+    }
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = reflectionLogs[index];
+      final updated = ReflectionLog(
+        id: old.id,
+        timestamp: old.timestamp,
+        trigger: trigger ?? old.trigger,
+        emotion: emotion ?? old.emotion,
+        reason: reason ?? old.reason,
+        action: action ?? old.action,
+        aiFeedback: aiFeedback ?? old.aiFeedback,
+        xpGained: xpGained ?? old.xpGained,
+      );
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      newLogs[index] = updated;
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  NoraSession? get activeNoraSession {
+    if (chatbotMemory.activeNoraSessionId == null) return null;
+    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
+    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.add(newSession);
+    newMemory.activeNoraSessionId = newSession.id;
+    setChatbotMemory(newMemory);
+  }
+
+  void switchNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.activeNoraSessionId = sessionId;
+    setChatbotMemory(newMemory);
+  }
+
+  void deleteNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (newMemory.activeNoraSessionId == sessionId) {
+      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
+    }
+    setChatbotMemory(newMemory);
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    session.messages.add(userMsg);
+    markDirty('settings'); 
+
+    // Gather Context bounded by session dates
+    final start = session.startDate;
+    final end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+
+    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+
+    final List<String> sessionStrs = [];
+    for (var task in mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var sess in sub.sessions) {
+          if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+            sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+          }
+        }
+      }
+    }
+
+    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
+    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+
+    final fullContext = """
+    SYSTEM: You are NORA. Tone: ${session.tone}.
+    ${session.customContext ?? ''}
+
+    CONTEXT DATA FOR REQUESTED PERIOD:
+    Reflections: $refStr
+    Sessions: ${sessionStrs.join(" | ")}
+    Known Entities: $peopleStr
+    Known Assets: $assetsStr
+    """;
+    
+    try {
+      final responses = await _aiService.queryNeuralArchive(
+        query: text, 
+        logsContext: fullContext, 
+        modelCandidates: settings.liteModels, 
+        currentApiKeyIndex: apiKeyIndex, 
+        customApiKeys: settings.customApiKeys, 
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
+        onLog: (m) {}
+      );
+      
+      for (String resp in responses) {
+        // dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+        session.messages.add(botMsg);
+        markDirty('settings');
+        notifyListeners();
+      }
+    } catch(e) {
+      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(errorMsg);
+      markDirty('settings');
+      notifyListeners();
     }
   }
   
-  void reorderSubSubtasksBySubset(String mainTaskId, String parentSubtaskId, List<String> subsetIds, {String? parentCheckpointId}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
-          if (st.id == parentSubtaskId) {
-            if (parentCheckpointId != null) {
-              return st.copyWith(subSubTasks: _reorderNodesSubset(st.subSubTasks, parentCheckpointId, subsetIds));
-            } else {
-              final subsetItems = subsetIds.map((id) => st.subSubTasks.firstWhere((sst) => sst.id == id)).toList();
-              final otherItems = st.subSubTasks.where((sst) => !subsetIds.contains(sst.id)).toList();
-              int firstIndex = st.subSubTasks.indexWhere((sst) => subsetIds.contains(sst.id));
-              if (firstIndex == -1) firstIndex = 0;
-              final List<SubSubTask> updated = [];
-              updated.addAll(otherItems.sublist(0, firstIndex));
-              updated.addAll(subsetItems);
-              updated.addAll(otherItems.sublist(firstIndex));
-              return st.copyWith(subSubTasks: updated);
-            }
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
+  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
+  
+  void addCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
+    setSettings(settings..customApiKeys = newKeys);
   }
-
-  List<SubSubTask> _reorderNodesSubset(List<SubSubTask> nodes, String targetId, List<String> subsetIds) {
-    return nodes.map((node) {
-      if (node.id == targetId) {
-         final subsetItems = subsetIds.map((id) => node.substeps.firstWhere((sst) => sst.id == id)).toList();
-         final otherItems = node.substeps.where((sst) => !subsetIds.contains(sst.id)).toList();
-         int firstIndex = node.substeps.indexWhere((sst) => subsetIds.contains(sst.id));
-         if (firstIndex == -1) firstIndex = 0;
-         final List<SubSubTask> updated = [];
-         updated.addAll(otherItems.sublist(0, firstIndex));
-         updated.addAll(subsetItems);
-         updated.addAll(otherItems.sublist(firstIndex));
-         return node.copyWith(substeps: updated);
-      } else {
-         return node.copyWith(substeps: _reorderNodesSubset(node.substeps, targetId, subsetIds));
-      }
-    }).toList();
+  
+  void removeCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = newKeys);
   }
-
-  // --- SubTask Actions ---
-
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
-    final newSubtask = SubTask(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
-      name: subtaskData['name'] as String,
-      description: subtaskData['description'] as String? ?? '',
-      isCountable: subtaskData['isCountable'] as bool? ?? false,
-      targetCount: subtaskData['targetCount'] as int? ?? 0,
-      subSubTasks: [],
-      why: subtaskData['why'] as String? ?? '',
-      what: subtaskData['what'] as String? ?? '',
-      resources: subtaskData['resources'] as String? ?? '', 
-      isActive: subtaskData['isActive'] as bool? ?? true,
-    );
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
-      }
-      return task;
-    }).toList();
-    
-    _provider.setProviderState(mainTasks: newMainTasks);
-    return newSubtask.id;
-  }
-
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
-    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (taskToUpdate == null) return;
-
-    SubTask? subtaskToUpdate = taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
-    if (subtaskToUpdate == null) return;
-
-    final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
-
-    if (updates.containsKey('name')) subtaskToUpdate.name = updates['name'] as String;
-    if (updates.containsKey('description')) subtaskToUpdate.description = updates['description'] as String;
-    if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
-    if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
-    if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
-    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
-    if (updates.containsKey('isActive')) subtaskToUpdate.isActive = updates['isActive'] as bool;
-    
-    subtaskToUpdate.updatedAt = DateTime.now();
-
-    if (updates.containsKey('currentTimeSpent')) subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
-    if (updates.containsKey('completed')) {
-      subtaskToUpdate.completed = updates['completed'] as bool;
-      if (!subtaskToUpdate.completed) {
-        subtaskToUpdate.completedDate = null;
-        subtaskToUpdate.lastCompletedDate = null;
-      }
-    }
-
-    int timeDifference = 0;
-    if (updates.containsKey('currentTimeSpent')) {
-      timeDifference = subtaskToUpdate.currentTimeSpent - oldSubtaskTime;
-    }
-
-    if (timeDifference != 0) {
-      taskToUpdate.dailyTimeSpent = (taskToUpdate.dailyTimeSpent) + timeDifference;
-      taskToUpdate.lastWorkedDate = getTodayDateString();
-      logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': timeDifference});
-    }
-
-    final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate! : t).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
-    MainTask? mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (mainTask == null) return false;
-    SubTask? subTask = mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
-    if (subTask == null || subTask.completed) return false;
-
-    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) return false;
-
-    bool hasTime = subTask.currentTimeSpent > 0;
-    if (subTask.isRecurring) {
-      hasTime = TaskCalculations.getHistoricalTodaySeconds(subTask) > 0;
-      if (_provider.activeTimers[subtaskId]?.isRunning == true) hasTime = true;
-    }
-
-    if (!hasTime && !subTask.isCountable) {
-      bool allSubSubTasksDone = subTask.subSubTasks.every((sss) => sss.completed);
-      if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
-      if (subTask.subSubTasks.isEmpty && !hasTime && !fromSync) return false;
-    }
-
-    if (_provider.activeTimers[subtaskId] != null) {
-      _provider.timerActions.logTimerAndReset(subtaskId);
-    }
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subtaskId) {
-              return st.copyWith(
-                  completed: true, completedDate: getTodayDateString(),
-                  lastCompletedDate: DateTime.now(), updatedAt: DateTime.now()
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    _provider.setProviderState(mainTasks: newMainTasks);
-
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
-    }
-
-    logToDailySummary('subtaskCompleted', {
-      'parentTaskId': mainTask.id,
-      'name': subTask.name,
-      'timeLogged': subTask.currentTimeSpent,
-    });
-    return true;
-  }
-
-  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.map((st) {
-            if (st.id == subtaskId) {
-              return st.copyWith(
-                  completed: false, completedDate: null,
-                  lastCompletedDate: null, updatedAt: DateTime.now()
-              );
-            }
-            return st;
-          }).toList(),
-        );
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
-    }
-  }
-
-  void deleteSubtask(String mainTaskId, String subtaskId) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
-        );
-      }
-      return task;
-    }).toList();
-
-    final newActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
-    newActiveTimers.remove(subtaskId);
-    
-    _provider.setProviderState(mainTasks: newMainTasks, activeTimers: newActiveTimers);
-  }
-
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
-    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
-    if (taskToUpdate == null) return;
-    SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
-    if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
-
-    final newSubtask = subTaskToDuplicate.copyWith(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
-      completed: false, currentTimeSpent: 0, completedDate: null, currentCount: 0,
-      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => sss.copyWith(
-        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
-        completed: false, currentCount: 0, completionTimestamp: null
-      )).toList(), sessions: [], lastCompletedDate: null,
-      createdAt: DateTime.now(), updatedAt: DateTime.now(), isActive: true,
-    );
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final List<SubTask> updatedSubtasks = List.from(task.subTasks);
-        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
-          final SubTask item = updatedSubtasks.removeAt(oldIndex);
-          updatedSubtasks.insert(newIndex, item);
-        }
-        return task.copyWith(subTasks: updatedSubtasks);
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void reorderSubtasksBySubset(String mainTaskId, List<String> subsetIds) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        final subsetItems = subsetIds.map((id) => task.subTasks.firstWhere((st) => st.id == id)).toList();
-        final otherItems = task.subTasks.where((st) => !subsetIds.contains(st.id)).toList();
-        int firstIndex = task.subTasks.indexWhere((st) => subsetIds.contains(st.id));
-        if (firstIndex == -1) firstIndex = 0;
-        final List<SubTask> updated = [];
-        updated.addAll(otherItems.sublist(0, firstIndex));
-        updated.addAll(subsetItems);
-        updated.addAll(otherItems.sublist(firstIndex));
-        return task.copyWith(subTasks: updated);
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  // --- Session Management ---
-
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
-    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) return false;
-
-    final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
-    final durationSeconds = session.durationSeconds;
-    
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
-            lastWorkedDate: getTodayDateString(),
-            subTasks: task.subTasks.map((st) {
-              if (st.id == subTaskId) {
-                final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
-                final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-                return st.copyWith(
-                  currentTimeSpent: totalTime,
-                  sessions: newSessions,
-                  updatedAt: DateTime.now(),
-                );
-              }
-              return st;
-            }).toList());
-      }
-      return task;
-    }).toList();
-    
-    _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
-    return true; 
-  }
-
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
-    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) return;
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        return task.copyWith(
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final updatedSessions = st.sessions.map((s) {
-              if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
-              return s;
-            }).toList();
-            final totalTime = updatedSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return st.copyWith(
-              currentTimeSpent: totalTime,
-              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
-  }
-
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
-    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
-    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) {
-        int deduction = oldSession?.durationSeconds ?? 0;
-        return task.copyWith(
-            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
-            final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return st.copyWith(
-              currentTimeSpent: totalTime,
-              sessions: remainingSessions,
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
-  }
-
-  // --- Task Toggling ---
-  void toggleTaskStatus(String taskId, bool isActive) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == taskId) {
-        return task.copyWith(isActive: isActive);
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  // --- Utility ---
-
-  Future<void> recalibrateTimeLogs({bool silent = false}) async {
-    if (!silent) _provider.setLoadingTask("RECALIBRATING...");
-
-    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
-    final Map<String, Map<String, int>> calculatedHistory = {};
-
-    for (var task in _provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          DateTime cursor = session.startTime;
-          while (cursor.isBefore(session.endTime)) {
-            final dateStr = DateFormat('yyyy-MM-dd').format(cursor);
-            final endOfDay = DateTime(cursor.year, cursor.month, cursor.day, 23, 59, 59, 999);
-            final segmentEnd = session.endTime.isBefore(endOfDay) ? session.endTime : endOfDay;
-            final seconds = segmentEnd.difference(cursor).inSeconds;
-            
-            if (seconds > 0) {
-              if (!calculatedHistory.containsKey(dateStr)) {
-                calculatedHistory[dateStr] = {};
-              }
-              calculatedHistory[dateStr]![task.id] = (calculatedHistory[dateStr]![task.id] ?? 0) + seconds;
-            }
-            cursor = DateTime(cursor.year, cursor.month, cursor.day).add(const Duration(days: 1));
-          }
-        }
-      }
-    }
-
-    calculatedHistory.forEach((date, taskMap) {
-      if (!newCompletedByDay.containsKey(date)) {
-        newCompletedByDay[date] = {
-          'taskTimes': <String, int>{},
-          'subtasksCompleted': <Map<String, dynamic>>[],
-          'checkpointsCompleted': <Map<String, dynamic>>[],
-          'dailyPlan': <String>[],
-        };
-      }
-      final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
-      dayData['taskTimes'] = taskMap;
-      newCompletedByDay[date] = dayData;
-    });
-
-    final todayStr = getTodayDateString();
-    final todayTimes = calculatedHistory[todayStr] ?? {};
-
-    final newMainTasks = _provider.mainTasks.map((task) {
-      final updatedSubtasks = task.subTasks.map((st) {
-        final totalSeconds = st.sessions.fold(0, (sum, s) => sum + s.durationSeconds);
-        return st.copyWith(currentTimeSpent: totalSeconds);
-      }).toList();
-
-      return task.copyWith(
-        subTasks: updatedSubtasks, 
-        dailyTimeSpent: todayTimes[task.id] ?? 0 
-      );
-    }).toList();
-
-    _provider.setProviderState(
-      completedByDay: newCompletedByDay,
-      mainTasks: newMainTasks
-    );
-    
-    if (!silent) _provider.setLoadingTask(null);
-  }
-
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) {
-    final newTask = MainTask(
-      id: 'mt_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      description: description,
-      theme: theme,
-      colorHex: colorHex,
-      isActive: true,
-    );
-    _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
-  }
-
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) {
-    final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == taskId) {
-        return task.copyWith(name: name, description: description, theme: theme, colorHex: colorHex);
-      }
-      return task;
-    }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  void logToDailySummary(String type, Map<String, dynamic> data) {
-    final today = getTodayDateString();
-    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[], 'dailyPlan': <String>[]});
-
-    if (type == 'taskTime') {
-      final taskTimes = Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
-      taskTimes[data['taskId'] as String] = (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
-      dayData['taskTimes'] = taskTimes;
-    } else if (type == 'subtaskCompleted') {
-      final subtasksCompleted = List<Map<String, dynamic>>.from(dayData['subtasksCompleted'] as List? ?? []);
-      subtasksCompleted.add(data);
-      dayData['subtasksCompleted'] = subtasksCompleted;
-    } else if (type == 'subSubtaskCompleted') {
-      final checkpointsCompleted = List<Map<String, dynamic>>.from(dayData['checkpointsCompleted'] as List? ?? []);
-      if (!data.containsKey('completionTimestamp')) data['completionTimestamp'] = DateTime.now().toIso8601String();
-      checkpointsCompleted.add(data);
-      dayData['checkpointsCompleted'] = checkpointsCompleted;
-    }
-
-    newCompletedByDay[today] = dayData;
-    _provider.setProviderState(completedByDay: newCompletedByDay);
+  
+  void setJournalPin(String pin) {
+    setSettings(settings..journalPin = pin);
   }
 }
---- END OF FILE lib/src/providers/actions/task_actions.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import 'dart:ui';
-import 'dart:math';
-
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class XpGainDialog extends StatefulWidget {
-  final Map<String, int> xpGained;
-  final String? insightText;
-
-  const XpGainDialog({super.key, required this.xpGained, this.insightText});
-
-  @override
-  State<XpGainDialog> createState() => _XpGainDialogState();
-}
-
-class _XpGainDialogState extends State<XpGainDialog>
-    with TickerProviderStateMixin {
-  late AnimationController _mainController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-
-  late AnimationController _counterController;
-  late Animation<int> _xpCounterAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _mainController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _scaleAnimation = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-    );
-
-    final totalXp = widget.xpGained.values.fold(0, (a, b) => a + b);
-
-    _counterController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500));
-
-    _xpCounterAnimation = IntTween(begin: 0, end: totalXp).animate(
-      CurvedAnimation(parent: _counterController, curve: Curves.easeOutExpo),
-    );
-
-    _mainController.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _counterController.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _mainController.dispose();
-    _counterController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = widget.xpGained.entries.where((e) => e.value > 0).toList();
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: EdgeInsets.zero, 
-      child: Stack(
-        children: [
-          // 1. Full Screen Backdrop Blur
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                color: Colors.black.withValues(alpha: 0),
-              ),
-            ),
-          ),
-
-          // 2. Dismiss tap handler
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-
-          // 3. Main Dialog Card
-          Center(
-            child: GestureDetector(
-              onTap: () {}, 
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.85,
-                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 500),
-                    padding: const EdgeInsets.all(1.5),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(0),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppTheme.fhAccentTeal,
-                          AppTheme.fhBgDeepDark,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.15),
-                          blurRadius: 50,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F1720),
-                        borderRadius: BorderRadius.circular(0),
-                        gradient: RadialGradient(
-                          center: Alignment.topCenter,
-                          radius: 1.2,
-                          colors: [
-                            const Color(0xFF1A2634),
-                            const Color(0xFF0F1720),
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // --- HEADER ---
-                          Padding(
-                            padding: const EdgeInsets.only(top: 20, bottom: 20),
-                            child: Column(
-                              children: [
-                                Text(
-                                  "INSIGHT ACQUIRED",
-                                  style: TextStyle(
-                                    color: AppTheme.fhAccentTeal,
-                                    fontFamily: AppTheme.fontDisplay,
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2.0,
-                                    shadows: [
-                                      Shadow(
-                                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
-                                        blurRadius: 10
-                                      )
-                                    ]
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // --- SCROLLABLE CONTENT ---
-                          Flexible(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
-                              child: Column(
-                                children: [
-                                  // Skills List
-                                  if (entries.isNotEmpty) ...[
-                                    Container(
-                                      height: 1, 
-                                      width: double.infinity,
-                                      color: Colors.white.withValues(alpha: 0.1),
-                                      margin: const EdgeInsets.only(bottom: 16),
-                                    ),
-                                    GridView.count(
-                                      crossAxisCount: 4,
-                                      shrinkWrap: true,
-                                      childAspectRatio: 1.6,
-                                      mainAxisSpacing: 8,
-                                      crossAxisSpacing: 8,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      children: List.generate(entries.length, (index) {
-                                      final entry = entries[index];
-                                      return _buildCompactSkillRow(context, entry.key, entry.value)
-                                            .animate(delay: (100 * index).ms)
-                                            .fadeIn()
-                                            .slideX(begin: -0.1, end: 0);
-                                      }),
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-
-                                  // Insight / Log Analysis Text
-                                  if (widget.insightText != null && widget.insightText!.isNotEmpty) ...[
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        border: Border(
-                                          left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)
-                                        ),
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          bottomRight: Radius.circular(8)
-                                        )
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(MdiIcons.consoleLine, size: 14, color: AppTheme.fhAccentTeal),
-                                              const SizedBox(width: 8),
-                                              const Text(
-                                                "LOG ANALYSIS", 
-                                                style: TextStyle(
-                                                  color: AppTheme.fhAccentTeal, 
-                                                  fontSize: 10, 
-                                                  fontWeight: FontWeight.bold, 
-                                                  letterSpacing: 1.5
-                                                )
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            widget.insightText!,
-                                            style: const TextStyle(
-                                              color: AppTheme.fhTextSecondary,
-                                              fontSize: 13,
-                                              height: 1.5,
-                                              fontFamily: "RobotoCondensed"
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ).animate(delay: 400.ms).fadeIn(),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // --- FOOTER BUTTON ---
-                          Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.fhAccentTeal,
-                                  foregroundColor: const Color(0xFF0F1720),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: const BeveledRectangleBorder(
-                                      borderRadius: BorderRadius.all(Radius.circular(4))),
-                                ),
-                                child: const Text(
-                                  "CONTINUE",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontFamily: AppTheme.fontDisplay,
-                                      fontSize: 18,
-                                      letterSpacing: 1.5),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
- Widget _buildCompactSkillRow(BuildContext context, String skillName, int xp) {
-  Color color = WellbeingTheme.getColor(skillName);
-
-  return GestureDetector(
-    onTap: () {
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      try {
-        final skill = provider.skills.firstWhere((s) => s.name == skillName);
-        final xpToday = provider.get7DayWellbeingMomentum(skill.name) ~/ 7; 
-        
-        Map<int, double> weeklyXp = {};
-        for (int i = 6; i >= 0; i--) {
-          final date = DateTime.now().subtract(Duration(days: i));
-          double dayXp = 0;
-          for (var log in provider.reflectionLogs) {
-            if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
-              dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
-            }
-          }
-          weeklyXp[6 - i] = dayXp;
-        }
-
-        showDialog(
-          context: context,
-          builder: (_) => WellbeingDetailDialog(
-            skill: skill,
-            xpGainedToday: xpToday,
-            weeklyXp: weeklyXp,
-          ),
-        );
-      } catch (e) {
-        // Ignored
-      }
-    },
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            WellbeingTheme.getIcon(skillName),
-            color: color,
-            size: 16,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            "+$xp",
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
- }
-}
---- END OF FILE lib/src/widgets/dialogs/xp_gain_dialog.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/subtask_config_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/common/growing_text_field.dart';
-
-class SubtaskConfigDialog extends StatefulWidget {
-  final String initialName;
-  final String initialDescription;
-  final bool isRecurring;
-  final bool isActive;
-
-  const SubtaskConfigDialog({
-    super.key,
-    required this.initialName,
-    this.initialDescription = '',
-    this.isRecurring = false,
-    this.isActive = true,
-  });
-
-  @override
-  State<SubtaskConfigDialog> createState() => _SubtaskConfigDialogState();
-}
-
-class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
-  late TextEditingController _nameController;
-  late TextEditingController _descController;
-  late bool _isRecurring;
-  late bool _isActive;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.initialName);
-    _descController = TextEditingController(text: widget.initialDescription);
-    _isRecurring = widget.isRecurring;
-    _isActive = widget.isActive;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("CONFIGURE OBJECTIVE"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("NAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GrowingTextField(controller: _nameController, hint: "Objective title...", minLines: 1),
-            
-            const SizedBox(height: 16),
-            
-            const Text("BRIEFING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            GrowingTextField(controller: _descController, hint: "Description and notes...", minLines: 3),
-            
-            const SizedBox(height: 24),
-            
-            SwitchListTile(
-              title: const Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-              value: _isActive,
-              activeThumbColor: AppTheme.fhAccentTeal,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (val) => setState(() => _isActive = val),
-            ),
-            
-            SwitchListTile(
-              title: const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-              value: _isRecurring,
-              activeThumbColor: AppTheme.fhAccentTeal,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (val) => setState(() => _isRecurring = val),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL"),
-        ),
-        ValorantButton(
-          label: "UPDATE",
-          onPressed: () {
-            if (_nameController.text.trim().isNotEmpty) {
-              Navigator.pop(context, {
-                'name': _nameController.text.trim(),
-                'description': _descController.text.trim(),
-                'isRecurring': _isRecurring,
-                'isActive': _isActive,
-              });
-            }
-          },
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/dialogs/subtask_config_dialog.dart ---
-
---- START OF FILE lib/src/widgets/views/task_details_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart';
-import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
-import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
-import 'package:arcane/src/widgets/ui/inactive_submissions_section.dart';
-import 'package:arcane/src/widgets/dialogs/initialize_action_plan_dialog.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class TaskDetailsView extends StatefulWidget {
-  const TaskDetailsView({super.key});
-
-  @override
-  State<TaskDetailsView> createState() => _TaskDetailsViewState();
-}
-
-class _TaskDetailsViewState extends State<TaskDetailsView> {
-
-  void _showAddActionPlanDialog(BuildContext context, AppProvider provider, MainTask task) async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => const InitializeActionPlanDialog(),
-    );
-
-    if (result != null && mounted) {
-      final name = result['name']!;
-      final why = result['why']!;
-      
-      // Create new subtask
-      final newId = provider.addSubtask(task.id, {
-        'name': name,
-        'why': why,
-        'isCountable': false,
-        'subSubTasksData': [],
-        'isActive': true,
-      });
-
-      final updatedTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
-      final newSubTask = updatedTask.subTasks.firstWhere((s) => s.id == newId);
-
-      Navigator.push(
-        context, 
-        MaterialPageRoute(builder: (_) => SubmissionDetailScreen(parentTask: updatedTask, subTask: newSubTask))
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        final task = appProvider.getSelectedTask();
-        final theme = Theme.of(context);
-
-        if (task == null) {
-          return const Center(child: Text('NO PROTOCOL SELECTED'));
-        }
-
-        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
-        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
-
-        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive).toList();
-        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive).toList();
-        
-        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
-        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
-
-        return RefreshIndicator(
-          color: AppTheme.fhAccentTeal,
-          backgroundColor: AppTheme.fhBgDark,
-          onRefresh: () async {
-            await appProvider.performManualSync();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TaskHeaderCard(
-                  task: task,
-                  yesterdayTime: yesterdayTime,
-                  weeklyCompletion: weeklyCompletion,
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(width: 4, height: 16, color: task.taskColor),
-                          const SizedBox(width: 8),
-                          Text('ACTIVE TASKS',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                  fontFamily: AppTheme.fontDisplay,
-                                  color: AppTheme.fhTextPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0
-                              )),
-                        ],
-                      ),
-                      IconButton(
-                        icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
-                        onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                        tooltip: "New Contract",
-                      )
-                    ],
-                  ),
-                ),
-
-                if (activeSubtasks.isEmpty)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(24.0),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                      color: AppTheme.fhBgDark.withOpacity(0.3)
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                            'NO ACTIVE TASKS',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () => _showAddActionPlanDialog(context, appProvider, task),
-                          child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
-                        )
-                      ],
-                    ),
-                  )
-                else
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    itemCount: activeSubtasks.length,
-                    onReorder: (oldIndex, newIndex) {
-                      if (oldIndex < newIndex) newIndex -= 1;
-                      final list = List<SubTask>.from(activeSubtasks);
-                      final item = list.removeAt(oldIndex);
-                      list.insert(newIndex, item);
-                      appProvider.taskActions.reorderSubtasksBySubset(task.id, list.map((e) => e.id).toList());
-                    },
-                    proxyDecorator: (child, index, animation) {
-                      return Material(
-                        color: Colors.transparent,
-                        elevation: 5,
-                        shadowColor: Colors.black,
-                        child: child,
-                      );
-                    },
-                    itemBuilder: (ctx, index) {
-                      final st = activeSubtasks[index];
-                      return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
-                    },
-                  ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  child: InactiveSubmissionsSection(parentTask: task, inactiveSubtasks: inactiveSubtasks),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  child: RecurringCompletedSection(parentTask: task, completedSubtasks: completedRecurring),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  child: CompletedSubmissionsSection(parentTask: task, completedSubtasks: completedArchived),
-                ),
-
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
---- END OF FILE lib/src/widgets/views/task_details_view.dart ---
-
---- START OF FILE lib/src/widgets/ui/inactive_submissions_section.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class InactiveSubmissionsSection extends StatelessWidget {
-  final MainTask parentTask;
-  final List<SubTask> inactiveSubtasks;
-
-  const InactiveSubmissionsSection({
-    super.key,
-    required this.parentTask,
-    required this.inactiveSubtasks,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (inactiveSubtasks.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(MdiIcons.pauseCircleOutline,
-                color: AppTheme.fhTextDisabled, size: 20),
-            title: Text(
-              "INACTIVE PROTOCOLS (${inactiveSubtasks.length})",
-              style: TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontWeight: FontWeight.bold,
-                fontFamily: AppTheme.fontDisplay,
-                letterSpacing: 1.2,
-                fontSize: 14,
-              ),
-            ),
-            childrenPadding: EdgeInsets.zero,
-            children: inactiveSubtasks.map((st) {
-              return Opacity(
-                opacity: 0.6,
-                child: SubmissionCard(parentTask: parentTask, subTask: st)
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/ui/inactive_submissions_section.dart ---
+--- END OF FILE lib/src/providers/app_provider.dart ---
 
 --- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
 import 'package:flutter/material.dart';
@@ -2002,6 +2106,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 isCompleted: step.completed,
                 type: step.type,
                 hasSubsteps: step.substeps.isNotEmpty,
+                progress: step.calculateProgress(), // Provide calculated progress here
                 accentColor: widget.accentColor,
                 onTap: () => _navigateToStepDetail(context, step),
                 onPlay: null,
@@ -2302,6 +2407,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             type: child.type,
                             accentColor: agentColor,
                             hasSubsteps: child.substeps.isNotEmpty,
+                            progress: child.calculateProgress(), // Passing correct progress manually calculated
                             onTap: () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
                                 mainTaskId: widget.mainTaskId,
@@ -2376,424 +2482,516 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
 }
 --- END OF FILE lib/src/widgets/screens/checkpoint_detail_screen.dart ---
 
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+--- START OF FILE lib/src/screens/more_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
-import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_resources_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_steps_list.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/screens/submission_sessions_screen.dart';
-import 'package:arcane/src/widgets/charts/subtask_weekly_chart.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/screens/bus_schedule_screen.dart';
+import 'package:arcane/src/screens/database_editor_screen.dart';
+import 'package:arcane/src/screens/timetable_screen.dart';
+import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
+import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
+import 'package:arcane/src/screens/settings/habit_control_screen.dart';
+import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionDetailScreen({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
+class MoreScreen extends StatelessWidget {
+  const MoreScreen({super.key});
 
   @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
-}
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  DateTime _selectedDate = DateTime.now();
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("SYSTEM & UTILITIES"),
+        backgroundColor: AppTheme.fhBgDeepDark,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text("UTILITIES & SYSTEM",
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
+          const SizedBox(height: 12),
 
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent =
-          provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
-    }
-  }
+          _buildMenuTile(context,
+              icon: MdiIcons.medicalBag,
+              title: "Emergency Therapy",
+              subtitle: "Quick psychological triage and action plan",
+              colorOverride: AppTheme.fhAccentRed,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const QuickTherapyScreen()));
+          }),
+          
+          _buildMenuTile(context,
+              icon: MdiIcons.heartPulse,
+              title: "Gratitude Log",
+              subtitle: "Track people, resources, and things you appreciate",
+              colorOverride: AppTheme.fhAccentGreen,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const GratitudeListScreen()));
+          }),
 
-  Future<void> _handleEditSubtask(
-      BuildContext context, AppProvider provider, SubTask liveSubTask) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => SubtaskConfigDialog(
-        initialName: liveSubTask.name,
-        initialDescription: liveSubTask.description,
-        isRecurring: liveSubTask.isRecurring,
-        isActive: liveSubTask.isActive,
+          _buildMenuTile(context,
+              icon: MdiIcons.busClock,
+              title: "Bus Time",
+              subtitle: "Schedule: S.S College - Areekode - Edavannappara",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const BusScheduleScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.timetable,
+              title: "Academic Timetable",
+              subtitle: "4th Semester Physics",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TimetableScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.databaseEdit,
+              title: "Database Editor",
+              subtitle: "Manual edits & JSON Export/Import", onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const DatabaseEditorScreen()));
+          }),
+
+          const SizedBox(height: 24),
+          Text("CONFIGURATION",
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
+          const SizedBox(height: 12),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.brain,
+              title: "Behavioral Override",
+              subtitle: "Habit control & dopamine regulation",
+              colorOverride: JweTheme.accentAmber,
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const HabitControlScreen()));
+          }),
+
+          _buildMenuTile(context,
+              icon: MdiIcons.cogOutline,
+              title: "System Settings",
+              subtitle: "App preferences, AI config, and recovery",
+              onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                          appBar: AppBar(title: const Text("SETTINGS")),
+                          backgroundColor: AppTheme.fhBgDeepDark,
+                          body: Center(
+                              child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 800),
+                                  child: const SettingsView())),
+                        )));
+          }),
+        ],
       ),
     );
-    if (result != null) {
-      provider.taskActions.updateSubtask(
-          widget.parentTask.id, widget.subTask.id, result);
-    }
   }
 
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
+  Widget _buildMenuTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? colorOverride,
+  }) {
+    final effectiveColor = colorOverride ?? AppTheme.fhAccentTeal;
+    return Card(
+      color: AppTheme.fhBgDark,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side:
+              BorderSide(color: effectiveColor.withValues(alpha: 0.3))),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: effectiveColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: effectiveColor),
+        ),
+        title: Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+        subtitle: Text(subtitle,
+            style:
+                const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+        trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
+        onTap: onTap,
+      ),
     );
-    
-    if (result != null) {
-      final start = result['start']!;
-      final end = result['end']!;
-      
-      final success = provider.taskActions.addSessionToSubtask(
-          widget.parentTask.id, widget.subTask.id, start, end);
-          
-      if (!success && mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: const Text("Overlap detected! Adjust time."),
-             backgroundColor: AppTheme.fhAccentRed, 
-             action: SnackBarAction(
-               label: "EDIT",
-               textColor: Colors.white,
-               onPressed: () {
-                 _handleSessionEdit(context, provider, TaskSession(id: 'temp', startTime: start, endTime: end));
-               },
-             ),
-           )
-         );
-      }
-    }
   }
+}
+--- END OF FILE lib/src/screens/more_screen.dart ---
 
-  void _handleSessionEdit(
-      BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        if (!session.id.startsWith('temp')) {
-           provider.taskActions.deleteSessionFromSubtask(
-            widget.parentTask.id, widget.subTask.id, session.id);
-        }
-      } else if (result['action'] == 'save') {
-        if (session.id.startsWith('temp')) {
-           provider.taskActions.addSessionToSubtask(
-            widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
-        } else {
-           provider.taskActions.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
-            session.id, result['start'], result['end']);
-        }
-      }
-    }
-  }
+--- START OF FILE lib/src/screens/settings/habit_control_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/dialogs/add_habit_rule_dialog.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-  List<TimelineEntry> _buildTimelineEntries(
-      AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries =[];
-    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
-
-    for (var task in provider.mainTasks) {
-      if (task.id != widget.parentTask.id) continue;
-      
-      for (var sub in task.subTasks) {
-        if (sub.id != currentSubTaskId) continue;
-
-        for (var session in sub.sessions) {
-          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
-            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
-
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: displayStart,
-              endTime: displayEnd,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor, 
-              isEditable: true,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-    return entries;
-  }
+class HabitControlScreen extends StatelessWidget {
+  const HabitControlScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
-
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
-
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double todaySeconds =
-        TaskCalculations.getTodaySeconds(liveSubTask, timerState);
-
-    final bool isRunning = timerState?.isRunning ?? false;
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    final Color activeAccent = widget.parentTask.taskColor;
+    final rules = provider.settings.habitRules;
 
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: JweTheme.bgBase,
+      appBar: AppBar(
+        title: Text("BEHAVIORAL OVERRIDE", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
+      ),
       body: SafeArea(
-        child: Column(
-          children:[
-            // --- HEADER ---
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                color: AppTheme.fhBgDark,
-              ),
-              child: Row(
-                children:[
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  JwePanel(
+                    title: "ATOMIC FRAMEWORK",
+                    accentColor: JweTheme.textMuted,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children:[
-                        Text(
-                          widget.parentTask.name.toUpperCase(),
-                          style: TextStyle(
-                            color: activeAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.0,
-                          ),
-                        ),
-                        Text(
-                          liveSubTask.name.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontSize: 24,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      children: [
+                        const Text("Habits are driven by a continuous loop. Overriding the loop requires attacking these specific vectors:", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontStyle: FontStyle.italic)),
+                        const SizedBox(height: 12),
+                        _buildFrameworkItem(MdiIcons.eyeOff, "CUE REMOVAL", "Hide triggers. Enable scheduled grayscale.", JweTheme.textMuted),
+                        _buildFrameworkItem(MdiIcons.timerSand, "FRICTION BOOST", "Mandatory delay before response execution.", JweTheme.accentCyan),
+                        _buildFrameworkItem(MdiIcons.lockAlert, "USAGE CAP", "Hard daily limit restrictions on response.", JweTheme.accentAmber),
+                        _buildFrameworkItem(MdiIcons.history, "ACCOUNTABILITY LOG", "Visibility of lost streaks to remove reward.", JweTheme.accentRed),
+                      ],
+                    )
+                  ),
+                  
+                  JwePanel(
+                    title: "GLOBAL CUE REMOVAL",
+                    accentColor: JweTheme.accentCyan,
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text("SYSTEM GRAYSCALE", style: TextStyle(color: JweTheme.textWhite, fontSize: 14)),
+                          subtitle: const Text("Desaturate interface to reduce dopamine response.", style: TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                          value: false, // Mock toggle
+                          activeColor: JweTheme.accentCyan,
+                          onChanged: (val) {
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("To enable grayscale, use your device's native Digital Wellbeing / Accessibility settings.")));
+                          },
                         ),
                       ],
-                    ),
+                    )
                   ),
-                  InkWell(
-                    onTap: () => _handleEditSubtask(context, provider, liveSubTask),
-                    child:  Icon(MdiIcons.pencilOutline, color: AppTheme.fhTextSecondary, size: 20),
+
+                  JwePanel(
+                    title: "ACTIVE RESTRICTIONS",
+                    accentColor: JweTheme.accentRed,
+                    child: Column(
+                      children: [
+                        if (rules.isEmpty)
+                           const Padding(
+                             padding: EdgeInsets.all(16.0),
+                             child: Text("No behavioral overrides configured.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic)),
+                           )
+                        else
+                           ...rules.map((r) => Container(
+                             margin: const EdgeInsets.only(bottom: 12),
+                             decoration: BoxDecoration(
+                               border: Border.all(color: JweTheme.border),
+                               color: JweTheme.panel,
+                             ),
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 // Header
+                                 Container(
+                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                   decoration: const BoxDecoration(
+                                     border: Border(bottom: BorderSide(color: JweTheme.border)),
+                                     color: Color(0x0DFFFFFF),
+                                   ),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                     children: [
+                                       Text(r.appName.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
+                                       IconButton(
+                                         icon: const Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
+                                         padding: EdgeInsets.zero,
+                                         constraints: const BoxConstraints(),
+                                         onPressed: () => provider.deleteHabitRule(r.id),
+                                       )
+                                     ],
+                                   ),
+                                 ),
+                                 // Stats
+                                 Padding(
+                                   padding: const EdgeInsets.all(12.0),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                     children: [
+                                       _buildStatCol("FRICTION", "${r.frictionDelaySeconds}s", JweTheme.accentCyan),
+                                       _buildStatCol("LIMIT", "${r.dailyLimitMinutes}m", JweTheme.accentAmber),
+                                       _buildStatCol("STREAK", "${r.currentStreakDays}d", JweTheme.textWhite),
+                                     ],
+                                   ),
+                                 ),
+                                 // Actions
+                                 Padding(
+                                   padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                   child: Row(
+                                     children: [
+                                       Expanded(
+                                         child: OutlinedButton(
+                                           style: OutlinedButton.styleFrom(
+                                             foregroundColor: JweTheme.textWhite,
+                                             side: const BorderSide(color: JweTheme.border),
+                                             shape: const BeveledRectangleBorder()
+                                           ),
+                                           onPressed: () {
+                                             final updated = r..currentStreakDays += 1;
+                                             provider.updateHabitRule(updated);
+                                           },
+                                           child: const Text("LOG CLEAN DAY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                         ),
+                                       ),
+                                       const SizedBox(width: 8),
+                                       Expanded(
+                                         child: OutlinedButton(
+                                           style: OutlinedButton.styleFrom(
+                                             foregroundColor: JweTheme.accentRed,
+                                             side: const BorderSide(color: JweTheme.accentRed),
+                                             shape: const BeveledRectangleBorder()
+                                           ),
+                                           onPressed: () {
+                                             final updated = r..currentStreakDays = 0;
+                                             provider.updateHabitRule(updated);
+                                           },
+                                           child: const Text("RESET STREAK", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                         ),
+                                       )
+                                     ],
+                                   ),
+                                 )
+                               ],
+                             ),
+                           )),
+
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text("ADD OVERRIDE"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: JweTheme.accentRed,
+                              foregroundColor: Colors.white,
+                              shape: const BeveledRectangleBorder()
+                            ),
+                            onPressed: () {
+                              showDialog(context: context, builder: (_) => const AddHabitRuleDialog());
+                            },
+                          ),
+                        )
+                      ],
+                    )
                   )
                 ],
               ),
             ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children:[
-                    // --- TIMER AREA ---
-                    Container(
-                      padding: const EdgeInsets.all(20.0),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors:[activeAccent.withOpacity(0.15), Colors.transparent],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children:[
-                                  const Text("TIME LOGGED TODAY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                                  ActiveSessionTimerDisplay(
-                                    isRunning: isRunning,
-                                    startTime: timerState?.startTime,
-                                    totalTodaySeconds: todaySeconds,
-                                  ),
-                                ],
-                              ),
-                              FloatingActionButton(
-                                backgroundColor: isRunning ? AppTheme.fhAccentRed : activeAccent,
-                                foregroundColor: Colors.black,
-                                onPressed: () {
-                                  if (isRunning) {
-                                    provider.timerActions.pauseTimer(liveSubTask!.id); 
-                                    provider.timerActions.logTimerAndReset(liveSubTask.id); 
-                                  } else {
-                                    provider.timerActions.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
-                                  }
-                                },
-                                child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
-                              )
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // --- ACTION PLAN ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          ActionPlanStepsList(
-                            mainTaskId: widget.parentTask.id,
-                            subTaskId: liveSubTask.id,
-                            steps: liveSubTask.subSubTasks,
-                            accentColor: activeAccent,
-                            onGenerate: (prompt) => provider.aiGenerationActions.generateActionPlanSteps(widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          ActionPlanWhyCard(
-                            initialWhy: liveSubTask.why,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
-                          ),
-                          const SizedBox(height: 16),
-                          ActionPlanOutcomeCard(
-                            initialWhat: liveSubTask.what,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
-                          ),
-                          const SizedBox(height: 16),
-                          ActionPlanResourcesCard(
-                            mainTaskId: widget.parentTask.id,
-                            subTaskId: liveSubTask.id,
-                            initialResources: liveSubTask.resources,
-                            accentColor: activeAccent,
-                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: SubtaskWeeklyChart(subTask: liveSubTask, accentColor: activeAccent),
-                    ),
-
-                    const SizedBox(height: 32),
-                    
-                    // --- TIMELINE ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("SESSION TIMELINE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-                                InkWell(
-                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionSessionsScreen(parentTask: widget.parentTask, subTask: liveSubTask!))),
-                                  child: Text("VIEW ALL", style: TextStyle(color: activeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                                )
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 200, 
-                            decoration: BoxDecoration(
-                              color: AppTheme.fhBgDark.withOpacity(0.5),
-                              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5))
-                            ),
-                            child: ScheduleTimeline(
-                              entries: timelineEntries,
-                              onAddSession: () => _showAddSessionDialog(context, provider),
-                              onEditEntry: (entry) {
-                                if (entry.originalObject is TaskSession) {
-                                  _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // --- FOOTER ACTIONS ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Row(
-                        children:[
-                          Expanded(
-                            child: ValorantButton(
-                              label: "FINISH",
-                              icon: MdiIcons.contentSave,
-                              color: AppTheme.fhAccentGreen,
-                              onPressed: () {
-                                provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ValorantButton(
-                              label: "DELETE",
-                              icon: MdiIcons.deleteOutline,
-                              color: AppTheme.fhAccentRed,
-                              isPrimary: false,
-                              onPressed: () {
-                                provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildFrameworkItem(IconData icon, String title, String desc, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0)),
+                Text(desc, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCol(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(value, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
+      ],
+    );
+  }
 }
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
+--- END OF FILE lib/src/screens/settings/habit_control_screen.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/habit_models.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class AddHabitRuleDialog extends StatefulWidget {
+  const AddHabitRuleDialog({super.key});
+
+  @override
+  State<AddHabitRuleDialog> createState() => _AddHabitRuleDialogState();
+}
+
+class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
+  final _nameController = TextEditingController();
+  final _delayController = TextEditingController(text: '10');
+  final _limitController = TextEditingController(text: '30');
+  bool _isGrayscale = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _delayController.dispose();
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentRed, width: 2)),
+      title: Text("CONFIGURE RESTRICTION", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("APP/BEHAVIOR NAME", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+                hintText: "e.g. Instagram"
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            const Text("FRICTION DELAY (SECONDS)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _delayController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            const Text("DAILY CAP (MINUTES)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _limitController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            SwitchListTile(
+              title: const Text("Grayscale Context", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
+              value: _isGrayscale,
+              activeColor: JweTheme.accentRed,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) => setState(() => _isGrayscale = val),
+            )
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
+          onPressed: () {
+            if (_nameController.text.trim().isNotEmpty) {
+              final rule = HabitRule(
+                id: '',
+                appName: _nameController.text.trim(),
+                frictionDelaySeconds: int.tryParse(_delayController.text) ?? 0,
+                dailyLimitMinutes: int.tryParse(_limitController.text) ?? 0,
+                isGrayscale: _isGrayscale,
+              );
+              Provider.of<AppProvider>(context, listen: false).addHabitRule(rule);
+              Navigator.pop(context);
+            }
+          }, 
+          child: const Text("ENFORCE")
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---

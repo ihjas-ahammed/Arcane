@@ -138,6 +138,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 isCompleted: step.completed,
                 type: step.type,
                 hasSubsteps: step.substeps.isNotEmpty,
+                progress: step.calculateProgress(), // Provide calculated progress here
                 accentColor: widget.accentColor,
                 onTap: () => _navigateToStepDetail(context, step),
                 onPlay: null,
