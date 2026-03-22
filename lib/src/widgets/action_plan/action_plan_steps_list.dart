@@ -35,7 +35,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
 
   void _addStep(AppProvider provider) {
     if (_stepController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
+    provider.taskActions.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
       'name': _stepController.text.trim(),
       'isCountable': false,
       'targetCount': 0,
@@ -111,31 +111,53 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
         else
-          ...widget.steps.map((step) {
-            return CheckpointItem(
-              title: step.name,
-              isCompleted: step.completed,
-              type: step.type,
-              hasSubsteps: step.substeps.isNotEmpty,
-              accentColor: widget.accentColor,
-              onTap: () => _navigateToStepDetail(context, step),
-              onPlay: null, // Removed engage button from checkpoints
-              isRunning: false,
-              onToggle: () {
-                if (step.completed) {
-                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                } else {
-                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                }
-              },
-              onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onToggleType: () {
-                final newType = step.type == 'check' ? 'info' : 'check';
-                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-              },
-            );
-          }),
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.steps.length,
+            onReorder: (oldIndex, newIndex) {
+              if (oldIndex < newIndex) newIndex -= 1;
+              final list = List<SubSubTask>.from(widget.steps);
+              final item = list.removeAt(oldIndex);
+              list.insert(newIndex, item);
+              provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.subTaskId, list.map((e) => e.id).toList());
+            },
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: Colors.transparent,
+                elevation: 5,
+                shadowColor: Colors.black,
+                child: child,
+              );
+            },
+            itemBuilder: (ctx, index) {
+              final step = widget.steps[index];
+              return CheckpointItem(
+                key: ValueKey(step.id),
+                title: step.name,
+                isCompleted: step.completed,
+                type: step.type,
+                hasSubsteps: step.substeps.isNotEmpty,
+                accentColor: widget.accentColor,
+                onTap: () => _navigateToStepDetail(context, step),
+                onPlay: null,
+                isRunning: false,
+                onToggle: () {
+                  if (step.completed) {
+                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  } else {
+                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  }
+                },
+                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onToggleType: () {
+                  final newType = step.type == 'check' ? 'info' : 'check';
+                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                },
+              );
+            },
+          ),
 
         Container(
           margin: const EdgeInsets.only(top: 8),

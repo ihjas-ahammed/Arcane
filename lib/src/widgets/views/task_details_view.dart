@@ -6,6 +6,7 @@ import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:arcane/src/widgets/cards/task_header_card.dart';
 import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
 import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
+import 'package:arcane/src/widgets/ui/inactive_submissions_section.dart';
 import 'package:arcane/src/widgets/dialogs/initialize_action_plan_dialog.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:provider/provider.dart';
@@ -35,7 +36,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         'name': name,
         'why': why,
         'isCountable': false,
-        'subSubTasksData': []
+        'subSubTasksData': [],
+        'isActive': true,
       });
 
       final updatedTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
@@ -62,7 +64,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
         final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
 
-        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
+        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive).toList();
+        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive).toList();
         
         final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
         final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
@@ -137,12 +140,36 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     ),
                   )
                 else
-                  Padding(
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    child: Column(
-                      children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
-                    ),
+                    itemCount: activeSubtasks.length,
+                    onReorder: (oldIndex, newIndex) {
+                      if (oldIndex < newIndex) newIndex -= 1;
+                      final list = List<SubTask>.from(activeSubtasks);
+                      final item = list.removeAt(oldIndex);
+                      list.insert(newIndex, item);
+                      appProvider.taskActions.reorderSubtasksBySubset(task.id, list.map((e) => e.id).toList());
+                    },
+                    proxyDecorator: (child, index, animation) {
+                      return Material(
+                        color: Colors.transparent,
+                        elevation: 5,
+                        shadowColor: Colors.black,
+                        child: child,
+                      );
+                    },
+                    itemBuilder: (ctx, index) {
+                      final st = activeSubtasks[index];
+                      return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
+                    },
                   ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: InactiveSubmissionsSection(parentTask: task, inactiveSubtasks: inactiveSubtasks),
+                ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),

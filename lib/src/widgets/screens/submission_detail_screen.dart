@@ -57,10 +57,11 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         initialName: liveSubTask.name,
         initialDescription: liveSubTask.description,
         isRecurring: liveSubTask.isRecurring,
+        isActive: liveSubTask.isActive,
       ),
     );
     if (result != null) {
-      provider.updateSubtask(
+      provider.taskActions.updateSubtask(
           widget.parentTask.id, widget.subTask.id, result);
     }
   }
@@ -75,7 +76,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       final start = result['start']!;
       final end = result['end']!;
       
-      final success = provider.addSessionToSubtask(
+      final success = provider.taskActions.addSessionToSubtask(
           widget.parentTask.id, widget.subTask.id, start, end);
           
       if (!success && mounted) {
@@ -106,15 +107,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (result != null) {
       if (result['action'] == 'delete') {
         if (!session.id.startsWith('temp')) {
-           provider.deleteSessionFromSubtask(
+           provider.taskActions.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
         }
       } else if (result['action'] == 'save') {
         if (session.id.startsWith('temp')) {
-           provider.addSessionToSubtask(
+           provider.taskActions.addSessionToSubtask(
             widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
         } else {
-           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+           provider.taskActions.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
         }
       }
@@ -267,10 +268,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 foregroundColor: Colors.black,
                                 onPressed: () {
                                   if (isRunning) {
-                                    provider.pauseTimer(liveSubTask!.id); 
-                                    provider.logTimerAndReset(liveSubTask.id); 
+                                    provider.timerActions.pauseTimer(liveSubTask!.id); 
+                                    provider.timerActions.logTimerAndReset(liveSubTask.id); 
                                   } else {
-                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
+                                    provider.timerActions.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
                                   }
                                 },
                                 child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
@@ -300,13 +301,13 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanOutcomeCard(
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
@@ -314,7 +315,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             subTaskId: liveSubTask.id,
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -384,7 +385,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
-                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
+                                provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -397,7 +398,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,
                               onPressed: () {
-                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
+                                provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),

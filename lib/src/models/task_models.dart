@@ -42,7 +42,7 @@ class MainTask {
   String colorHex;
   int dailyTimeSpent;
   String? lastWorkedDate;
-  bool isActive; // Added for Disabling Tasks
+  bool isActive; 
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -176,6 +176,7 @@ class SubTask {
   DateTime? lastCompletedDate; 
   DateTime createdAt;
   DateTime updatedAt;
+  bool isActive; 
 
   SubTask({
     required this.id,
@@ -196,10 +197,55 @@ class SubTask {
     this.lastCompletedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.isActive = true,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  SubTask copyWith({
+    String? id,
+    String? name,
+    String? description,
+    bool? completed,
+    int? currentTimeSpent,
+    String? completedDate,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    List<SubSubTask>? subSubTasks,
+    List<TaskSession>? sessions,
+    String? why,
+    String? what,
+    String? resources,
+    bool? isRecurring,
+    DateTime? lastCompletedDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return SubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      completed: completed ?? this.completed,
+      currentTimeSpent: currentTimeSpent ?? this.currentTimeSpent,
+      completedDate: completedDate ?? this.completedDate,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      subSubTasks: subSubTasks ?? this.subSubTasks,
+      sessions: sessions ?? this.sessions,
+      why: why ?? this.why,
+      what: what ?? this.what,
+      resources: resources ?? this.resources,
+      isRecurring: isRecurring ?? this.isRecurring,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(
@@ -225,6 +271,7 @@ class SubTask {
       updatedAt: json['updatedAt'] != null 
           ? DateTime.parse(json['updatedAt'] as String) 
           : DateTime.now(),
+      isActive: json['isActive'] as bool? ?? true,
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -256,6 +303,7 @@ class SubTask {
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'isActive': isActive,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
@@ -298,6 +346,34 @@ class SubSubTask {
     this.why = '',
     this.what = '',
   }) : substeps = substeps ?? [];
+
+  SubSubTask copyWith({
+    String? id,
+    String? name,
+    bool? completed,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    String? completionTimestamp,
+    String? type,
+    List<SubSubTask>? substeps,
+    String? why,
+    String? what,
+  }) {
+    return SubSubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      completed: completed ?? this.completed,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      completionTimestamp: completionTimestamp ?? this.completionTimestamp,
+      type: type ?? this.type,
+      substeps: substeps ?? this.substeps,
+      why: why ?? this.why,
+      what: what ?? this.what,
+    );
+  }
 
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
     return SubSubTask(

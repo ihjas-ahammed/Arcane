@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'dart:ui';
 import 'dart:math';
 
@@ -190,7 +193,7 @@ class _XpGainDialogState extends State<XpGainDialog>
                                       physics: const NeverScrollableScrollPhysics(),
                                       children: List.generate(entries.length, (index) {
                                       final entry = entries[index];
-                                      return _buildCompactSkillRow(entry.key, entry.value)
+                                      return _buildCompactSkillRow(context, entry.key, entry.value)
                                             .animate(delay: (100 * index).ms)
                                             .fadeIn()
                                             .slideX(begin: -0.1, end: 0);
@@ -290,36 +293,68 @@ class _XpGainDialogState extends State<XpGainDialog>
     );
   }
 
- Widget _buildCompactSkillRow(String skillName, int xp) {
+ Widget _buildCompactSkillRow(BuildContext context, String skillName, int xp) {
   Color color = WellbeingTheme.getColor(skillName);
 
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 4),
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withValues(alpha: 0.3)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(
-          WellbeingTheme.getIcon(skillName),
-          color: color,
-          size: 16,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          "+$xp",
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
+  return GestureDetector(
+    onTap: () {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      try {
+        final skill = provider.skills.firstWhere((s) => s.name == skillName);
+        final xpToday = provider.get7DayWellbeingMomentum(skill.name) ~/ 7; 
+        
+        Map<int, double> weeklyXp = {};
+        for (int i = 6; i >= 0; i--) {
+          final date = DateTime.now().subtract(Duration(days: i));
+          double dayXp = 0;
+          for (var log in provider.reflectionLogs) {
+            if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
+              dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+            }
+          }
+          weeklyXp[6 - i] = dayXp;
+        }
+
+        showDialog(
+          context: context,
+          builder: (_) => WellbeingDetailDialog(
+            skill: skill,
+            xpGainedToday: xpToday,
+            weeklyXp: weeklyXp,
           ),
-        ),
-      ],
+        );
+      } catch (e) {
+        // Ignored
+      }
+    },
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            WellbeingTheme.getIcon(skillName),
+            color: color,
+            size: 16,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            "+$xp",
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     ),
   );
  }

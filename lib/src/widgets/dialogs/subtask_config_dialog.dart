@@ -7,12 +7,14 @@ class SubtaskConfigDialog extends StatefulWidget {
   final String initialName;
   final String initialDescription;
   final bool isRecurring;
+  final bool isActive;
 
   const SubtaskConfigDialog({
     super.key,
     required this.initialName,
     this.initialDescription = '',
     this.isRecurring = false,
+    this.isActive = true,
   });
 
   @override
@@ -23,6 +25,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
   late TextEditingController _nameController;
   late TextEditingController _descController;
   late bool _isRecurring;
+  late bool _isActive;
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
     _nameController = TextEditingController(text: widget.initialName);
     _descController = TextEditingController(text: widget.initialDescription);
     _isRecurring = widget.isRecurring;
+    _isActive = widget.isActive;
   }
 
   @override
@@ -61,6 +65,15 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
             const SizedBox(height: 24),
             
             SwitchListTile(
+              title: const Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              value: _isActive,
+              activeThumbColor: AppTheme.fhAccentTeal,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) => setState(() => _isActive = val),
+            ),
+            
+            SwitchListTile(
               title: const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle: const Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
               value: _isRecurring,
@@ -84,6 +97,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
                 'name': _nameController.text.trim(),
                 'description': _descController.text.trim(),
                 'isRecurring': _isRecurring,
+                'isActive': _isActive,
               });
             }
           },

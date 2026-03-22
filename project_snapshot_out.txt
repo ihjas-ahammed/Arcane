@@ -3954,7 +3954,7 @@ class MainTask {
   String colorHex;
   int dailyTimeSpent;
   String? lastWorkedDate;
-  bool isActive; // Added for Disabling Tasks
+  bool isActive; 
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -4088,6 +4088,7 @@ class SubTask {
   DateTime? lastCompletedDate; 
   DateTime createdAt;
   DateTime updatedAt;
+  bool isActive; 
 
   SubTask({
     required this.id,
@@ -4108,10 +4109,55 @@ class SubTask {
     this.lastCompletedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.isActive = true,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  SubTask copyWith({
+    String? id,
+    String? name,
+    String? description,
+    bool? completed,
+    int? currentTimeSpent,
+    String? completedDate,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    List<SubSubTask>? subSubTasks,
+    List<TaskSession>? sessions,
+    String? why,
+    String? what,
+    String? resources,
+    bool? isRecurring,
+    DateTime? lastCompletedDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return SubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      completed: completed ?? this.completed,
+      currentTimeSpent: currentTimeSpent ?? this.currentTimeSpent,
+      completedDate: completedDate ?? this.completedDate,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      subSubTasks: subSubTasks ?? this.subSubTasks,
+      sessions: sessions ?? this.sessions,
+      why: why ?? this.why,
+      what: what ?? this.what,
+      resources: resources ?? this.resources,
+      isRecurring: isRecurring ?? this.isRecurring,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(
@@ -4137,6 +4183,7 @@ class SubTask {
       updatedAt: json['updatedAt'] != null 
           ? DateTime.parse(json['updatedAt'] as String) 
           : DateTime.now(),
+      isActive: json['isActive'] as bool? ?? true,
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -4168,6 +4215,7 @@ class SubTask {
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'isActive': isActive,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
@@ -4210,6 +4258,34 @@ class SubSubTask {
     this.why = '',
     this.what = '',
   }) : substeps = substeps ?? [];
+
+  SubSubTask copyWith({
+    String? id,
+    String? name,
+    bool? completed,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    String? completionTimestamp,
+    String? type,
+    List<SubSubTask>? substeps,
+    String? why,
+    String? what,
+  }) {
+    return SubSubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      completed: completed ?? this.completed,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      completionTimestamp: completionTimestamp ?? this.completionTimestamp,
+      type: type ?? this.type,
+      substeps: substeps ?? this.substeps,
+      why: why ?? this.why,
+      what: what ?? this.what,
+    );
+  }
 
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
     return SubSubTask(
@@ -6725,33 +6801,27 @@ class TaskActions {
           continue; 
         } else if (action == 'update') {
           final updates = payload as Map<String, dynamic>;
-          final updatedNode = SubSubTask(
-            id: node.id,
-            name: updates['name'] as String? ?? node.name,
-            completed: updates['completed'] as bool? ?? node.completed,
-            isCountable: updates['isCountable'] as bool? ?? node.isCountable,
-            targetCount: updates['targetCount'] as int? ?? node.targetCount,
-            currentCount: updates['currentCount'] as int? ?? node.currentCount,
-            completionTimestamp: updates['completionTimestamp'] as String? ?? node.completionTimestamp,
-            type: updates['type'] as String? ?? node.type,
-            why: updates['why'] as String? ?? node.why,
-            what: updates['what'] as String? ?? node.what,
-            substeps: node.substeps,
+          final updatedNode = node.copyWith(
+            name: updates['name'] as String?,
+            completed: updates['completed'] as bool?,
+            isCountable: updates['isCountable'] as bool?,
+            targetCount: updates['targetCount'] as int?,
+            currentCount: updates['currentCount'] as int?,
+            completionTimestamp: updates['completionTimestamp'] as String?,
+            type: updates['type'] as String?,
+            why: updates['why'] as String?,
+            what: updates['what'] as String?,
           );
           if (updatedNode.isCountable) updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
           newNodes.add(updatedNode);
         } else if (action == 'duplicate') {
           newNodes.add(node);
-          final copy = SubSubTask(
+          final copy = node.copyWith(
             id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_copy_${node.name.hashCode}',
             name: "${node.name} (Copy)",
             completed: false,
-            isCountable: node.isCountable,
-            targetCount: node.targetCount,
             currentCount: 0,
-            type: node.type,
-            why: node.why,
-            what: node.what,
+            completionTimestamp: null,
             substeps: List.from(node.substeps),
           );
           newNodes.add(copy);
@@ -6766,22 +6836,12 @@ class TaskActions {
             why: data['why'] as String? ?? '',
             what: data['what'] as String? ?? '',
           );
-          final updatedNode = SubSubTask(
-            id: node.id, name: node.name, completed: node.completed, isCountable: node.isCountable,
-            targetCount: node.targetCount, currentCount: node.currentCount, completionTimestamp: node.completionTimestamp,
-            type: node.type, why: node.why, what: node.what,
-            substeps: [...node.substeps, newChild],
-          );
+          final updatedNode = node.copyWith(substeps: [...node.substeps, newChild]);
           newNodes.add(updatedNode);
         }
       } else {
         final newChildren = _recursiveNodeOperation(node.substeps, targetId, action, payload);
-        final updatedNode = SubSubTask(
-            id: node.id, name: node.name, completed: node.completed, isCountable: node.isCountable,
-            targetCount: node.targetCount, currentCount: node.currentCount, completionTimestamp: node.completionTimestamp,
-            type: node.type, why: node.why, what: node.what,
-            substeps: newChildren
-        );
+        final updatedNode = node.copyWith(substeps: newChildren);
         newNodes.add(updatedNode);
       }
     }
@@ -6816,12 +6876,9 @@ class TaskActions {
         if (task.id == mainTaskId) {
           return task.copyWith(subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
-              return SubTask(
-                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount, resources: st.resources,
+              return st.copyWith(
                 subSubTasks: _recursiveNodeOperation(st.subSubTasks, parentCheckpointId, 'add_child', subSubtaskData),
-                sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+                updatedAt: DateTime.now(),
               );
             }
             return st;
@@ -6846,11 +6903,9 @@ class TaskActions {
         if (task.id == mainTaskId) {
           return task.copyWith(subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
-              return SubTask(
-                id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-                completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-                currentCount: st.currentCount, resources: st.resources, subSubTasks: [...st.subSubTasks, newSubSubtask], sessions: st.sessions,
-                isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              return st.copyWith(
+                subSubTasks: [...st.subSubTasks, newSubSubtask],
+                updatedAt: DateTime.now(),
               );
             }
             return st;
@@ -6868,12 +6923,9 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, resources: st.resources,
+            return st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'update', updates),
-              sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -6889,12 +6941,9 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, resources: st.resources,
+            return st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'delete', null),
-              sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -6910,12 +6959,9 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: st.currentTimeSpent,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount,
-              currentCount: st.currentCount, resources: st.resources,
+            return st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'duplicate', null),
-              sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what,
+              updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -6942,6 +6988,51 @@ class TaskActions {
       _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
     }
   }
+  
+  void reorderSubSubtasksBySubset(String mainTaskId, String parentSubtaskId, List<String> subsetIds, {String? parentCheckpointId}) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(subTasks: task.subTasks.map((st) {
+          if (st.id == parentSubtaskId) {
+            if (parentCheckpointId != null) {
+              return st.copyWith(subSubTasks: _reorderNodesSubset(st.subSubTasks, parentCheckpointId, subsetIds));
+            } else {
+              final subsetItems = subsetIds.map((id) => st.subSubTasks.firstWhere((sst) => sst.id == id)).toList();
+              final otherItems = st.subSubTasks.where((sst) => !subsetIds.contains(sst.id)).toList();
+              int firstIndex = st.subSubTasks.indexWhere((sst) => subsetIds.contains(sst.id));
+              if (firstIndex == -1) firstIndex = 0;
+              final List<SubSubTask> updated = [];
+              updated.addAll(otherItems.sublist(0, firstIndex));
+              updated.addAll(subsetItems);
+              updated.addAll(otherItems.sublist(firstIndex));
+              return st.copyWith(subSubTasks: updated);
+            }
+          }
+          return st;
+        }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  List<SubSubTask> _reorderNodesSubset(List<SubSubTask> nodes, String targetId, List<String> subsetIds) {
+    return nodes.map((node) {
+      if (node.id == targetId) {
+         final subsetItems = subsetIds.map((id) => node.substeps.firstWhere((sst) => sst.id == id)).toList();
+         final otherItems = node.substeps.where((sst) => !subsetIds.contains(sst.id)).toList();
+         int firstIndex = node.substeps.indexWhere((sst) => subsetIds.contains(sst.id));
+         if (firstIndex == -1) firstIndex = 0;
+         final List<SubSubTask> updated = [];
+         updated.addAll(otherItems.sublist(0, firstIndex));
+         updated.addAll(subsetItems);
+         updated.addAll(otherItems.sublist(firstIndex));
+         return node.copyWith(substeps: updated);
+      } else {
+         return node.copyWith(substeps: _reorderNodesSubset(node.substeps, targetId, subsetIds));
+      }
+    }).toList();
+  }
 
   // --- SubTask Actions ---
 
@@ -6956,6 +7047,7 @@ class TaskActions {
       why: subtaskData['why'] as String? ?? '',
       what: subtaskData['what'] as String? ?? '',
       resources: subtaskData['resources'] as String? ?? '', 
+      isActive: subtaskData['isActive'] as bool? ?? true,
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -6984,6 +7076,7 @@ class TaskActions {
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
     if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
+    if (updates.containsKey('isActive')) subtaskToUpdate.isActive = updates['isActive'] as bool;
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -7040,13 +7133,9 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
-              return SubTask(
-                  id: st.id, name: st.name, description: st.description,
+              return st.copyWith(
                   completed: true, completedDate: getTodayDateString(),
-                  currentTimeSpent: st.currentTimeSpent,
-                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring,
-                  lastCompletedDate: DateTime.now(), createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+                  lastCompletedDate: DateTime.now(), updatedAt: DateTime.now()
               );
             }
             return st;
@@ -7076,13 +7165,9 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
-              return SubTask(
-                  id: st.id, name: st.name, description: st.description,
+              return st.copyWith(
                   completed: false, completedDate: null,
-                  currentTimeSpent: st.currentTimeSpent,
-                  isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring,
-                  lastCompletedDate: null, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+                  lastCompletedDate: null, updatedAt: DateTime.now()
               );
             }
             return st;
@@ -7120,16 +7205,14 @@ class TaskActions {
     SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
     if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
 
-    final newSubtask = SubTask(
+    final newSubtask = subTaskToDuplicate.copyWith(
       id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
-      name: subTaskToDuplicate.name, description: subTaskToDuplicate.description, completed: false, currentTimeSpent: 0, completedDate: null,
-      isCountable: subTaskToDuplicate.isCountable, targetCount: subTaskToDuplicate.targetCount, currentCount: 0,
-      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => SubSubTask(
+      completed: false, currentTimeSpent: 0, completedDate: null, currentCount: 0,
+      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => sss.copyWith(
         id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
-        name: sss.name, completed: false, isCountable: sss.isCountable, targetCount: sss.targetCount, currentCount: 0, completionTimestamp: null, type: sss.type
-      )).toList(), sessions: [],
-      isRecurring: subTaskToDuplicate.isRecurring, why: subTaskToDuplicate.why, what: subTaskToDuplicate.what, resources: subTaskToDuplicate.resources,
-      createdAt: DateTime.now(), updatedAt: DateTime.now(),
+        completed: false, currentCount: 0, completionTimestamp: null
+      )).toList(), sessions: [], lastCompletedDate: null,
+      createdAt: DateTime.now(), updatedAt: DateTime.now(), isActive: true,
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -7155,6 +7238,24 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  void reorderSubtasksBySubset(String mainTaskId, List<String> subsetIds) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        final subsetItems = subsetIds.map((id) => task.subTasks.firstWhere((st) => st.id == id)).toList();
+        final otherItems = task.subTasks.where((st) => !subsetIds.contains(st.id)).toList();
+        int firstIndex = task.subTasks.indexWhere((st) => subsetIds.contains(st.id));
+        if (firstIndex == -1) firstIndex = 0;
+        final List<SubTask> updated = [];
+        updated.addAll(otherItems.sublist(0, firstIndex));
+        updated.addAll(subsetItems);
+        updated.addAll(otherItems.sublist(firstIndex));
+        return task.copyWith(subTasks: updated);
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   // --- Session Management ---
 
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
@@ -7172,10 +7273,10 @@ class TaskActions {
               if (st.id == subTaskId) {
                 final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
                 final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-                return SubTask(
-                  id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
-                  completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-                  subSubTasks: st.subSubTasks, sessions: newSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+                return st.copyWith(
+                  currentTimeSpent: totalTime,
+                  sessions: newSessions,
+                  updatedAt: DateTime.now(),
                 );
               }
               return st;
@@ -7202,11 +7303,10 @@ class TaskActions {
               return s;
             }).toList();
             final totalTime = updatedSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks, sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
-              isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+            return st.copyWith(
+              currentTimeSpent: totalTime,
+              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
+              updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -7232,10 +7332,10 @@ class TaskActions {
           if (st.id == subTaskId) {
             final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
             final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return SubTask(
-              id: st.id, name: st.name, description: st.description, completed: st.completed, currentTimeSpent: totalTime,
-              completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-              subSubTasks: st.subSubTasks, sessions: remainingSessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+            return st.copyWith(
+              currentTimeSpent: totalTime,
+              sessions: remainingSessions,
+              updatedAt: DateTime.now(),
             );
           }
           return st;
@@ -7308,12 +7408,7 @@ class TaskActions {
     final newMainTasks = _provider.mainTasks.map((task) {
       final updatedSubtasks = task.subTasks.map((st) {
         final totalSeconds = st.sessions.fold(0, (sum, s) => sum + s.durationSeconds);
-        return SubTask(
-          id: st.id, name: st.name, description: st.description, completed: st.completed, 
-          currentTimeSpent: totalSeconds,
-          completedDate: st.completedDate, isCountable: st.isCountable, targetCount: st.targetCount, currentCount: st.currentCount,
-          subSubTasks: st.subSubTasks, sessions: st.sessions, isRecurring: st.isRecurring, lastCompletedDate: st.lastCompletedDate, createdAt: st.createdAt, updatedAt: st.updatedAt, why: st.why, what: st.what, resources: st.resources,
-        );
+        return st.copyWith(currentTimeSpent: totalSeconds);
       }).toList();
 
       return task.copyWith(
@@ -16109,6 +16204,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
+import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -16303,6 +16400,12 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                           appProvider.setSelectedTaskId(task.id);
                           if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
                         },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
                         child: Row(
                           children: [
                             Container(
@@ -16352,63 +16455,26 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                   const SizedBox(height: 16),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                    child: Text("INACTIVE", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)),
+                    child: Text("INACTIVE ARCHIVE", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)),
                   ),
                   ...inactiveTasks.map((task) {
                     final isSelected = appProvider.selectedTaskId == task.id;
 
-                    return Opacity(
-                      opacity: 0.5,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: ValorantCard(
-                          isSelected: isSelected,
-                          borderColor: isSelected ? AppTheme.fhTextDisabled : null,
-                          onTap: () {
-                            appProvider.setSelectedTaskId(task.id);
-                            if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
-                          },
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48, height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.black26,
-                                  border: Border.all(color: isSelected ? AppTheme.fhTextDisabled : Colors.transparent),
-                                ),
-                                child: Icon(_getThemeIcon(task.theme), color: AppTheme.fhTextDisabled),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      task.name.toUpperCase(),
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontDisplay,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
-                                        letterSpacing: 1.0,
-                                      ),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const Text(
-                                      "INACTIVE",
-                                      style: TextStyle(
-                                        fontSize: 10, 
-                                        color: AppTheme.fhTextDisabled,
-                                        letterSpacing: 1.5,
-                                        fontWeight: FontWeight.w600
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: JweCompactTaskCard(
+                        task: task,
+                        isSelected: isSelected,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
                       ),
                     );
                   }).toList(),
@@ -19504,7 +19570,10 @@ class _ProjectGenerationDialogState extends State<ProjectGenerationDialog> {
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'dart:ui';
 import 'dart:math';
 
@@ -19693,7 +19762,7 @@ class _XpGainDialogState extends State<XpGainDialog>
                                       physics: const NeverScrollableScrollPhysics(),
                                       children: List.generate(entries.length, (index) {
                                       final entry = entries[index];
-                                      return _buildCompactSkillRow(entry.key, entry.value)
+                                      return _buildCompactSkillRow(context, entry.key, entry.value)
                                             .animate(delay: (100 * index).ms)
                                             .fadeIn()
                                             .slideX(begin: -0.1, end: 0);
@@ -19793,36 +19862,68 @@ class _XpGainDialogState extends State<XpGainDialog>
     );
   }
 
- Widget _buildCompactSkillRow(String skillName, int xp) {
+ Widget _buildCompactSkillRow(BuildContext context, String skillName, int xp) {
   Color color = WellbeingTheme.getColor(skillName);
 
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 4),
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withValues(alpha: 0.3)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(
-          WellbeingTheme.getIcon(skillName),
-          color: color,
-          size: 16,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          "+$xp",
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
+  return GestureDetector(
+    onTap: () {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      try {
+        final skill = provider.skills.firstWhere((s) => s.name == skillName);
+        final xpToday = provider.get7DayWellbeingMomentum(skill.name) ~/ 7; 
+        
+        Map<int, double> weeklyXp = {};
+        for (int i = 6; i >= 0; i--) {
+          final date = DateTime.now().subtract(Duration(days: i));
+          double dayXp = 0;
+          for (var log in provider.reflectionLogs) {
+            if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
+              dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+            }
+          }
+          weeklyXp[6 - i] = dayXp;
+        }
+
+        showDialog(
+          context: context,
+          builder: (_) => WellbeingDetailDialog(
+            skill: skill,
+            xpGainedToday: xpToday,
+            weeklyXp: weeklyXp,
           ),
-        ),
-      ],
+        );
+      } catch (e) {
+        // Ignored
+      }
+    },
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            WellbeingTheme.getIcon(skillName),
+            color: color,
+            size: 16,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            "+$xp",
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     ),
   );
  }
@@ -20412,12 +20513,14 @@ class SubtaskConfigDialog extends StatefulWidget {
   final String initialName;
   final String initialDescription;
   final bool isRecurring;
+  final bool isActive;
 
   const SubtaskConfigDialog({
     super.key,
     required this.initialName,
     this.initialDescription = '',
     this.isRecurring = false,
+    this.isActive = true,
   });
 
   @override
@@ -20428,6 +20531,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
   late TextEditingController _nameController;
   late TextEditingController _descController;
   late bool _isRecurring;
+  late bool _isActive;
 
   @override
   void initState() {
@@ -20435,6 +20539,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
     _nameController = TextEditingController(text: widget.initialName);
     _descController = TextEditingController(text: widget.initialDescription);
     _isRecurring = widget.isRecurring;
+    _isActive = widget.isActive;
   }
 
   @override
@@ -20466,6 +20571,15 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
             const SizedBox(height: 24),
             
             SwitchListTile(
+              title: const Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              value: _isActive,
+              activeThumbColor: AppTheme.fhAccentTeal,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) => setState(() => _isActive = val),
+            ),
+            
+            SwitchListTile(
               title: const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle: const Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
               value: _isRecurring,
@@ -20489,6 +20603,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
                 'name': _nameController.text.trim(),
                 'description': _descController.text.trim(),
                 'isRecurring': _isRecurring,
+                'isActive': _isActive,
               });
             }
           },
@@ -21926,6 +22041,111 @@ class WellbeingDetailDialog extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/dialogs/wellbeing_detail_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/jwe_task_options_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class JweTaskOptionsDialog extends StatelessWidget {
+  final MainTask task;
+
+  const JweTaskOptionsDialog({super.key, required this.task});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final isActive = task.isActive;
+
+    return Dialog(
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: JweTheme.accentCyan, width: 2),
+        borderRadius: BorderRadius.zero,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(MdiIcons.consoleLine, color: JweTheme.accentCyan, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "PROTOCOL CONFIG",
+                      style: GoogleFonts.rajdhani(
+                        color: JweTheme.textWhite,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: JweTheme.bgBase,
+                  border: Border.all(color: JweTheme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "TARGET:",
+                      style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      task.name.toUpperCase(),
+                      style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                icon: Icon(isActive ? MdiIcons.pauseOctagonOutline : MdiIcons.playCircleOutline, size: 18),
+                label: Text(isActive ? "SUSPEND PROTOCOL" : "REACTIVATE PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isActive ? JweTheme.accentAmber : JweTheme.accentCyan,
+                  side: BorderSide(color: isActive ? JweTheme.accentAmber : JweTheme.accentCyan),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  provider.taskActions.toggleTaskStatus(task.id, !isActive);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.textMuted,
+                  side: const BorderSide(color: JweTheme.border),
+                  shape: const BeveledRectangleBorder(),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CANCEL"),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/jwe_task_options_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/screens/reflection_editor_screen.dart ---
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -22357,10 +22577,11 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         initialName: liveSubTask.name,
         initialDescription: liveSubTask.description,
         isRecurring: liveSubTask.isRecurring,
+        isActive: liveSubTask.isActive,
       ),
     );
     if (result != null) {
-      provider.updateSubtask(
+      provider.taskActions.updateSubtask(
           widget.parentTask.id, widget.subTask.id, result);
     }
   }
@@ -22375,7 +22596,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       final start = result['start']!;
       final end = result['end']!;
       
-      final success = provider.addSessionToSubtask(
+      final success = provider.taskActions.addSessionToSubtask(
           widget.parentTask.id, widget.subTask.id, start, end);
           
       if (!success && mounted) {
@@ -22406,15 +22627,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (result != null) {
       if (result['action'] == 'delete') {
         if (!session.id.startsWith('temp')) {
-           provider.deleteSessionFromSubtask(
+           provider.taskActions.deleteSessionFromSubtask(
             widget.parentTask.id, widget.subTask.id, session.id);
         }
       } else if (result['action'] == 'save') {
         if (session.id.startsWith('temp')) {
-           provider.addSessionToSubtask(
+           provider.taskActions.addSessionToSubtask(
             widget.parentTask.id, widget.subTask.id, result['start'], result['end']);
         } else {
-           provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
+           provider.taskActions.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id,
             session.id, result['start'], result['end']);
         }
       }
@@ -22567,10 +22788,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 foregroundColor: Colors.black,
                                 onPressed: () {
                                   if (isRunning) {
-                                    provider.pauseTimer(liveSubTask!.id); 
-                                    provider.logTimerAndReset(liveSubTask.id); 
+                                    provider.timerActions.pauseTimer(liveSubTask!.id); 
+                                    provider.timerActions.logTimerAndReset(liveSubTask.id); 
                                   } else {
-                                    provider.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
+                                    provider.timerActions.startTimer(liveSubTask!.id, 'subtask', widget.parentTask.id);
                                   }
                                 },
                                 child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play, size: 32),
@@ -22600,13 +22821,13 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'why': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanOutcomeCard(
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'what': val}),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanResourcesCard(
@@ -22614,7 +22835,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             subTaskId: liveSubTask.id,
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
-                            onChanged: (val) => provider.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
+                            onChanged: (val) => provider.taskActions.updateSubtask(widget.parentTask.id, liveSubTask!.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -22684,7 +22905,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               icon: MdiIcons.contentSave,
                               color: AppTheme.fhAccentGreen,
                               onPressed: () {
-                                provider.completeSubtask(widget.parentTask.id, liveSubTask!.id);
+                                provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -22697,7 +22918,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                               color: AppTheme.fhAccentRed,
                               isPrimary: false,
                               onPressed: () {
-                                provider.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
+                                provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
                                 Navigator.pop(context);
                               },
                             ),
@@ -22729,7 +22950,6 @@ import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:collection/collection.dart';
 
 class CheckpointDetailScreen extends StatefulWidget {
   final String mainTaskId;
@@ -22913,32 +23133,54 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                         child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
                       )
                     else
-                      ...liveCheckpoint.substeps.map((child) {
-                        return CheckpointItem(
-                          title: child.name,
-                          isCompleted: child.completed,
-                          type: child.type,
-                          accentColor: agentColor,
-                          hasSubsteps: child.substeps.isNotEmpty,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                              mainTaskId: widget.mainTaskId,
-                              parentSubTaskId: widget.parentSubTaskId,
-                              checkpointId: child.id,
-                            )));
-                          },
-                          onToggle: () {
-                            final updates = {'completed': !child.completed};
-                            provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
-                          },
-                          onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                          onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                          onToggleType: () {
-                            final newType = child.type == 'check' ? 'info' : 'check';
-                            provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
-                          },
-                        );
-                      }),
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: liveCheckpoint.substeps.length,
+                        onReorder: (oldIndex, newIndex) {
+                          if (oldIndex < newIndex) newIndex -= 1;
+                          final list = List<SubSubTask>.from(liveCheckpoint.substeps);
+                          final item = list.removeAt(oldIndex);
+                          list.insert(newIndex, item);
+                          provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.parentSubTaskId, list.map((e) => e.id).toList(), parentCheckpointId: liveCheckpoint.id);
+                        },
+                        proxyDecorator: (child, index, animation) {
+                          return Material(
+                            color: Colors.transparent,
+                            elevation: 5,
+                            shadowColor: Colors.black,
+                            child: child,
+                          );
+                        },
+                        itemBuilder: (ctx, index) {
+                          final child = liveCheckpoint.substeps[index];
+                          return CheckpointItem(
+                            key: ValueKey(child.id),
+                            title: child.name,
+                            isCompleted: child.completed,
+                            type: child.type,
+                            accentColor: agentColor,
+                            hasSubsteps: child.substeps.isNotEmpty,
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                                mainTaskId: widget.mainTaskId,
+                                parentSubTaskId: widget.parentSubTaskId,
+                                checkpointId: child.id,
+                              )));
+                            },
+                            onToggle: () {
+                              final updates = {'completed': !child.completed};
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
+                            },
+                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onToggleType: () {
+                              final newType = child.type == 'check' ? 'info' : 'check';
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
+                            },
+                          );
+                        },
+                      ),
 
                     // Add Substep
                     Container(
@@ -27824,6 +28066,146 @@ class JweProgressBar extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/ui/jwe_progress_bar.dart ---
 
+--- START OF FILE lib/src/widgets/ui/jwe_compact_task_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class JweCompactTaskCard extends StatelessWidget {
+  final MainTask task;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const JweCompactTaskCard({
+    super.key,
+    required this.task,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSelected ? JweTheme.accentCyan.withOpacity(0.1) : JweTheme.panel,
+            border: Border(
+              left: BorderSide(color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, width: 3),
+              top: const BorderSide(color: JweTheme.border),
+              right: const BorderSide(color: JweTheme.border),
+              bottom: const BorderSide(color: JweTheme.border),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                MdiIcons.archiveOutline, 
+                color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, 
+                size: 18
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.name.toUpperCase(),
+                      style: GoogleFonts.rajdhani(
+                        color: isSelected ? JweTheme.textWhite : JweTheme.textMuted,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        letterSpacing: 1.0,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      "STANDBY / ARCHIVED",
+                      style: TextStyle(
+                        color: JweTheme.textMuted.withOpacity(0.7),
+                        fontSize: 9,
+                        fontFamily: 'RobotoMono',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/jwe_compact_task_card.dart ---
+
+--- START OF FILE lib/src/widgets/ui/inactive_submissions_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class InactiveSubmissionsSection extends StatelessWidget {
+  final MainTask parentTask;
+  final List<SubTask> inactiveSubtasks;
+
+  const InactiveSubmissionsSection({
+    super.key,
+    required this.parentTask,
+    required this.inactiveSubtasks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (inactiveSubtasks.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(MdiIcons.pauseCircleOutline,
+                color: AppTheme.fhTextDisabled, size: 20),
+            title: Text(
+              "INACTIVE PROTOCOLS (${inactiveSubtasks.length})",
+              style: TextStyle(
+                color: AppTheme.fhTextSecondary,
+                fontWeight: FontWeight.bold,
+                fontFamily: AppTheme.fontDisplay,
+                letterSpacing: 1.2,
+                fontSize: 14,
+              ),
+            ),
+            childrenPadding: EdgeInsets.zero,
+            children: inactiveSubtasks.map((st) {
+              return Opacity(
+                opacity: 0.6,
+                child: SubmissionCard(parentTask: parentTask, subTask: st)
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/inactive_submissions_section.dart ---
+
 --- START OF FILE lib/src/widgets/valorant/valorant_button.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
@@ -28136,6 +28518,7 @@ class ValorantCard extends StatelessWidget {
   final Color? backgroundColor;
   final bool isSelected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final double cornerCut;
@@ -28147,6 +28530,7 @@ class ValorantCard extends StatelessWidget {
     this.backgroundColor,
     this.isSelected = false,
     this.onTap,
+    this.onLongPress,
     this.padding,
     this.margin,
     this.cornerCut = 12.0, // Size of the corner cut
@@ -28163,6 +28547,7 @@ class ValorantCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           // Custom shape for ink splash to match beveled border
           customBorder: BeveledRectangleBorder(
             borderRadius: BorderRadius.only(
@@ -30856,6 +31241,7 @@ import 'package:arcane/src/widgets/cards/submission_card.dart';
 import 'package:arcane/src/widgets/cards/task_header_card.dart';
 import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
 import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
+import 'package:arcane/src/widgets/ui/inactive_submissions_section.dart';
 import 'package:arcane/src/widgets/dialogs/initialize_action_plan_dialog.dart';
 import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
 import 'package:provider/provider.dart';
@@ -30885,7 +31271,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         'name': name,
         'why': why,
         'isCountable': false,
-        'subSubTasksData': []
+        'subSubTasksData': [],
+        'isActive': true,
       });
 
       final updatedTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
@@ -30912,7 +31299,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
         final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
 
-        final activeSubtasks = task.subTasks.where((st) => !st.completed).toList();
+        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive).toList();
+        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive).toList();
         
         final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
         final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
@@ -30987,12 +31375,36 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     ),
                   )
                 else
-                  Padding(
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    child: Column(
-                      children: activeSubtasks.map((st) => SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st)).toList(),
-                    ),
+                    itemCount: activeSubtasks.length,
+                    onReorder: (oldIndex, newIndex) {
+                      if (oldIndex < newIndex) newIndex -= 1;
+                      final list = List<SubTask>.from(activeSubtasks);
+                      final item = list.removeAt(oldIndex);
+                      list.insert(newIndex, item);
+                      appProvider.taskActions.reorderSubtasksBySubset(task.id, list.map((e) => e.id).toList());
+                    },
+                    proxyDecorator: (child, index, animation) {
+                      return Material(
+                        color: Colors.transparent,
+                        elevation: 5,
+                        shadowColor: Colors.black,
+                        child: child,
+                      );
+                    },
+                    itemBuilder: (ctx, index) {
+                      final st = activeSubtasks[index];
+                      return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
+                    },
                   ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: InactiveSubmissionsSection(parentTask: task, inactiveSubtasks: inactiveSubtasks),
+                ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -33789,7 +34201,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
 
   void _addStep(AppProvider provider) {
     if (_stepController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
+    provider.taskActions.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
       'name': _stepController.text.trim(),
       'isCountable': false,
       'targetCount': 0,
@@ -33865,31 +34277,53 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
         else
-          ...widget.steps.map((step) {
-            return CheckpointItem(
-              title: step.name,
-              isCompleted: step.completed,
-              type: step.type,
-              hasSubsteps: step.substeps.isNotEmpty,
-              accentColor: widget.accentColor,
-              onTap: () => _navigateToStepDetail(context, step),
-              onPlay: null, // Removed engage button from checkpoints
-              isRunning: false,
-              onToggle: () {
-                if (step.completed) {
-                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                } else {
-                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                }
-              },
-              onDelete: () => provider.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-              onToggleType: () {
-                final newType = step.type == 'check' ? 'info' : 'check';
-                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-              },
-            );
-          }),
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.steps.length,
+            onReorder: (oldIndex, newIndex) {
+              if (oldIndex < newIndex) newIndex -= 1;
+              final list = List<SubSubTask>.from(widget.steps);
+              final item = list.removeAt(oldIndex);
+              list.insert(newIndex, item);
+              provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.subTaskId, list.map((e) => e.id).toList());
+            },
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: Colors.transparent,
+                elevation: 5,
+                shadowColor: Colors.black,
+                child: child,
+              );
+            },
+            itemBuilder: (ctx, index) {
+              final step = widget.steps[index];
+              return CheckpointItem(
+                key: ValueKey(step.id),
+                title: step.name,
+                isCompleted: step.completed,
+                type: step.type,
+                hasSubsteps: step.substeps.isNotEmpty,
+                accentColor: widget.accentColor,
+                onTap: () => _navigateToStepDetail(context, step),
+                onPlay: null,
+                isRunning: false,
+                onToggle: () {
+                  if (step.completed) {
+                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  } else {
+                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  }
+                },
+                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onToggleType: () {
+                  final newType = step.type == 'check' ? 'info' : 'check';
+                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                },
+              );
+            },
+          ),
 
         Container(
           margin: const EdgeInsets.only(top: 8),

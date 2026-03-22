@@ -8,7 +8,6 @@ import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:collection/collection.dart';
 
 class CheckpointDetailScreen extends StatefulWidget {
   final String mainTaskId;
@@ -192,32 +191,54 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                         child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
                       )
                     else
-                      ...liveCheckpoint.substeps.map((child) {
-                        return CheckpointItem(
-                          title: child.name,
-                          isCompleted: child.completed,
-                          type: child.type,
-                          accentColor: agentColor,
-                          hasSubsteps: child.substeps.isNotEmpty,
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                              mainTaskId: widget.mainTaskId,
-                              parentSubTaskId: widget.parentSubTaskId,
-                              checkpointId: child.id,
-                            )));
-                          },
-                          onToggle: () {
-                            final updates = {'completed': !child.completed};
-                            provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
-                          },
-                          onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                          onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                          onToggleType: () {
-                            final newType = child.type == 'check' ? 'info' : 'check';
-                            provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
-                          },
-                        );
-                      }),
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: liveCheckpoint.substeps.length,
+                        onReorder: (oldIndex, newIndex) {
+                          if (oldIndex < newIndex) newIndex -= 1;
+                          final list = List<SubSubTask>.from(liveCheckpoint.substeps);
+                          final item = list.removeAt(oldIndex);
+                          list.insert(newIndex, item);
+                          provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.parentSubTaskId, list.map((e) => e.id).toList(), parentCheckpointId: liveCheckpoint.id);
+                        },
+                        proxyDecorator: (child, index, animation) {
+                          return Material(
+                            color: Colors.transparent,
+                            elevation: 5,
+                            shadowColor: Colors.black,
+                            child: child,
+                          );
+                        },
+                        itemBuilder: (ctx, index) {
+                          final child = liveCheckpoint.substeps[index];
+                          return CheckpointItem(
+                            key: ValueKey(child.id),
+                            title: child.name,
+                            isCompleted: child.completed,
+                            type: child.type,
+                            accentColor: agentColor,
+                            hasSubsteps: child.substeps.isNotEmpty,
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                                mainTaskId: widget.mainTaskId,
+                                parentSubTaskId: widget.parentSubTaskId,
+                                checkpointId: child.id,
+                              )));
+                            },
+                            onToggle: () {
+                              final updates = {'completed': !child.completed};
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
+                            },
+                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onToggleType: () {
+                              final newType = child.type == 'check' ? 'info' : 'check';
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
+                            },
+                          );
+                        },
+                      ),
 
                     // Add Substep
                     Container(
