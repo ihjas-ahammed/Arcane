@@ -1,5 +1,36 @@
 // lib/src/models/app_state_models.dart
 import 'package:arcane/src/models/habit_models.dart';
+import 'package:uuid/uuid.dart';
+
+class SomedayItem {
+  String id;
+  String title;
+  DateTime createdAt;
+
+  SomedayItem({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+  });
+
+  factory SomedayItem.fromJson(Map<String, dynamic> json) {
+    return SomedayItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Idea',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
 
 class AppSettings {
   bool descriptionsVisible;
@@ -24,6 +55,9 @@ class AppSettings {
 
   // Habit / Override Framework
   List<HabitRule> habitRules;
+  
+  // Someday / Maybe List
+  List<SomedayItem> somedayList;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -52,6 +86,7 @@ class AppSettings {
     this.noraAccessSessions = false,
     this.noraAccessFinance = false,
     this.habitRules = const [],
+    this.somedayList = const [],
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -95,6 +130,9 @@ class AppSettings {
       habitRules: (json['habitRules'] as List<dynamic>?)
               ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
+      somedayList: (json['somedayList'] as List<dynamic>?)
+              ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
     );
   }
   
@@ -118,6 +156,7 @@ class AppSettings {
       'noraAccessSessions': noraAccessSessions,
       'noraAccessFinance': noraAccessFinance,
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
+      'somedayList': somedayList.map((e) => e.toJson()).toList(),
     };
   }
 }

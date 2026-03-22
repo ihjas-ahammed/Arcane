@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:arcane/src/screens/nora_ai_screen.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -15,6 +18,30 @@ class StartDayReportCard extends StatelessWidget {
     this.onRegenerate,
     this.isRegenerating = false,
   });
+
+  void _startWithNora(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final forecast = report['forecast'] as String? ?? "System Started.";
+    final directives = (report['directives'] as List?)?.join(', ') ?? "";
+    
+    final customContext = """
+    STARTUP CONTEXT:
+    Forecast: $forecast
+    Directives: $directives
+    
+    The user has just initiated the system. Act as a supportive tactical commander or friend to prepare them for the day.
+    """;
+    
+    provider.createNoraSession(
+      title: "STARTUP LINK",
+      tone: "Tactician",
+      startDate: DateTime.now().subtract(const Duration(days: 7)),
+      endDate: DateTime.now(),
+      customContext: customContext,
+    );
+    
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +136,22 @@ class StartDayReportCard extends StatelessWidget {
                     ],
                   ),
                 ).animate().fadeIn(duration: 600.ms),
+
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: Icon(MdiIcons.brain, size: 16),
+                    label: const Text("START WITH NORA", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.fhAccentPurple,
+                      side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                    ),
+                    onPressed: () => _startWithNora(context),
+                  ),
+                ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
 
                 const SizedBox(height: 20),
 

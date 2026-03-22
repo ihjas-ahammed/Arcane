@@ -1,23 +1,68 @@
-# Task Dominion: Arcane Edition
+# Primus: JWE Edition
 
 ## What is this?
-Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
+Primus is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
 
 ## Why?
 Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
 
-## Leveling System (Wellbeing Momentum)
-The agent's leveling system is entirely dynamic, designed to reflect recent momentum rather than permanent accumulation. 
-*   **Rolling Window**: Level and XP are calculated *strictly* from the XP gained over the last 7 days. If you stop logging, your levels will naturally decay, promoting consistent reflection.
-*   **Exponential Limit**: The XP required to level up increases slightly exponentially each level to provide a balanced challenge.
-*   **Equation**: `MaxXP(Level) = round(100 * (1.15 ^ (Level - 1)))`
+---
 
-## How it works
-The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
-* **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
-* **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
-* **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
-* **Behavioral Overrides**: Includes an Atomic Habits framework tool to manage dopamine and screen-time.
+## Core Systems
+
+### 1. Missions & Protocols (Tasks)
+*   **Agents (Main Tasks):** Broad categories like 'Fitness', 'Learning', 'Work'. Each agent has a distinct color code and icon.
+*   **Sub-Missions (Subtasks):** Actionable items within an Agent. Can be set as one-off or **Recurring** (resets daily at 00:00).
+*   **Checkpoints (Sub-Subtasks):** Granular steps for a Sub-Mission. Can be "Checkable" steps or "Info" notes.
+*   **Action Plans:** Each Sub-Mission holds a 'Why' (Strategic Intent), 'What' (Expected Outcome), and 'How' (Checkpoints). 
+*   **Time Tracking:** Engage/Halt timers on any Sub-Mission to precisely track session hours.
+
+### 2. Project Engine & Velocity
+*   **Projects:** Large-scale objectives linked to an Agent.
+*   **Recursive Steps:** Break projects down into infinite levels of nested steps.
+*   **Linking:** Project steps can be physically linked to Sub-Missions. Completing the Sub-Mission automatically marks the project step as complete.
+*   **Velocity Graph:** Manually log progress snapshots (e.g., 50% done after 10 hours) and the system provides a linear regression forecast on completion time.
+
+### 3. Schedule & Day Plan
+*   **Day Plan Dashboard:** Add specific Sub-Missions or Checkpoints to a "Today's Queue" for focused execution without distractions.
+*   **Timeline:** A 24-hour visual grid showing exact times you worked on tasks today.
+*   **AI Prediction:** Generate a probable schedule for the rest of your day based on your past 14-day history.
+
+---
+
+## Tactical Features
+
+### 1. NORA Neural AI
+*   **Chatbot:** A customized persona (Therapist, Tactician, Friend) that knows your active tasks, recent reflections, and known entities.
+*   **Dynamic Controls:** Adjust memory span (e.g., look back 7 days vs 30 days), set message limits per session, and inject custom override prompts to fine-tune her personality.
+*   **Simulation Suite:** 
+    *   *Event Simulator:* Predict how you might handle a future scenario based on past logs.
+    *   *Comms Simulator:* NORA roleplays as a specific person from your "Intel" list so you can practice difficult conversations.
+
+### 2. Psychological Biometrics (Wellbeing & XP)
+*   **Reflection Logs:** Log events with Triggers, Emotions, and Actions. AI analyzes these and awards XP across 12 psychological traits (Positivity, Resilience, Meaning, etc.).
+*   **Dynamic Leveling:** XP and levels are calculated *strictly* from the rolling 7-day momentum. If you stop logging, levels naturally decay, enforcing consistent reflection.
+
+### 3. Intelligence & Assets (Gratitude)
+*   **People Intel:** AI extracts mentioned individuals from your logs and builds psychological dossiers/interaction histories.
+*   **Asset Management (Gratitude List):** A tactical representation of gratitude. Log 'Skills', 'Resources', 'People', and 'Objects' detailing their *Strategic Value (Why)* and *Expected Yield (What)*.
+*   **Auto-Assign:** When viewing a Sub-Mission, the AI can scan your known Assets and auto-assign the tools/people you need to complete it.
+
+### 4. Financial & Health Tracking
+*   **Wallet:** Cashflow tracking with daily expense breakdowns and 30-day trends. Includes a "Savings Protocol" with projection trajectories.
+*   **Biometrics:** Log water intake, sleep (duration mapping), and physical activity (KM/Mins).
+*   **Nutrition:** Natural language food scanning ("I ate 2 eggs and toast") automatically calculates and logs macros via AI.
+
+### 5. Behavioral Override (Atomic Habits)
+Manage dopamine and screen time through tactical restriction definitions:
+*   **Friction Boost:** Define mandatory delay seconds before opening a distracting app.
+*   **Usage Cap:** Set hard daily minute limits.
+*   **Accountability Log:** Track clean streaks. Breaking a streak resets it to 0, removing the reward mechanism.
+
+### 6. The Holding Pattern (Someday/Maybe List)
+Rooted in GTD principles: get ideas out of your head without commitment.
+*   **Zero Friction:** One text field to capture the thought. No dates, tags, or priorities allowed.
+*   **Weekly Nudge:** The system highlights items older than 7 days, forcing a conscious decision: execute or delete.
 
 ---
 
@@ -77,4 +122,4 @@ AI features require Gemini API keys.
 const List<String> geminiApiKeys = ['YOUR_GEMINI_API_KEY_1_HERE'];
 const String geminiModelName = 'gemini-2.0-flash'; 
 ```
-*Note: Make sure this file is added to your `.gitignore` to prevent exposing your keys.*
+*Note: Make sure this file is added to your `.gitignore` to prevent exposing your keys. You can also add custom keys dynamically inside the app's System Settings.*

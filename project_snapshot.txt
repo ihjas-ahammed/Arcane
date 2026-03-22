@@ -1,1061 +1,3 @@
-
---- START OF FILE README.md ---
-# Task Dominion: Arcane Edition
-
-## What is this?
-Task Dominion is a highly gamified, tactical life-management and productivity tracker. Designed with aesthetics inspired by competitive agents and cinematic universes (Valorant, Arcane, Spider-Man, Jurassic World Evolution), it transforms daily chores, long-term goals, and financial tracking into "Missions," "Protocols," and "Objectives."
-
-## Why?
-Productivity apps often feel like a chore. Task Dominion bridges the gap between gaming and real life by introducing XP, levels, and system diagnostics (Well-being traits like Resilience, Autonomy, Vitality). By treating life as a series of tactical operations, complete with post-action debriefs and analytics, it makes self-improvement engaging and structured.
-
-## Leveling System (Wellbeing Momentum)
-The agent's leveling system is entirely dynamic, designed to reflect recent momentum rather than permanent accumulation. 
-*   **Rolling Window**: Level and XP are calculated *strictly* from the XP gained over the last 7 days. If you stop logging, your levels will naturally decay, promoting consistent reflection.
-*   **Exponential Limit**: The XP required to level up increases slightly exponentially each level to provide a balanced challenge.
-*   **Equation**: `MaxXP(Level) = round(100 * (1.15 ^ (Level - 1)))`
-
-## How it works
-The system is built on a robust Flutter frontend powered by **Firebase** and **Google Gemini AI**.
-* **Primary Sync**: Uses Firebase Realtime Database for ultra-fast, seamless state synchronization.
-* **Failsafe Storage**: Uses Cloud Firestore as a secondary snapshot backup layer, preventing data loss.
-* **Neural Engine**: Integrates Gemini AI to process journal logs, automatically extract assets/allies, simulate future situations, and provide "Nora" chatbot therapy.
-* **Behavioral Overrides**: Includes an Atomic Habits framework tool to manage dopamine and screen-time.
-
----
-
-## Developer Setup
-
-### 1. Prerequisites
-Ensure you have the Flutter SDK installed.
-* Run `flutter doctor` to verify your environment.
-* Install project dependencies: `flutter pub get`
-
-### 2. Firebase Configuration
-This project relies heavily on Firebase. 
-1. Ensure you have the FlutterFire CLI installed: `npm install -g firebase-tools` then `dart pub global activate flutterfire_cli`.
-2. Run `flutterfire configure` in the project root and link it to your Firebase project.
-
-### 3. Enable Realtime Database (Primary Data Layer)
-Realtime Database is used for live state syncing.
-1. Open the Firebase Console.
-2. Navigate to **Build > Realtime Database** and click **Create Database**.
-3. Choose a location and start in **Locked mode**.
-4. Update the Rules to allow authenticated user access to their own nodes:
-```json
-{
-  "rules": {
-    "users": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
-      }
-    }
-  }
-}
-```
-
-### 4. Enable Cloud Firestore (Backup & Archival Layer)
-Firestore is used for manual snapshots and archived weekly reports.
-1. Navigate to **Build > Firestore Database** and click **Create Database**.
-2. Update the Security Rules:
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-### 5. API Keys Configuration
-AI features require Gemini API keys.
-1. Create a file `lib/src/config/api_keys.dart`.
-2. Add your Gemini API keys:
-```dart
-// lib/src/config/api_keys.dart
-// IMPORTANT: Add this file to your .gitignore
-const List<String> geminiApiKeys = ['YOUR_GEMINI_API_KEY_1_HERE'];
-const String geminiModelName = 'gemini-2.0-flash'; 
-```
-*Note: Make sure this file is added to your `.gitignore` to prevent exposing your keys.*
---- END OF FILE README.md ---
-
---- START OF FILE lib/src/models/skill_models.dart ---
-// lib/src/models/skill_models.dart
-
-class Skill {
-  final String id;
-  final String name;
-  final String description;
-  int level;
-  int currentXp;
-  int maxXp;
-
-  Skill({
-    required this.id,
-    required this.name,
-    required this.description,
-    this.level = 1,
-    this.currentXp = 0,
-    this.maxXp = 100,
-  });
-
-  factory Skill.fromJson(Map<String, dynamic> json) {
-    String name = (json['name'] as String? ??
-            json['skillName'] as String? ??
-            'Unknown Virtue')
-        .trim();
-
-    // Attempt to recover ID if missing or generic
-    String id = json['id'] as String? ?? 'unknown_skill';
-    if (id == 'unknown_skill') {
-      final n = name.toLowerCase();
-      if (n.contains('wisdom') ||
-          n.contains('tech') ||
-          n.contains('learning')) {
-        id = 'wis';
-      } else if (n.contains('courage') || n.contains('health')) {
-        id = 'cou';
-      } else if (n.contains('humanity') || n.contains('social')) {
-        id = 'hum';
-      } else if (n.contains('justice') || n.contains('work')) {
-        id = 'jus';
-      } else if (n.contains('temperance') || n.contains('order')) {
-        id = 'tem';
-      } else if (n.contains('transcendence') || n.contains('creative')) {
-        id = 'tra';
-      }
-    }
-
-    return Skill(
-        id: id,
-        name: name,
-        level: (json['level'] as num?)?.toInt() ?? 1,
-        currentXp: (json['currentXp'] as num?)?.toInt() ?? 0,
-        maxXp: (json['maxXp'] as num?)?.toInt() ?? 100,
-        description: json['description'] as String? ?? "A core virtue.");
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'level': level,
-      'currentXp': currentXp,
-      'maxXp': maxXp,
-      'description': description,
-    };
-  }
-
-  // Fallback direct modifier (System relies on recalculateFromTotal7DayXp primarily)
-  bool addXp(int amount) {
-    currentXp += amount;
-    bool leveledUp = false;
-    while (currentXp >= maxXp) {
-      currentXp -= maxXp;
-      level++;
-      // Exponentially increasing requirement
-      maxXp = (maxXp * 1.15).round();
-      leveledUp = true;
-    }
-    return leveledUp;
-  }
-}
-
-class ReflectionLog {
-  final String id;
-  final DateTime timestamp;
-  String trigger;
-  String emotion;
-  String reason;
-  String action; 
-  final String aiFeedback;
-  final Map<String, int> xpGained;
-
-  ReflectionLog({
-    required this.id,
-    required this.timestamp,
-    required this.trigger,
-    required this.emotion,
-    required this.reason,
-    this.action = '',
-    required this.aiFeedback,
-    required this.xpGained,
-  });
-
-  factory ReflectionLog.fromJson(Map<String, dynamic> json) {
-    return ReflectionLog(
-      id: json['id'] as String? ?? 'unknown',
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      trigger: json['trigger'] as String? ?? '',
-      emotion: json['emotion'] as String? ?? '',
-      reason: json['reason'] as String? ?? '',
-      action: json['action'] as String? ?? '', 
-      aiFeedback: json['aiFeedback'] as String? ?? '',
-      xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'timestamp': timestamp.toIso8601String(),
-      'trigger': trigger,
-      'emotion': emotion,
-      'reason': reason,
-      'action': action,
-      'aiFeedback': aiFeedback,
-      'xpGained': xpGained,
-    };
-  }
-}
---- END OF FILE lib/src/models/skill_models.dart ---
-
---- START OF FILE lib/src/models/task_models.dart ---
-// lib/src/models/task_models.dart
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-
-class TaskSession {
-  String id;
-  DateTime startTime;
-  DateTime endTime;
-
-  TaskSession({
-    required this.id,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  factory TaskSession.fromJson(Map<String, dynamic> json) {
-    return TaskSession(
-      id: json['id'] as String? ?? '',
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime.toIso8601String(),
-    };
-  }
-
-  int get durationMinutes => endTime.difference(startTime).inMinutes;
-  int get durationSeconds => endTime.difference(startTime).inSeconds;
-}
-
-class MainTask {
-  String id;
-  String name;
-  String description;
-  String theme;
-  String colorHex;
-  int dailyTimeSpent;
-  String? lastWorkedDate;
-  bool isActive; 
-  Map<String, List<bool>> weeklyCompletionStatus;
-  List<SubTask> subTasks;
-  List<Project> projects;
-
-  MainTask({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.theme,
-    this.colorHex = "FF00F8F8",
-    this.dailyTimeSpent = 0,
-    this.lastWorkedDate,
-    this.isActive = true,
-    Map<String, List<bool>>? weeklyCompletionStatus,
-    List<SubTask>? subTasks,
-    List<Project>? projects,
-  })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
-        subTasks = subTasks ?? [],
-        projects = projects ?? [];
-
-  MainTask copyWith({
-    String? id,
-    String? name,
-    String? description,
-    String? theme,
-    String? colorHex,
-    int? dailyTimeSpent,
-    String? lastWorkedDate,
-    bool? isActive,
-    Map<String, List<bool>>? weeklyCompletionStatus,
-    List<SubTask>? subTasks,
-    List<Project>? projects,
-  }) {
-    return MainTask(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      theme: theme ?? this.theme,
-      colorHex: colorHex ?? this.colorHex,
-      dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
-      lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
-      isActive: isActive ?? this.isActive,
-      weeklyCompletionStatus:
-          weeklyCompletionStatus ?? this.weeklyCompletionStatus,
-      subTasks: subTasks ?? this.subTasks,
-      projects: projects ?? this.projects,
-    );
-  }
-
-  factory MainTask.fromTemplate(MainTaskTemplate template) {
-    return MainTask(
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      theme: template.theme,
-      colorHex: template.colorHex,
-    );
-  }
-
-  factory MainTask.fromJson(Map<String, dynamic> json) {
-    var weeklyStatusFromJson = (json['weeklyCompletionStatus'] as Map?)?.map(
-        (key, value) => MapEntry(key as String,
-            (value as List<dynamic>).map((item) => item as bool).toList()));
-
-    return MainTask(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      theme: json['theme'] as String,
-      colorHex: json['colorHex'] as String? ?? "FF00F8F8",
-      dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
-      lastWorkedDate: json['lastWorkedDate'] as String?,
-      isActive: json['isActive'] as bool? ?? true,
-      weeklyCompletionStatus:
-          weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
-      subTasks: (json['subTasks'] as List<dynamic>?)
-              ?.map(
-                  (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
-              .toList() ??
-          [],
-      projects: (json['projects'] as List<dynamic>?)
-              ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'theme': theme,
-      'colorHex': colorHex,
-      'dailyTimeSpent': dailyTimeSpent,
-      'lastWorkedDate': lastWorkedDate,
-      'isActive': isActive,
-      'weeklyCompletionStatus': weeklyCompletionStatus,
-      'subTasks': subTasks.map((st) => st.toJson()).toList(),
-      'projects': projects.map((p) => p.toJson()).toList(),
-    };
-  }
-
-  Color get taskColor {
-    try {
-      return Color(int.parse("0x$colorHex"));
-    } catch (e) {
-      return AppTheme.fhAccentTealFixed;
-    }
-  }
-}
-
-class SubTask {
-  String id;
-  String name;
-  String description;
-  bool completed;
-  int currentTimeSpent;
-  String? completedDate;
-  bool isCountable;
-  int targetCount;
-  int currentCount;
-  List<SubSubTask> subSubTasks;
-  List<TaskSession> sessions;
-  
-  String why; 
-  String what;
-  String resources; 
-
-  bool isRecurring;
-  DateTime? lastCompletedDate; 
-  DateTime createdAt;
-  DateTime updatedAt;
-  bool isActive; 
-
-  SubTask({
-    required this.id,
-    required this.name,
-    this.description = '',
-    this.completed = false,
-    this.currentTimeSpent = 0,
-    this.completedDate,
-    this.isCountable = false,
-    this.targetCount = 0,
-    this.currentCount = 0,
-    List<SubSubTask>? subSubTasks,
-    List<TaskSession>? sessions,
-    this.why = '',
-    this.what = '',
-    this.resources = '',
-    this.isRecurring = false,
-    this.lastCompletedDate,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    this.isActive = true,
-  })  : subSubTasks = subSubTasks ?? [],
-        sessions = sessions ?? [],
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
-
-  SubTask copyWith({
-    String? id,
-    String? name,
-    String? description,
-    bool? completed,
-    int? currentTimeSpent,
-    String? completedDate,
-    bool? isCountable,
-    int? targetCount,
-    int? currentCount,
-    List<SubSubTask>? subSubTasks,
-    List<TaskSession>? sessions,
-    String? why,
-    String? what,
-    String? resources,
-    bool? isRecurring,
-    DateTime? lastCompletedDate,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    bool? isActive,
-  }) {
-    return SubTask(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      completed: completed ?? this.completed,
-      currentTimeSpent: currentTimeSpent ?? this.currentTimeSpent,
-      completedDate: completedDate ?? this.completedDate,
-      isCountable: isCountable ?? this.isCountable,
-      targetCount: targetCount ?? this.targetCount,
-      currentCount: currentCount ?? this.currentCount,
-      subSubTasks: subSubTasks ?? this.subSubTasks,
-      sessions: sessions ?? this.sessions,
-      why: why ?? this.why,
-      what: what ?? this.what,
-      resources: resources ?? this.resources,
-      isRecurring: isRecurring ?? this.isRecurring,
-      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isActive: isActive ?? this.isActive,
-    );
-  }
-
-  factory SubTask.fromJson(Map<String, dynamic> json) {
-    return SubTask(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String? ?? '',
-      completed: json['completed'] as bool? ?? false,
-      currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
-      completedDate: json['completedDate'] as String?,
-      isCountable: json['isCountable'] as bool? ?? false,
-      targetCount: json['targetCount'] as int? ?? 0,
-      currentCount: json['currentCount'] as int? ?? 0,
-      why: json['why'] as String? ?? '',
-      what: json['what'] as String? ?? '',
-      resources: json['resources'] as String? ?? '', 
-      isRecurring: json['isRecurring'] as bool? ?? false,
-      lastCompletedDate: json['lastCompletedDate'] != null 
-          ? DateTime.parse(json['lastCompletedDate'] as String) 
-          : null,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt'] as String) 
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt'] as String) 
-          : DateTime.now(),
-      isActive: json['isActive'] as bool? ?? true,
-      subSubTasks: (json['subSubTasks'] as List<dynamic>?)
-              ?.map((sssJson) =>
-                  SubSubTask.fromJson(sssJson as Map<String, dynamic>))
-              .toList() ??
-          [],
-      sessions: (json['sessions'] as List<dynamic>?)
-              ?.map((sJson) =>
-                  TaskSession.fromJson(sJson as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'completed': completed,
-      'currentTimeSpent': currentTimeSpent,
-      'completedDate': completedDate,
-      'isCountable': isCountable,
-      'targetCount': targetCount,
-      'currentCount': currentCount,
-      'why': why,
-      'what': what,
-      'resources': resources, 
-      'isRecurring': isRecurring,
-      'lastCompletedDate': lastCompletedDate?.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'isActive': isActive,
-      'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
-      'sessions': sessions.map((s) => s.toJson()).toList(),
-    };
-  }
-
-  double calculateProgress() {
-    if (subSubTasks.isEmpty) return completed ? 1.0 : 0.0;
-    double total = 0;
-    for (var sst in subSubTasks) {
-      total += sst.calculateProgress();
-    }
-    return total / subSubTasks.length;
-  }
-}
-
-class SubSubTask {
-  String id;
-  String name;
-  bool completed;
-  bool isCountable;
-  int targetCount;
-  int currentCount;
-  String? completionTimestamp;
-  String type; 
-  List<SubSubTask> substeps; 
-  
-  String why;
-  String what;
-
-  SubSubTask({
-    required this.id,
-    required this.name,
-    this.completed = false,
-    this.isCountable = false,
-    this.targetCount = 0,
-    this.currentCount = 0,
-    this.completionTimestamp,
-    this.type = 'check',
-    List<SubSubTask>? substeps,
-    this.why = '',
-    this.what = '',
-  }) : substeps = substeps ?? [];
-
-  SubSubTask copyWith({
-    String? id,
-    String? name,
-    bool? completed,
-    bool? isCountable,
-    int? targetCount,
-    int? currentCount,
-    String? completionTimestamp,
-    String? type,
-    List<SubSubTask>? substeps,
-    String? why,
-    String? what,
-  }) {
-    return SubSubTask(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      completed: completed ?? this.completed,
-      isCountable: isCountable ?? this.isCountable,
-      targetCount: targetCount ?? this.targetCount,
-      currentCount: currentCount ?? this.currentCount,
-      completionTimestamp: completionTimestamp ?? this.completionTimestamp,
-      type: type ?? this.type,
-      substeps: substeps ?? this.substeps,
-      why: why ?? this.why,
-      what: what ?? this.what,
-    );
-  }
-
-  factory SubSubTask.fromJson(Map<String, dynamic> json) {
-    return SubSubTask(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      completed: json['completed'] as bool? ?? false,
-      isCountable: json['isCountable'] as bool? ?? false,
-      targetCount: json['targetCount'] as int? ?? 0,
-      currentCount: json['currentCount'] as int? ?? 0,
-      completionTimestamp: json['completionTimestamp'] as String?,
-      type: json['type'] as String? ?? 'check',
-      why: json['why'] as String? ?? '',
-      what: json['what'] as String? ?? '',
-      substeps: (json['substeps'] as List<dynamic>?)
-              ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
-  }
-  
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'completed': completed,
-      'isCountable': isCountable,
-      'targetCount': targetCount,
-      'currentCount': currentCount,
-      'completionTimestamp': completionTimestamp,
-      'type': type,
-      'why': why,
-      'what': what,
-      'substeps': substeps.map((e) => e.toJson()).toList(),
-    };
-  }
-  
-  double calculateProgress() {
-    if (substeps.isEmpty) return completed ? 1.0 : 0.0;
-    double total = 0;
-    for (var sst in substeps) {
-      total += sst.calculateProgress();
-    }
-    double prog = total / substeps.length;
-    completed = prog >= 1.0; 
-    return prog;
-  }
-}
-
-class MainTaskTemplate {
-  final String id;
-  final String name;
-  final String description;
-  final String theme;
-  final String colorHex;
-
-  MainTaskTemplate({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.theme,
-    this.colorHex = "FF00F8F8",
-  });
-}
---- END OF FILE lib/src/models/task_models.dart ---
-
---- START OF FILE lib/src/models/habit_models.dart ---
-import 'package:uuid/uuid.dart';
-
-class HabitRule {
-  String id;
-  String appName;
-  bool isGrayscale;
-  int frictionDelaySeconds;
-  int dailyLimitMinutes;
-  int todayUsageMinutes;
-  int currentStreakDays;
-
-  HabitRule({
-    required this.id,
-    required this.appName,
-    this.isGrayscale = false,
-    this.frictionDelaySeconds = 0,
-    this.dailyLimitMinutes = 0,
-    this.todayUsageMinutes = 0,
-    this.currentStreakDays = 0,
-  });
-
-  factory HabitRule.fromJson(Map<String, dynamic> json) {
-    return HabitRule(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      appName: json['appName'] as String? ?? 'Unknown',
-      isGrayscale: json['isGrayscale'] as bool? ?? false,
-      frictionDelaySeconds: (json['frictionDelaySeconds'] as num? ?? 0).toInt(),
-      dailyLimitMinutes: (json['dailyLimitMinutes'] as num? ?? 0).toInt(),
-      todayUsageMinutes: (json['todayUsageMinutes'] as num? ?? 0).toInt(),
-      currentStreakDays: (json['currentStreakDays'] as num? ?? 0).toInt(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'appName': appName,
-      'isGrayscale': isGrayscale,
-      'frictionDelaySeconds': frictionDelaySeconds,
-      'dailyLimitMinutes': dailyLimitMinutes,
-      'todayUsageMinutes': todayUsageMinutes,
-      'currentStreakDays': currentStreakDays,
-    };
-  }
-}
---- END OF FILE lib/src/models/habit_models.dart ---
-
---- START OF FILE lib/src/models/app_state_models.dart ---
-// lib/src/models/app_state_models.dart
-import 'package:arcane/src/models/habit_models.dart';
-
-class AppSettings {
-  bool descriptionsVisible;
-  bool dailyAutoGenerateContent;
-  bool autoSaveEnabled;
-  int wakeupTimeHour;
-  int wakeupTimeMinute;
-  List<String> liteModels;
-  List<String> heavyModels;
-  List<String> customApiKeys; 
-  String? customChatbotPrompt;
-  String? customReflectionPrompt;
-  List<String> savedPrompts;
-  int startOfWeek;
-  int dataVersion;
-  int lastModified; 
-  
-  // Security and Nora AI Settings
-  String? journalPin;
-  bool noraAccessSessions;
-  bool noraAccessFinance;
-
-  // Habit / Override Framework
-  List<HabitRule> habitRules;
-
-  AppSettings({
-    this.descriptionsVisible = true,
-    this.dailyAutoGenerateContent = true,
-    this.autoSaveEnabled = true,
-    this.wakeupTimeHour = 7,
-    this.wakeupTimeMinute = 0,
-    this.liteModels = const [
-      'gemini-2.0-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash'
-    ],
-    this.heavyModels = const [
-      'gemini-2.0-flash',
-      'gemini-2.0-pro-exp-02-05',
-      'gemini-1.5-pro'
-    ],
-    this.customApiKeys = const [],
-    this.customChatbotPrompt,
-    this.customReflectionPrompt,
-    this.savedPrompts = const [],
-    this.startOfWeek = 1,
-    this.dataVersion = 0,
-    int? lastModified,
-    this.journalPin,
-    this.noraAccessSessions = false,
-    this.noraAccessFinance = false,
-    this.habitRules = const [],
-  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
-
-  factory AppSettings.fromJson(Map<String, dynamic> json) {
-    List<String> keys = [];
-    if (json['customApiKeys'] != null) {
-      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
-    } else if (json['customApiKey'] != null &&
-        json['customApiKey'].toString().isNotEmpty) {
-      keys.add(json['customApiKey'].toString());
-    }
-
-    return AppSettings(
-      descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
-      dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
-          json['autoGenerateContent'] as bool? ??
-          true,
-      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
-      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
-      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
-      liteModels: (json['liteModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-      heavyModels: (json['heavyModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
-      customApiKeys: keys,
-      customChatbotPrompt: json['customChatbotPrompt'] as String?,
-      customReflectionPrompt: json['customReflectionPrompt'] as String?,
-      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
-      startOfWeek: json['startOfWeek'] as int? ?? 1,
-      dataVersion: json['dataVersion'] as int? ?? 0,
-      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
-      journalPin: json['journalPin'] as String?,
-      noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
-      noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
-      habitRules: (json['habitRules'] as List<dynamic>?)
-              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
-              .toList() ?? [],
-    );
-  }
-  
-  Map<String, dynamic> toJson() {
-    return {
-      'descriptionsVisible': descriptionsVisible,
-      'dailyAutoGenerateContent': dailyAutoGenerateContent,
-      'autoSaveEnabled': autoSaveEnabled,
-      'wakeupTimeHour': wakeupTimeHour,
-      'wakeupTimeMinute': wakeupTimeMinute,
-      'liteModels': liteModels,
-      'heavyModels': heavyModels,
-      'customApiKeys': customApiKeys,
-      'customChatbotPrompt': customChatbotPrompt,
-      'customReflectionPrompt': customReflectionPrompt,
-      'savedPrompts': savedPrompts,
-      'startOfWeek': startOfWeek,
-      'dataVersion': dataVersion,
-      'lastModified': lastModified,
-      'journalPin': journalPin,
-      'noraAccessSessions': noraAccessSessions,
-      'noraAccessFinance': noraAccessFinance,
-      'habitRules': habitRules.map((e) => e.toJson()).toList(),
-    };
-  }
-}
-
-class ActiveTimerInfo {
-  DateTime startTime;
-  double accumulatedDisplayTime; // In seconds
-  bool isRunning;
-  String type;
-  String mainTaskId;
-
-  ActiveTimerInfo({
-    required this.startTime,
-    this.accumulatedDisplayTime = 0,
-    required this.isRunning,
-    required this.type,
-    required this.mainTaskId,
-  });
-
-  factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
-    return ActiveTimerInfo(
-      startTime: DateTime.parse(json['startTime'] as String),
-      accumulatedDisplayTime:
-          (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
-      isRunning: json['isRunning'] as bool? ?? false,
-      type: json['type'] as String? ?? 'subtask',
-      mainTaskId: json['mainTaskId'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'startTime': startTime.toIso8601String(),
-      'accumulatedDisplayTime': accumulatedDisplayTime,
-      'isRunning': isRunning,
-      'type': type,
-      'mainTaskId': mainTaskId,
-    };
-  }
-}
-
---- END OF FILE lib/src/models/app_state_models.dart ---
-
---- START OF FILE lib/src/providers/mixins/user_mixin.dart ---
-import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/habit_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
-
-mixin UserMixin on ChangeNotifier {
-  // Auth
-  User? _currentUser;
-  bool _authLoading = true;
-  bool _isUsernameMissing = false;
-  String? _lastLoginDate;
-
-  // Settings & Profile
-  AppSettings _settings = AppSettings();
-  List<Skill> _skills = [];
-  List<ReflectionLog> _reflectionLogs = [];
-  
-  // AI Memory
-  ChatbotMemory _chatbotMemory = ChatbotMemory();
-  int _apiKeyIndex = 0;
-
-  // Getters
-  User? get currentUser => _currentUser;
-  bool get authLoading => _authLoading;
-  bool get isUsernameMissing => _isUsernameMissing;
-  String? get lastLoginDate => _lastLoginDate;
-  AppSettings get settings => _settings;
-  List<Skill> get skills => _skills;
-  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
-  ChatbotMemory get chatbotMemory => _chatbotMemory;
-  int get apiKeyIndex => _apiKeyIndex;
-
-  // Sync Dependency
-  SyncMixin get sync => this as SyncMixin;
-
-  void setCurrentUser(User? user) {
-    _currentUser = user;
-    if (user != null) {
-      _isUsernameMissing = user.displayName == null || user.displayName!.isEmpty;
-    }
-    notifyListeners();
-  }
-
-  void setAuthLoading(bool loading) {
-    _authLoading = loading;
-    notifyListeners();
-  }
-
-  void setSettings(AppSettings s) {
-    _settings = s;
-    sync.markDirty('settings');
-  }
-
-  void setLastLoginDate(String? date) {
-    if (_lastLoginDate != date) {
-      _lastLoginDate = date;
-      sync.markDirty('settings');
-    }
-  }
-
-  void setSkills(List<Skill> s) {
-    _skills = s;
-    sync.markDirty('settings');
-  }
-
-  void setReflectionLogs(List<ReflectionLog> l) {
-    _reflectionLogs = l;
-    recalculateAllSkills(); 
-    sync.markDirty('reflections');
-  }
-
-  void setChatbotMemory(ChatbotMemory m) {
-    _chatbotMemory = m;
-    sync.markDirty('settings'); 
-  }
-
-  void setApiKeyIndex(int i) {
-    _apiKeyIndex = i;
-    sync.markDirty('settings');
-  }
-
-  List<Skill> getBaseWellbeingSkills() {
-    return [
-      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in one’s daily life.'),
-      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in one’s daily life.'),
-      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of one’s life overall.'),
-      Skill(id: 'vit', name: 'Vitality', description: 'Vitality: a positive subjective sense of physical health and energy.'),
-      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit one’s needs and desires.'),
-      Skill(id: 'rel', name: 'Relationships', description: 'Positive relationships: feeling loved, supported, and valued by others.'),
-      Skill(id: 'acc', name: 'Self-Acceptance', description: 'Self-acceptance: positive attitudes toward self; a sense of self-worth.'),
-      Skill(id: 'mas', name: 'Mastery', description: 'Mastery: feelings of competence in accomplishing challenging tasks.'),
-      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make one’s own choices in life.'),
-      Skill(id: 'gro', name: 'Growth', description: 'Personal growth: continually seeking development and improvement.'),
-      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in one’s daily activities.'),
-      Skill(id: 'mea', name: 'Meaning', description: 'Meaning: feeling that life has purpose and direction.'),
-    ];
-  }
-
-  void initializeSkills() {
-    bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
-    if (_skills.isEmpty || hasLegacy) {
-      _skills = getBaseWellbeingSkills();
-    }
-  }
-
-  void recalculateAllSkills() {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    Map<String, int> rollingXp = {};
-    for (var log in _reflectionLogs) {
-      if (log.timestamp.isAfter(sevenDaysAgo)) {
-        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
-      }
-    }
-    
-    final newSkills = getBaseWellbeingSkills();
-    for (var skill in newSkills) {
-      int xp = rollingXp[skill.name] ?? 0;
-      skill.level = 1;
-      skill.maxXp = 100;
-      int remainingXp = xp;
-      while (remainingXp >= skill.maxXp) {
-        remainingXp -= skill.maxXp;
-        skill.level++;
-        skill.maxXp = (skill.maxXp * 1.15).round();
-      }
-      skill.currentXp = remainingXp;
-    }
-    _skills = newSkills;
-    sync.markDirty('settings');
-  }
-
-  // --- Habit Rule Methods ---
-  void addHabitRule(HabitRule rule) {
-    final newRules = List<HabitRule>.from(_settings.habitRules)..add(rule);
-    setSettings(_settings..habitRules = newRules);
-  }
-  
-  void updateHabitRule(HabitRule rule) {
-    final newRules = _settings.habitRules.map((r) => r.id == rule.id ? rule : r).toList();
-    setSettings(_settings..habitRules = newRules);
-  }
-
-  void deleteHabitRule(String id) {
-    final newRules = _settings.habitRules.where((r) => r.id != id).toList();
-    setSettings(_settings..habitRules = newRules);
-  }
-
-  void loadUserState(Map<String, dynamic> data) {
-    _lastLoginDate = data['lastLoginDate'];
-    if (data['settings'] != null) {
-      _settings = AppSettings.fromJson(data['settings']);
-    }
-    
-    if (data['skills'] != null) {
-      _skills = (data['skills'] as List).map((e) => Skill.fromJson(e)).toList();
-    }
-    initializeSkills();
-
-    if (data['reflectionLogs'] != null) {
-      _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
-    }
-    
-    // Auto-recalculate levels based purely on the 7-day window of logs.
-    recalculateAllSkills();
-
-    if (data['chatbotMemory'] != null) {
-      _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);
-    }
-    
-    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-  }
-
-  Map<String, dynamic> getUserStateMap() {
-    return {
-      'lastLoginDate': _lastLoginDate,
-      'settings': _settings.toJson(),
-      'skills': _skills.map((e) => e.toJson()).toList(),
-      'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
-      'chatbotMemory': _chatbotMemory.toJson(),
-      'apiKeyIndex': _apiKeyIndex,
-    };
-  }
-}
---- END OF FILE lib/src/providers/mixins/user_mixin.dart ---
-
 --- START OF FILE lib/src/providers/app_provider.dart ---
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -1411,7 +353,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
-  // --- Gratitude Actions ---
+  // --- Gratitude / Assets Actions ---
   void updateGratitudeList(List<GratitudeItem> newList) {
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.gratitudeList = newList;
@@ -1427,6 +369,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       currentList.insert(0, updatedItem);
     }
     updateGratitudeList(currentList);
+  }
+  
+  // --- Someday List Actions ---
+  void addSomedayItem(String title) {
+    final newItem = SomedayItem(id: const Uuid().v4(), title: title, createdAt: DateTime.now());
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.insert(0, newItem);
+    setSettings(newSettings);
+  }
+
+  void removeSomedayItem(String id) {
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.removeWhere((i) => i.id == id);
+    setSettings(newSettings);
   }
 
   // --- Reports Logic ---
@@ -1812,6 +768,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         modelCandidates: settings.liteModels, 
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
+        systemInstruction: settings.customReflectionPrompt,
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
       
@@ -1857,12 +814,51 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
   }
 
-  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
-    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
+  void createNoraSession({
+    required String title, 
+    required String tone, 
+    required DateTime startDate, 
+    required DateTime endDate, 
+    String? customContext,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(), 
+      title: title, 
+      tone: tone, 
+      startDate: startDate, 
+      endDate: endDate, 
+      customContext: customContext,
+      messageLimit: messageLimit ?? 0,
+      modelOverride: modelOverride,
+      contextDays: contextDays ?? 7,
+      systemPromptOverride: systemPromptOverride,
+    );
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.noraSessions.add(newSession);
     newMemory.activeNoraSessionId = newSession.id;
     setChatbotMemory(newMemory);
+  }
+  
+  void updateNoraSessionConfig({
+    required String sessionId,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    final index = newMemory.noraSessions.indexWhere((s) => s.id == sessionId);
+    if (index != -1) {
+      if (messageLimit != null) newMemory.noraSessions[index].messageLimit = messageLimit;
+      newMemory.noraSessions[index].modelOverride = modelOverride; // allow nulling
+      if (contextDays != null) newMemory.noraSessions[index].contextDays = contextDays;
+      newMemory.noraSessions[index].systemPromptOverride = systemPromptOverride; // allow nulling
+      setChatbotMemory(newMemory);
+    }
   }
 
   void switchNoraSession(String sessionId) {
@@ -1888,19 +884,27 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     session.messages.add(userMsg);
     markDirty('settings'); 
 
-    // Gather Context bounded by session dates
-    final start = session.startDate;
-    final end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    // Gather Context bounded by session config
+    DateTime start = session.startDate;
+    DateTime end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    
+    // If contextDays is configured, override the date range to just look back X days from now
+    if (session.contextDays > 0) {
+       start = DateTime.now().subtract(Duration(days: session.contextDays));
+       end = DateTime.now();
+    }
 
     final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
     final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
 
     final List<String> sessionStrs = [];
-    for (var task in mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var sess in sub.sessions) {
-          if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
-            sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+    if (settings.noraAccessSessions) {
+      for (var task in mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var sess in sub.sessions) {
+            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+            }
           }
         }
       }
@@ -1909,8 +913,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
     final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
 
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+
     final fullContext = """
-    SYSTEM: You are NORA. Tone: ${session.tone}.
+    SYSTEM: $systemPrompt
     ${session.customContext ?? ''}
 
     CONTEXT DATA FOR REQUESTED PERIOD:
@@ -1920,18 +926,25 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     Known Assets: $assetsStr
     """;
     
+    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
+    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
+    
     try {
       final responses = await _aiService.queryNeuralArchive(
         query: text, 
         logsContext: fullContext, 
-        modelCandidates: settings.liteModels, 
+        maxMessages: maxMessagesToGen,
+        modelCandidates: modelCandidates, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
         onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
         onLog: (m) {}
       );
       
-      for (String resp in responses) {
+      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
+      final clampedResponses = responses.take(clampLimit).toList();
+
+      for (String resp in clampedResponses) {
         // dynamic typing delay
         await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
         final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
@@ -1965,1033 +978,1062 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 }
 --- END OF FILE lib/src/providers/app_provider.dart ---
 
---- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
+--- START OF FILE lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:arcane/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/utils/json_utils.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 
-class ActionPlanStepsList extends StatefulWidget {
-  final String mainTaskId;
-  final String subTaskId;
-  final List<SubSubTask> steps;
-  final Function(String) onGenerate;
-  final Color accentColor;
+class AIService {
+  
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final List<String> apiKeysToTry = <String>{
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    }.where((k) => !k.contains('YOUR_GEMINI_API_KEY')).toList();
 
-  const ActionPlanStepsList({
-    super.key,
-    required this.mainTaskId,
-    required this.subTaskId,
-    required this.steps,
-    required this.onGenerate,
-    required this.accentColor,
-  });
+    if (apiKeysToTry.isEmpty) {
+      onLog("No valid Gemini API keys found. Returning fallback data.");
+      throw Exception("OFFLINE_MOCK_DATA");
+    }
 
-  @override
-  State<ActionPlanStepsList> createState() => _ActionPlanStepsListState();
-}
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
 
-class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
-  final TextEditingController _stepController = TextEditingController();
-  String _newStepType = 'check'; 
-
-  void _addStep(AppProvider provider) {
-    if (_stepController.text.trim().isEmpty) return;
-    provider.taskActions.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
-      'name': _stepController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
-      'type': _newStepType,
-    });
-    _stepController.clear();
-  }
-
-  void _navigateToStepDetail(BuildContext context, SubSubTask step) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-      mainTaskId: widget.mainTaskId,
-      parentSubTaskId: widget.subTaskId,
-      checkpointId: step.id,
-    )));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final isLoading = provider.loadingTaskName == "Generating Strategy...";
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children:[
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:[
-              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-              if (widget.steps.isEmpty)
-                TextButton.icon(
-                  onPressed: isLoading ? null : () async {
-                    final prompt = await showDialog<String>(
-                      context: context,
-                      builder: (_) => const AiGenerationPromptDialog(
-                        title: "GENERATE STRATEGY",
-                        hintText: "Add specific instructions, e.g. Focus on low budget...",
-                        actionLabel: "GENERATE",
-                      ),
-                    );
-                    if (prompt != null && prompt.isNotEmpty) {
-                      widget.onGenerate(prompt);
-                    }
-                  },
-                  icon: isLoading 
-                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
-                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
-                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 30),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        
-        if (widget.steps.isEmpty && !isLoading)
-          Container(
-            padding: const EdgeInsets.all(16),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-              color: AppTheme.fhBgDark.withOpacity(0.5)
-            ),
-            child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
-          )
-        else
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.steps.length,
-            onReorder: (oldIndex, newIndex) {
-              if (oldIndex < newIndex) newIndex -= 1;
-              final list = List<SubSubTask>.from(widget.steps);
-              final item = list.removeAt(oldIndex);
-              list.insert(newIndex, item);
-              provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.subTaskId, list.map((e) => e.id).toList());
-            },
-            proxyDecorator: (child, index, animation) {
-              return Material(
-                color: Colors.transparent,
-                elevation: 5,
-                shadowColor: Colors.black,
-                child: child,
-              );
-            },
-            itemBuilder: (ctx, index) {
-              final step = widget.steps[index];
-              return CheckpointItem(
-                key: ValueKey(step.id),
-                title: step.name,
-                isCompleted: step.completed,
-                type: step.type,
-                hasSubsteps: step.substeps.isNotEmpty,
-                progress: step.calculateProgress(), // Provide calculated progress here
-                accentColor: widget.accentColor,
-                onTap: () => _navigateToStepDetail(context, step),
-                onPlay: null,
-                isRunning: false,
-                onToggle: () {
-                  if (step.completed) {
-                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                  } else {
-                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                  }
-                },
-                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                onToggleType: () {
-                  final newType = step.type == 'check' ? 'info' : 'check';
-                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-                },
-              );
-            },
-          ),
-
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
-            children:[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                child: PopupMenuButton<String>(
-                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  tooltip: "Change Type",
-                  onSelected: (val) => setState(() => _newStepType = val),
-                  color: AppTheme.fhBgDark,
-                  itemBuilder: (context) =>[
-                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _stepController,
-                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: "ADD STEP...",
-                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
-                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
-                    filled: true,
-                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.all(12),
-                  ),
-                  onSubmitted: (_) => _addStep(provider),
-                ),
-              ),
-              const SizedBox(width: 10),
-              InkWell(
-                onTap: () => _addStep(provider),
-                child: Container(
-                  width: 40, height: 40,
-                  color: widget.accentColor.withOpacity(0.2),
-                  alignment: Alignment.center,
-                  child: Text("+", style: TextStyle(color: widget.accentColor, fontWeight: FontWeight.bold, fontSize: 24)),
-                ),
-              )
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
-
---- START OF FILE lib/src/widgets/screens/checkpoint_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/items/checkpoint_item.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
-import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class CheckpointDetailScreen extends StatefulWidget {
-  final String mainTaskId;
-  final String parentSubTaskId;
-  final String checkpointId;
-
-  const CheckpointDetailScreen({
-    super.key,
-    required this.mainTaskId,
-    required this.parentSubTaskId,
-    required this.checkpointId,
-  });
-
-  @override
-  State<CheckpointDetailScreen> createState() => _CheckpointDetailScreenState();
-}
-
-class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
-  final TextEditingController _stepController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
-  String _newStepType = 'check';
-
-  SubSubTask? _getLiveCheckpoint(AppProvider provider) {
-    try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.mainTaskId);
-      final sub = parent.subTasks.firstWhere((s) => s.id == widget.parentSubTaskId);
-      
-      SubSubTask? findRecursive(List<SubSubTask> list, String id) {
-        for (var item in list) {
-          if (item.id == id) return item;
-          final found = findRecursive(item.substeps, id);
-          if (found != null) return found;
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
         }
-        return null;
       }
-      return findRecursive(sub.subSubTasks, widget.checkpointId);
+    }
+    throw Exception("All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    String? prompt, 
+    List<genai.Part>? parts, 
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          
+          final contentParts = parts ?? [genai.TextPart(prompt!)];
+          final response = await model.generateContent([genai.Content.multi(contentParts)]);
+
+          String? rawResponseText = response.text;
+          if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+            throw Exception("AI response was empty.");
+          }
+          
+          return JsonUtils.tryDecode(rawResponseText);
+        },
+      );
     } catch (e) {
-      return null;
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) {
+        if (prompt != null && prompt.contains("System Start-Up Sequence")) {
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "directives": ["Add your Gemini API Key in Settings."] };
+        }
+        return {};
+      }
+      rethrow;
     }
   }
+
+  Future<List<String>> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required int maxMessages,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+
+    RULES:
+    1. Answer based on the provided context if applicable.
+    2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
+    3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
+    4. STRICT LIMIT: Generate a MAXIMUM of $maxMessages messages in this sequence. Do not exceed this.
+    5. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
+    Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
+    """;
+
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          final raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          
+          final decoded = JsonUtils.tryDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+          return ["system error: could not parse response sequence."];
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return ["offline mock response: connect api key."];
+      rethrow;
+    }
+  }
+
+  Future<List<String>> autoAssignAssetsToTask({
+    required String taskContext,
+    required String assetsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following Task context and select the most appropriate IDs from the provided Asset List that are required or helpful to complete this task.
+    
+    TASK CONTEXT:
+    $taskContext
+    
+    ASSET LIST (Format: ID | Name | Type | Why | What):
+    $assetsList
+    
+    Task:
+    Match the task requirements with the asset list. Select the IDs of the assets that fit.
+    
+    Output JSON ONLY with an array of IDs:
+    {
+      "asset_ids": ["id_1", "id_2"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['asset_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generateActionPlanSteps({
+    required String taskName,
+    required String why,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a tactical action plan (How) and expected outcome (What) for the following objective:
+    
+    OBJECTIVE: $taskName
+    STRATEGIC INTENT (WHY): $why
+    USER SPECIFIC REQUEST: $userPrompt
+    
+    Task:
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
+    2. Define the expected result/reward ("What") upon completion.
+    
+    Output JSON ONLY:
+    {
+      "steps":[
+        {"name": "Step description"}
+      ],
+      "what": "Description of the result or reward"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, 
+    required String currentTime,
+    required String availableTasksContext, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-10 likely sessions for the remainder of the day.
+    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:[
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    try {
+      final result = await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          String? raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          return JsonUtils.tryDecode(raw);
+        },
+      );
+
+      if (result is List) {
+        return result.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return[];
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> generateProjectFromPrompt({
+    required List<String> modelCandidates,
+    required String userPrompt,
+    List<XFile>? images,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps:[{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    
+    List<genai.Part> parts =[genai.TextPart(promptStr)];
+    if (images != null) {
+      for (var img in images) {
+        final bytes = await img.readAsBytes();
+        final mime = lookupMimeType(img.name) ?? 'image/jpeg';
+        parts.add(genai.DataPart(mime, bytes));
+      }
+    }
+
+    return await makeAICall(parts: parts, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> generateStepsForProject({
+    required String projectTitle,
+    required String projectDescription,
+    required List<String> existingSteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    required List<String> modelCandidates,
+    String? recentContext,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
+    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
+    
+    final prompt = """
+    Analyze this reflection log.
+    Situation: $trigger
+    Feeling: $emotion
+    Reason: $reason
+    Action Planned: $action
+    
+    Recent Context (Last 7 Days):
+    ${recentContext ?? 'No recent context available.'}
+    
+    1. Provide constructive feedback. ($instruction)
+    2. Adopt an optimistic perspective (e.g., finding the silver lining or growth opportunity in bad situations). Focus on present actionability. Use recent context to understand patterns, but keep your feedback focused on THIS specific log.
+    3. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
+
+    Output JSON: {
+      "feedback": "string", 
+      "xp_allocation": {
+        "Positivity": int,
+        "Resilience": int,
+        "Satisfaction": int,
+        "Vitality": int,
+        "Env. Mastery": int,
+        "Relationships": int,
+        "Self-Acceptance": int,
+        "Mastery": int,
+        "Autonomy": int,
+        "Growth": int,
+        "Engagement": int,
+        "Meaning": int
+      }
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<List<Map<String, dynamic>>> evaluateBatchReflections({
+    required List<Map<String, dynamic>> logsPayload,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following array of reflection logs. 
+    For each log, evaluate the user's progress across these 12 Sources of Well-Being:
+    1. Positivity 2. Resilience 3. Satisfaction 4. Vitality 5. Env. Mastery 6. Relationships 
+    7. Self-Acceptance 8. Mastery 9. Autonomy 10. Growth 11. Engagement 12. Meaning
+
+    Award XP (0 to 50) for each category based on evidence in the specific log. If no evidence, award 0.
+
+    Logs to evaluate:
+    ${jsonEncode(logsPayload)}
+
+    Output EXACTLY valid JSON matching this structure:
+    {
+      "updates":[
+        {
+          "log_id": "id_string_from_input",
+          "xp_allocation": {
+            "Positivity": int,
+            "Resilience": int,
+            "Satisfaction": int,
+            "Vitality": int,
+            "Env. Mastery": int,
+            "Relationships": int,
+            "Self-Acceptance": int,
+            "Mastery": int,
+            "Autonomy": int,
+            "Growth": int,
+            "Engagement": int,
+            "Meaning": int
+          }
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings,
+    required String fullContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a Tactical Briefing based on today's reflections.
+    Current Logs: ${jsonEncode(reflections)}
+    Entire Reflection History (Context): $fullContext
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    
+    Tone: Empathetic, psychologically wise, therapist.
+    
+    Task:
+    1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
+    2. Identify specific ability improvements or growth by comparing with previous context.
+    3. Extract people to be grateful for based on today's logs (You MAY use their real names).
+    4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
+    
+    Output JSON: {
+      "summary": "string (max 120 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
+      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required String wellbeingStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Task:
+    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
+    2. Compare the user's wellbeing progress to last week. Highlight areas of major growth or decline.
+    3. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
+    4. Output JSON: 
+    { 
+      "summary": "string", 
+      "wellbeing_analysis": "string",
+      "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
+      "time_insight": "string",
+      "grateful_people": [ {"name": "string", "reason": "string"} ]
+    } 
+    Logs: $logsText. 
+    Time: $timeStatsText. 
+    Wellbeing Progress: $wellbeingStatsText.
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
+    }
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          final methods = List<String>.from(m['supportedGenerationMethods'] ??[]);
+          if (methods.contains('generateContent')) {
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return[];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
+  }
+
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+    
+    Tone: A supportive, insightful human friend having a morning coffee with the user. Friendly, warm, but highly practical and focused on their growth.
+    
+    Task:
+    1. Analyze the user's momentum.
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimistically—help them find the good in recent bad events. Focus on the present day actionability.
+    3. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
+    
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "directives": ["string", "string", "string"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Create a list of upto 50 people
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people":[
+        {
+          "name": "string",
+          "relation": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
+    Create a comprehensive list based purely on the logs.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "assets":[
+        {
+          "name": "string",
+          "type": "skill|person|object|resource",
+          "why": "string (Strategic value or why it is important)",
+          "what": "string (Expected yield or what it does)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractFoodInfo({
+    required String prompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final aiPrompt = """
+    Analyze the following food description and estimate the nutritional value per serving.
+    If multiple distinct items are mentioned, separate them.
+    
+    Description: $prompt
+    
+    Output JSON ONLY:
+    {
+      "items":[
+        {
+          "name": "string (Capitalized)",
+          "calories": int,
+          "protein": double (grams),
+          "carbs": double (grams),
+          "fat": double (grams)
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    final result = await makeAICall(
+        prompt: aiPrompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> getMealInsights({
+    required String mealName,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Provide a detailed but concise nutritional breakdown and health benefits of the meal: '$mealName'.
+    
+    Output JSON ONLY:
+    {
+      "description": "Short description of the meal and its general profile",
+      "benefits": ["Benefit 1", "Benefit 2"],
+      "warnings": ["Warning 1 (e.g. high sodium, allergens)"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generatePersonDetails({
+    required String personName,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
+    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
+    {
+      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
+      "level": int (1-100 based on relationship depth),
+      "xp": int (total arbitrary xp based on significance, e.g. 2650),
+      "role": "Their inferred role (e.g. Student, Colleague)",
+      "status": "Current relationship status (e.g. Calibration Phase, Active)",
+      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
+      "interaction_history":[
+        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
+      ],
+      "communication_tips":[
+        {"highlight": "Tip Name:", "text": "Description of the tip."}
+      ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy({
+    required String reason,
+    required String feeling,
+    required String action,
+    required String logsText,
+    required String peopleContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    User needs immediate psychological assistance.
+    Current Situation / Reason: $reason
+    Current Feeling: $feeling
+    Planned Action: $action
+    
+    Past Context (Reflections): $logsText
+    Known People: $peopleContext
+    
+    Task:
+    1. Provide a concise, empathetic, and tactical action plan for right now.
+    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
+    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
+    
+    Output JSON ONLY:
+    {
+      "action_plan": "string",
+      "suggested_person": "string or null",
+      "conversation_map": ["step 1", "step 2"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> simulateEvent({
+    required String situation,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
+    
+    Proposed Situation: $situation
+    
+    Past Context (Reflections): $logsText
+    
+    Task:
+    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
+    
+    Output JSON ONLY:
+    {
+      "simulation": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+}
+--- END OF FILE lib/src/services/ai_service.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/nora_control_panel.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+
+class NoraControlPanel extends StatefulWidget {
+  final NoraSession session;
+  final Function(Map<String, dynamic>) onSave;
+
+  const NoraControlPanel({super.key, required this.session, required this.onSave});
+
+  @override
+  State<NoraControlPanel> createState() => _NoraControlPanelState();
+}
+
+class _NoraControlPanelState extends State<NoraControlPanel> {
+  late TextEditingController _promptController;
+  late TextEditingController _limitController;
+  late TextEditingController _daysController;
+  String? _selectedModel;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      final cp = _getLiveCheckpoint(provider);
-      if (cp != null) {
-        _titleController.text = cp.name;
-      }
-    });
+    _promptController = TextEditingController(text: widget.session.systemPromptOverride ?? "");
+    _limitController = TextEditingController(text: widget.session.messageLimit.toString());
+    _daysController = TextEditingController(text: widget.session.contextDays.toString());
+    _selectedModel = widget.session.modelOverride;
   }
-
-  void _saveTitle(AppProvider provider, SubSubTask cp) {
-    if (_titleController.text.trim() != cp.name) {
-      provider.taskActions.updateSubSubtask(
-        widget.mainTaskId, widget.parentSubTaskId, cp.id,
-        {'name': _titleController.text.trim()}
-      );
-    }
-  }
-
-  void _addSubstep(AppProvider provider, SubSubTask parentCp) {
-    if (_stepController.text.trim().isEmpty) return;
-    
-    provider.taskActions.addSubSubtask(
-      widget.mainTaskId, 
-      widget.parentSubTaskId, 
-      {
-        'name': _stepController.text.trim(),
-        'type': _newStepType,
-        'isCountable': false,
-      },
-      parentCheckpointId: parentCp.id
-    );
-    _stepController.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final liveCheckpoint = _getLiveCheckpoint(provider);
-
-    if (liveCheckpoint == null) {
-      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: Center(child: Text("Checkpoint not found", style: TextStyle(color: AppTheme.fhTextPrimary))));
-    }
-
-    Color agentColor = AppTheme.fhAccentTeal;
-    try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.mainTaskId);
-      agentColor = parent.taskColor;
-    } catch (_) {}
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: SafeArea(
-        child: Column(
-          children:[
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                color: AppTheme.fhBgDark,
-              ),
-              child: Row(
-                children:[
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      "OBJECTIVE DETAIL",
-                      style: TextStyle(
-                        color: agentColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                        fontFamily: AppTheme.fontDisplay
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-                    onPressed: () {
-                      provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id);
-                      Navigator.pop(context);
-                    },
-                  )
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children:[
-                    // Title Input
-                    TextField(
-                      controller: _titleController,
-                      style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 24, fontWeight: FontWeight.bold),
-                      decoration: const InputDecoration(border: InputBorder.none, hintText: "Objective Name"),
-                      onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
-                      onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Why/What
-                    ActionPlanWhyCard(
-                      initialWhy: liveCheckpoint.why,
-                      accentColor: agentColor,
-                      onChanged: (val) => provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id, {'why': val}),
-                    ),
-                    const SizedBox(height: 16),
-                    ActionPlanOutcomeCard(
-                      initialWhat: liveCheckpoint.what,
-                      accentColor: agentColor,
-                      onChanged: (val) => provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id, {'what': val}),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Nested Steps
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
-                      ),
-                      child: const Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    if (liveCheckpoint.substeps.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16.0),
-                        child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
-                      )
-                    else
-                      ReorderableListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: liveCheckpoint.substeps.length,
-                        onReorder: (oldIndex, newIndex) {
-                          if (oldIndex < newIndex) newIndex -= 1;
-                          final list = List<SubSubTask>.from(liveCheckpoint.substeps);
-                          final item = list.removeAt(oldIndex);
-                          list.insert(newIndex, item);
-                          provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.parentSubTaskId, list.map((e) => e.id).toList(), parentCheckpointId: liveCheckpoint.id);
-                        },
-                        proxyDecorator: (child, index, animation) {
-                          return Material(
-                            color: Colors.transparent,
-                            elevation: 5,
-                            shadowColor: Colors.black,
-                            child: child,
-                          );
-                        },
-                        itemBuilder: (ctx, index) {
-                          final child = liveCheckpoint.substeps[index];
-                          return CheckpointItem(
-                            key: ValueKey(child.id),
-                            title: child.name,
-                            isCompleted: child.completed,
-                            type: child.type,
-                            accentColor: agentColor,
-                            hasSubsteps: child.substeps.isNotEmpty,
-                            progress: child.calculateProgress(), // Passing correct progress manually calculated
-                            onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                                mainTaskId: widget.mainTaskId,
-                                parentSubTaskId: widget.parentSubTaskId,
-                                checkpointId: child.id,
-                              )));
-                            },
-                            onToggle: () {
-                              final updates = {'completed': !child.completed};
-                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
-                            },
-                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                            onToggleType: () {
-                              final newType = child.type == 'check' ? 'info' : 'check';
-                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
-                            },
-                          );
-                        },
-                      ),
-
-                    // Add Substep
-                    Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.fhBgDark.withOpacity(0.5),
-                        border: Border.all(color: AppTheme.fhBorderColor),
-                      ),
-                      child: Row(
-                        children:[
-                          PopupMenuButton<String>(
-                            icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
-                            onSelected: (val) => setState(() => _newStepType = val),
-                            color: AppTheme.fhBgDark,
-                            itemBuilder: (context) =>[
-                              const PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                              const PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                            ],
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: _stepController,
-                              style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: "ADD NESTED STEP...",
-                                hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                filled: false,
-                              ),
-                              onSubmitted: (_) => _addSubstep(provider, liveCheckpoint),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.add, color: agentColor),
-                            onPressed: () => _addSubstep(provider, liveCheckpoint),
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/screens/checkpoint_detail_screen.dart ---
-
---- START OF FILE lib/src/screens/more_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/screens/bus_schedule_screen.dart';
-import 'package:arcane/src/screens/database_editor_screen.dart';
-import 'package:arcane/src/screens/timetable_screen.dart';
-import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
-import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
-import 'package:arcane/src/screens/settings/habit_control_screen.dart';
-import 'package:arcane/src/widgets/views/settings_view.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      appBar: AppBar(
-        title: const Text("SYSTEM & UTILITIES"),
-        backgroundColor: AppTheme.fhBgDeepDark,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text("UTILITIES & SYSTEM",
-              style: theme.textTheme.labelMedium?.copyWith(
-                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
-          const SizedBox(height: 12),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.medicalBag,
-              title: "Emergency Therapy",
-              subtitle: "Quick psychological triage and action plan",
-              colorOverride: AppTheme.fhAccentRed,
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const QuickTherapyScreen()));
-          }),
-          
-          _buildMenuTile(context,
-              icon: MdiIcons.heartPulse,
-              title: "Gratitude Log",
-              subtitle: "Track people, resources, and things you appreciate",
-              colorOverride: AppTheme.fhAccentGreen,
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const GratitudeListScreen()));
-          }),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.busClock,
-              title: "Bus Time",
-              subtitle: "Schedule: S.S College - Areekode - Edavannappara",
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const BusScheduleScreen()));
-          }),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.timetable,
-              title: "Academic Timetable",
-              subtitle: "4th Semester Physics",
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const TimetableScreen()));
-          }),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.databaseEdit,
-              title: "Database Editor",
-              subtitle: "Manual edits & JSON Export/Import", onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const DatabaseEditorScreen()));
-          }),
-
-          const SizedBox(height: 24),
-          Text("CONFIGURATION",
-              style: theme.textTheme.labelMedium?.copyWith(
-                  color: AppTheme.fhTextSecondary, letterSpacing: 1.2)),
-          const SizedBox(height: 12),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.brain,
-              title: "Behavioral Override",
-              subtitle: "Habit control & dopamine regulation",
-              colorOverride: JweTheme.accentAmber,
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const HabitControlScreen()));
-          }),
-
-          _buildMenuTile(context,
-              icon: MdiIcons.cogOutline,
-              title: "System Settings",
-              subtitle: "App preferences, AI config, and recovery",
-              onTap: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => Scaffold(
-                          appBar: AppBar(title: const Text("SETTINGS")),
-                          backgroundColor: AppTheme.fhBgDeepDark,
-                          body: Center(
-                              child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 800),
-                                  child: const SettingsView())),
-                        )));
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    Color? colorOverride,
-  }) {
-    final effectiveColor = colorOverride ?? AppTheme.fhAccentTeal;
-    return Card(
-      color: AppTheme.fhBgDark,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side:
-              BorderSide(color: effectiveColor.withValues(alpha: 0.3))),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: effectiveColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: effectiveColor),
-        ),
-        title: Text(title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
-        subtitle: Text(subtitle,
-            style:
-                const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-        trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
-        onTap: onTap,
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/screens/more_screen.dart ---
-
---- START OF FILE lib/src/screens/settings/habit_control_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/dialogs/add_habit_rule_dialog.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class HabitControlScreen extends StatelessWidget {
-  const HabitControlScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final rules = provider.settings.habitRules;
-
-    return Scaffold(
-      backgroundColor: JweTheme.bgBase,
-      appBar: AppBar(
-        title: Text("BEHAVIORAL OVERRIDE", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  JwePanel(
-                    title: "ATOMIC FRAMEWORK",
-                    accentColor: JweTheme.textMuted,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Habits are driven by a continuous loop. Overriding the loop requires attacking these specific vectors:", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontStyle: FontStyle.italic)),
-                        const SizedBox(height: 12),
-                        _buildFrameworkItem(MdiIcons.eyeOff, "CUE REMOVAL", "Hide triggers. Enable scheduled grayscale.", JweTheme.textMuted),
-                        _buildFrameworkItem(MdiIcons.timerSand, "FRICTION BOOST", "Mandatory delay before response execution.", JweTheme.accentCyan),
-                        _buildFrameworkItem(MdiIcons.lockAlert, "USAGE CAP", "Hard daily limit restrictions on response.", JweTheme.accentAmber),
-                        _buildFrameworkItem(MdiIcons.history, "ACCOUNTABILITY LOG", "Visibility of lost streaks to remove reward.", JweTheme.accentRed),
-                      ],
-                    )
-                  ),
-                  
-                  JwePanel(
-                    title: "GLOBAL CUE REMOVAL",
-                    accentColor: JweTheme.accentCyan,
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          title: const Text("SYSTEM GRAYSCALE", style: TextStyle(color: JweTheme.textWhite, fontSize: 14)),
-                          subtitle: const Text("Desaturate interface to reduce dopamine response.", style: TextStyle(color: JweTheme.textMuted, fontSize: 11)),
-                          value: false, // Mock toggle
-                          activeColor: JweTheme.accentCyan,
-                          onChanged: (val) {
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("To enable grayscale, use your device's native Digital Wellbeing / Accessibility settings.")));
-                          },
-                        ),
-                      ],
-                    )
-                  ),
-
-                  JwePanel(
-                    title: "ACTIVE RESTRICTIONS",
-                    accentColor: JweTheme.accentRed,
-                    child: Column(
-                      children: [
-                        if (rules.isEmpty)
-                           const Padding(
-                             padding: EdgeInsets.all(16.0),
-                             child: Text("No behavioral overrides configured.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic)),
-                           )
-                        else
-                           ...rules.map((r) => Container(
-                             margin: const EdgeInsets.only(bottom: 12),
-                             decoration: BoxDecoration(
-                               border: Border.all(color: JweTheme.border),
-                               color: JweTheme.panel,
-                             ),
-                             child: Column(
-                               crossAxisAlignment: CrossAxisAlignment.start,
-                               children: [
-                                 // Header
-                                 Container(
-                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                   decoration: const BoxDecoration(
-                                     border: Border(bottom: BorderSide(color: JweTheme.border)),
-                                     color: Color(0x0DFFFFFF),
-                                   ),
-                                   child: Row(
-                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                     children: [
-                                       Text(r.appName.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
-                                       IconButton(
-                                         icon: const Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
-                                         padding: EdgeInsets.zero,
-                                         constraints: const BoxConstraints(),
-                                         onPressed: () => provider.deleteHabitRule(r.id),
-                                       )
-                                     ],
-                                   ),
-                                 ),
-                                 // Stats
-                                 Padding(
-                                   padding: const EdgeInsets.all(12.0),
-                                   child: Row(
-                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                     children: [
-                                       _buildStatCol("FRICTION", "${r.frictionDelaySeconds}s", JweTheme.accentCyan),
-                                       _buildStatCol("LIMIT", "${r.dailyLimitMinutes}m", JweTheme.accentAmber),
-                                       _buildStatCol("STREAK", "${r.currentStreakDays}d", JweTheme.textWhite),
-                                     ],
-                                   ),
-                                 ),
-                                 // Actions
-                                 Padding(
-                                   padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                   child: Row(
-                                     children: [
-                                       Expanded(
-                                         child: OutlinedButton(
-                                           style: OutlinedButton.styleFrom(
-                                             foregroundColor: JweTheme.textWhite,
-                                             side: const BorderSide(color: JweTheme.border),
-                                             shape: const BeveledRectangleBorder()
-                                           ),
-                                           onPressed: () {
-                                             final updated = r..currentStreakDays += 1;
-                                             provider.updateHabitRule(updated);
-                                           },
-                                           child: const Text("LOG CLEAN DAY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                         ),
-                                       ),
-                                       const SizedBox(width: 8),
-                                       Expanded(
-                                         child: OutlinedButton(
-                                           style: OutlinedButton.styleFrom(
-                                             foregroundColor: JweTheme.accentRed,
-                                             side: const BorderSide(color: JweTheme.accentRed),
-                                             shape: const BeveledRectangleBorder()
-                                           ),
-                                           onPressed: () {
-                                             final updated = r..currentStreakDays = 0;
-                                             provider.updateHabitRule(updated);
-                                           },
-                                           child: const Text("RESET STREAK", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                         ),
-                                       )
-                                     ],
-                                   ),
-                                 )
-                               ],
-                             ),
-                           )),
-
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text("ADD OVERRIDE"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: JweTheme.accentRed,
-                              foregroundColor: Colors.white,
-                              shape: const BeveledRectangleBorder()
-                            ),
-                            onPressed: () {
-                              showDialog(context: context, builder: (_) => const AddHabitRuleDialog());
-                            },
-                          ),
-                        )
-                      ],
-                    )
-                  )
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFrameworkItem(IconData icon, String title, String desc, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0)),
-                Text(desc, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCol(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/screens/settings/habit_control_screen.dart ---
-
---- START OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/habit_models.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-class AddHabitRuleDialog extends StatefulWidget {
-  const AddHabitRuleDialog({super.key});
-
-  @override
-  State<AddHabitRuleDialog> createState() => _AddHabitRuleDialogState();
-}
-
-class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
-  final _nameController = TextEditingController();
-  final _delayController = TextEditingController(text: '10');
-  final _limitController = TextEditingController(text: '30');
-  bool _isGrayscale = true;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _delayController.dispose();
+    _promptController.dispose();
     _limitController.dispose();
+    _daysController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: JweTheme.panel,
-      shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentRed, width: 2)),
-      title: Text("CONFIGURE RESTRICTION", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-      content: SingleChildScrollView(
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final availableModels = [...provider.settings.liteModels, ...provider.settings.heavyModels].toSet().toList();
+
+    return Container(
+      color: AppTheme.fhBgDeepDark,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 24, right: 24, top: 24
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("APP/BEHAVIOR NAME", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
+            const Text("NORA PARAMETERS", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 20, color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            
+            const Text("SYSTEM PROMPT OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             TextField(
-              controller: _nameController,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
+              controller: _promptController,
+              maxLines: 4,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: const InputDecoration(
                 filled: true,
-                fillColor: JweTheme.bgBase,
+                fillColor: AppTheme.fhBgDark,
+                hintText: "Override Nora's base instructions...",
                 border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
-                hintText: "e.g. Instagram"
               ),
             ),
+            
             const SizedBox(height: 16),
             
-            const Text("FRICTION DELAY (SECONDS)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _delayController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: JweTheme.bgBase,
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("MAX BUBBLES/REPLY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: _limitController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
+                        decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("CONTEXT (DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: _daysController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
+                        decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 7"),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
 
-            const Text("DAILY CAP (MINUTES)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            
+            const Text("MODEL OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            TextField(
-              controller: _limitController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: JweTheme.bgBase,
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentRed)),
-              ),
+            DropdownButtonFormField<String>(
+              value: _selectedModel,
+              dropdownColor: AppTheme.fhBgDark,
+              decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder()),
+              items: [
+                const DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: AppTheme.fhTextSecondary))),
+                ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))),
+              ],
+              onChanged: (val) => setState(() => _selectedModel = val),
             ),
-            const SizedBox(height: 16),
 
-            SwitchListTile(
-              title: const Text("Grayscale Context", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
-              value: _isGrayscale,
-              activeColor: JweTheme.accentRed,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (val) => setState(() => _isGrayscale = val),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("CANCEL"),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
+                    onPressed: () {
+                      final config = {
+                        'systemPromptOverride': _promptController.text.trim().isEmpty ? null : _promptController.text.trim(),
+                        'messageLimit': int.tryParse(_limitController.text) ?? 0,
+                        'contextDays': int.tryParse(_daysController.text) ?? 7,
+                        'modelOverride': _selectedModel,
+                      };
+                      widget.onSave(config);
+                      Navigator.pop(context);
+                    },
+                    child: const Text("UPDATE"),
+                  ),
+                ),
+              ],
             )
           ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
-          onPressed: () {
-            if (_nameController.text.trim().isNotEmpty) {
-              final rule = HabitRule(
-                id: '',
-                appName: _nameController.text.trim(),
-                frictionDelaySeconds: int.tryParse(_delayController.text) ?? 0,
-                dailyLimitMinutes: int.tryParse(_limitController.text) ?? 0,
-                isGrayscale: _isGrayscale,
-              );
-              Provider.of<AppProvider>(context, listen: false).addHabitRule(rule);
-              Navigator.pop(context);
-            }
-          }, 
-          child: const Text("ENFORCE")
-        )
-      ],
     );
   }
 }
---- END OF FILE lib/src/widgets/dialogs/add_habit_rule_dialog.dart ---
+--- END OF FILE lib/src/widgets/dialogs/nora_control_panel.dart ---

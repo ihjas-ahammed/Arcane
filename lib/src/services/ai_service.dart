@@ -93,11 +93,10 @@ class AIService {
     }
   }
 
-  // ... (Other methods remain identical, showing only modified ones)
-
   Future<List<String>> queryNeuralArchive({
     required String query,
     required String logsContext,
+    required int maxMessages,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -113,7 +112,8 @@ class AIService {
     1. Answer based on the provided context if applicable.
     2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
     3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
-    4. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
+    4. STRICT LIMIT: Generate a MAXIMUM of $maxMessages messages in this sequence. Do not exceed this.
+    5. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
     Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
     """;
 

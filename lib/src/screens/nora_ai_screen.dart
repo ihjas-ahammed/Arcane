@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/nora_control_panel.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 
 class NoraAiScreen extends StatefulWidget {
@@ -144,6 +145,27 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     );
   }
 
+  void _showControlsPanel(AppProvider provider) {
+    if (provider.activeNoraSession == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => NoraControlPanel(
+        session: provider.activeNoraSession!,
+        onSave: (config) {
+          provider.updateNoraSessionConfig(
+            sessionId: provider.activeNoraSession!.id,
+            messageLimit: config['messageLimit'],
+            modelOverride: config['modelOverride'],
+            contextDays: config['contextDays'],
+            systemPromptOverride: config['systemPromptOverride']
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -158,6 +180,12 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
         actions: [
+          if (activeSession != null)
+            IconButton(
+              icon: Icon(MdiIcons.tuneVariant, color: AppTheme.fhAccentPurple),
+              tooltip: "Session Parameters",
+              onPressed: () => _showControlsPanel(appProvider),
+            ),
           IconButton(
             icon: Icon(MdiIcons.menu, color: AppTheme.fhTextSecondary),
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),

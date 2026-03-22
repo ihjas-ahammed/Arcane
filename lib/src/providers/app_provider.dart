@@ -352,7 +352,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
-  // --- Gratitude Actions ---
+  // --- Gratitude / Assets Actions ---
   void updateGratitudeList(List<GratitudeItem> newList) {
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.gratitudeList = newList;
@@ -368,6 +368,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       currentList.insert(0, updatedItem);
     }
     updateGratitudeList(currentList);
+  }
+  
+  // --- Someday List Actions ---
+  void addSomedayItem(String title) {
+    final newItem = SomedayItem(id: const Uuid().v4(), title: title, createdAt: DateTime.now());
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.insert(0, newItem);
+    setSettings(newSettings);
+  }
+
+  void removeSomedayItem(String id) {
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.removeWhere((i) => i.id == id);
+    setSettings(newSettings);
   }
 
   // --- Reports Logic ---
@@ -753,6 +767,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         modelCandidates: settings.liteModels, 
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
+        systemInstruction: settings.customReflectionPrompt,
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
       
@@ -798,12 +813,51 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
   }
 
-  void createNoraSession({required String title, required String tone, required DateTime startDate, required DateTime endDate, String? customContext}) {
-    final newSession = NoraSession(id: const Uuid().v4(), title: title, tone: tone, startDate: startDate, endDate: endDate, customContext: customContext);
+  void createNoraSession({
+    required String title, 
+    required String tone, 
+    required DateTime startDate, 
+    required DateTime endDate, 
+    String? customContext,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(), 
+      title: title, 
+      tone: tone, 
+      startDate: startDate, 
+      endDate: endDate, 
+      customContext: customContext,
+      messageLimit: messageLimit ?? 0,
+      modelOverride: modelOverride,
+      contextDays: contextDays ?? 7,
+      systemPromptOverride: systemPromptOverride,
+    );
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.noraSessions.add(newSession);
     newMemory.activeNoraSessionId = newSession.id;
     setChatbotMemory(newMemory);
+  }
+  
+  void updateNoraSessionConfig({
+    required String sessionId,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    final index = newMemory.noraSessions.indexWhere((s) => s.id == sessionId);
+    if (index != -1) {
+      if (messageLimit != null) newMemory.noraSessions[index].messageLimit = messageLimit;
+      newMemory.noraSessions[index].modelOverride = modelOverride; // allow nulling
+      if (contextDays != null) newMemory.noraSessions[index].contextDays = contextDays;
+      newMemory.noraSessions[index].systemPromptOverride = systemPromptOverride; // allow nulling
+      setChatbotMemory(newMemory);
+    }
   }
 
   void switchNoraSession(String sessionId) {
@@ -829,19 +883,27 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     session.messages.add(userMsg);
     markDirty('settings'); 
 
-    // Gather Context bounded by session dates
-    final start = session.startDate;
-    final end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    // Gather Context bounded by session config
+    DateTime start = session.startDate;
+    DateTime end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    
+    // If contextDays is configured, override the date range to just look back X days from now
+    if (session.contextDays > 0) {
+       start = DateTime.now().subtract(Duration(days: session.contextDays));
+       end = DateTime.now();
+    }
 
     final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
     final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
 
     final List<String> sessionStrs = [];
-    for (var task in mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var sess in sub.sessions) {
-          if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
-            sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+    if (settings.noraAccessSessions) {
+      for (var task in mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var sess in sub.sessions) {
+            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+            }
           }
         }
       }
@@ -850,8 +912,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
     final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
 
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+
     final fullContext = """
-    SYSTEM: You are NORA. Tone: ${session.tone}.
+    SYSTEM: $systemPrompt
     ${session.customContext ?? ''}
 
     CONTEXT DATA FOR REQUESTED PERIOD:
@@ -861,18 +925,25 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     Known Assets: $assetsStr
     """;
     
+    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
+    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
+    
     try {
       final responses = await _aiService.queryNeuralArchive(
         query: text, 
         logsContext: fullContext, 
-        modelCandidates: settings.liteModels, 
+        maxMessages: maxMessagesToGen,
+        modelCandidates: modelCandidates, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
         onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
         onLog: (m) {}
       );
       
-      for (String resp in responses) {
+      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
+      final clampedResponses = responses.take(clampLimit).toList();
+
+      for (String resp in clampedResponses) {
         // dynamic typing delay
         await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
         final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());

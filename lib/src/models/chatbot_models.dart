@@ -81,6 +81,12 @@ class NoraSession {
   List<ChatbotMessage> messages;
   final DateTime createdAt;
   String? customContext; 
+  
+  // Advanced Controls
+  int messageLimit;
+  String? modelOverride;
+  int contextDays;
+  String? systemPromptOverride;
 
   NoraSession({
     required this.id,
@@ -91,6 +97,10 @@ class NoraSession {
     List<ChatbotMessage>? messages,
     DateTime? createdAt,
     this.customContext,
+    this.messageLimit = 0,
+    this.modelOverride,
+    this.contextDays = 7,
+    this.systemPromptOverride,
   })  : messages = messages ?? [],
         createdAt = createdAt ?? DateTime.now();
 
@@ -109,6 +119,10 @@ class NoraSession {
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       customContext: json['customContext'] as String?,
+      messageLimit: (json['messageLimit'] as num?)?.toInt() ?? 0,
+      modelOverride: json['modelOverride'] as String?,
+      contextDays: (json['contextDays'] as num?)?.toInt() ?? 7,
+      systemPromptOverride: json['systemPromptOverride'] as String?,
     );
   }
 
@@ -122,6 +136,10 @@ class NoraSession {
       'messages': messages.map((msg) => msg.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'customContext': customContext,
+      'messageLimit': messageLimit,
+      'modelOverride': modelOverride,
+      'contextDays': contextDays,
+      'systemPromptOverride': systemPromptOverride,
     };
   }
 }

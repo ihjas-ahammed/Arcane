@@ -126,7 +126,14 @@ class ActionPlanResourcesCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: selectedIds.map((id) {
-                  return _ResourceChipBuilder(id: id, accentColor: accentColor);
+                  return _ResourceChipBuilder(
+                    id: id, 
+                    accentColor: accentColor,
+                    onRemove: () {
+                      final newIds = List<String>.from(selectedIds)..remove(id);
+                      onChanged(jsonEncode(newIds));
+                    }
+                  );
                 }).toList(),
               )
         )
@@ -138,8 +145,9 @@ class ActionPlanResourcesCard extends StatelessWidget {
 class _ResourceChipBuilder extends StatelessWidget {
   final String id;
   final Color accentColor;
+  final VoidCallback onRemove;
 
-  const _ResourceChipBuilder({required this.id, required this.accentColor});
+  const _ResourceChipBuilder({required this.id, required this.accentColor, required this.onRemove});
 
   IconData _getIconForType(String type) {
     switch(type.toLowerCase()) {
@@ -158,7 +166,7 @@ class _ResourceChipBuilder extends StatelessWidget {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); 
         var name = item.name;
-        if(item.name.length > 40) name = name.substring(0,40)+"...";
+        if(item.name.length > 30) name = name.substring(0,30)+"...";
 
         return InkWell(
           onTap: () {
@@ -186,6 +194,11 @@ class _ResourceChipBuilder extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: onRemove,
+                  child: Icon(Icons.close, size: 14, color: AppTheme.fhTextSecondary),
+                )
               ],
             ),
           ),
