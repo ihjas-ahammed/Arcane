@@ -91,6 +91,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
+    // 1. Process standard recorded sessions
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
@@ -113,6 +114,34 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
+    // 2. Inject currently running (LIVE) sessions
+    provider.activeTimers.forEach((subTaskId, timerState) {
+      if (timerState.isRunning && timerState.type == 'subtask') {
+        final task = provider.mainTasks.firstWhereOrNull((t) => t.id == timerState.mainTaskId);
+        final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+        if (task != null && sub != null) {
+          final now = DateTime.now();
+          if (timerState.startTime.isBefore(dayEnd) && now.isAfter(dayStart)) {
+            DateTime displayStart = timerState.startTime.isBefore(dayStart) ? dayStart : timerState.startTime;
+            DateTime displayEnd = now.isAfter(dayEnd) ? dayEnd : now;
+
+            if (displayEnd.isAfter(displayStart)) {
+              entries.add(TimelineEntry(
+                id: 'live_$subTaskId',
+                startTime: displayStart,
+                endTime: displayEnd,
+                title: sub.name,
+                subtitle: "${task.name} (LIVE)",
+                color: task.taskColor,
+                isEditable: false,
+              ));
+            }
+          }
+        }
+      }
+    });
+
+    // 3. Process predicted entries (ensure no overlap)
     for (var pred in _predictedEntries) {
       bool overlaps = false;
       for (var real in entries) {

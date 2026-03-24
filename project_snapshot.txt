@@ -1,446 +1,2408 @@
-Ah, I see exactly what's happening. `fl_chart` automatically calculates the intervals for the X-axis labels based on the screen width. Because the chart is wide, it's trying to place labels at fractional values like `0.0, 0.5, 1.0, 1.5, 2.0`. 
+Here are the updated and new files incorporating your requested features. We have ensured tight integration into the JWE aesthetic while adhering to your 720x1520 display constraints.
 
-Since our code uses `value.toInt()`, both `0.0` and `0.5` become `0` (Wednesday), both `1.0` and `1.5` become `1` (Thursday), resulting in the duplicate days.
+### Feature Additions & Changes:
+1. **Running Tasks in Plan:** Updated `TimerActions` so that when a subtask timer is engaged, it automatically adds it to the daily queue if not present. Modified `ScheduleView` to inject a "LIVE" entry displaying the real-time block dynamically down to the current time indicator. 
+2. **Uncalculated Info Type Progress:** Re-wrote the logic for `calculateProgress()` inside `SubTask` and `SubSubTask` to strictly filter out steps marked as `'info'`. If only info types exist inside a node, the progress bar completely disappears. 
+3. **Last Insight Analytics:** Updated `JweReflectionProgress` widget to neatly embed a button next to the Last Logged timestamp, launching a new highly compact, JWE-themed `LastInsightDialog`.
 
-We need to explicitly set `interval: 1` on the `SideTitles` to force it to only render whole numbers. I will fix this across all our line charts (Performance, Health, and Finance) to prevent it from happening elsewhere.
-
---- START OF FILE lib/src/widgets/charts/weekly_line_charts.dart ---
+--- START OF FILE lib/src/models/task_models.dart ---
+// lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/project_models.dart';
 
-class WeeklyActivityLineChart extends StatelessWidget {
-  final Map<int, double> weeklyData;
-  final Map<int, Color> dominantColors;
-  final bool isVirtue;
+class TaskSession {
+  String id;
+  DateTime startTime;
+  DateTime endTime;
 
-  const WeeklyActivityLineChart({
-    super.key,
-    required this.weeklyData,
-    required this.dominantColors,
-    required this.isVirtue,
+  TaskSession({
+    required this.id,
+    required this.startTime,
+    required this.endTime,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final double maxY = weeklyData.values.isEmpty
-        ? 60.0
-        : (weeklyData.values.reduce((a, b) => a > b ? a : b) * 1.2)
-            .clamp(60.0, double.infinity);
+  factory TaskSession.fromJson(Map<String, dynamic> json) {
+    return TaskSession(
+      id: json['id'] as String? ?? '',
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+    );
+  }
 
-    final List<FlSpot> spots = [];
-    Color overallDominant = JweTheme.accentCyan;
-    
-    double maxVal = -1;
-    for (int i = 0; i < 7; i++) {
-      final daysAgo = 6 - i;
-      final val = weeklyData[daysAgo] ?? 0.0;
-      spots.add(FlSpot(i.toDouble(), val));
-      if (val > maxVal && dominantColors[daysAgo] != null) {
-        maxVal = val;
-        overallDominant = dominantColors[daysAgo]!;
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime.toIso8601String(),
+    };
+  }
+
+  int get durationMinutes => endTime.difference(startTime).inMinutes;
+  int get durationSeconds => endTime.difference(startTime).inSeconds;
+}
+
+class MainTask {
+  String id;
+  String name;
+  String description;
+  String theme;
+  String colorHex;
+  int dailyTimeSpent;
+  String? lastWorkedDate;
+  bool isActive; 
+  Map<String, List<bool>> weeklyCompletionStatus;
+  List<SubTask> subTasks;
+  List<Project> projects;
+
+  MainTask({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.theme,
+    this.colorHex = "FF00F8F8",
+    this.dailyTimeSpent = 0,
+    this.lastWorkedDate,
+    this.isActive = true,
+    Map<String, List<bool>>? weeklyCompletionStatus,
+    List<SubTask>? subTasks,
+    List<Project>? projects,
+  })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
+        subTasks = subTasks ?? [],
+        projects = projects ?? [];
+
+  MainTask copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? theme,
+    String? colorHex,
+    int? dailyTimeSpent,
+    String? lastWorkedDate,
+    bool? isActive,
+    Map<String, List<bool>>? weeklyCompletionStatus,
+    List<SubTask>? subTasks,
+    List<Project>? projects,
+  }) {
+    return MainTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      theme: theme ?? this.theme,
+      colorHex: colorHex ?? this.colorHex,
+      dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
+      lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
+      isActive: isActive ?? this.isActive,
+      weeklyCompletionStatus:
+          weeklyCompletionStatus ?? this.weeklyCompletionStatus,
+      subTasks: subTasks ?? this.subTasks,
+      projects: projects ?? this.projects,
+    );
+  }
+
+  factory MainTask.fromTemplate(MainTaskTemplate template) {
+    return MainTask(
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      theme: template.theme,
+      colorHex: template.colorHex,
+    );
+  }
+
+  factory MainTask.fromJson(Map<String, dynamic> json) {
+    var weeklyStatusFromJson = (json['weeklyCompletionStatus'] as Map?)?.map(
+        (key, value) => MapEntry(key as String,
+            (value as List<dynamic>).map((item) => item as bool).toList()));
+
+    return MainTask(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String,
+      theme: json['theme'] as String,
+      colorHex: json['colorHex'] as String? ?? "FF00F8F8",
+      dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
+      lastWorkedDate: json['lastWorkedDate'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
+      weeklyCompletionStatus:
+          weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
+      subTasks: (json['subTasks'] as List<dynamic>?)
+              ?.map(
+                  (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
+              .toList() ??
+          [],
+      projects: (json['projects'] as List<dynamic>?)
+              ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'theme': theme,
+      'colorHex': colorHex,
+      'dailyTimeSpent': dailyTimeSpent,
+      'lastWorkedDate': lastWorkedDate,
+      'isActive': isActive,
+      'weeklyCompletionStatus': weeklyCompletionStatus,
+      'subTasks': subTasks.map((st) => st.toJson()).toList(),
+      'projects': projects.map((p) => p.toJson()).toList(),
+    };
+  }
+
+  Color get taskColor {
+    try {
+      return Color(int.parse("0x$colorHex"));
+    } catch (e) {
+      return AppTheme.fhAccentTealFixed;
+    }
+  }
+}
+
+class SubTask {
+  String id;
+  String name;
+  String description;
+  bool completed;
+  int currentTimeSpent;
+  String? completedDate;
+  bool isCountable;
+  int targetCount;
+  int currentCount;
+  List<SubSubTask> subSubTasks;
+  List<TaskSession> sessions;
+  
+  String why; 
+  String what;
+  String resources; 
+
+  bool isRecurring;
+  DateTime? lastCompletedDate; 
+  DateTime createdAt;
+  DateTime updatedAt;
+  bool isActive; 
+
+  SubTask({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.completed = false,
+    this.currentTimeSpent = 0,
+    this.completedDate,
+    this.isCountable = false,
+    this.targetCount = 0,
+    this.currentCount = 0,
+    List<SubSubTask>? subSubTasks,
+    List<TaskSession>? sessions,
+    this.why = '',
+    this.what = '',
+    this.resources = '',
+    this.isRecurring = false,
+    this.lastCompletedDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.isActive = true,
+  })  : subSubTasks = subSubTasks ?? [],
+        sessions = sessions ?? [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  SubTask copyWith({
+    String? id,
+    String? name,
+    String? description,
+    bool? completed,
+    int? currentTimeSpent,
+    String? completedDate,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    List<SubSubTask>? subSubTasks,
+    List<TaskSession>? sessions,
+    String? why,
+    String? what,
+    String? resources,
+    bool? isRecurring,
+    DateTime? lastCompletedDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return SubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      completed: completed ?? this.completed,
+      currentTimeSpent: currentTimeSpent ?? this.currentTimeSpent,
+      completedDate: completedDate ?? this.completedDate,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      subSubTasks: subSubTasks ?? this.subSubTasks,
+      sessions: sessions ?? this.sessions,
+      why: why ?? this.why,
+      what: what ?? this.what,
+      resources: resources ?? this.resources,
+      isRecurring: isRecurring ?? this.isRecurring,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
+  factory SubTask.fromJson(Map<String, dynamic> json) {
+    return SubTask(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String? ?? '',
+      completed: json['completed'] as bool? ?? false,
+      currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
+      completedDate: json['completedDate'] as String?,
+      isCountable: json['isCountable'] as bool? ?? false,
+      targetCount: json['targetCount'] as int? ?? 0,
+      currentCount: json['currentCount'] as int? ?? 0,
+      why: json['why'] as String? ?? '',
+      what: json['what'] as String? ?? '',
+      resources: json['resources'] as String? ?? '', 
+      isRecurring: json['isRecurring'] as bool? ?? false,
+      lastCompletedDate: json['lastCompletedDate'] != null 
+          ? DateTime.parse(json['lastCompletedDate'] as String) 
+          : null,
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+          ? DateTime.parse(json['updatedAt'] as String) 
+          : DateTime.now(),
+      isActive: json['isActive'] as bool? ?? true,
+      subSubTasks: (json['subSubTasks'] as List<dynamic>?)
+              ?.map((sssJson) =>
+                  SubSubTask.fromJson(sssJson as Map<String, dynamic>))
+              .toList() ??
+          [],
+      sessions: (json['sessions'] as List<dynamic>?)
+              ?.map((sJson) =>
+                  TaskSession.fromJson(sJson as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'completed': completed,
+      'currentTimeSpent': currentTimeSpent,
+      'completedDate': completedDate,
+      'isCountable': isCountable,
+      'targetCount': targetCount,
+      'currentCount': currentCount,
+      'why': why,
+      'what': what,
+      'resources': resources, 
+      'isRecurring': isRecurring,
+      'lastCompletedDate': lastCompletedDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'isActive': isActive,
+      'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
+      'sessions': sessions.map((s) => s.toJson()).toList(),
+    };
+  }
+
+  bool get hasCheckableSubsteps => subSubTasks.any((sst) => sst.type != 'info');
+
+  double calculateProgress() {
+    final checkables = subSubTasks.where((sst) => sst.type != 'info').toList();
+    if (checkables.isEmpty) return completed ? 1.0 : 0.0;
+    double total = 0;
+    for (var sst in checkables) {
+      total += sst.calculateProgress();
+    }
+    return total / checkables.length;
+  }
+}
+
+class SubSubTask {
+  String id;
+  String name;
+  bool completed;
+  bool isCountable;
+  int targetCount;
+  int currentCount;
+  String? completionTimestamp;
+  String type; 
+  List<SubSubTask> substeps; 
+  
+  String why;
+  String what;
+
+  SubSubTask({
+    required this.id,
+    required this.name,
+    this.completed = false,
+    this.isCountable = false,
+    this.targetCount = 0,
+    this.currentCount = 0,
+    this.completionTimestamp,
+    this.type = 'check',
+    List<SubSubTask>? substeps,
+    this.why = '',
+    this.what = '',
+  }) : substeps = substeps ?? [];
+
+  SubSubTask copyWith({
+    String? id,
+    String? name,
+    bool? completed,
+    bool? isCountable,
+    int? targetCount,
+    int? currentCount,
+    String? completionTimestamp,
+    String? type,
+    List<SubSubTask>? substeps,
+    String? why,
+    String? what,
+  }) {
+    return SubSubTask(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      completed: completed ?? this.completed,
+      isCountable: isCountable ?? this.isCountable,
+      targetCount: targetCount ?? this.targetCount,
+      currentCount: currentCount ?? this.currentCount,
+      completionTimestamp: completionTimestamp ?? this.completionTimestamp,
+      type: type ?? this.type,
+      substeps: substeps ?? this.substeps,
+      why: why ?? this.why,
+      what: what ?? this.what,
+    );
+  }
+
+  factory SubSubTask.fromJson(Map<String, dynamic> json) {
+    return SubSubTask(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      completed: json['completed'] as bool? ?? false,
+      isCountable: json['isCountable'] as bool? ?? false,
+      targetCount: json['targetCount'] as int? ?? 0,
+      currentCount: json['currentCount'] as int? ?? 0,
+      completionTimestamp: json['completionTimestamp'] as String?,
+      type: json['type'] as String? ?? 'check',
+      why: json['why'] as String? ?? '',
+      what: json['what'] as String? ?? '',
+      substeps: (json['substeps'] as List<dynamic>?)
+              ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'completed': completed,
+      'isCountable': isCountable,
+      'targetCount': targetCount,
+      'currentCount': currentCount,
+      'completionTimestamp': completionTimestamp,
+      'type': type,
+      'why': why,
+      'what': what,
+      'substeps': substeps.map((e) => e.toJson()).toList(),
+    };
+  }
+  
+  bool get hasCheckableSubsteps => substeps.any((s) => s.type != 'info');
+
+  double calculateProgress() {
+    final checkables = substeps.where((sst) => sst.type != 'info').toList();
+    if (checkables.isEmpty) return completed ? 1.0 : 0.0;
+    double total = 0;
+    for (var sst in checkables) {
+      total += sst.calculateProgress();
+    }
+    double prog = total / checkables.length;
+    completed = prog >= 1.0; 
+    return prog;
+  }
+}
+
+class MainTaskTemplate {
+  final String id;
+  final String name;
+  final String description;
+  final String theme;
+  final String colorHex;
+
+  MainTaskTemplate({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.theme,
+    this.colorHex = "FF00F8F8",
+  });
+}
+--- END OF FILE lib/src/models/task_models.dart ---
+
+--- START OF FILE lib/src/providers/actions/timer_actions.dart ---
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:collection/collection.dart';
+
+class TimerActions {
+  final AppProvider _provider;
+
+  TimerActions(this._provider);
+
+  void startTimer(String id, String type, String mainTaskId) {
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return; 
+
+    if (type == 'subtask') {
+      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
+      if (subTask == null) return;
+      if (subTask.completed) return; 
+    }
+
+    final runningTimerIds = _provider.activeTimers.entries
+        .where((e) => e.value.isRunning && e.key != id)
+        .map((e) => e.key)
+        .toList();
+
+    for (var timerId in runningTimerIds) {
+      pauseTimer(timerId); 
+    }
+
+    // Auto-add engaged task to Daily Plan to sync with the dashboard
+    if (type == 'subtask') {
+      final dateStr = helper.getTodayDateString();
+      final currentPlan = List<String>.from(_provider.taskActions.getDayPlan(dateStr));
+      final compoundId = "$mainTaskId|$id";
+      if (!currentPlan.contains(compoundId)) {
+        currentPlan.add(compoundId);
+        _provider.taskActions.updateDayPlan(dateStr, currentPlan);
       }
     }
 
-    if (maxVal == 0) overallDominant = JweTheme.textMuted;
+    Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
 
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(
-              color: JweTheme.border.withOpacity(0.5), strokeWidth: 1),
+    final existingTimer = updatedActiveTimers[id];
+    updatedActiveTimers[id] = ActiveTimerInfo(
+      startTime: DateTime.now(),
+      accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
+      isRunning: true,
+      type: type,
+      mainTaskId: mainTaskId,
+    );
+    
+    _provider.setProviderState(activeTimers: updatedActiveTimers);
+
+    if (_provider.settings.autoSaveEnabled) {
+      _provider.manuallySaveToCloud();
+    }
+  }
+
+  void pauseTimer(String id) {
+    final timer = _provider.activeTimers[id];
+    if (timer != null && timer.isRunning) {
+      _commitSessionAndPause(id, timer);
+
+      final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      
+      newActiveTimers[id] = ActiveTimerInfo(
+        startTime: DateTime.now(), 
+        accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
+        isRunning: false,
+        type: timer.type,
+        mainTaskId: timer.mainTaskId,
+      );
+      
+      _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
+    }
+  }
+
+  void logTimerAndReset(String id) {
+    final timer = _provider.activeTimers[id];
+    if (timer != null) {
+      if (timer.isRunning) {
+        _commitSessionAndPause(id, timer);
+      }
+
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      newActiveTimers.remove(id);
+      
+      _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
+    }
+  }
+
+  void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
+    final now = DateTime.now();
+    DateTime start = timer.startTime;
+
+    if (now.difference(start).inHours >= 12) {
+      start = now.subtract(const Duration(hours: 1)); 
+    }
+
+    if (now.isAfter(start)) {
+      if (timer.type == 'subtask') {
+        _provider.addSessionToSubtask(timer.mainTaskId, id, start, now);
+      }
+    }
+  }
+}
+--- END OF FILE lib/src/providers/actions/timer_actions.dart ---
+
+--- START OF FILE lib/src/widgets/views/schedule_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
+import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
+import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
+import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:arcane/src/models/timeline_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
+
+class ScheduleView extends StatefulWidget {
+  const ScheduleView({super.key});
+
+  @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
+  DateTime _selectedDate = DateTime.now();
+  List<TimelineEntry> _predictedEntries = [];
+  bool _isPredicting = false;
+
+  // --- Date Control ---
+  void _shiftDate(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+      _predictedEntries.clear(); 
+    });
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            onPrimary: Colors.black,
+            surface: AppTheme.fhBgDark,
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
         ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 1, // Forces interval to whole numbers (1 day)
-              getTitlesWidget: (value, meta) {
-                if (value % 1 != 0) return const SizedBox.shrink(); // Safety check for fractional values
-                final daysAgo = 6 - value.toInt();
-                final date = DateTime.now().subtract(Duration(days: daysAgo));
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    DateFormat('E').format(date).toUpperCase(),
-                    style: const TextStyle(
-                        color: JweTheme.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold),
-                  ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _predictedEntries.clear();
+      });
+    }
+  }
+
+  // --- Prediction ---
+  Future<void> _handlePredictSchedule(BuildContext context, AppProvider provider) async {
+    if (!_isSameDay(_selectedDate, DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
+      return;
+    }
+    setState(() => _isPredicting = true);
+    try {
+      final newEntries = await provider.scheduleActions.predictSchedule();
+      setState(() {
+        _predictedEntries = newEntries;
+      });
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isPredicting = false);
+    }
+  }
+
+  // --- Entries Merging ---
+  List<TimelineEntry> _buildEntries(AppProvider provider) {
+    final List<TimelineEntry> entries = [];
+    final dayStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    // 1. Process standard recorded sessions
+    for (var task in provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
+            DateTime displayStart = session.startTime.isBefore(dayStart) ? dayStart : session.startTime;
+            DateTime displayEnd = session.endTime.isAfter(dayEnd) ? dayEnd : session.endTime;
+
+            entries.add(TimelineEntry(
+              id: session.id,
+              startTime: displayStart,
+              endTime: displayEnd,
+              title: sub.name,
+              subtitle: task.name,
+              color: task.taskColor,
+              isEditable: true,
+              originalObject: session,
+            ));
+          }
+        }
+      }
+    }
+
+    // 2. Inject currently running (LIVE) sessions
+    provider.activeTimers.forEach((subTaskId, timerState) {
+      if (timerState.isRunning && timerState.type == 'subtask') {
+        final task = provider.mainTasks.firstWhereOrNull((t) => t.id == timerState.mainTaskId);
+        final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+        if (task != null && sub != null) {
+          final now = DateTime.now();
+          if (timerState.startTime.isBefore(dayEnd) && now.isAfter(dayStart)) {
+            DateTime displayStart = timerState.startTime.isBefore(dayStart) ? dayStart : timerState.startTime;
+            DateTime displayEnd = now.isAfter(dayEnd) ? dayEnd : now;
+
+            if (displayEnd.isAfter(displayStart)) {
+              entries.add(TimelineEntry(
+                id: 'live_$subTaskId',
+                startTime: displayStart,
+                endTime: displayEnd,
+                title: sub.name,
+                subtitle: "${task.name} (LIVE)",
+                color: task.taskColor,
+                isEditable: false,
+              ));
+            }
+          }
+        }
+      }
+    });
+
+    // 3. Process predicted entries (ensure no overlap)
+    for (var pred in _predictedEntries) {
+      bool overlaps = false;
+      for (var real in entries) {
+        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) entries.add(pred);
+    }
+
+    return entries;
+  }
+
+  // --- Handlers ---
+  void _openProtocolControl(BuildContext context, AppProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: ProtocolControlPanel(
+          protocols: provider.mainTasks,
+          selectedProtocolId: provider.selectedTaskId,
+          onSelect: (id) => provider.setSelectedTaskId(id),
+          onAdd: () => _showAddProtocolDialog(context, provider),
+          onEdit: (updatedTask) {
+            provider.editMainTask(
+              updatedTask.id,
+              name: updatedTask.name,
+              description: updatedTask.description,
+              theme: updatedTask.theme,
+              colorHex: updatedTask.colorHex,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAddProtocolDialog(BuildContext context, AppProvider provider) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: const Text("NEW PROTOCOL"),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: "NAME"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty) {
+                provider.addMainTask(
+                  name: nameCtrl.text,
+                  description: "New Protocol",
+                  theme: "general",
+                  colorHex: "FF00F8F8" 
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("CREATE"),
+          )
+        ],
+      )
+    );
+  }
+
+  void _handleAddSession(BuildContext context, AppProvider provider) async {
+    final result = await showDialog<Map<String, DateTime>>(
+      context: context,
+      builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
+    );
+
+    if (result != null && mounted) {
+      final start = result['start']!;
+      final end = result['end']!;
+      _showTaskSelectorAndAdd(context, provider, start, end);
+    }
+  }
+
+  void _showTaskSelectorAndAdd(BuildContext context, AppProvider provider, DateTime start, DateTime end) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppTheme.fhBgMedium,
+          title: const Text("SELECT MISSION"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: provider.mainTasks.length,
+              itemBuilder: (context, index) {
+                final task = provider.mainTasks[index];
+                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
+
+                return ExpansionTile(
+                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
+                  children: activeSubtasks.map((sub) {
+                    return ListTile(
+                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                      onTap: () {
+                        provider.addSessionToSubtask(task.id, sub.id, start, end);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
                 );
               },
             ),
           ),
-        ),
-        borderData: FlBorderData(show: false),
-        minY: 0,
-        maxY: maxY,
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (group) => JweTheme.panel,
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                return LineTooltipItem(
-                  '${spot.y.toInt()}${isVirtue ? " XP" : "m"}',
-                  TextStyle(color: overallDominant, fontWeight: FontWeight.bold),
-                );
-              }).toList();
-            }
-          )
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: overallDominant,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(
-              show: true,
-              color: overallDominant.withOpacity(0.15),
-            ),
+        );
+      }
+    );
+  }
+
+  void _handleEditEntry(BuildContext context, AppProvider provider, TimelineEntry entry) async {
+    if (entry.isPredicted) {
+      _handlePredictedEntryTap(context, provider, entry);
+      return;
+    }
+
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+    
+    String? mainTaskId;
+    String? subTaskId;
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+          break;
+        }
+      }
+      if (mainTaskId != null) break;
+    }
+
+    if (mainTaskId == null || subTaskId == null) return;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => SessionEditDialog(
+        initialStart: session.startTime,
+        initialEnd: session.endTime,
+      ),
+    );
+
+    if (result != null) {
+      if (result['action'] == 'delete') {
+        provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
+      } else if (result['action'] == 'save') {
+        provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, result['start'], result['end']);
+      }
+    }
+  }
+
+  void _handlePredictedEntryTap(BuildContext context, AppProvider provider, TimelineEntry entry) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(entry.title),
+        content: const Text("This is a predicted session. Would you like to confirm it (log it) or remove it?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _predictedEntries.removeWhere((e) => e.id == entry.id);
+              });
+              Navigator.pop(ctx);
+            }, 
+            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showTaskSelectorAndAdd(context, provider, entry.startTime, entry.endTime);
+            }, 
+            child: const Text("LOG REAL SESSION")
+          )
+        ],
+      )
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final entries = _buildEntries(provider);
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+
+    // Resolve Next Task from Day Plan
+    String? nextQueueId;
+    SubTask? nextSubTask;
+    MainTask? nextMainTask;
+    SubSubTask? nextCheckpoint;
+
+    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
+    
+    for (String idPair in plan) {
+      final parts = idPair.split('|');
+      if (parts.length >= 2) {
+        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+        
+        if (sTask != null && !sTask.completed) {
+          if (parts.length == 3) {
+            // It's a checkpoint
+            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              nextQueueId = idPair;
+              nextMainTask = mTask;
+              nextSubTask = sTask;
+              nextCheckpoint = cp;
+              break;
+            }
+          } else {
+            // It's a subtask
+            nextQueueId = idPair;
+            nextMainTask = mTask;
+            nextSubTask = sTask;
+            break;
+          }
+        }
+      }
+    }
+
+    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
+    final totalTodaySeconds = nextSubTask != null 
+        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
+        : 0.0;
+
+    return Column(
+      children: [
+        // HERO SECTION
+        ScheduleHeroWidget(
+          mainTask: nextMainTask,
+          subTask: nextSubTask,
+          checkpoint: nextCheckpoint,
+          isRunning: isRunning,
+          totalTodaySeconds: totalTodaySeconds,
+          onOpenPlan: () {
+             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
+          },
+          onPlayPause: () {
+            if (nextSubTask == null || nextMainTask == null) return;
+            if (isRunning) {
+              provider.pauseTimer(nextSubTask!.id);
+              provider.logTimerAndReset(nextSubTask!.id);
+            } else {
+              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+            }
+          },
+          onPostpone: () {
+            if (nextQueueId != null) {
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onFinishCheckpoint: () {
+            if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
+              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
+          onTitleTap: () {
+            if (nextMainTask != null && nextSubTask != null) {
+              if (nextCheckpoint != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                  mainTaskId: nextMainTask!.id,
+                  parentSubTaskId: nextSubTask!.id,
+                  checkpointId: nextCheckpoint!.id,
+                )));
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
+                  parentTask: nextMainTask!,
+                  subTask: nextSubTask!,
+                )));
+              }
+            }
+          },
+        ),
+        
+        // --- NEW QUEUE DASHBOARD ---
+        if (isToday)
+          const DayPlanDashboardWidget(),
+
+        // CONTROLS
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.fhBgDark,
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(-1),
+                  ),
+                  InkWell(
+                    onTap: () => _pickDate(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhAccentTeal,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
+                    onPressed: () => _shiftDate(1),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  if (isToday)
+                    IconButton(
+                      icon: _isPredicting 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
+                      tooltip: "PREDICT SCHEDULE",
+                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                    ),
+                  IconButton(
+                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
+                    tooltip: "PROTOCOL CONTROL",
+                    onPressed: () => _openProtocolControl(context, provider),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: Stack(
+            children: [
+              ScheduleTimeline(
+                entries: entries,
+                onAddSession: () => _handleAddSession(context, provider),
+                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
+                initialScrollOffset: 0,
+              ),
+              Positioned(
+                right: 20,
+                bottom: 20,
+                child: FloatingActionButton(
+                  backgroundColor: AppTheme.fhAccentRed,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                  onPressed: () => _handleAddSession(context, provider),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/schedule_view.dart ---
+
+--- START OF FILE lib/src/widgets/analytics/jwe_reflection_progress.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/widgets/dialogs/last_insight_dialog.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class JweReflectionProgress extends StatelessWidget {
+  final List<ReflectionLog> logs;
+  final String dateStr;
+
+  const JweReflectionProgress({
+    super.key,
+    required this.logs,
+    required this.dateStr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    bool wake = false;
+    bool morn = false;
+    bool aft = false;
+    bool eve = false;
+    bool night = false;
+
+    ReflectionLog? lastLog;
+
+    for (var log in logs) {
+      if (lastLog == null || log.timestamp.isAfter(lastLog.timestamp)) {
+        lastLog = log;
+      }
+      
+      final h = log.timestamp.hour;
+      if (h >= 0 && h < 8) wake = true;
+      else if (h >= 8 && h < 12) morn = true;
+      else if (h >= 12 && h < 16) aft = true;
+      else if (h >= 16 && h < 19) eve = true;
+      else if (h >= 19 && h <= 23) night = true;
+    }
+
+    if (night) { eve = true; aft = true; morn = true; wake = true; }
+    else if (eve) { aft = true; morn = true; wake = true; }
+    else if (aft) { morn = true; wake = true; }
+    else if (morn) { wake = true; }
+
+    final total = [wake, morn, aft, eve, night].where((e) => e).length;
+
+    return JwePanel(
+      title: "REFLECTION PROTOCOL",
+      accentColor: JweTheme.accentAmber,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "COMPLETION",
+                style: TextStyle(
+                  color: JweTheme.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Text(
+                "$total / 5 LOGS",
+                style: GoogleFonts.robotoMono(
+                  color: JweTheme.accentAmber,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          Row(
+            children: [
+              Expanded(child: _buildSegment("WAKE", wake)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("MORN", morn)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("AFT", aft)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("EVE", eve)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSegment("NIGHT", night)),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+          
+          if (lastLog != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "LAST LOGGED: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
+                    style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+                  ),
+                  if (lastLog.aiFeedback.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => LastInsightDialog(log: lastLog!),
+                        );
+                      },
+                      child: const Text(
+                        "VIEW LAST INSIGHT",
+                        style: TextStyle(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                      )
+                    )
+                ],
+              ),
+            ),
+          
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: Icon(MdiIcons.notebookEditOutline, size: 16),
+              label: Text("LOG INSIGHT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: JweTheme.accentAmber,
+                side: const BorderSide(color: JweTheme.accentAmber),
+                shape: const BeveledRectangleBorder(),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: dateStr))
+                );
+              },
+            ),
+          )
         ],
       ),
     );
   }
-}
 
-class WeeklyVirtueLineChart extends StatelessWidget {
-  final Map<int, double> weeklyXp;
-  final Map<int, Color> dominantVirtueColors;
-
-  const WeeklyVirtueLineChart({
-    super.key,
-    required this.weeklyXp,
-    this.dominantVirtueColors = const {},
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return WeeklyActivityLineChart(
-        weeklyData: weeklyXp, dominantColors: dominantVirtueColors, isVirtue: true);
-  }
-}
---- END OF FILE lib/src/widgets/charts/weekly_line_charts.dart ---
-
---- START OF FILE lib/src/widgets/finance/finance_charts.dart ---
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-
-class FinanceCharts extends StatelessWidget {
-  final List<FinanceTransaction> transactions;
-  final List<FinanceCategory> categories;
-  final DateTime selectedDate;
-  final ValueChanged<DateTime> onDateChanged;
-
-  const FinanceCharts({
-    super.key,
-    required this.transactions,
-    required this.categories,
-    required this.selectedDate,
-    required this.onDateChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSegment(String label, bool isComplete) {
     return Column(
       children: [
-        // Daily Expense Pie
-        JwePanel(
-          title: "DAILY EXPENSES",
-          accentColor: JweTheme.textMuted,
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2023),
-                      lastDate: DateTime.now(),
-                      builder: (context, child) => Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: const ColorScheme.dark(
-                            primary: JweTheme.accentCyan,
-                            onPrimary: Colors.black,
-                            surface: JweTheme.bgBase,
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            color: isComplete ? JweTheme.accentAmber : JweTheme.border,
+            border: Border.all(color: JweTheme.border, width: 1),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: isComplete ? JweTheme.textWhite : JweTheme.textMuted,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/analytics/jwe_reflection_progress.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/last_insight_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class LastInsightDialog extends StatelessWidget {
+  final ReflectionLog log;
+
+  const LastInsightDialog({super.key, required this.log});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+       backgroundColor: JweTheme.panel,
+       shape: Border.all(color: JweTheme.accentCyan, width: 2),
+       title: Row(
+         children: [
+           Icon(MdiIcons.brain, color: JweTheme.accentCyan, size: 18),
+           const SizedBox(width: 8),
+           Text("TACTICAL INSIGHT", style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16)),
+         ]
+       ),
+       content: SingleChildScrollView(
+         child: Text(log.aiFeedback, style: const TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4)),
+       ),
+       actions: [
+         TextButton(
+           onPressed: ()=>Navigator.pop(context), 
+           child: const Text("ACKNOWLEDGE", style: TextStyle(color: JweTheme.accentCyan))
+         ),
+       ]
+     );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/last_insight_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/cards/submission_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/hextech_components.dart';
+import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
+class SubmissionCard extends StatelessWidget {
+  final MainTask parentTask;
+  final SubTask subTask;
+
+  const SubmissionCard({
+    super.key,
+    required this.parentTask,
+    required this.subTask,
+  });
+
+  void _openDetailScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SubmissionDetailScreen(
+          parentTask: parentTask,
+          subTask: subTask,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final timerState = provider.activeTimers[subTask.id];
+
+    SubTask currentSubTask = subTask;
+    try {
+      final liveParent = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+      currentSubTask = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
+    } catch (_) {}
+
+    final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
+    final isRunning = timerState?.isRunning ?? false;
+    final bool isCompleted = currentSubTask.completed;
+
+    final double displayBaseTime = isRunning 
+        ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
+        : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    double total7Days = 0;
+
+    for (var session in currentSubTask.sessions) {
+      if (session.startTime.isAfter(sevenDaysAgo)) {
+        total7Days += session.durationSeconds;
+      }
+    }
+    
+    double avgSeconds = total7Days / 7.0;
+    if (avgSeconds < 300) avgSeconds = 300; 
+    
+    final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
+
+    final Color activeAccent = parentTask.taskColor;
+    final bool isActive = isRunning; 
+    
+    final Color titleColor = isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary;
+    final Color statusColor = isCompleted ? AppTheme.fhTextDisabled : (isActive ? activeAccent : AppTheme.fhTextSecondary);
+
+    final hierarchicalProgress = currentSubTask.calculateProgress();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Dismissible(
+        key: ValueKey("subtask_${currentSubTask.id}"),
+        background: _buildSwipeAction(
+          alignment: Alignment.centerLeft,
+          color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
+          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
+          label: isCompleted ? "RESTORE" : "COMPLETE",
+        ),
+        secondaryBackground: _buildSwipeAction(
+          alignment: Alignment.centerRight,
+          color: AppTheme.fhAccentRed,
+          icon: Icons.delete_forever,
+          label: "DELETE",
+        ),
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.endToStart) {
+            return await _showDeleteConfirm(context);
+          } else {
+            if (isCompleted) {
+              provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
+              return false; 
+            } else {
+              provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
+              return false; 
+            }
+          }
+        },
+        onDismissed: (direction) {
+          if (direction == DismissDirection.endToStart) {
+            provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
+          }
+        },
+        child: GestureDetector(
+          onTap: () => _openDetailScreen(context),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isActive 
+                  ? [activeAccent.withOpacity(0.2), AppTheme.fhBgDark.withOpacity(0.95)]
+                  : [AppTheme.fhBgDark.withOpacity(0.9), AppTheme.fhBgDeepDark.withOpacity(0.95)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              border: Border.all(
+                color: isActive ? activeAccent : AppTheme.fhBorderColor.withOpacity(0.3),
+                width: isActive ? 1.5 : 1
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                bottomRight: Radius.circular(16)
+              ),
+              boxShadow: isActive ? [BoxShadow(color: activeAccent.withOpacity(0.15), blurRadius: 12)] : null,
+            ),
+            child: Stack(
+              children: [
+                if (isActive || usageProgress > 0)
+                  Positioned.fill(
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: usageProgress,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [activeAccent.withOpacity(0.1), Colors.transparent],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight
+                          )
+                        ),
+                      ),
+                    ).animate().fadeIn(),
+                  ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 50, height: 50,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                if (!isCompleted)
+                                  HexProgressRing(
+                                    progress: usageProgress, 
+                                    color: activeAccent,
+                                    size: 48,
+                                  ).animate().fade(duration: 500.ms),
+                                Icon(
+                                  isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
+                                  color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
+                                  size: 22,
+                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
+                                ).animate(target: isActive ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.1,1.1), duration: 1.seconds, curve: Curves.easeInOut).then().scale(begin: const Offset(1.1,1.1), end: const Offset(1,1)),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(width: 16),
+
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    currentSubTask.name.toUpperCase(),
+                                    style: GoogleFonts.chakraPetch(
+                                      color: titleColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.8,
+                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      color: statusColor.withOpacity(0.1),
+                                      child: Text(
+                                        isCompleted ? "ARCHIVED" : (isActive ? "ENGAGED" : "PENDING"),
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                    if (currentSubTask.isRecurring)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 6.0),
+                                        child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
+                                      ),
+                                  ],
+                                ),
+                                if (linkedInfo != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: LinkedTaskIndicator(
+                                      label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
+                                      onUnlink: () => provider.projectActions.unlinkStep(
+                                          linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
+                                        ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              ValorantTimerText(
+                                isRunning: isRunning,
+                                startTime: timerState?.startTime,
+                                accumulatedTime: displayBaseTime,
+                                style: TextStyle(
+                                  fontFamily: "RobotoMono",
+                                  color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 8)] : null
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (!isCompleted)
+                                GestureDetector(
+                                  onTap: () {
+                                    if (isRunning) {
+                                      provider.timerActions.pauseTimer(subTask.id); 
+                                      provider.timerActions.logTimerAndReset(subTask.id); 
+                                    } else {
+                                      provider.timerActions.startTimer(subTask.id, 'subtask', parentTask.id);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor),
+                                      color: isActive ? activeAccent.withOpacity(0.1) : Colors.transparent,
+                                    ),
+                                    child: Text(
+                                      isActive ? "HALT" : "EXECUTE",
+                                      style: TextStyle(
+                                        color: isActive ? activeAccent : AppTheme.fhTextSecondary,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                            ],
+                          )
+                        ],
+                      ),
+                      
+                      // Hierarchical Progress Bar if it has checkable sub-tasks
+                      if (currentSubTask.hasCheckableSubsteps && !isCompleted)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: JweProgressBar(
+                            progress: hierarchicalProgress,
+                            color: activeAccent,
+                            label: "SUB-ROUTINES [ ${(hierarchicalProgress * 100).toInt()}% ]"
                           ),
                         ),
-                        child: child!,
-                      ),
-                    );
-                    if (picked != null) onDateChanged(picked);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(border: Border.all(color: JweTheme.border)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(DateFormat('MMM dd').format(selectedDate).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
-                        const Icon(Icons.arrow_drop_down, color: JweTheme.textMuted, size: 16),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(height: 180, child: _buildPieChart()),
-            ],
+                
+                if (!isCompleted)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutExpo,
+                        height: 2,
+                        width: MediaQuery.of(context).size.width * 0.9 * usageProgress, 
+                        decoration: BoxDecoration(
+                          color: activeAccent,
+                          boxShadow: [BoxShadow(color: activeAccent, blurRadius: 6)]
+                        ),
+                      ),
+                    ),
+                  )
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        // 7 Day Line Chart
-        JwePanel(
-          title: "7-DAY TREND",
-          accentColor: JweTheme.textMuted,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(width: 8, height: 8, color: JweTheme.accentCyan), const SizedBox(width: 4), const Text("IN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10)),
-                  const SizedBox(width: 12),
-                  Container(width: 8, height: 8, color: JweTheme.accentRed), const SizedBox(width: 4), const Text("OUT", style: TextStyle(color: JweTheme.textMuted, fontSize: 10)),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(height: 180, child: _buildLineChart()),
-            ],
-          ),
-        )
-      ],
+      ),
     );
   }
 
-  Widget _buildPieChart() {
-    Map<String, double> categoryTotals = {};
-    for (var tx in transactions) {
-      if (!tx.isIncome && 
-          tx.timestamp.year == selectedDate.year && 
-          tx.timestamp.month == selectedDate.month && 
-          tx.timestamp.day == selectedDate.day) {
-        categoryTotals[tx.categoryId] = (categoryTotals[tx.categoryId] ?? 0) + tx.amount;
-      }
-    }
-
-    if (categoryTotals.isEmpty) {
-      return const Center(child: Text("NO EXPENSES TODAY", style: TextStyle(color: JweTheme.textMuted)));
-    }
-
-    return PieChart(
-      PieChartData(
-        sectionsSpace: 2,
-        centerSpaceRadius: 40,
-        sections: categoryTotals.entries.map((e) {
-          final cat = categories.firstWhere((c) => c.id == e.key, orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: '', isIncomeCategory: false));
-          return PieChartSectionData(
-            color: Color(int.parse("0xFF${cat.colorHex}")),
-            value: e.value,
-            title: '₹${e.value.toInt()}',
-            radius: 20,
-            titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-          );
-        }).toList(),
-      )
+  Widget _buildSwipeAction({required Alignment alignment, required Color color, required IconData icon, required String label}) {
+    return Container(
+      color: color,
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: alignment == Alignment.centerLeft 
+          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
+          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
+      ),
     );
   }
 
-  Widget _buildLineChart() {
-    final now = DateTime.now();
-    final List<FlSpot> incSpots = [];
-    final List<FlSpot> expSpots = [];
-
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      double inc = 0, exp = 0;
-      for (var tx in transactions) {
-        if (tx.timestamp.year == date.year && tx.timestamp.month == date.month && tx.timestamp.day == date.day) {
-          if (tx.isIncome) {
-            inc += tx.amount;
-          } else {
-            exp += tx.amount;
-          }
-        }
-      }
-      incSpots.add(FlSpot((6 - i).toDouble(), inc));
-      expSpots.add(FlSpot((6 - i).toDouble(), exp));
-    }
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => const FlLine(color: JweTheme.border, strokeWidth: 1),
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 1, // Enforce 1 day intervals
-              getTitlesWidget: (value, meta) {
-                if (value % 1 != 0) return const SizedBox.shrink(); // Safety check
-                final date = now.subtract(Duration(days: 6 - value.toInt()));
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                );
-              }
-            )
-          )
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: incSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+  Future<bool> _showDeleteConfirm(BuildContext context) async {
+    return await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: const Text("DELETE MISSION?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("DELETE")
           ),
-          LineChartBarData(
-            spots: expSpots, color: JweTheme.accentRed, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentRed.withOpacity(0.1))
-          )
-        ]
+        ],
       )
-    );
+    ) ?? false;
   }
 }
---- END OF FILE lib/src/widgets/finance/finance_charts.dart ---
+--- END OF FILE lib/src/widgets/cards/submission_card.dart ---
 
---- START OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+--- START OF FILE lib/src/widgets/items/checkpoint_item.dart ---
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
+import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_flutter/material_design_icons_flutter.dart';
 
-class HealthCombinedChart extends StatelessWidget {
-  final AppProvider provider;
+class CheckpointItem extends StatefulWidget {
+  final String title;
+  final bool isCompleted;
+  final String? linkedLabel;
+  final String type; // 'check' or 'info'
+  final Color accentColor;
+  final VoidCallback? onUnlink;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onToggleType;
+  final VoidCallback? onTap; 
+  final VoidCallback? onPlay; 
+  final bool isRunning;
+  final bool hasCheckableSubsteps; 
+  final double progress; 
 
-  const HealthCombinedChart({super.key, required this.provider});
+  const CheckpointItem({
+    super.key,
+    required this.title,
+    required this.isCompleted,
+    this.linkedLabel,
+    this.type = 'check',
+    required this.accentColor,
+    this.onUnlink,
+    required this.onToggle,
+    required this.onDelete,
+    this.onDuplicate,
+    this.onToggleType,
+    this.onTap,
+    this.onPlay,
+    this.isRunning = false,
+    this.hasCheckableSubsteps = false,
+    this.progress = 0.0,
+  });
+
+  @override
+  State<CheckpointItem> createState() => _CheckpointItemState();
+}
+
+class _CheckpointItemState extends State<CheckpointItem> {
+  late bool _localCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _localCompleted = widget.isCompleted;
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckpointItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      _localCompleted = widget.isCompleted;
+    }
+  }
+
+  void _handleToggle() {
+    if (widget.type == 'info') return;
+    setState(() {
+      _localCompleted = !_localCompleted;
+    });
+    widget.onToggle();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final List<FlSpot> sleepSpots =[];
-    final List<FlSpot> workSpots = [];
+    final isInfo = widget.type == 'info';
+    final color = widget.accentColor;
 
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      
-      final log = provider.healthLogs[dateStr];
-      final sleepMins = log?.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) ?? 0;
-      final sleepHrs = sleepMins / 60.0;
-      sleepSpots.add(FlSpot((6 - i).toDouble(), sleepHrs));
+    final borderColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhBorderColor);
+    final bgColor = isInfo ? color.withValues(alpha: 0.1) : (_localCompleted ? color.withValues(alpha: 0.15) : AppTheme.fhBgDark.withValues(alpha: 0.6));
+    final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
+    final textColor = AppTheme.fhTextPrimary; 
 
-      final hist = provider.completedByDay[dateStr];
-      double workMins = 0;
-      if (hist != null && hist['taskTimes'] != null) {
-        (hist['taskTimes'] as Map<String, dynamic>).forEach((_, v) => workMins += (v as num));
-      }
-      workSpots.add(FlSpot((6 - i).toDouble(), workMins / 3600.0)); 
-    }
+    return GestureDetector(
+      onTap: widget.onTap, 
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border(left: BorderSide(color: borderColor, width: 4)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children:[
+                if (!isInfo)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: RhombusCheckbox(
+                      checked: _localCompleted,
+                      onChanged: (_) => _handleToggle(),
+                      size: CheckboxSize.small,
+                    ),
+                  )
+                else 
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
+                  ),
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children:[
-            _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
-            const SizedBox(width: 12),
-            _LegendItem("WORK (HRS)", JweTheme.accentAmber),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children:[
+                      Text(
+                        widget.title.toUpperCase(),
+                        style: GoogleFonts.chakraPetch(
+                          color: textColor,
+                          fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                          decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                          fontSize: 14,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (widget.linkedLabel != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: LinkedTaskIndicator(
+                            label: widget.linkedLabel!,
+                            onUnlink: widget.onUnlink,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                
+                if (widget.hasCheckableSubsteps)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Icon(MdiIcons.fileTree, size: 14, color: color),
+                  ),
+
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+                  color: AppTheme.fhBgDark,
+                  onSelected: (value) {
+                    if (value == 'delete') widget.onDelete();
+                    if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                    if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                    if (value == 'open' && widget.onTap != null) widget.onTap!();
+                  },
+                  itemBuilder: (context) =>[
+                      PopupMenuItem(
+                      value: 'open',
+                      child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                    ),
+                      PopupMenuItem(
+                      value: 'duplicate',
+                      child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                    ),
+                    PopupMenuItem(
+                      value: 'toggle_type',
+                      child: Row(children:[
+                        Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                        const SizedBox(width: 8), 
+                        Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                      ]),
+                    ),
+                      PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            
+            // JWE Progress Bar if it has checkable sub-steps
+            if (widget.hasCheckableSubsteps && !_localCompleted)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: JweProgressBar(
+                  progress: widget.progress,
+                  color: color,
+                  label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
+                ),
+              ),
           ],
         ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (val) => const FlLine(color: JweTheme.border, strokeWidth: 1),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/items/checkpoint_item.dart ---
+
+--- START OF FILE lib/src/widgets/screens/checkpoint_detail_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
+import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class CheckpointDetailScreen extends StatefulWidget {
+  final String mainTaskId;
+  final String parentSubTaskId;
+  final String checkpointId;
+
+  const CheckpointDetailScreen({
+    super.key,
+    required this.mainTaskId,
+    required this.parentSubTaskId,
+    required this.checkpointId,
+  });
+
+  @override
+  State<CheckpointDetailScreen> createState() => _CheckpointDetailScreenState();
+}
+
+class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
+  final TextEditingController _stepController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
+  String _newStepType = 'check';
+
+  SubSubTask? _getLiveCheckpoint(AppProvider provider) {
+    try {
+      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.mainTaskId);
+      final sub = parent.subTasks.firstWhere((s) => s.id == widget.parentSubTaskId);
+      
+      SubSubTask? findRecursive(List<SubSubTask> list, String id) {
+        for (var item in list) {
+          if (item.id == id) return item;
+          final found = findRecursive(item.substeps, id);
+          if (found != null) return found;
+        }
+        return null;
+      }
+      return findRecursive(sub.subSubTasks, widget.checkpointId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final cp = _getLiveCheckpoint(provider);
+      if (cp != null) {
+        _titleController.text = cp.name;
+      }
+    });
+  }
+
+  void _saveTitle(AppProvider provider, SubSubTask cp) {
+    if (_titleController.text.trim() != cp.name) {
+      provider.taskActions.updateSubSubtask(
+        widget.mainTaskId, widget.parentSubTaskId, cp.id,
+        {'name': _titleController.text.trim()}
+      );
+    }
+  }
+
+  void _addSubstep(AppProvider provider, SubSubTask parentCp) {
+    if (_stepController.text.trim().isEmpty) return;
+    
+    provider.taskActions.addSubSubtask(
+      widget.mainTaskId, 
+      widget.parentSubTaskId, 
+      {
+        'name': _stepController.text.trim(),
+        'type': _newStepType,
+        'isCountable': false,
+      },
+      parentCheckpointId: parentCp.id
+    );
+    _stepController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final liveCheckpoint = _getLiveCheckpoint(provider);
+
+    if (liveCheckpoint == null) {
+      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: Center(child: Text("Checkpoint not found", style: TextStyle(color: AppTheme.fhTextPrimary))));
+    }
+
+    Color agentColor = AppTheme.fhAccentTeal;
+    try {
+      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.mainTaskId);
+      agentColor = parent.taskColor;
+    } catch (_) {}
+
+    return Scaffold(
+      backgroundColor: AppTheme.fhBgDeepDark,
+      body: SafeArea(
+        child: Column(
+          children:[
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+                color: AppTheme.fhBgDark,
               ),
-              titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 1, // Enforce whole numbers
-                    getTitlesWidget: (value, meta) {
-                      if (value % 1 != 0) return const SizedBox.shrink(); // Safety check
-                      final date = now.subtract(Duration(days: 6 - value.toInt()));
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                      );
-                    }
+              child: Row(
+                children:[
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      "OBJECTIVE DETAIL",
+                      style: TextStyle(
+                        color: agentColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                        fontFamily: AppTheme.fontDisplay
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
+                    onPressed: () {
+                      provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id);
+                      Navigator.pop(context);
+                    },
                   )
-                )
+                ],
               ),
-              borderData: FlBorderData(show: false),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (group) => JweTheme.panel,
-                  getTooltipItems: (touchedSpots) {
-                    return touchedSpots.map((spot) {
-                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
-                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
-                      return null;
-                    }).whereType<LineTooltipItem>().toList();
+            ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children:[
+                    // Title Input
+                    TextField(
+                      controller: _titleController,
+                      style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 24, fontWeight: FontWeight.bold),
+                      decoration: const InputDecoration(border: InputBorder.none, hintText: "Objective Name"),
+                      onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
+                      onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Why/What
+                    ActionPlanWhyCard(
+                      initialWhy: liveCheckpoint.why,
+                      accentColor: agentColor,
+                      onChanged: (val) => provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id, {'why': val}),
+                    ),
+                    const SizedBox(height: 16),
+                    ActionPlanOutcomeCard(
+                      initialWhat: liveCheckpoint.what,
+                      accentColor: agentColor,
+                      onChanged: (val) => provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id, {'what': val}),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Nested Steps
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
+                      ),
+                      child: const Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    if (liveCheckpoint.substeps.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
+                      )
+                    else
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: liveCheckpoint.substeps.length,
+                        onReorder: (oldIndex, newIndex) {
+                          if (oldIndex < newIndex) newIndex -= 1;
+                          final list = List<SubSubTask>.from(liveCheckpoint.substeps);
+                          final item = list.removeAt(oldIndex);
+                          list.insert(newIndex, item);
+                          provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.parentSubTaskId, list.map((e) => e.id).toList(), parentCheckpointId: liveCheckpoint.id);
+                        },
+                        proxyDecorator: (child, index, animation) {
+                          return Material(
+                            color: Colors.transparent,
+                            elevation: 5,
+                            shadowColor: Colors.black,
+                            child: child,
+                          );
+                        },
+                        itemBuilder: (ctx, index) {
+                          final child = liveCheckpoint.substeps[index];
+                          return CheckpointItem(
+                            key: ValueKey(child.id),
+                            title: child.name,
+                            isCompleted: child.completed,
+                            type: child.type,
+                            accentColor: agentColor,
+                            hasCheckableSubsteps: child.hasCheckableSubsteps,
+                            progress: child.calculateProgress(), 
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                                mainTaskId: widget.mainTaskId,
+                                parentSubTaskId: widget.parentSubTaskId,
+                                checkpointId: child.id,
+                              )));
+                            },
+                            onToggle: () {
+                              final updates = {'completed': !child.completed};
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
+                            },
+                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onToggleType: () {
+                              final newType = child.type == 'check' ? 'info' : 'check';
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
+                            },
+                          );
+                        },
+                      ),
+
+                    // Add Substep
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark.withOpacity(0.5),
+                        border: Border.all(color: AppTheme.fhBorderColor),
+                      ),
+                      child: Row(
+                        children:[
+                          PopupMenuButton<String>(
+                            icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
+                            onSelected: (val) => setState(() => _newStepType = val),
+                            color: AppTheme.fhBgDark,
+                            itemBuilder: (context) =>[
+                              const PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                              const PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                            ],
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _stepController,
+                              style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
+                              decoration: const InputDecoration(
+                                hintText: "ADD NESTED STEP...",
+                                hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                              ),
+                              onSubmitted: (_) => _addSubstep(provider, liveCheckpoint),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.add, color: agentColor),
+                            onPressed: () => _addSubstep(provider, liveCheckpoint),
+                          )
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/screens/checkpoint_detail_screen.dart ---
+
+--- START OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class ActionPlanStepsList extends StatefulWidget {
+  final String mainTaskId;
+  final String subTaskId;
+  final List<SubSubTask> steps;
+  final Function(String) onGenerate;
+  final Color accentColor;
+
+  const ActionPlanStepsList({
+    super.key,
+    required this.mainTaskId,
+    required this.subTaskId,
+    required this.steps,
+    required this.onGenerate,
+    required this.accentColor,
+  });
+
+  @override
+  State<ActionPlanStepsList> createState() => _ActionPlanStepsListState();
+}
+
+class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
+  final TextEditingController _stepController = TextEditingController();
+  String _newStepType = 'check'; 
+
+  void _addStep(AppProvider provider) {
+    if (_stepController.text.trim().isEmpty) return;
+    provider.taskActions.addSubSubtask(widget.mainTaskId, widget.subTaskId, {
+      'name': _stepController.text.trim(),
+      'isCountable': false,
+      'targetCount': 0,
+      'type': _newStepType,
+    });
+    _stepController.clear();
+  }
+
+  void _navigateToStepDetail(BuildContext context, SubSubTask step) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+      mainTaskId: widget.mainTaskId,
+      parentSubTaskId: widget.subTaskId,
+      checkpointId: step.id,
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final isLoading = provider.loadingTaskName == "Generating Strategy...";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+              if (widget.steps.isEmpty)
+                TextButton.icon(
+                  onPressed: isLoading ? null : () async {
+                    final prompt = await showDialog<String>(
+                      context: context,
+                      builder: (_) => const AiGenerationPromptDialog(
+                        title: "GENERATE STRATEGY",
+                        hintText: "Add specific instructions, e.g. Focus on low budget...",
+                        actionLabel: "GENERATE",
+                      ),
+                    );
+                    if (prompt != null && prompt.isNotEmpty) {
+                      widget.onGenerate(prompt);
+                    }
+                  },
+                  icon: isLoading 
+                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
+                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
+                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        if (widget.steps.isEmpty && !isLoading)
+          Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+              color: AppTheme.fhBgDark.withOpacity(0.5)
+            ),
+            child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+          )
+        else
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.steps.length,
+            onReorder: (oldIndex, newIndex) {
+              if (oldIndex < newIndex) newIndex -= 1;
+              final list = List<SubSubTask>.from(widget.steps);
+              final item = list.removeAt(oldIndex);
+              list.insert(newIndex, item);
+              provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.subTaskId, list.map((e) => e.id).toList());
+            },
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: Colors.transparent,
+                elevation: 5,
+                shadowColor: Colors.black,
+                child: child,
+              );
+            },
+            itemBuilder: (ctx, index) {
+              final step = widget.steps[index];
+              return CheckpointItem(
+                key: ValueKey(step.id),
+                title: step.name,
+                isCompleted: step.completed,
+                type: step.type,
+                hasCheckableSubsteps: step.hasCheckableSubsteps,
+                progress: step.calculateProgress(), 
+                accentColor: widget.accentColor,
+                onTap: () => _navigateToStepDetail(context, step),
+                onPlay: null,
+                isRunning: false,
+                onToggle: () {
+                  if (step.completed) {
+                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  } else {
+                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
                   }
-                )
+                },
+                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onToggleType: () {
+                  final newType = step.type == 'check' ? 'info' : 'check';
+                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                },
+              );
+            },
+          ),
+
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children:[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                child: PopupMenuButton<String>(
+                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
+                  tooltip: "Change Type",
+                  onSelected: (val) => setState(() => _newStepType = val),
+                  color: AppTheme.fhBgDark,
+                  itemBuilder: (context) =>[
+                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                  ],
+                ),
               ),
-              lineBarsData:[
-                LineChartBarData(
-                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _stepController,
+                  style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: "ADD STEP...",
+                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
+                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
+                    filled: true,
+                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                  onSubmitted: (_) => _addStep(provider),
                 ),
-                LineChartBarData(
-                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
+              ),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _addStep(provider),
+                child: Container(
+                  width: 40, height: 40,
+                  color: widget.accentColor.withOpacity(0.2),
+                  alignment: Alignment.center,
+                  child: Text("+", style: TextStyle(color: widget.accentColor, fontWeight: FontWeight.bold, fontSize: 24)),
                 ),
-              ]
-            )
+              )
+            ],
           ),
         ),
       ],
     );
   }
 }
-
-class _LegendItem extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _LegendItem(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children:[
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-}
---- END OF FILE lib/src/widgets/health/health_combined_chart.dart ---
+--- END OF FILE lib/src/widgets/action_plan/action_plan_steps_list.dart ---

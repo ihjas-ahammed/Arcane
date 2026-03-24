@@ -53,7 +53,6 @@ class SubmissionCard extends StatelessWidget {
         ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
         : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
 
-    // Calculate 7-Day Average Total Time for THIS Submission
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     double total7Days = 0;
@@ -116,7 +115,6 @@ class SubmissionCard extends StatelessWidget {
           onTap: () => _openDetailScreen(context),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            // Height removed to let content dictate size, accommodating new progress bar
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isActive 
@@ -289,8 +287,8 @@ class SubmissionCard extends StatelessWidget {
                         ],
                       ),
                       
-                      // Hierarchical Progress Bar if it has sub-tasks
-                      if (currentSubTask.subSubTasks.isNotEmpty && !isCompleted)
+                      // Hierarchical Progress Bar if it has checkable sub-tasks
+                      if (currentSubTask.hasCheckableSubsteps && !isCompleted)
                         Padding(
                           padding: const EdgeInsets.only(top: 12.0),
                           child: JweProgressBar(

@@ -3,6 +3,7 @@ import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:arcane/src/widgets/dialogs/last_insight_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -96,9 +97,28 @@ class JweReflectionProgress extends StatelessWidget {
           if (lastLog != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
-              child: Text(
-                "LAST LOGGED: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
-                style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "LAST LOGGED: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
+                    style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+                  ),
+                  if (lastLog.aiFeedback.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => LastInsightDialog(log: lastLog!),
+                        );
+                      },
+                      child: const Text(
+                        "VIEW LAST INSIGHT",
+                        style: TextStyle(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)
+                      )
+                    )
+                ],
               ),
             ),
           

@@ -20,8 +20,8 @@ class CheckpointItem extends StatefulWidget {
   final VoidCallback? onTap; 
   final VoidCallback? onPlay; 
   final bool isRunning;
-  final bool hasSubsteps; 
-  final double progress; // Passed in or calculated
+  final bool hasCheckableSubsteps; 
+  final double progress; 
 
   const CheckpointItem({
     super.key,
@@ -38,7 +38,7 @@ class CheckpointItem extends StatefulWidget {
     this.onTap,
     this.onPlay,
     this.isRunning = false,
-    this.hasSubsteps = false,
+    this.hasCheckableSubsteps = false,
     this.progress = 0.0,
   });
 
@@ -135,7 +135,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
                   ),
                 ),
                 
-                if (widget.hasSubsteps)
+                if (widget.hasCheckableSubsteps)
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Icon(MdiIcons.fileTree, size: 14, color: color),
@@ -176,8 +176,8 @@ class _CheckpointItemState extends State<CheckpointItem> {
               ],
             ),
             
-            // JWE Progress Bar if it has sub-steps
-            if (widget.hasSubsteps && !_localCompleted)
+            // JWE Progress Bar if it has checkable sub-steps
+            if (widget.hasCheckableSubsteps && !_localCompleted)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: JweProgressBar(

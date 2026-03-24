@@ -309,13 +309,16 @@ class SubTask {
     };
   }
 
+  bool get hasCheckableSubsteps => subSubTasks.any((sst) => sst.type != 'info');
+
   double calculateProgress() {
-    if (subSubTasks.isEmpty) return completed ? 1.0 : 0.0;
+    final checkables = subSubTasks.where((sst) => sst.type != 'info').toList();
+    if (checkables.isEmpty) return completed ? 1.0 : 0.0;
     double total = 0;
-    for (var sst in subSubTasks) {
+    for (var sst in checkables) {
       total += sst.calculateProgress();
     }
-    return total / subSubTasks.length;
+    return total / checkables.length;
   }
 }
 
@@ -410,13 +413,16 @@ class SubSubTask {
     };
   }
   
+  bool get hasCheckableSubsteps => substeps.any((s) => s.type != 'info');
+
   double calculateProgress() {
-    if (substeps.isEmpty) return completed ? 1.0 : 0.0;
+    final checkables = substeps.where((sst) => sst.type != 'info').toList();
+    if (checkables.isEmpty) return completed ? 1.0 : 0.0;
     double total = 0;
-    for (var sst in substeps) {
+    for (var sst in checkables) {
       total += sst.calculateProgress();
     }
-    double prog = total / substeps.length;
+    double prog = total / checkables.length;
     completed = prog >= 1.0; 
     return prog;
   }

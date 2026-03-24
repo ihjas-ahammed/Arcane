@@ -1,5 +1,6 @@
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
 import 'package:collection/collection.dart';
 
 class TimerActions {
@@ -24,6 +25,17 @@ class TimerActions {
 
     for (var timerId in runningTimerIds) {
       pauseTimer(timerId); 
+    }
+
+    // Auto-add engaged task to Daily Plan to sync with the dashboard
+    if (type == 'subtask') {
+      final dateStr = helper.getTodayDateString();
+      final currentPlan = List<String>.from(_provider.taskActions.getDayPlan(dateStr));
+      final compoundId = "$mainTaskId|$id";
+      if (!currentPlan.contains(compoundId)) {
+        currentPlan.add(compoundId);
+        _provider.taskActions.updateDayPlan(dateStr, currentPlan);
+      }
     }
 
     Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
