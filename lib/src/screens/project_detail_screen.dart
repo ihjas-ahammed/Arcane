@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/cards/project_stats_card.dart';
-import 'package:arcane/src/widgets/ui/project_graph_section.dart'; // New Import
+import 'package:arcane/src/widgets/ui/project_graph_section.dart'; 
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ProjectDetailScreen extends StatelessWidget {
   final Project project;
@@ -25,7 +27,6 @@ class ProjectDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
 
-    // Live Data Fetch
     Project currentProject = project;
     try {
       final task = provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
@@ -38,17 +39,14 @@ class ProjectDetailScreen extends StatelessWidget {
     final int percentage = (progress * 100).toInt();
 
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        iconTheme: const IconThemeData(color: JweTheme.textWhite),
         actions: [
           IconButton(
-            icon: Icon(MdiIcons.pencilOutline, size: 20, color: Colors.white),
+            icon: Icon(MdiIcons.pencilOutline, size: 20, color: JweTheme.textMuted),
             tooltip: "Edit Project Details",
             onPressed: () async {
               final result = await showDialog<Map<String, String>>(
@@ -69,203 +67,194 @@ class ProjectDetailScreen extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(MdiIcons.deleteOutline,
-                size: 20, color: AppTheme.fhAccentRed),
+                size: 20, color: JweTheme.accentRed),
             onPressed: () {
               _confirmDelete(context, provider, currentProject);
             },
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title Section
-            Text(
-              "PROJECT // PROTOCOL",
-              style: TextStyle(
-                color: AppTheme.fhAccentTeal,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2.0
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              currentProject.title.toUpperCase(),
-              style: const TextStyle(
-                fontFamily: AppTheme.fontDisplay,
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.fhTextPrimary,
-                height: 0.9,
-                letterSpacing: 1.5
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.only(left: 12),
-              decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: AppTheme.fhAccentRed, width: 3))
-              ),
-              child: Text(
-                currentProject.description.isNotEmpty
-                    ? currentProject.description
-                    : "NO DESCRIPTION DATA.",
-                style: const TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  height: 1.5,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            
-            // New Stats Card
-            ProjectStatsCard(
-              project: currentProject,
-              allTasks: provider.mainTasks,
-            ),
-
-            const SizedBox(height: 24),
-
-            // Modular Graph Section (with AI Fix)
-            ProjectGraphSection(
-              project: currentProject,
-              mainTaskId: mainTaskId,
-            ),
-
-            const SizedBox(height: 32),
-
-            // Progress Bar (Simple)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text("COMPLETION STATUS", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                Text("$percentage%", style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 32, color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Container(
-              height: 8,
-              width: double.infinity,
-              color: AppTheme.fhBgDark,
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: progress,
-                child: Container(color: AppTheme.fhAccentRed),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            // Steps List Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "OBJECTIVES",
-                  style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "PROJECT // PROTOCOL",
+                    style: TextStyle(
+                      color: JweTheme.accentCyan,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      letterSpacing: 1.0,
-                      color: AppTheme.fhTextPrimary),
-                ),
-                Row(
-                  children: [
-                    InkWell(
-                      onTap: () => _showAiStepGenerationDialog(context, provider, currentProject),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
-                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      letterSpacing: 2.0
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    currentProject.title.toUpperCase(),
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: JweTheme.textWhite,
+                      height: 0.9,
+                      letterSpacing: 1.5
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.only(left: 12),
+                    decoration: const BoxDecoration(
+                      border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3))
+                    ),
+                    child: Text(
+                      currentProject.description.isNotEmpty
+                          ? currentProject.description
+                          : "NO DESCRIPTION DATA.",
+                      style: const TextStyle(
+                        color: JweTheme.textMuted,
+                        height: 1.5,
+                        fontSize: 14,
                       ),
                     ),
-                    InkWell(
-                      onTap: () => _showAddRootStepDialog(context, provider),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentTeal)),
-                        child: Icon(Icons.add, size: 16, color: AppTheme.fhAccentTeal),
-                      ),
-                    ),
-                  ],
-                )
-              ],
-            ),
-            const SizedBox(height: 16),
+                  ),
 
-            if (currentProject.steps.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
+                  const SizedBox(height: 24),
+                  
+                  ProjectStatsCard(
+                    project: currentProject,
+                    allTasks: provider.mainTasks,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  ProjectGraphSection(
+                    project: currentProject,
+                    mainTaskId: mainTaskId,
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Icon(MdiIcons.textLong,
-                          size: 48,
-                          color: AppTheme.fhTextSecondary.withValues(alpha: 0.2)),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "NO OBJECTIVES SET",
-                        style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("COMPLETION STATUS", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      Text("$percentage%", style: GoogleFonts.rajdhani(fontSize: 24, color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
                     ],
                   ),
-                ),
-              )
-            else
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: currentProject.steps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderRootSteps(
-                      mainTaskId, currentProject.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final step = currentProject.steps[index];
-                  return KeyedSubtree(
-                    key: ValueKey(step.id),
-                    child: ProjectStepListTile(
-                      step: step,
-                      mainTaskId: mainTaskId,
-                      projectId: currentProject.id,
-                      indexPrefix: "${index + 1}",
-                    ),
-                  );
-                },
-              ),
+                  const SizedBox(height: 8),
+                  JweProgressBar(progress: progress, color: JweTheme.accentCyan),
 
-            const SizedBox(height: 40),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: ValorantButton(
-                    label: "ADD OBJECTIVE",
-                    onPressed: () => _showAddRootStepDialog(context, provider),
-                    isPrimary: false,
-                    icon: Icons.add,
+                  const SizedBox(height: 40),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "OBJECTIVES",
+                        style: GoogleFonts.rajdhani(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            letterSpacing: 1.0,
+                            color: JweTheme.textWhite),
+                      ),
+                      Row(
+                        children: [
+                          InkWell(
+                            onTap: () => _showAiStepGenerationDialog(context, provider, currentProject),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(border: Border.all(color: const Color(0xFF8A2BE2))),
+                              child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: const Color(0xFF8A2BE2)),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _showAddRootStepDialog(context, provider),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(border: Border.all(color: JweTheme.accentCyan)),
+                              child: const Icon(Icons.add, size: 16, color: JweTheme.accentCyan),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
                   ),
-                ),
-                const SizedBox(width: 16),
-                
-              ],
+                  const SizedBox(height: 16),
+
+                  if (currentProject.steps.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          children: [
+                            Icon(MdiIcons.textLong,
+                                size: 48,
+                                color: JweTheme.textMuted.withOpacity(0.2)),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "NO OBJECTIVES SET",
+                              style: TextStyle(color: JweTheme.textMuted, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ReorderableListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: currentProject.steps.length,
+                      onReorder: (oldIndex, newIndex) {
+                        provider.projectActions.reorderRootSteps(
+                            mainTaskId, currentProject.id, oldIndex, newIndex);
+                      },
+                      proxyDecorator: (child, index, animation) {
+                        return Material(
+                          color: Colors.transparent,
+                          child: child,
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final step = currentProject.steps[index];
+                        return KeyedSubtree(
+                          key: ValueKey(step.id),
+                          child: ProjectStepListTile(
+                            step: step,
+                            mainTaskId: mainTaskId,
+                            projectId: currentProject.id,
+                            indexPrefix: "${index + 1}",
+                          ),
+                        );
+                      },
+                    ),
+
+                  const SizedBox(height: 40),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text("ADD OBJECTIVE", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: JweTheme.textWhite,
+                        side: const BorderSide(color: JweTheme.border),
+                        shape: const BeveledRectangleBorder(),
+                        padding: const EdgeInsets.symmetric(vertical: 16)
+                      ),
+                      onPressed: () => _showAddRootStepDialog(context, provider),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
-            
-            const SizedBox(height: 40),
-          ],
+          ),
         ),
       ),
     );
@@ -307,17 +296,17 @@ class ProjectDetailScreen extends StatelessWidget {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-              backgroundColor: AppTheme.fhBgMedium,
-              title: const Text("DELETE PROJECT?",
-                  style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-              content: const Text("This action cannot be undone."),
+              backgroundColor: JweTheme.panel,
+              title: Text("DELETE PROJECT?",
+                  style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold)),
+              content: const Text("This action cannot be undone.", style: TextStyle(color: JweTheme.textMuted)),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text("CANCEL")),
+                    child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
                 ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.fhAccentRed),
+                        backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
                     onPressed: () {
                       provider.projectActions
                           .deleteProject(mainTaskId, project.id);

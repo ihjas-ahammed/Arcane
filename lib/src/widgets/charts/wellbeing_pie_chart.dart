@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class WellbeingPieChart extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -34,9 +35,9 @@ class WellbeingPieChart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(MdiIcons.chartDonut, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            Icon(MdiIcons.chartDonut, color: JweTheme.textMuted.withOpacity(0.3), size: 32),
             const SizedBox(height: 8),
-            Text("NO XP DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
+            Text("NO XP DATA", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -48,7 +49,7 @@ class WellbeingPieChart extends StatelessWidget {
     // Default Text
     String centerTopText = "TOTAL XP";
     String centerBottomText = "$totalXp";
-    Color centerColor = AppTheme.fhTextPrimary;
+    Color centerColor = JweTheme.textWhite;
 
     // Selected Text
     if (selectedVirtue != null && categoryTotals.containsKey(selectedVirtue)) {
@@ -72,11 +73,11 @@ class WellbeingPieChart extends StatelessWidget {
             sections: entries.map((e) {
               final isSelected = e.key == selectedVirtue;
               return PieChartSectionData(
-                color: WellbeingTheme.getColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
+                color: WellbeingTheme.getColor(e.key).withOpacity(isSelected ? 1.0 : 0.7),
                 value: e.value.toDouble(),
                 title: '',
                 radius: isSelected ? 20 : 15,
-                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2), 
+                borderSide: BorderSide(color: JweTheme.bgBase, width: 2), 
               );
             }).toList(),
             pieTouchData: PieTouchData(
@@ -101,11 +102,11 @@ class WellbeingPieChart extends StatelessWidget {
             Text(
               centerTopText, 
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9, color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+              style: const TextStyle(fontSize: 9, color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 0.5)
             ),
             Text(
               centerBottomText, 
-              style: TextStyle(fontSize: 18, color: centerColor, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)
+              style: GoogleFonts.rajdhani(fontSize: 18, color: centerColor, fontWeight: FontWeight.bold)
             ),
           ],
         )

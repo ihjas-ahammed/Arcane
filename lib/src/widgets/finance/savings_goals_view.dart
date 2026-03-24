@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/screens/finance/savings_detail_screen.dart';
 import 'package:arcane/src/widgets/dialogs/add_savings_goal_dialog.dart';
 import 'package:arcane/src/utils/finance_helpers.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SavingsGoalsView extends StatelessWidget {
   const SavingsGoalsView({super.key});
@@ -22,14 +23,18 @@ class SavingsGoalsView extends StatelessWidget {
           ElevatedButton.icon(
             icon: const Icon(Icons.add),
             label: const Text("INITIALIZE SAVINGS GOAL"),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhBgDark, foregroundColor: AppTheme.fhAccentTeal, side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.panel, 
+              foregroundColor: JweTheme.accentAmber, 
+              shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentAmber))
+            ),
             onPressed: () {
               showDialog(context: context, builder: (ctx) => const AddSavingsGoalDialog());
             },
           ),
           const SizedBox(height: 24),
           if (goals.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No active savings goals.", style: TextStyle(color: AppTheme.fhTextDisabled))))
+             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No active savings goals.", style: TextStyle(color: JweTheme.textMuted))))
           else
             ...goals.map((g) {
               final progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount).clamp(0.0, 1.0) : 0.0;
@@ -39,30 +44,33 @@ class SavingsGoalsView extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                    color: JweTheme.panel,
+                    border: Border.all(color: JweTheme.border),
                   ),
                   child: Column(
                     children: [
                       Row(
                         children: [
-                          Icon(FinanceHelpers.getIconData(g.iconName), color: AppTheme.fhAccentPurple, size: 24),
+                          Icon(FinanceHelpers.getIconData(g.iconName), color: JweTheme.accentAmber, size: 24),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(g.name.toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                            child: Text(g.name.toUpperCase(), style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
                           ),
-                          Text("₹${g.currentAmount.toStringAsFixed(0)} / ₹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                          Text("₹${g.currentAmount.toStringAsFixed(0)} / ₹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: JweTheme.textMuted, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: AppTheme.fhBgDeepDark,
-                          color: AppTheme.fhAccentPurple,
+                      Container(
+                        height: 6,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: JweTheme.bgBase,
+                          border: Border.all(color: JweTheme.border),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progress,
+                          child: Container(color: JweTheme.accentAmber),
                         ),
                       )
                     ],

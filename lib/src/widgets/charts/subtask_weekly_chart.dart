@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/charts/weekly_line_charts.dart';
 import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 
 class SubtaskWeeklyChart extends StatelessWidget {
@@ -44,7 +44,7 @@ class SubtaskWeeklyChart extends StatelessWidget {
       child: SizedBox(
         height: 140,
         child: hasData
-            ? WeeklyActivityBarChart(
+            ? WeeklyActivityLineChart(
                 weeklyData: weeklyData,
                 dominantColors: weeklyColors,
                 isVirtue: false,

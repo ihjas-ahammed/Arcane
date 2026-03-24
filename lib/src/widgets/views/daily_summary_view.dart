@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/widgets/charts/wellbeing_pie_chart.dart';
 import 'package:arcane/src/widgets/charts/time_pie_chart.dart';
-import 'package:arcane/src/widgets/charts/weekly_bar_charts.dart';
+import 'package:arcane/src/widgets/charts/weekly_line_charts.dart';
 import 'package:arcane/src/widgets/ui/chart_carousel.dart';
 import 'package:arcane/src/utils/chart_data_helper.dart'; 
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
 import 'package:arcane/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:arcane/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:arcane/src/screens/nora_ai_screen.dart';
@@ -16,13 +15,15 @@ import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
 import 'package:arcane/src/screens/health/health_dashboard_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
-import 'package:arcane/src/widgets/ui/reflection_progress_widget.dart';
+import 'package:arcane/src/widgets/analytics/jwe_date_selector.dart';
+import 'package:arcane/src/widgets/analytics/jwe_reflection_progress.dart';
+import 'package:arcane/src/widgets/analytics/jwe_quick_access_grid.dart';
 import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DailySummaryView extends StatefulWidget {
   const DailySummaryView({super.key});
@@ -53,7 +54,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _checkPinAndNavigate(BuildContext context, Widget screen) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
     
-    // If PIN is not set, prompt setup
     if (provider.settings.journalPin == null || provider.settings.journalPin!.isEmpty) {
       final newPin = await PinDialog.show(context: context, isSetupMode: true);
       if (newPin != null && newPin is String) {
@@ -63,7 +63,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         }
       }
     } else {
-      // Verify PIN
       final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
       if (success == true && mounted) {
         Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -99,12 +98,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              onPrimary: AppTheme.fhTextPrimary,
-              surface: AppTheme.fhBgDark,
-              onSurface: AppTheme.fhTextPrimary,
+              primary: JweTheme.accentCyan,
+              onPrimary: Colors.black,
+              surface: JweTheme.panel,
+              onSurface: JweTheme.textWhite,
             ),
-            dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+            dialogTheme: const DialogThemeData(backgroundColor: JweTheme.bgBase),
           ),
           child: child!,
         );
@@ -220,269 +219,192 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           }).toList()
         :[];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:[
-              Text("ANALYTICS", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay)),
-              Row(
-                children:[
-                  IconButton(
-                    icon: Icon(MdiIcons.archiveSearchOutline, color: AppTheme.fhAccentTeal),
-                    tooltip: "Archived Reports",
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedReportsScreen()));
-                    },
-                  ),
-                  TextButton.icon(
-                    icon: _isGeneratingWeeklyReport 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(MdiIcons.fileChartOutline, size: 16),
-                    label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentGold),
-                    onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          // 1. 7-DAY PERFORMANCE (ChartCarousel)
-          ChartCarousel(
-            height: 250,
-            pages:[
-              ChartCarouselData(
-                title: "7-DAY PERFORMANCE",
-                chart: WeeklyActivityBarChart(
-                  weeklyData: chartData['activityData'],
-                  dominantColors: chartData['activityColors'],
-                  isVirtue: false,
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children:[
+                Text("DATABANKS & ANALYTICS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                Row(
+                  children:[
+                    IconButton(
+                      icon:  Icon(MdiIcons.archiveSearchOutline, color: JweTheme.accentCyan),
+                      tooltip: "Archived Reports",
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedReportsScreen()));
+                      },
+                    ),
+                    TextButton.icon(
+                      icon: _isGeneratingWeeklyReport 
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.accentAmber))
+                        :  Icon(MdiIcons.fileChartOutline, size: 16),
+                      label: const Text("WEEKLY REPORT", style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(foregroundColor: JweTheme.accentAmber),
+                      onPressed: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                    ),
+                  ],
                 ),
-              ),
-              ChartCarouselData(
-                title: "WELL-BEING GROWTH",
-                chart: WeeklyVirtueBarChart(
-                  weeklyXp: chartData['virtueData'],
-                  dominantVirtueColors: chartData['virtueColors'],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          
-          // 2. MISSION FOCUS & VIRTUE GROWTH PIE CHARTS
-          Row(
-            children:[
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children:[
-                      const Text("MISSION FOCUS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: TimePieChart(
-                          taskData: chartData['dailyTaskTimeData'],
-                          taskColors: chartData['taskColors'],
-                          selectedTask: _selectedTaskFilter,
-                          onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ValorantCard(
-                  child: Column(
-                    children:[
-                      const Text("WELL-BEING GROWTH", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 150,
-                        child: WellbeingPieChart(
-                          logs: reflectionsForDate,
-                          selectedVirtue: _selectedVirtueFilter,
-                          onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // 3. INSPECT DATE
-          InkWell(
-            onTap: () => _pickDate(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDark,
-                border: Border.all(color: AppTheme.fhBorderColor),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children:[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children:[
-                      const Text(
-                        "INSPECT DATE", 
-                        style: TextStyle(
-                          color: AppTheme.fhTextSecondary, 
-                          fontSize: 10, 
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2
-                        )
-                      ),
-                      Text(
-                        _selectedDate ?? 'TODAY', 
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontDisplay, 
-                          letterSpacing: 1.0, 
-                          fontSize: 18,
-                          color: AppTheme.fhTextPrimary,
-                          fontWeight: FontWeight.bold
-                        )
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.calendar_today, color: AppTheme.fhAccentTeal, size: 20),
-                ],
-              ),
+              ],
             ),
-          ),
+            const SizedBox(height: 12),
+            
+            // 1. 7-DAY PERFORMANCE (ChartCarousel)
+            ChartCarousel(
+              height: 250,
+              pages:[
+                ChartCarouselData(
+                  title: "7-DAY PERFORMANCE",
+                  chart: WeeklyActivityLineChart(
+                    weeklyData: chartData['activityData'],
+                    dominantColors: chartData['activityColors'],
+                    isVirtue: false,
+                  ),
+                ),
+                ChartCarouselData(
+                  title: "WELL-BEING GROWTH",
+                  chart: WeeklyVirtueLineChart(
+                    weeklyXp: chartData['virtueData'],
+                    dominantVirtueColors: chartData['virtueColors'],
+                  ),
+                ),
+              ],
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            
+            // 2. MISSION FOCUS & VIRTUE GROWTH PIE CHARTS
+            Row(
+              children:[
+                Expanded(
+                  child: JwePanel(
+                    title: "MISSION FOCUS",
+                    accentColor: JweTheme.accentCyan,
+                    child: SizedBox(
+                      height: 150,
+                      child: TimePieChart(
+                        taskData: chartData['dailyTaskTimeData'],
+                        taskColors: chartData['taskColors'],
+                        selectedTask: _selectedTaskFilter,
+                        onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: JwePanel(
+                    title: "WELL-BEING",
+                    accentColor: JweTheme.accentAmber,
+                    child: SizedBox(
+                      height: 150,
+                      child: WellbeingPieChart(
+                        logs: reflectionsForDate,
+                        selectedVirtue: _selectedVirtueFilter,
+                        onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
 
-          // 4. REFLECTION PROGRESS WIDGET
-          ReflectionProgressWidget(
-            logs: reflectionsForDate,
-            dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-          ),
+            // 3. INSPECT DATE
+            JweDateSelector(
+              dateStr: _selectedDate ?? 'TODAY',
+              onTap: () => _pickDate(context)
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-          // 5. SYSTEM STARTUP REPORT
-          if (startDayReport != null)
-            StartDayReportCard(
-              report: startDayReport,
-              isRegenerating: _isGeneratingStartDay,
-              onRegenerate: () => _generateStartDayReport(appProvider),
-            )
-          else if (isToday)
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: _isGeneratingStartDay ? "INITIALIZING..." : "SYSTEM STARTUP REPORT",
-                icon: MdiIcons.power,
-                isPrimary: true,
-                color: AppTheme.fhAccentTeal,
+            // 4. REFLECTION PROGRESS WIDGET
+            JweReflectionProgress(
+              logs: reflectionsForDate,
+              dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 5. SYSTEM STARTUP REPORT
+            if (startDayReport != null)
+              StartDayReportCard(
+                report: startDayReport,
+                isRegenerating: _isGeneratingStartDay,
+                onRegenerate: () => _generateStartDayReport(appProvider),
+              )
+            else if (isToday)
+              ElevatedButton.icon(
+                icon: _isGeneratingStartDay 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                  :  Icon(MdiIcons.power, size: 18),
+                label: Text("SYSTEM STARTUP REPORT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: JweTheme.accentCyan,
+                  foregroundColor: Colors.black,
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 onPressed: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
               ),
-            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-          // 6. TACTICAL BRIEFING SECTION
-          if (displayBriefing != null)
-            TacticalBriefingCard(
-              briefingData: displayBriefing,
-              isSaved: savedBriefing != null,
-              onSave: savedBriefing == null 
-                ? () {
-                    appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                    setState(() {});
-                  } 
-                : null,
-            )
-          else
-            ValorantCard(
-              borderColor: AppTheme.fhBorderColor.withValues(alpha: 0.2),
-              child: Column(
-                children:[
-                  const Text("NO BRIEFING INTEL", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ValorantButton(
-                      label: _isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING",
-                      isPrimary: false,
-                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.2),
-                      onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
-                    ),
-                  )
-                ],
+            // 6. TACTICAL BRIEFING SECTION
+            if (displayBriefing != null)
+              TacticalBriefingCard(
+                briefingData: displayBriefing,
+                isSaved: savedBriefing != null,
+                onSave: savedBriefing == null 
+                  ? () {
+                      appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                      setState(() {});
+                    } 
+                  : null,
+              )
+            else
+              JwePanel(
+                title: "TACTICAL BRIEFING",
+                accentColor: JweTheme.accentAmber,
+                child: Column(
+                  children:[
+                    const Text("NO BRIEFING INTEL AVAILABLE.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic)),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: _isGeneratingSummary 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: JweTheme.accentAmber, strokeWidth: 2))
+                          :  Icon(MdiIcons.brain, size: 18),
+                        label: Text(_isGeneratingSummary ? "ANALYZING..." : "GENERATE BRIEFING", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: JweTheme.accentAmber,
+                          side: const BorderSide(color: JweTheme.accentAmber),
+                          shape: const BeveledRectangleBorder(),
+                        ),
+                        onPressed: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                      ),
+                    )
+                  ],
+                ),
               ),
-            ),
 
-          const SizedBox(height: 24),
-          
-          // 7. CLASSIFIED LOGS
-          const Text("CLASSIFIED LOGS", style: TextStyle(color: AppTheme.fhTextSecondary, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Row(
-            children:[
-               Expanded(
-                 child: ValorantButton(
-                   label: "ARCHIVE",
-                   icon: MdiIcons.lockOutline,
-                   isPrimary: false,
-                   color: AppTheme.fhAccentTeal.withOpacity(0.3),
-                   onPressed: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
-                 )
-               ),
-               const SizedBox(width: 12),
-               Expanded(
-                 child: ValorantButton(
-                   label: "NORA AI",
-                   icon: MdiIcons.brain,
-                   isPrimary: false,
-                   color: AppTheme.fhAccentPurple.withOpacity(0.3),
-                   onPressed: () => _checkPinAndNavigate(context, const NoraAiScreen()),
-                 )
-               ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          Row(
-            children:[
-               Expanded(
-                 child: ValorantButton(
-                   label: "ADVANCED",
-                   icon: MdiIcons.hexagonMultipleOutline,
-                   isPrimary: false,
-                   color: AppTheme.fhAccentPurple.withOpacity(0.1),
-                   onPressed: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
-                 )
-               ),
-               const SizedBox(width: 12),
-               Expanded(
-                 child: ValorantButton(
-                   label: "BIOMETRICS",
-                   icon: MdiIcons.heartPulse,
-                   isPrimary: false,
-                   color: JweTheme.accentCyan.withOpacity(0.3),
-                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
-                 )
-               ),
-            ],
-          ),
+            const SizedBox(height: 16),
             
-          const SizedBox(height: 40),
-        ],
+            // 7. CLASSIFIED LOGS / QUICK ACCESS
+            JweQuickAccessGrid(
+              onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
+              onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+              onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
+              onBiometrics: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
+            ),
+              
+            const SizedBox(height: 60),
+          ],
+        ),
       ),
     );
   }

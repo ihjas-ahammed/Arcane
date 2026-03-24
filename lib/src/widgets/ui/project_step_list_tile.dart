@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 import 'package:arcane/src/screens/step_detail_screen.dart'; 
-import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart'; // Import Link Sheet
+import 'package:arcane/src/widgets/sheets/link_submission_sheet.dart'; 
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:collection/collection.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ProjectStepListTile extends StatelessWidget {
   final ProjectStep step;
@@ -52,19 +55,16 @@ class ProjectStepListTile extends StatelessWidget {
       }
     }
 
-    Color statusColor = AppTheme.fhAccentTeal;
-    if (percentage == 100) statusColor = AppTheme.fhAccentGreen;
-    if (percentage == 0) statusColor = AppTheme.fhTextDisabled;
+    Color statusColor = JweTheme.accentCyan;
+    if (percentage == 100) statusColor = JweTheme.textMuted;
 
-    return Card(
-      color: AppTheme.fhBgDark,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
+      decoration: BoxDecoration(
+        color: JweTheme.panel,
+        border: Border(left: BorderSide(color: statusColor, width: 3)),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.push(
             context,
@@ -107,12 +107,13 @@ class ProjectStepListTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "$indexPrefix. ${step.title}",
-                          style: TextStyle(
-                            color: step.isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhTextPrimary,
+                          "$indexPrefix. ${step.title}".toUpperCase(),
+                          style: GoogleFonts.chakraPetch(
+                            color: step.isCompleted ? JweTheme.textMuted : JweTheme.textWhite,
                             decoration: step.isCompleted ? TextDecoration.lineThrough : null,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 0.5,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -147,9 +148,9 @@ class ProjectStepListTile extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(MdiIcons.linkVariantPlus, size: 12, color: AppTheme.fhTextSecondary),
+                                   Icon(MdiIcons.linkVariantPlus, size: 12, color: JweTheme.textMuted),
                                   const SizedBox(width: 4),
-                                  const Text("LINK TO TASK", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  const Text("LINK TO MISSION", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -160,7 +161,7 @@ class ProjectStepListTile extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
                               step.description,
-                              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                              style: const TextStyle(color: JweTheme.textMuted, fontSize: 12),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -177,7 +178,6 @@ class ProjectStepListTile extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                           ),
                           child: Text(
@@ -186,7 +186,7 @@ class ProjectStepListTile extends StatelessWidget {
                           ),
                         ),
                        const SizedBox(height: 4),
-                       Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                        Icon(MdiIcons.chevronRight, color: JweTheme.textMuted, size: 20),
                     ],
                   )
                 ],
@@ -195,15 +195,7 @@ class ProjectStepListTile extends StatelessWidget {
               if (hasSubsteps)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0, left: 34),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: AppTheme.fhBgDeepDark,
-                      color: statusColor,
-                      minHeight: 4,
-                    ),
-                  ),
+                  child: JweProgressBar(progress: progress, color: statusColor),
                 ),
             ],
           ),

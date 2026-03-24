@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:intl/intl.dart';
@@ -26,7 +26,7 @@ class ChartDataHelper {
 
       // --- Activity Data Calculation ---
       double totalMins = 0;
-      Color dominantColor = AppTheme.fhBgMedium;
+      Color dominantColor = JweTheme.border;
       double maxMinsForTask = 0;
 
       if (isToday) {
@@ -90,7 +90,7 @@ class ChartDataHelper {
       }
       virtueData[i] = totalXp;
 
-      Color dominantVirtueColor = AppTheme.fhAccentGold;
+      Color dominantVirtueColor = JweTheme.accentAmber; // Default JWE Gold/Amber
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
@@ -124,7 +124,7 @@ class ChartDataHelper {
                 provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
             final String name = task?.name ?? "Unknown";
             dailyTaskTimeData[name] = (time as num).toDouble() / 60.0;
-            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+            taskColors[name] = task?.taskColor ?? JweTheme.accentCyan;
           });
         }
       }

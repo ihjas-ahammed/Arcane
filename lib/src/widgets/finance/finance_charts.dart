@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 
 class FinanceCharts extends StatelessWidget {
   final List<FinanceTransaction> transactions;
@@ -24,32 +24,45 @@ class FinanceCharts extends StatelessWidget {
     return Column(
       children: [
         // Daily Expense Pie
-        ValorantCard(
-          padding: const EdgeInsets.all(16),
+        JwePanel(
+          title: "DAILY EXPENSES",
+          accentColor: JweTheme.textMuted,
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("DAILY EXPENSES", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2023),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) onDateChanged(picked);
-                    },
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2023),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.dark(
+                            primary: JweTheme.accentCyan,
+                            onPrimary: Colors.black,
+                            surface: JweTheme.bgBase,
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) onDateChanged(picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(border: Border.all(color: JweTheme.border)),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(DateFormat('MMM dd').format(selectedDate), style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold)),
-                        const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTeal, size: 16),
+                        Text(DateFormat('MMM dd').format(selectedDate).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.arrow_drop_down, color: JweTheme.textMuted, size: 16),
                       ],
                     ),
-                  )
-                ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               SizedBox(height: 180, child: _buildPieChart()),
@@ -58,22 +71,18 @@ class FinanceCharts extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         // 7 Day Line Chart
-        ValorantCard(
-          padding: const EdgeInsets.all(16),
+        JwePanel(
+          title: "7-DAY TREND",
+          accentColor: JweTheme.textMuted,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Text("7-DAY TREND", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Row(
-                    children: [
-                      Container(width: 8, height: 8, color: AppTheme.fhAccentTeal), const SizedBox(width: 4), const Text("IN", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                      const SizedBox(width: 8),
-                      Container(width: 8, height: 8, color: AppTheme.fhAccentRed), const SizedBox(width: 4), const Text("OUT", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
-                    ],
-                  )
+                  Container(width: 8, height: 8, color: JweTheme.accentCyan), const SizedBox(width: 4), const Text("IN", style: TextStyle(color: JweTheme.textMuted, fontSize: 10)),
+                  const SizedBox(width: 12),
+                  Container(width: 8, height: 8, color: JweTheme.accentRed), const SizedBox(width: 4), const Text("OUT", style: TextStyle(color: JweTheme.textMuted, fontSize: 10)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -97,7 +106,7 @@ class FinanceCharts extends StatelessWidget {
     }
 
     if (categoryTotals.isEmpty) {
-      return const Center(child: Text("NO EXPENSES TODAY", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)));
+      return const Center(child: Text("NO EXPENSES TODAY", style: TextStyle(color: JweTheme.textMuted)));
     }
 
     return PieChart(
@@ -141,7 +150,11 @@ class FinanceCharts extends StatelessWidget {
 
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (value) => const FlLine(color: JweTheme.border, strokeWidth: 1),
+        ),
         titlesData: FlTitlesData(
           leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -149,11 +162,13 @@ class FinanceCharts extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1, // Enforce 1 day intervals
               getTitlesWidget: (value, meta) {
+                if (value % 1 != 0) return const SizedBox.shrink(); // Safety check
                 final date = now.subtract(Duration(days: 6 - value.toInt()));
                 return Padding(
                   padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(DateFormat('E').format(date), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10)),
+                  child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                 );
               }
             )
@@ -162,10 +177,10 @@ class FinanceCharts extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: incSpots, color: AppTheme.fhAccentTeal, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withOpacity(0.1))
+            spots: incSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
           ),
           LineChartBarData(
-            spots: expSpots, color: AppTheme.fhAccentRed, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentRed.withOpacity(0.1))
+            spots: expSpots, color: JweTheme.accentRed, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentRed.withOpacity(0.1))
           )
         ]
       )

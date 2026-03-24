@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/dialogs/add_category_dialog.dart';
 import 'package:arcane/src/models/finance_models.dart';
@@ -31,8 +31,9 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     final categories = provider.categories.where((c) => c.isIncomeCategory == widget.isIncome).toList();
     
     return AlertDialog(
-      backgroundColor: AppTheme.fhBgMedium,
-      title: Text(widget.isIncome ? "ADD INCOME" : "ADD EXPENSE", style: TextStyle(color: widget.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, fontFamily: AppTheme.fontDisplay)),
+      backgroundColor: JweTheme.panel,
+      shape: Border.all(color: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, width: 2),
+      title: Text(widget.isIncome ? "ADD INCOME" : "ADD EXPENSE", style: TextStyle(color: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -41,22 +42,22 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontSize: 24),
-              decoration: const InputDecoration(prefixText: "₹ ", hintText: "0.00"),
+              decoration: const InputDecoration(prefixText: "₹ ", hintText: "0.00", hintStyle: TextStyle(color: JweTheme.textMuted)),
+              autofocus: true,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedCategoryId,
-              dropdownColor: AppTheme.fhBgDark,
-              decoration: const InputDecoration(labelText: "CATEGORY"),
+              dropdownColor: JweTheme.bgBase,
+              decoration: const InputDecoration(labelText: "CATEGORY", labelStyle: TextStyle(color: JweTheme.textMuted)),
               items: [
                 ...categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, style: const TextStyle(color: Colors.white)))),
-                const DropdownMenuItem(value: 'ADD_NEW', child: Text("+ Add New Category", style: TextStyle(color: AppTheme.fhAccentPurple))),
+                const DropdownMenuItem(value: 'ADD_NEW', child: Text("+ Add New Category", style: TextStyle(color: JweTheme.accentAmber))),
               ],
               onChanged: (val) {
                 if (val == 'ADD_NEW') {
                   Navigator.pop(context);
                   showDialog(context: context, builder: (_) => AddCategoryDialog(isIncome: widget.isIncome)).then((_) {
-                     // Could reopen this dialog or just let them reopen it manually.
                   });
                 } else {
                   setState(() => _selectedCategoryId = val);
@@ -67,15 +68,15 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             TextField(
               controller: _noteController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "NOTE (Optional)"),
+              decoration: const InputDecoration(labelText: "NOTE (Optional)", labelStyle: TextStyle(color: JweTheme.textMuted)),
             )
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: widget.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, foregroundColor: Colors.black),
+          style: ElevatedButton.styleFrom(backgroundColor: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
             if (amt != null && amt > 0 && _selectedCategoryId != null) {
@@ -83,7 +84,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               Navigator.pop(context);
             }
           },
-          child: const Text("CONFIRM"),
+          child: const Text("CONFIRM", style: TextStyle(fontWeight: FontWeight.bold)),
         )
       ],
     );

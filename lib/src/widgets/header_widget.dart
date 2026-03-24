@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
@@ -16,28 +16,35 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
-    final theme = Theme.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 900;
     
     return AppBar(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: JweTheme.panel,
       automaticallyImplyLeading: !isLargeScreen,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Container(
-          color: AppTheme.fhBorderColor.withValues(alpha: 0.3),
-          height: 1.0,
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: JweTheme.border, width: 1.5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              )
+            ]
+          ),
         ),
       ),
       leading: isLargeScreen
           ? Padding(
               padding: const EdgeInsets.only(left: 16.0),
-              child: Icon(MdiIcons.shieldCrownOutline, color: AppTheme.fhAccentRed),
+              child: Icon(MdiIcons.shieldCrownOutline, color: JweTheme.accentCyan),
             )
           : Builder(
               builder: (context) => IconButton(
-                icon: Icon(MdiIcons.menu, color: AppTheme.fhTextPrimary),
+                icon:  Icon(MdiIcons.menu, color: JweTheme.textWhite),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
@@ -47,12 +54,11 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
           Flexible(
             child: Text(
               currentViewLabel.toUpperCase(),
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: AppTheme.fhTextPrimary,
+              style: GoogleFonts.rajdhani(
+                color: JweTheme.textWhite,
                 letterSpacing: 2.0,
-                fontFamily: AppTheme.fontDisplay,
                 fontWeight: FontWeight.w900,
-                fontSize: 16, 
+                fontSize: 20, 
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -64,6 +70,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         if (appProvider.loadingTaskName != null || appProvider.isSyncing) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
               color: JweTheme.accentCyan.withOpacity(0.1),
               border: Border.all(color: JweTheme.accentCyan, width: 1),
@@ -80,7 +87,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  appProvider.loadingTaskName != null ? "AI PROCESSING" : "SYNCING",
+                  appProvider.loadingTaskName != null ? "PROCESSING" : "SYNCING",
                   style: const TextStyle(
                     color: JweTheme.accentCyan,
                     fontSize: 9,
@@ -99,11 +106,11 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
         // Persona / Virtues Button
         IconButton(
-          icon: Icon(MdiIcons.shieldAccount, color: AppTheme.fhTextSecondary, size: 20),
+          icon:  Icon(MdiIcons.shieldAccount, color: JweTheme.textMuted, size: 22),
           onPressed: onOpenPersona,
           tooltip: 'ARMORY',
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
       ],
     );
   }

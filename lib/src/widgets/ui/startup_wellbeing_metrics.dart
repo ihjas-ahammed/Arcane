@@ -1,116 +1,118 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StartupWellbeingMetrics extends StatelessWidget {
-  const StartupWellbeingMetrics({super.key});
+  final List<dynamic> metrics;
+
+  const StartupWellbeingMetrics({super.key, required this.metrics});
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    final now = DateTime.now();
-    final last7 = now.subtract(const Duration(days: 7));
-    final prev7 = now.subtract(const Duration(days: 14));
-    
-    Map<String, int> currentXp = {};
-    Map<String, int> prevXp = {};
-    
-    for (var log in provider.reflectionLogs) {
-      if (log.timestamp.isAfter(last7)) {
-        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
-      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
-        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
-      }
-    }
+    if (metrics.isEmpty) return const SizedBox.shrink();
 
-    final skills = provider.getBaseWellbeingSkills();
-    List<Map<String, dynamic>> deltas = [];
+    // Sort by magnitude of delta to highlight biggest changes
+    final sorted = List<dynamic>.from(metrics)
+      ..sort((a, b) => ((b['delta'] as num).abs()).compareTo((a['delta'] as num).abs()));
+      
+    // Take top 6 for compactness
+    final topMetrics = sorted.take(6).toList();
+
     int maxAbsDelta = 1;
-
-    for (var skill in skills) {
-      final current = currentXp[skill.name] ?? 0;
-      final previous = prevXp[skill.name] ?? 0;
-      final delta = current - previous;
-      if (delta.abs() > maxAbsDelta) maxAbsDelta = delta.abs();
-      deltas.add({'name': skill.name, 'delta': delta, 'color': WellbeingTheme.getColor(skill.name)});
+    for (var m in topMetrics) {
+      final d = (m['delta'] as num).abs().toInt();
+      if (d > maxAbsDelta) maxAbsDelta = d;
     }
-
-    deltas.sort((a, b) => (b['delta'] as int).compareTo(a['delta'] as int));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "WELL-BEING TRAJECTORY (7-DAY)",
+          "MOMENTUM SHIFT (YESTERDAY VS TODAY)",
           style: TextStyle(
             color: JweTheme.textMuted,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.5
+            letterSpacing: 1.0
           ),
         ),
-        const SizedBox(height: 12),
-        ...deltas.map((d) {
-          final delta = d['delta'] as int;
-          if (delta == 0) return const SizedBox.shrink(); 
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: JweTheme.bgBase,
+            border: Border.all(color: JweTheme.border),
+          ),
+          child: Column(
+            children: topMetrics.map((m) {
+              final delta = (m['delta'] as num).toInt();
+              if (delta == 0) return const SizedBox.shrink();
 
-          final fraction = (delta.abs() / maxAbsDelta).clamp(0.0, 1.0);
-          final isPositive = delta > 0;
-          final color = d['color'] as Color;
+              final fraction = (delta.abs() / maxAbsDelta).clamp(0.0, 1.0);
+              final isPositive = delta > 0;
+              final color = isPositive ? JweTheme.accentCyan : JweTheme.accentAmber;
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6.0),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    d['name'].toString().toUpperCase(),
-                    style: GoogleFonts.rajdhani(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 90,
+                      child: Text(
+                        m['name'].toString().toUpperCase(),
+                        style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 11, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          return SizedBox(
+                            height: 6,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(width: 1, height: 8, color: JweTheme.border), // Center line
+                                if (isPositive)
+                                  Positioned(
+                                    left: width / 2,
+                                    child: Container(
+                                      height: 4,
+                                      width: (width / 2) * fraction,
+                                      color: color,
+                                    ),
+                                  )
+                                else
+                                  Positioned(
+                                    right: width / 2,
+                                    child: Container(
+                                      height: 4,
+                                      width: (width / 2) * fraction,
+                                      color: color,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 35,
+                      child: Text(
+                        "${isPositive ? '+' : ''}$delta",
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.robotoMono(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      return SizedBox(
-                        height: 6,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(width: 1, height: 8, color: JweTheme.border), // Center line
-                            if (isPositive)
-                              Positioned(
-                                left: width / 2,
-                                child: Container(
-                                  height: 6,
-                                  width: (width / 2) * fraction,
-                                  color: color,
-                                ),
-                              )
-                            else
-                              Positioned(
-                                right: width / 2,
-                                child: Container(
-                                  height: 6,
-                                  width: (width / 2) * fraction,
-                                  color: color,
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }

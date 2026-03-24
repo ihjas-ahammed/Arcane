@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
 import 'package:arcane/src/widgets/finance/finance_charts.dart';
 import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:arcane/src/utils/finance_helpers.dart';
 import 'package:arcane/src/models/finance_models.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class FinanceTrackerView extends StatefulWidget {
   const FinanceTrackerView({super.key});
@@ -50,38 +52,29 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Balance Card
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.fhBgDark, AppTheme.fhBgDeepDark],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(12),
-            ),
+          JwePanel(
+            title: "TOTAL BALANCE",
+            accentColor: JweTheme.accentCyan,
             child: Column(
               children: [
-                const Text("TOTAL BALANCE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                const SizedBox(height: 8),
                 Text(
                   "₹${balance.toStringAsFixed(2)}",
-                  style: const TextStyle(color: AppTheme.fhAccentTeal, fontFamily: AppTheme.fontDisplay, fontSize: 40, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 40, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatCol("INCOME (30D)", income30d, AppTheme.fhAccentTeal),
-                    Container(width: 1, height: 30, color: AppTheme.fhBorderColor),
-                    _buildStatCol("EXPENSE (30D)", expense30d, AppTheme.fhAccentRed),
+                    _buildStatCol("INCOME (30D)", income30d, JweTheme.accentCyan),
+                    Container(width: 1, height: 30, color: JweTheme.border),
+                    _buildStatCol("EXPENSE (30D)", expense30d, JweTheme.accentRed),
                   ],
                 )
               ],
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           
           // Action Buttons
           Row(
@@ -90,7 +83,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.add),
                   label: const Text("INCOME"),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentTeal, foregroundColor: Colors.black),
+                  style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
                   onPressed: () => _showAddTransactionDialog(context, true),
                 ),
               ),
@@ -99,14 +92,14 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.remove),
                   label: const Text("EXPENSE"),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed, foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
                   onPressed: () => _showAddTransactionDialog(context, false),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
           // Charts
           FinanceCharts(
@@ -117,21 +110,20 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
           ),
 
           const SizedBox(height: 32),
-          const Text("TRANSACTION HISTORY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          const Text("TRANSACTION HISTORY", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           const SizedBox(height: 12),
 
           if (provider.transactions.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No transactions recorded.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic))))
+             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No transactions recorded.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic))))
           else
             ...provider.transactions.map((tx) {
-              // Note: Use 'FFFFFF' (6 chars) to prevent FormatException when parsed
               final cat = provider.categories.firstWhere((c) => c.id == tx.categoryId, orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome));
               final color = Color(int.parse("0xFF${cat.colorHex}"));
               return Dismissible(
                 key: ValueKey(tx.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  color: AppTheme.fhAccentRed,
+                  color: JweTheme.accentRed,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
                   child: const Icon(Icons.delete, color: Colors.white),
@@ -141,8 +133,8 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withOpacity(0.6),
-                    border: Border(left: BorderSide(color: tx.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, width: 3)),
+                    color: JweTheme.panel,
+                    border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, width: 3)),
                   ),
                   child: Row(
                     children: [
@@ -156,15 +148,15 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(cat.name.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
-                            if (tx.note.isNotEmpty) Text(tx.note, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
-                            Text(DateFormat('MMM dd, HH:mm').format(tx.timestamp), style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
+                            Text(cat.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                            if (tx.note.isNotEmpty) Text(tx.note, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                            Text(DateFormat('MMM dd, HH:mm').format(tx.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10)),
                           ],
                         ),
                       ),
                       Text(
                         "${tx.isIncome ? '+' : '-'}₹${tx.amount.toStringAsFixed(2)}",
-                        style: TextStyle(color: tx.isIncome ? AppTheme.fhAccentTeal : AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 16),
+                        style: TextStyle(color: tx.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 16),
                       ),
                     ],
                   ),
@@ -180,7 +172,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
   Widget _buildStatCol(String label, double value, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text("₹${value.toStringAsFixed(0)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 18)),
       ],

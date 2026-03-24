@@ -19,7 +19,7 @@ class ManualProjectChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (snapshots.isEmpty) {
-      return Center(
+      return const Center(
         child: Text("NO DATA POINTS LOGGED",
           style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay)
         ),
@@ -61,12 +61,12 @@ class ManualProjectChart extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white10, strokeWidth: 1),
-          getDrawingVerticalLine: (value) => FlLine(color: Colors.white10, strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => const FlLine(color: Colors.white10, strokeWidth: 1),
+          getDrawingVerticalLine: (value) => const FlLine(color: Colors.white10, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -91,22 +91,22 @@ class ManualProjectChart extends StatelessWidget {
           // Actual Data
           LineChartBarData(
             spots: spots,
-            isCurved: false, // Linear progression makes more sense for time vs effort usually
+            isCurved: true, 
             color: AppTheme.fhAccentTeal,
             barWidth: 3,
             isStrokeCapRound: true,
-            dotData: FlDotData(show: true),
+            dotData: const FlDotData(show: true),
             belowBarData: BarAreaData(show: true, color: AppTheme.fhAccentTeal.withValues(alpha: 0.1)),
           ),
           // Forecast Line
           if (forecastSpots.isNotEmpty)
             LineChartBarData(
               spots: forecastSpots,
-              isCurved: false,
+              isCurved: true,
               color: AppTheme.fhAccentPurple.withValues(alpha: 0.5),
               barWidth: 2,
               dashArray: [5, 5],
-              dotData: FlDotData(show: false),
+              dotData: const FlDotData(show: false),
             )
         ],
         lineTouchData: LineTouchData(
@@ -126,7 +126,7 @@ class ManualProjectChart extends StatelessWidget {
             getTooltipColor: (group) => AppTheme.fhBgDark,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
-                if (spot.barIndex == 1) return LineTooltipItem("Forecast: ${(spot.x).toStringAsFixed(1)}h", TextStyle(color: AppTheme.fhAccentPurple));
+                if (spot.barIndex == 1) return LineTooltipItem("Forecast: ${(spot.x).toStringAsFixed(1)}h", const TextStyle(color: AppTheme.fhAccentPurple));
                 
                 final snap = sortedSnapshots[spot.spotIndex];
                 return LineTooltipItem(

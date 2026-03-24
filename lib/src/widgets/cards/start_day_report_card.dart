@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
 import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class StartDayReportCard extends StatelessWidget {
   final Map<String, dynamic> report;
@@ -46,131 +47,111 @@ class StartDayReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal. Ready for input.";
+    final directives = (report['directives'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final metrics = report['metrics'] as List<dynamic>?;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16)
-        ),
-        border: Border.all(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.fhAccentTeal.withValues(alpha: 0.05),
-            blurRadius: 20,
-            spreadRadius: 0,
-          )
-        ],
+        color: JweTheme.panel,
+        border: Border.all(color: JweTheme.accentCyan.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // HEADER
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppTheme.fhBgDark,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.3))),
+              color: JweTheme.accentCyan.withOpacity(0.1),
+              border: Border(bottom: BorderSide(color: JweTheme.accentCyan.withOpacity(0.3))),
             ),
             child: Row(
               children: [
-                Icon(MdiIcons.chartBellCurveCumulative, color: AppTheme.fhAccentTeal, size: 20),
-                const SizedBox(width: 12),
-                const Expanded(
+                 Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
-                    "OPERATIONAL FORECAST",
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
+                    "SYSTEM STARTUP OVERVIEW",
+                    style: GoogleFonts.rajdhani(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.fhTextPrimary,
+                      fontSize: 14,
+                      color: JweTheme.accentCyan,
                       letterSpacing: 1.5,
                     ),
                   ),
                 ),
                 if (onRegenerate != null)
-                  IconButton(
-                    icon: isRegenerating 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentTeal))
-                      : Icon(MdiIcons.refresh, size: 18, color: AppTheme.fhTextSecondary),
-                    onPressed: isRegenerating ? null : onRegenerate,
-                    tooltip: "Re-calculate",
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  InkWell(
+                    onTap: isRegenerating ? null : onRegenerate,
+                    child: isRegenerating 
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.accentCyan))
+                      :  Icon(MdiIcons.refresh, size: 16, color: JweTheme.textMuted),
                   )
               ],
             ),
           ),
 
-          // FORECAST BODY
+          // BODY
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Forecast Text
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                    border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 2)),
+                const Text("AI FORECAST", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                const SizedBox(height: 6),
+                Text(
+                  forecast,
+                  style: const TextStyle(
+                    color: JweTheme.textWhite,
+                    height: 1.4,
+                    fontSize: 12,
+                    fontFamily: "RobotoMono"
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("SYSTEM PREDICTION", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                      const SizedBox(height: 8),
-                      Text(
-                        forecast,
-                        style: const TextStyle(
-                          color: AppTheme.fhTextPrimary,
-                          height: 1.4,
-                          fontSize: 13,
-                          fontFamily: "RobotoMono"
-                        ),
-                      ),
-                    ],
-                  ),
-                ).animate().fadeIn(duration: 600.ms),
+                ),
+
+                if (directives.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text("DIRECTIVES", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  const SizedBox(height: 6),
+                  ...directives.map((d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("> ", style: TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Expanded(child: Text(d, style: const TextStyle(color: JweTheme.textWhite, fontSize: 12, height: 1.3))),
+                      ],
+                    ),
+                  )),
+                ],
 
                 const SizedBox(height: 16),
+
+                // METRICS
+                if (metrics != null)
+                  StartupWellbeingMetrics(metrics: metrics),
+
+                const SizedBox(height: 20),
+                
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    icon: Icon(MdiIcons.brain, size: 16),
-                    label: const Text("START WITH NORA", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                    icon:  Icon(MdiIcons.brain, size: 14),
+                    label: Text("INITIATE NORA LINK", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentPurple,
-                      side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                      foregroundColor: JweTheme.accentCyan,
+                      side: const BorderSide(color: JweTheme.accentCyan),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: const BeveledRectangleBorder(),
                     ),
                     onPressed: () => _startWithNora(context),
                   ),
-                ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
-
-                const SizedBox(height: 20),
-
-                // COMPACT JWE DIVERGING BAR CHART
-                const StartupWellbeingMetrics(),
+                ),
               ],
             ),
           ),
-          
-          // Decorative footer line
-          Container(
-            height: 2,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.fhAccentTeal.withValues(alpha: 0.5), Colors.transparent]
-              )
-            ),
-          )
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.1, end: 0);

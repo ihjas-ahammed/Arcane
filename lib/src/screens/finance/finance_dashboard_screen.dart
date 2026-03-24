@@ -1,31 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/finance/finance_tracker_view.dart';
 import 'package:arcane/src/widgets/finance/savings_goals_view.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class FinanceDashboardScreen extends StatelessWidget {
   const FinanceDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Removed Scaffold/AppBar to integrate into main layout via IndexedStack
-    // Use DefaultTabController to manage tabs internally
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          // Custom Tab Bar embedded in the view
           Container(
-            decoration: BoxDecoration(
-              color: AppTheme.fhBgDeepDark,
-              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+            decoration: const BoxDecoration(
+              color: JweTheme.panel,
+              border: Border(bottom: BorderSide(color: JweTheme.border)),
             ),
-            child: const TabBar(
-              indicatorColor: AppTheme.fhAccentTeal,
-              labelColor: AppTheme.fhAccentTeal,
-              unselectedLabelColor: AppTheme.fhTextSecondary,
-              labelStyle: TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-              tabs: [
+            child: TabBar(
+              indicatorColor: JweTheme.accentCyan,
+              labelColor: JweTheme.accentCyan,
+              unselectedLabelColor: JweTheme.textMuted,
+              labelStyle: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 14),
+              tabs: const [
                 Tab(text: "CASHFLOW"),
                 Tab(text: "SAVINGS"),
               ],

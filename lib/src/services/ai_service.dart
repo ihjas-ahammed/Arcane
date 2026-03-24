@@ -822,12 +822,17 @@ class AIService {
     required String action,
     required String logsText,
     required String peopleContext,
+    required bool requestComms,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
+    final commsDirective = requestComms 
+        ? "2. Review the 'Known People' list and suggest ONE person the user should talk to about this. If no one fits, return null. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation."
+        : "2. Do NOT suggest any person to contact, and return null for suggested_person and an empty list for conversation_map.";
+
     final prompt = """
     User needs immediate psychological assistance.
     Current Situation / Reason: $reason
@@ -839,8 +844,7 @@ class AIService {
     
     Task:
     1. Provide a concise, empathetic, and tactical action plan for right now.
-    2. Review the 'Known People' list and suggest ONE person the user should talk to about this (if it makes sense). If no one fits, return null.
-    3. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation.
+    $commsDirective
     
     Output JSON ONLY:
     {

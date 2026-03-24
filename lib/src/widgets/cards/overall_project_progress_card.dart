@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;
@@ -19,8 +20,12 @@ class OverallProjectProgressCard extends StatelessWidget {
     final double avgProgress = totalProgress / activeProjects.length;
     final int percentage = (avgProgress * 100).toInt();
 
-    return ValorantCard(
-      borderColor: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: JweTheme.panel,
+        border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 4)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children:[
@@ -30,40 +35,33 @@ class OverallProjectProgressCard extends StatelessWidget {
               const Text(
                 "OVERALL PROGRESS",
                 style: TextStyle(
-                  color: AppTheme.fhTextSecondary,
-                  fontSize: 12,
+                  color: JweTheme.textMuted,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
               ),
               Text(
                 "$percentage%",
-                style: const TextStyle(
-                  color: AppTheme.fhTextPrimary,
+                style: GoogleFonts.rajdhani(
+                  color: JweTheme.textWhite,
                   fontSize: 24,
-                  fontFamily: AppTheme.fontDisplay,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: avgProgress.clamp(0.0, 1.0),
-              minHeight: 6,
-              color: AppTheme.fhAccentTeal,
-              backgroundColor: AppTheme.fhBgDeepDark,
-            ),
-          ),
+          
+          JweProgressBar(progress: avgProgress, color: JweTheme.accentCyan),
+          
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
               "${activeProjects.length} ACTIVE OPERATIONS",
               style: const TextStyle(
-                  color: AppTheme.fhTextSecondary,
+                  color: JweTheme.textMuted,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
                   fontSize: 10),

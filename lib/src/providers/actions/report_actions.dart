@@ -31,7 +31,37 @@ class ReportActions {
     _provider.setLoadingTask("Generating Startup Report...");
     
     try {
-      final result = await _aiService.generateStartDayReport(
+      // Calculate well-being metrics for Yesterday vs Today
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      final startOfYesterday = startOfToday.subtract(const Duration(days: 1));
+      final startOfTodayMinus7 = startOfToday.subtract(const Duration(days: 7));
+      final startOfYesterdayMinus7 = startOfYesterday.subtract(const Duration(days: 7));
+
+      Map<String, int> todayMetricsMap = {};
+      Map<String, int> yesterdayMetricsMap = {};
+
+      for (var log in _provider.reflectionLogs) {
+        if (log.timestamp.isAfter(startOfTodayMinus7) && log.timestamp.isBefore(startOfToday)) {
+          log.xpGained.forEach((k, v) => todayMetricsMap[k] = (todayMetricsMap[k] ?? 0) + v);
+        }
+        if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
+          log.xpGained.forEach((k, v) => yesterdayMetricsMap[k] = (yesterdayMetricsMap[k] ?? 0) + v);
+        }
+      }
+
+      List<Map<String, dynamic>> metrics = [];
+      for (var skill in _provider.getBaseWellbeingSkills()) {
+        final t = todayMetricsMap[skill.name] ?? 0;
+        final y = yesterdayMetricsMap[skill.name] ?? 0;
+        metrics.add({
+          'name': skill.name,
+          'today': t,
+          'yesterday': y,
+          'delta': t - y,
+        });
+      }
+
+      final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
         modelCandidates: _provider.settings.heavyModels, 
@@ -40,6 +70,10 @@ class ReportActions {
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ReportAI] $msg"),
       );
+
+      // Merge AI result and calculated metrics
+      final result = Map<String, dynamic>.from(aiResult);
+      result['metrics'] = metrics;
 
       final today = getTodayDateString();
       _provider.saveStartDayReport(today, result);

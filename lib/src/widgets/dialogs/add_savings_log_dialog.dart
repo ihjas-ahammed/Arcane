@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -20,26 +20,27 @@ class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
     final bal = provider.financeActions.currentBalance;
 
     return AlertDialog(
-      title: const Text("ALLOCATE FUNDS"),
+      backgroundColor: JweTheme.panel,
+      title: const Text("ALLOCATE FUNDS", style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Available Balance: ₹${bal.toStringAsFixed(2)}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+          Text("Available Balance: ₹${bal.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
           const SizedBox(height: 16),
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: 'RobotoMono'),
-            decoration: const InputDecoration(prefixText: "₹ "),
+            style: const TextStyle(color: JweTheme.textWhite, fontSize: 24, fontFamily: 'RobotoMono'),
+            decoration: const InputDecoration(prefixText: "₹ ", hintStyle: TextStyle(color: JweTheme.textMuted)),
             autofocus: true,
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
             if (amt != null && amt > 0) {
@@ -51,7 +52,7 @@ class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
               Navigator.pop(context);
             }
           }, 
-          child: const Text("CONFIRM")
+          child: const Text("CONFIRM", style: TextStyle(fontWeight: FontWeight.bold))
         )
       ],
     );

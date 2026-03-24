@@ -49,7 +49,7 @@ class HealthCombinedChart extends StatelessWidget {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (val) => FlLine(color: JweTheme.border, strokeWidth: 1),
+                getDrawingHorizontalLine: (val) => const FlLine(color: JweTheme.border, strokeWidth: 1),
               ),
               titlesData: FlTitlesData(
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -58,7 +58,9 @@ class HealthCombinedChart extends StatelessWidget {
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
+                    interval: 1, // Enforce whole numbers
                     getTitlesWidget: (value, meta) {
+                      if (value % 1 != 0) return const SizedBox.shrink(); // Safety check
                       final date = now.subtract(Duration(days: 6 - value.toInt()));
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),

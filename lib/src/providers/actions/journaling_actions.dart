@@ -164,7 +164,7 @@ class JournalingActions {
     }
   }
 
-  Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action) async {
+  Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action, {bool requestComms = false}) async {
     final logsText = _getLogsText();
     final peopleContext = _provider.chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(', ');
 
@@ -177,6 +177,7 @@ class JournalingActions {
         action: action,
         logsText: logsText,
         peopleContext: peopleContext.isEmpty ? "None" : peopleContext,
+        requestComms: requestComms,
         modelCandidates: _provider.settings.liteModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,

@@ -3,7 +3,9 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/widgets/header_widget.dart';
 import 'package:arcane/src/widgets/task_navigation_drawer.dart';
 import 'package:arcane/src/widgets/drawers/wellbeing_drawer.dart';
+import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
 import 'package:arcane/src/widgets/views/projects_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
@@ -79,21 +81,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController usernameController = TextEditingController();
     final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
     final Color currentAccentColor = appProvider.getSelectedTask()?.taskColor ??
-        Theme.of(context).colorScheme.secondary;
+        JweTheme.accentCyan;
 
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: Text('Set Your Callsign',
-              style: TextStyle(color: currentAccentColor)),
+          backgroundColor: JweTheme.panel,
+          shape: Border.all(color: currentAccentColor, width: 2),
+          title: Text('SET CALLSIGN',
+              style: TextStyle(color: currentAccentColor, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           content: Form(
             key: dialogFormKey,
             child: TextFormField(
               controller: usernameController,
-              decoration:
-                  const InputDecoration(hintText: "Enter callsign (username)"),
+              style: const TextStyle(color: JweTheme.textWhite),
+              decoration: InputDecoration(
+                hintText: "Enter callsign (username)",
+                hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: const OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: currentAccentColor)),
+              ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Callsign cannot be empty.';
@@ -107,15 +118,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: <Widget>[
             ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: currentAccentColor),
-              child: Text('CONFIRM CALLSIGN',
-                  style: TextStyle(
-                      color: ThemeData.estimateBrightnessForColor(
-                                  currentAccentColor) ==
-                              Brightness.dark
-                          ? AppTheme.fhTextPrimary
-                          : AppTheme.fhBgDeepDark)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: currentAccentColor,
+                foregroundColor: Colors.black,
+                shape: const BeveledRectangleBorder()
+              ),
+              child: const Text('CONFIRM CALLSIGN', style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () async {
                 if (dialogFormKey.currentState!.validate()) {
                   String newUsername = usernameController.text.trim();
@@ -126,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text('Callsign updated!'),
-                          backgroundColor: AppTheme.fhAccentGreen),
+                          backgroundColor: JweTheme.accentCyan),
                     );
                   }
                 }
@@ -158,12 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final appProvider = context.watch<AppProvider>();
     final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+        appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
     final List<Widget> widgetOptions = <Widget>[
-      // 0: MISSIONS
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -171,9 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const TaskDetailsView(),
         ),
       ),
-      // 1: SCHEDULE
       const ScheduleView(),
-      // 2: PROJECTS
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -181,21 +186,20 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const ProjectsView(),
         ),
       ),
-      // 3: ANALYTICS
       const LogbookScreen(), 
-      // 4: WALLET
       const FinanceDashboardScreen(),
     ];
 
     return Theme(
-      data: dynamicTheme,
+      data: dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase),
       child: Scaffold(
         key: _scaffoldKey,
+        backgroundColor: JweTheme.bgBase,
         appBar: HeaderWidget(
           currentViewLabel: _viewTitles[_selectedIndex],
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
           customAction: IconButton(
-            icon: Icon(MdiIcons.cogOutline, color: AppTheme.fhTextSecondary),
+            icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),
             tooltip: "SYSTEM SETTINGS",
             onPressed: _navigateToSettings,
           ),
@@ -208,11 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 width: 280,
                 decoration: BoxDecoration(
-                  color: dynamicTheme.cardTheme.color,
+                  color: JweTheme.panel,
                   border: Border(
                       right: BorderSide(
-                          color: dynamicTheme.dividerTheme.color ??
-                              AppTheme.fhBorderColor,
+                          color: JweTheme.border,
                           width: 1)),
                 ),
                 child: const TaskNavigationDrawer(),
@@ -225,55 +228,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            border: Border(
-              top: BorderSide(color: AppTheme.fhBorderColor, width: 1.0),
-            ),
-          ),
-          child: BottomNavigationBar(
-            backgroundColor: AppTheme.fhBgDeepDark,
-            // Updated: Use Agent Color for selected items
-            selectedItemColor: currentTaskColor,
-            unselectedItemColor: AppTheme.fhTextSecondary,
-            selectedLabelStyle: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-              fontSize: 10,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              letterSpacing: 0.5,
-              fontSize: 10,
-            ),
-            type: BottomNavigationBarType.fixed,
-            elevation: 0,
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            items: <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.targetAccount),
-                label: 'MISSIONS',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.calendarClock),
-                label: 'SCHEDULE',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.rocketLaunchOutline),
-                label: 'PROJECTS',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.notebookOutline),
-                label: 'ANALYTICS',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(MdiIcons.walletOutline),
-                label: 'WALLET',
-              ),
-            ],
-          ),
+        bottomNavigationBar: JweBottomNavBar(
+          selectedIndex: _selectedIndex,
+          activeColor: currentTaskColor,
+          onItemTapped: _onItemTapped,
         ),
       ),
     );

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/ability_improvement_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class WeeklyReportDialog extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -25,12 +25,11 @@ class WeeklyReportDialog extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.fhAccentGold.withValues(alpha: 0.3), width: 1.5),
+          color: JweTheme.panel,
+          border: Border.all(color: JweTheme.accentAmber.withOpacity(0.5), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.fhAccentGold.withValues(alpha: 0.1),
+              color: JweTheme.accentAmber.withOpacity(0.1),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -44,12 +43,12 @@ class WeeklyReportDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhAccentGold.withValues(alpha: 0.1))),
+                border: Border(bottom: BorderSide(color: JweTheme.border)),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppTheme.fhAccentGold.withValues(alpha: 0.05),
+                    JweTheme.accentAmber.withOpacity(0.05),
                     Colors.transparent
                   ],
                 ),
@@ -59,24 +58,22 @@ class WeeklyReportDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.fhAccentGold),
-                      color: AppTheme.fhAccentGold.withValues(alpha: 0.1),
+                      border: Border.all(color: JweTheme.accentAmber),
+                      color: JweTheme.accentAmber.withOpacity(0.1),
                     ),
-                    child: Icon(MdiIcons.medalOutline, color: AppTheme.fhAccentGold, size: 24),
+                    child: Icon(MdiIcons.medalOutline, color: JweTheme.accentAmber, size: 24),
                   ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "WEEKLY DEBRIEF",
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontDisplay,
+                          style: GoogleFonts.rajdhani(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
-                            color: AppTheme.fhTextPrimary,
+                            color: JweTheme.textWhite,
                             letterSpacing: 2.0,
                             height: 1.0,
                           ),
@@ -85,7 +82,7 @@ class WeeklyReportDialog extends StatelessWidget {
                         const Text(
                           "PERFORMANCE ANALYSIS",
                           style: TextStyle(
-                            color: AppTheme.fhAccentGold,
+                            color: JweTheme.accentAmber,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.5,
@@ -112,14 +109,14 @@ class WeeklyReportDialog extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                        border: Border(left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)),
+                        color: JweTheme.bgBase.withOpacity(0.5),
+                        border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
                       ),
                       child: Text(
                         summary,
                         style: const TextStyle(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 14,
+                          color: JweTheme.textWhite,
+                          fontSize: 13,
                           height: 1.5,
                         ),
                       ),
@@ -134,14 +131,14 @@ class WeeklyReportDialog extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-                            border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
+                            color: JweTheme.bgBase.withOpacity(0.5),
+                            border: Border(left: BorderSide(color: const Color(0xFF8A2BE2), width: 3)), // Purple
                           ),
                           child: Text(
                             wellbeingAnalysis,
                             style: const TextStyle(
-                              color: AppTheme.fhTextPrimary,
-                              fontSize: 14,
+                              color: JweTheme.textWhite,
+                              fontSize: 13,
                               height: 1.5,
                             ),
                           ),
@@ -178,15 +175,15 @@ class WeeklyReportDialog extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.fhBgDark.withValues(alpha: 0.3),
-                            border: Border(left: BorderSide(color: AppTheme.fhAccentGold, width: 2))
+                            color: JweTheme.bgBase.withOpacity(0.5),
+                            border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 2))
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(pMap['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhAccentGold)),
+                              Text(pMap['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, color: JweTheme.accentAmber)),
                               const SizedBox(height: 4),
-                              Text(pMap['reason'] ?? '', style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                              Text(pMap['reason'] ?? '', style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
                             ],
                           ),
                         ).animate().fadeIn(delay: 650.ms);
@@ -201,21 +198,20 @@ class WeeklyReportDialog extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.fhAccentPurple.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.2)),
+                          color: const Color(0xFF8A2BE2).withOpacity(0.05),
+                          border: Border.all(color: const Color(0xFF8A2BE2).withOpacity(0.2)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(MdiIcons.informationOutline, size: 18, color: AppTheme.fhAccentPurple),
+                            Icon(MdiIcons.informationOutline, size: 18, color: const Color(0xFF8A2BE2)),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 timeInsight,
-                                style: TextStyle(
-                                  color: AppTheme.fhTextSecondary,
-                                  fontSize: 13,
+                                style: const TextStyle(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 12,
                                   fontStyle: FontStyle.italic,
                                   height: 1.4,
                                 ),
@@ -236,21 +232,29 @@ class WeeklyReportDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: ValorantButton(
-                      label: "ACKNOWLEDGE",
-                      isPrimary: false,
-                      color: AppTheme.fhTextSecondary,
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: JweTheme.textMuted,
+                        side: BorderSide(color: JweTheme.border),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: const BeveledRectangleBorder()
+                      ),
+                      child: const Text("ACKNOWLEDGE"),
                     ),
                   ),
                   if (onSave != null) ...[
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ValorantButton(
-                        label: "ARCHIVE",
-                        isPrimary: true,
-                        color: AppTheme.fhAccentGold,
+                      child: ElevatedButton(
                         onPressed: onSave,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: JweTheme.accentAmber,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: const BeveledRectangleBorder()
+                        ),
+                        child: const Text("ARCHIVE", style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ]
@@ -275,19 +279,19 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppTheme.fhTextSecondary),
+        Icon(icon, size: 16, color: JweTheme.textMuted),
         const SizedBox(width: 8),
         Text(
           title,
           style: const TextStyle(
-            color: AppTheme.fhTextSecondary,
+            color: JweTheme.textMuted,
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.2,
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
+        Expanded(child: Container(height: 1, color: JweTheme.border)),
       ],
     ).animate().fadeIn(delay: delay.ms, duration: 400.ms);
   }
