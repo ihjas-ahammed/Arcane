@@ -59,6 +59,9 @@ class AppSettings {
   // Someday / Maybe List
   List<SomedayItem> somedayList;
 
+  // Onboarding
+  bool hasCompletedTour;
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -87,6 +90,7 @@ class AppSettings {
     this.noraAccessFinance = false,
     this.habitRules = const [],
     this.somedayList = const [],
+    this.hasCompletedTour = false,
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -133,6 +137,7 @@ class AppSettings {
       somedayList: (json['somedayList'] as List<dynamic>?)
               ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
+      hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
     );
   }
   
@@ -157,6 +162,7 @@ class AppSettings {
       'noraAccessFinance': noraAccessFinance,
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
       'somedayList': somedayList.map((e) => e.toJson()).toList(),
+      'hasCompletedTour': hasCompletedTour,
     };
   }
 }

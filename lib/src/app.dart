@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/screens/home_screen.dart';
 import 'package:arcane/src/screens/login_screen.dart';
+import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +44,14 @@ class _MyAppState extends State<MyApp> {
 
           if (appProvider.currentUser == null) {
             return const LoginScreen();
+          }
+
+          // Check if onboarding is completed
+          if (!appProvider.settings.hasCompletedTour) {
+            return Theme(
+              data: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+              child: const AppTourScreen(),
+            );
           }
 
           final Color currentTaskColor =

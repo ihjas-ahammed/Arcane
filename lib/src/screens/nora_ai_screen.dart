@@ -3,6 +3,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/dialogs/nora_control_panel.dart';
+import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -288,15 +289,19 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 itemCount: activeSession.messages.length + (_isSending ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (_isSending && index == activeSession.messages.length) {
-                     return _buildMessageBubble(
-                        ChatbotMessage(id: 't', text: '...', sender: MessageSender.bot, timestamp: DateTime.now()), 
-                        AppTheme.fhAccentPurple, 
-                        true
+                     return NoraMessageBubble(
+                        message: ChatbotMessage(id: 't', text: '...', sender: MessageSender.bot, timestamp: DateTime.now()), 
+                        accentColor: AppTheme.fhAccentPurple, 
+                        isTyping: true
                      );
                   }
                   if (index >= activeSession.messages.length) return const SizedBox.shrink();
                   final msg = activeSession.messages[index];
-                  return _buildMessageBubble(msg, AppTheme.fhAccentPurple, false);
+                  return NoraMessageBubble(
+                    message: msg, 
+                    accentColor: AppTheme.fhAccentPurple, 
+                    isTyping: false
+                  );
                 },
               ),
             ),
@@ -336,43 +341,6 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
             )
           ],
         ),
-    );
-  }
-
-  Widget _buildMessageBubble(ChatbotMessage message, Color accent, bool isTyping) {
-    final isUser = message.sender == MessageSender.user;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isUser) Padding(padding: const EdgeInsets.only(right: 8.0, bottom: 4), child: Icon(MdiIcons.brain, size: 16, color: accent)),
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isUser ? accent.withOpacity(0.1) : AppTheme.fhBgMedium,
-                border: Border.all(color: isUser ? accent.withOpacity(0.5) : AppTheme.fhBorderColor.withOpacity(0.3)),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isUser ? const Radius.circular(16) : Radius.zero,
-                  bottomRight: isUser ? Radius.zero : const Radius.circular(16),
-                )
-              ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  color: isUser ? accent : Colors.white,
-                  height: 1.4,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
     );
   }
 }

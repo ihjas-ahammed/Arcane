@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/chatbot_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'dart:convert';
 
@@ -149,20 +149,30 @@ class _ChatbotViewState extends State<ChatbotView> {
                     itemBuilder: (context, index) {
                       if (_isSending &&
                           index == chatbotMemory.conversationHistory.length) {
-                        return _buildMessageBubble(
-                            ChatbotMessage(
-                              id: 'typing',
-                              text: '...',
-                              sender: MessageSender.bot,
-                              timestamp: DateTime.now(),
-                            ),
-                            theme,
-                            dynamicAccent,
-                            true);
+                        return NoraMessageBubble(
+                          message: ChatbotMessage(
+                            id: 'typing',
+                            text: '...',
+                            sender: MessageSender.bot,
+                            timestamp: DateTime.now(),
+                          ),
+                          accentColor: dynamicAccent,
+                          isTyping: true,
+                        );
                       }
                       final message = chatbotMemory.conversationHistory[index];
-                      return _buildMessageBubble(
-                          message, theme, dynamicAccent, false);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          NoraMessageBubble(
+                            message: message, 
+                            accentColor: dynamicAccent, 
+                            isTyping: false
+                          ),
+                          if (message.uiPayload != null)
+                             _buildDynamicUiWidget(message.uiPayload!, theme, dynamicAccent),
+                        ],
+                      );
                     },
                   ),
           ),
@@ -206,77 +216,6 @@ class _ChatbotViewState extends State<ChatbotView> {
                   iconSize: 28,
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(ChatbotMessage message, ThemeData theme,
-      Color dynamicAccent, bool isTyping) {
-    final bool isUser = message.sender == MessageSender.user;
-    final Color bubbleColor = isUser ? dynamicAccent : AppTheme.fhBgMedium;
-    final Color textColor = isUser
-        ? (ThemeData.estimateBrightnessForColor(dynamicAccent) ==
-                Brightness.dark
-            ? AppTheme.fhTextPrimary
-            : AppTheme.fhBgDark)
-        : AppTheme.fhTextPrimary;
-
-    final CrossAxisAlignment crossAxisAlignment =
-        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final MainAxisAlignment mainAxisAlignment =
-        isUser ? MainAxisAlignment.end : MainAxisAlignment.start;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: mainAxisAlignment,
-        children: [
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                  color: bubbleColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18),
-                    topRight: const Radius.circular(18),
-                    bottomLeft: isUser
-                        ? const Radius.circular(18)
-                        : const Radius.circular(4),
-                    bottomRight: isUser
-                        ? const Radius.circular(4)
-                        : const Radius.circular(18),
-                  ),
-                  border: Border.all(
-                      color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
-              child: Column(
-                crossAxisAlignment: crossAxisAlignment,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    message.text,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: textColor, fontSize: 13.5, height: 1.4),
-                  ),
-                  if (message.uiPayload != null) ...[
-                    const SizedBox(height: 8),
-                    _buildDynamicUiWidget(
-                        message.uiPayload!, theme, dynamicAccent),
-                  ],
-                  if (!isTyping) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat('HH:mm').format(message.timestamp.toLocal()),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          color: textColor.withValues(alpha: 0.7), fontSize: 9),
-                    ),
-                  ]
-                ],
-              ),
             ),
           ),
         ],

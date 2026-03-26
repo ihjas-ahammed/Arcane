@@ -24,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late AppProvider _appProvider;
-  bool _isUsernameDialogShowing = false;
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -52,104 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _appProvider.mainTasks.isNotEmpty) {
         _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
       }
-      _checkAndPromptForUsername(_appProvider);
     });
-    _appProvider.addListener(_handleProviderForUsernamePrompt);
-  }
-
-  void _handleProviderForUsernamePrompt() {
-    _checkAndPromptForUsername(
-        Provider.of<AppProvider>(context, listen: false));
-  }
-
-  void _checkAndPromptForUsername(AppProvider appProvider) {
-    if (mounted &&
-        appProvider.isUsernameMissing &&
-        appProvider.currentUser != null &&
-        !_isUsernameDialogShowing &&
-        !appProvider.authLoading &&
-        !appProvider.isDataLoadingAfterLogin) {
-      setState(() => _isUsernameDialogShowing = true);
-      _showUsernameDialog(context, appProvider).then((_) {
-        if (mounted) setState(() => _isUsernameDialogShowing = false);
-      });
-    }
-  }
-
-  Future<void> _showUsernameDialog(
-      BuildContext context, AppProvider appProvider) async {
-    final TextEditingController usernameController = TextEditingController();
-    final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
-    final Color currentAccentColor = appProvider.getSelectedTask()?.taskColor ??
-        JweTheme.accentCyan;
-
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: JweTheme.panel,
-          shape: Border.all(color: currentAccentColor, width: 2),
-          title: Text('SET CALLSIGN',
-              style: TextStyle(color: currentAccentColor, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-          content: Form(
-            key: dialogFormKey,
-            child: TextFormField(
-              controller: usernameController,
-              style: const TextStyle(color: JweTheme.textWhite),
-              decoration: InputDecoration(
-                hintText: "Enter callsign (username)",
-                hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
-                filled: true,
-                fillColor: JweTheme.bgBase,
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: currentAccentColor)),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Callsign cannot be empty.';
-                }
-                if (value.trim().length < 3) {
-                  return 'Must be at least 3 characters.';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: <Widget>[
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: currentAccentColor,
-                foregroundColor: Colors.black,
-                shape: const BeveledRectangleBorder()
-              ),
-              child: const Text('CONFIRM CALLSIGN', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () async {
-                if (dialogFormKey.currentState!.validate()) {
-                  String newUsername = usernameController.text.trim();
-                  Navigator.of(dialogContext).pop();
-                  await appProvider.updateUserDisplayName(newUsername);
-                  if (!mounted) return;
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Callsign updated!'),
-                          backgroundColor: JweTheme.accentCyan),
-                    );
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _appProvider.removeListener(_handleProviderForUsernamePrompt);
-    super.dispose();
   }
 
   void _navigateToSettings() {

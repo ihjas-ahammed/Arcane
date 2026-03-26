@@ -11,6 +11,7 @@ import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
 import 'package:arcane/src/widgets/settings/api_key_manager.dart';
 import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
 import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
+import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -22,16 +23,12 @@ class SettingsView extends StatefulWidget {
 class _SettingsViewState extends State<SettingsView> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _newUsernameController = TextEditingController();
   final _customChatbotPromptController = TextEditingController();
   final _customReflectionPromptController = TextEditingController();
 
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
-  bool _usernameChangeLoading = false;
-  String _usernameChangeError = '';
-  String _usernameChangeSuccess = '';
   bool _logoutLoading = false;
 
   List<String> _availableModels = [
@@ -46,7 +43,6 @@ class _SettingsViewState extends State<SettingsView> {
   void initState() {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
     _customChatbotPromptController.text =
         appProvider.settings.customChatbotPrompt ?? '';
     _customReflectionPromptController.text =
@@ -61,7 +57,6 @@ class _SettingsViewState extends State<SettingsView> {
   void dispose() {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
-    _newUsernameController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
     super.dispose();
@@ -102,44 +97,6 @@ class _SettingsViewState extends State<SettingsView> {
     } finally {
       if (mounted) {
         setState(() => _passwordChangeLoading = false);
-      }
-    }
-  }
-
-  Future<void> _handleChangeUsername(AppProvider appProvider) async {
-    if (_newUsernameController.text.trim().isEmpty) {
-      setState(() => _usernameChangeError = "Username cannot be empty.");
-      return;
-    }
-    if (_newUsernameController.text.trim().length < 3) {
-      setState(() =>
-          _usernameChangeError = "Username must be at least 3 characters.");
-      return;
-    }
-    setState(() {
-      _usernameChangeLoading = true;
-      _usernameChangeError = '';
-      _usernameChangeSuccess = '';
-    });
-    try {
-      await appProvider
-          .updateUserDisplayName(_newUsernameController.text.trim());
-      if (!mounted) return;
-      setState(() {
-        _usernameChangeSuccess = "Username updated successfully!";
-      });
-    } catch (e) {
-      if (!mounted) return;
-      if (e is FirebaseAuthException) {
-        setState(() =>
-            _usernameChangeError = e.message ?? "Failed to update username.");
-      } else {
-        setState(() => _usernameChangeError =
-            "An unexpected error occurred while updating username.");
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _usernameChangeLoading = false);
       }
     }
   }
@@ -427,59 +384,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // 6. USER PROFILE
-          _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.accountEditOutline,
-              title: 'User Profile',
-              children: [
-                TextFormField(
-                  controller: _newUsernameController,
-                  decoration: InputDecoration(
-                      labelText: 'Display Name',
-                      prefixIcon: Icon(MdiIcons.accountBadgeOutline, size: 20)),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Display name cannot be empty.';
-                    }
-                    if (value.trim().length < 3) {
-                      return 'Must be at least 3 characters.';
-                    }
-                    return null;
-                  },
-                ),
-                if (_usernameChangeError.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(_usernameChangeError,
-                        style: const TextStyle(
-                            color: AppTheme.fhAccentRed, fontSize: 12)),
-                  ),
-                if (_usernameChangeSuccess.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(_usernameChangeSuccess,
-                        style: const TextStyle(
-                            color: AppTheme.fhAccentGreen, fontSize: 12)),
-                  ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  icon: _usernameChangeLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.contentSaveOutline, size: 18),
-                  label: const Text('UPDATE DISPLAY NAME'),
-                  onPressed: _usernameChangeLoading
-                      ? null
-                      : () => _handleChangeUsername(appProvider),
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44)),
-                ),
-              ]),
-
-          // 7. UI CONFIG
+          // 6. UI CONFIG
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.eyeSettingsOutline,
               title: 'User Interface Config',
@@ -497,13 +402,13 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // 8. DIAGNOSTICS
+          // 7. DIAGNOSTICS & ONBOARDING
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.tools,
               title: 'System Diagnostics',
               children: [
                 const Text(
-                  'Use these tools to repair data inconsistencies.',
+                  'Use these tools to repair data inconsistencies or replay tutorials.',
                   style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
@@ -534,16 +439,22 @@ class _SettingsViewState extends State<SettingsView> {
                     side: BorderSide(color: AppTheme.fhAccentOrange.withOpacity(0.5))
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    "Re-syncs total task time data for the past 7 days based strictly on raw session entries. Use if time totals appear incorrect.",
-                    style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontStyle: FontStyle.italic),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.presentationPlay, size: 18),
+                  label: const Text('REPLAY SYSTEM TOUR'),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AppTourScreen()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentTeal,
+                    side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
                   ),
                 ),
               ]),
 
-          // 9. CREDENTIALS
+          // 8. CREDENTIALS
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
@@ -623,7 +534,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ]),
 
-          // 10. DATA RESET
+          // 9. DATA RESET
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',

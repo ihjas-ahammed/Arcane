@@ -290,14 +290,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
   Future<void> logoutUser() async => await fb_service.signOut();
-  Future<void> signupUser(String email, String password, String username) async {
+  
+  Future<void> signupUser(String email, String password) async {
     final user = await fb_service.signUpWithEmail(email, password);
     if (user != null) {
-      await user.updateDisplayName(username);
+      await user.updateDisplayName("OPERATIVE");
       await user.reload();
       setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
     }
   }
+  
   Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
   Future<void> updateUserDisplayName(String name) async {
     if (currentUser != null) {
