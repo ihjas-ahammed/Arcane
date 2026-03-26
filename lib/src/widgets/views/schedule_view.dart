@@ -420,6 +420,13 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
             }
           },
+          onFinishSubTask: () {
+            if (nextQueueId != null && nextMainTask != null && nextSubTask != null) {
+              provider.taskActions.completeSubtask(nextMainTask!.id, nextSubTask!.id);
+              final newPlan = List<String>.from(plan)..remove(nextQueueId);
+              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+            }
+          },
           onTitleTap: () {
             if (nextMainTask != null && nextSubTask != null) {
               if (nextCheckpoint != null) {

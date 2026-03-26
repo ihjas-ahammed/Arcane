@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/habit_models.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class AddHabitRuleDialog extends StatefulWidget {
   const AddHabitRuleDialog({super.key});
@@ -99,7 +100,7 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
           onPressed: () {
             if (_nameController.text.trim().isNotEmpty) {
               final rule = HabitRule(
-                id: '',
+                id: const Uuid().v4(),
                 appName: _nameController.text.trim(),
                 frictionDelaySeconds: int.tryParse(_delayController.text) ?? 0,
                 dailyLimitMinutes: int.tryParse(_limitController.text) ?? 0,

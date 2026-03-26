@@ -85,16 +85,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                     valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentCyan),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  appProvider.loadingTaskName != null ? "PROCESSING" : "SYNCING",
-                  style: const TextStyle(
-                    color: JweTheme.accentCyan,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'RobotoMono'
-                  ),
-                )
               ],
             ),
           ),

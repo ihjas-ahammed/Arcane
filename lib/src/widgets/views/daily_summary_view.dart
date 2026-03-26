@@ -229,7 +229,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children:[
-                Text("DATABANKS & ANALYTICS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                Text("DATABANKS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                 Row(
                   children:[
                     IconButton(

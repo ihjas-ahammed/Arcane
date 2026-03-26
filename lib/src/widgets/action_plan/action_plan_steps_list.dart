@@ -3,6 +3,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/items/draggable_checkpoint_wrapper.dart';
 import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
@@ -111,51 +112,42 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
         else
-          ReorderableListView.builder(
+          ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: widget.steps.length,
-            onReorder: (oldIndex, newIndex) {
-              if (oldIndex < newIndex) newIndex -= 1;
-              final list = List<SubSubTask>.from(widget.steps);
-              final item = list.removeAt(oldIndex);
-              list.insert(newIndex, item);
-              provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.subTaskId, list.map((e) => e.id).toList());
-            },
-            proxyDecorator: (child, index, animation) {
-              return Material(
-                color: Colors.transparent,
-                elevation: 5,
-                shadowColor: Colors.black,
-                child: child,
-              );
-            },
             itemBuilder: (ctx, index) {
               final step = widget.steps[index];
-              return CheckpointItem(
-                key: ValueKey(step.id),
-                title: step.name,
-                isCompleted: step.completed,
-                type: step.type,
-                hasCheckableSubsteps: step.hasCheckableSubsteps,
-                progress: step.calculateProgress(), 
-                accentColor: widget.accentColor,
-                onTap: () => _navigateToStepDetail(context, step),
-                onPlay: null,
-                isRunning: false,
-                onToggle: () {
-                  if (step.completed) {
-                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                  } else {
-                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                  }
+              return DraggableCheckpointWrapper(
+                checkpointId: step.id,
+                onMove: (draggedId, targetId, pos) {
+                  provider.taskActions.moveCheckpointRelative(widget.mainTaskId, widget.subTaskId, draggedId, targetId, pos);
                 },
-                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                onToggleType: () {
-                  final newType = step.type == 'check' ? 'info' : 'check';
-                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-                },
+                child: CheckpointItem(
+                  key: ValueKey(step.id),
+                  title: step.name,
+                  isCompleted: step.completed,
+                  type: step.type,
+                  hasCheckableSubsteps: step.hasCheckableSubsteps,
+                  progress: step.calculateProgress(), 
+                  accentColor: widget.accentColor,
+                  onTap: () => _navigateToStepDetail(context, step),
+                  onPlay: null,
+                  isRunning: false,
+                  onToggle: () {
+                    if (step.completed) {
+                      provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                    } else {
+                      provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                    }
+                  },
+                  onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                  onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                  onToggleType: () {
+                    final newType = step.type == 'check' ? 'info' : 'check';
+                    provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                  },
+                ),
               );
             },
           ),

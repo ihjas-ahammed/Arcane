@@ -1,6 +1,3 @@
---- START OF FILE project_snapshot_out.txt ---
-
---- START OF FILE lib/src/widgets/items/draggable_checkpoint_wrapper.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 
@@ -100,6 +97,3 @@ class _DraggableCheckpointWrapperState extends State<DraggableCheckpointWrapper>
     );
   }
 }
---- END OF FILE lib/src/widgets/items/draggable_checkpoint_wrapper.dart ---
-
---- END OF FILE project_snapshot_out.txt ---

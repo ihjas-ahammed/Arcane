@@ -17,7 +17,8 @@ class ScheduleHeroWidget extends StatelessWidget {
   final VoidCallback onOpenPlan;
   final VoidCallback onPostpone;
   final VoidCallback onFinishCheckpoint;
-  final VoidCallback onTitleTap; // Added click action callback
+  final VoidCallback onFinishSubTask;
+  final VoidCallback onTitleTap;
 
   const ScheduleHeroWidget({
     super.key,
@@ -30,6 +31,7 @@ class ScheduleHeroWidget extends StatelessWidget {
     required this.onOpenPlan,
     required this.onPostpone,
     required this.onFinishCheckpoint,
+    required this.onFinishSubTask,
     required this.onTitleTap,
   });
 
@@ -207,6 +209,14 @@ class ScheduleHeroWidget extends StatelessWidget {
                           color: isRunning ? AppTheme.fhAccentRed : mainColor,
                           isFilled: true,
                           onTap: onPlayPause
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCompactButton(
+                          label: "FINISH",
+                          icon: MdiIcons.checkAll,
+                          color: mainColor,
+                          isFilled: false,
+                          onTap: onFinishSubTask
                         ),
                         const SizedBox(height: 8),
                         _buildCompactButton(

@@ -48,6 +48,14 @@ class SavingsDetailScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: JweTheme.accentAmber),
         actions: [
           IconButton(
+            icon: Icon(MdiIcons.restore, color: JweTheme.textMuted),
+            tooltip: "Recalibrate Start Date",
+            onPressed: () {
+              provider.financeActions.resetSavingsGoalStartDate(goal.id);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Goal recalibrated to today.")));
+            },
+          ),
+          IconButton(
             icon:  Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed),
             onPressed: () {
               provider.financeActions.deleteSavingsGoal(goal.id);

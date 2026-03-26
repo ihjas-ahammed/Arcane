@@ -209,6 +209,80 @@ class TaskActions {
       _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
     }
   }
+
+  void moveCheckpointRelative(String mainTaskId, String subTaskId, String draggedId, String targetId, String position) {
+    if (draggedId == targetId) return;
+
+    final taskIndex = _provider.mainTasks.indexWhere((t) => t.id == mainTaskId);
+    if (taskIndex == -1) return;
+    final task = _provider.mainTasks[taskIndex];
+    
+    final subIndex = task.subTasks.indexWhere((s) => s.id == subTaskId);
+    if (subIndex == -1) return;
+    final sub = task.subTasks[subIndex];
+
+    List<SubSubTask> clonedCheckpoints = sub.subSubTasks.map((e) => SubSubTask.fromJson(e.toJson())).toList();
+
+    bool isDescendant(List<SubSubTask> list) {
+      for (var node in list) {
+         if (node.id == targetId) return true;
+         if (isDescendant(node.substeps)) return true;
+      }
+      return false;
+    }
+    
+    SubSubTask? draggedNodeRaw;
+    void findDragged(List<SubSubTask> list) {
+      for (var node in list) {
+        if (node.id == draggedId) draggedNodeRaw = node;
+        findDragged(node.substeps);
+      }
+    }
+    findDragged(clonedCheckpoints);
+    
+    if (draggedNodeRaw != null && (position == 'inside' || position == 'before' || position == 'after') && isDescendant(draggedNodeRaw!.substeps)) {
+      return; // Cannot drop a parent into or adjacent to its own child
+    }
+
+    SubSubTask? detachedNode;
+    bool extractNode(List<SubSubTask> list) {
+       for (int i = 0; i < list.length; i++) {
+          if (list[i].id == draggedId) {
+             detachedNode = list.removeAt(i);
+             return true;
+          }
+          if (extractNode(list[i].substeps)) return true;
+       }
+       return false;
+    }
+    extractNode(clonedCheckpoints);
+
+    if (detachedNode == null) return;
+
+    bool insertNode(List<SubSubTask> list) {
+       for (int i = 0; i < list.length; i++) {
+          if (list[i].id == targetId) {
+             if (position == 'inside') {
+                list[i].substeps.add(detachedNode!);
+             } else if (position == 'before') {
+                list.insert(i, detachedNode!);
+             } else if (position == 'after') {
+                list.insert(i + 1, detachedNode!);
+             }
+             return true;
+          }
+          if (insertNode(list[i].substeps)) return true;
+       }
+       return false;
+    }
+    insertNode(clonedCheckpoints);
+
+    final updatedSubTask = sub.copyWith(subSubTasks: clonedCheckpoints);
+    final updatedTask = task.copyWith(subTasks: task.subTasks.map((s) => s.id == subTaskId ? updatedSubTask : s).toList());
+    final newMainTasks = List<MainTask>.from(_provider.mainTasks);
+    newMainTasks[taskIndex] = updatedTask;
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
   
   void reorderSubSubtasksBySubset(String mainTaskId, String parentSubtaskId, List<String> subsetIds, {String? parentCheckpointId}) {
     final newMainTasks = _provider.mainTasks.map((task) {

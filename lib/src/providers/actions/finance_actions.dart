@@ -115,6 +115,17 @@ class FinanceActions {
     );
   }
 
+  void resetSavingsGoalStartDate(String id) {
+    final newGoals = _provider.savingsGoals.map((g) {
+      if (g.id == id) {
+        g.createdAt = DateTime.now();
+      }
+      return g;
+    }).toList();
+
+    _provider.setProviderState(savingsGoals: newGoals);
+  }
+
   void addSavingsLog(String goalId, double amount) {
     if (currentBalance < amount) {
       throw Exception("Insufficient balance to allocate to savings.");

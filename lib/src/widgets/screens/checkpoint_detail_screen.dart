@@ -3,6 +3,7 @@ import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/items/checkpoint_item.dart';
+import 'package:arcane/src/widgets/items/draggable_checkpoint_wrapper.dart';
 import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
 import 'package:arcane/src/widgets/action_plan/action_plan_outcome_card.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +30,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
   final TextEditingController _stepController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
   String _newStepType = 'check';
+  bool _isHeaderHovered = false;
 
   SubSubTask? _getLiveCheckpoint(AppProvider provider) {
     try {
@@ -106,41 +108,54 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
       body: SafeArea(
         child: Column(
           children:[
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
-                color: AppTheme.fhBgDark,
-              ),
-              child: Row(
-                children:[
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
+            // Header (Drag Target to move item outside/after)
+            DragTarget<String>(
+              onWillAcceptWithDetails: (_) => true,
+              onAcceptWithDetails: (details) {
+                provider.taskActions.moveCheckpointRelative(
+                  widget.mainTaskId, widget.parentSubTaskId, details.data, widget.checkpointId, 'after'
+                );
+                setState(() => _isHeaderHovered = false);
+              },
+              onMove: (_) => setState(() => _isHeaderHovered = true),
+              onLeave: (_) => setState(() => _isHeaderHovered = false),
+              builder: (context, candidateData, rejectedData) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: _isHeaderHovered ? AppTheme.fhAccentTeal : AppTheme.fhBorderColor.withOpacity(0.3))),
+                    color: _isHeaderHovered ? AppTheme.fhAccentTeal.withOpacity(0.1) : AppTheme.fhBgDark,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      "OBJECTIVE DETAIL",
-                      style: TextStyle(
-                        color: agentColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                        fontFamily: AppTheme.fontDisplay
+                  child: Row(
+                    children:[
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          _isHeaderHovered ? "DROP TO MOVE OUTSIDE" : "OBJECTIVE DETAIL",
+                          style: TextStyle(
+                            color: agentColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2.0,
+                            fontFamily: AppTheme.fontDisplay
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
+                        onPressed: () {
+                          provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id);
+                          Navigator.pop(context);
+                        },
+                      )
+                    ],
                   ),
-                  IconButton(
-                    icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
-                    onPressed: () {
-                      provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id);
-                      Navigator.pop(context);
-                    },
-                  )
-                ],
-              ),
+                );
+              }
             ),
 
             Expanded(
@@ -191,52 +206,43 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                         child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
                       )
                     else
-                      ReorderableListView.builder(
+                      ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: liveCheckpoint.substeps.length,
-                        onReorder: (oldIndex, newIndex) {
-                          if (oldIndex < newIndex) newIndex -= 1;
-                          final list = List<SubSubTask>.from(liveCheckpoint.substeps);
-                          final item = list.removeAt(oldIndex);
-                          list.insert(newIndex, item);
-                          provider.taskActions.reorderSubSubtasksBySubset(widget.mainTaskId, widget.parentSubTaskId, list.map((e) => e.id).toList(), parentCheckpointId: liveCheckpoint.id);
-                        },
-                        proxyDecorator: (child, index, animation) {
-                          return Material(
-                            color: Colors.transparent,
-                            elevation: 5,
-                            shadowColor: Colors.black,
-                            child: child,
-                          );
-                        },
                         itemBuilder: (ctx, index) {
                           final child = liveCheckpoint.substeps[index];
-                          return CheckpointItem(
-                            key: ValueKey(child.id),
-                            title: child.name,
-                            isCompleted: child.completed,
-                            type: child.type,
-                            accentColor: agentColor,
-                            hasCheckableSubsteps: child.hasCheckableSubsteps,
-                            progress: child.calculateProgress(), 
-                            onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                                mainTaskId: widget.mainTaskId,
-                                parentSubTaskId: widget.parentSubTaskId,
-                                checkpointId: child.id,
-                              )));
+                          return DraggableCheckpointWrapper(
+                            checkpointId: child.id,
+                            onMove: (draggedId, targetId, pos) {
+                               provider.taskActions.moveCheckpointRelative(widget.mainTaskId, widget.parentSubTaskId, draggedId, targetId, pos);
                             },
-                            onToggle: () {
-                              final updates = {'completed': !child.completed};
-                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
-                            },
-                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                            onToggleType: () {
-                              final newType = child.type == 'check' ? 'info' : 'check';
-                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
-                            },
+                            child: CheckpointItem(
+                              key: ValueKey(child.id),
+                              title: child.name,
+                              isCompleted: child.completed,
+                              type: child.type,
+                              accentColor: agentColor,
+                              hasCheckableSubsteps: child.hasCheckableSubsteps,
+                              progress: child.calculateProgress(), 
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                                  mainTaskId: widget.mainTaskId,
+                                  parentSubTaskId: widget.parentSubTaskId,
+                                  checkpointId: child.id,
+                                )));
+                              },
+                              onToggle: () {
+                                final updates = {'completed': !child.completed};
+                                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
+                              },
+                              onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                              onToggleType: () {
+                                final newType = child.type == 'check' ? 'info' : 'check';
+                                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
+                              },
+                            ),
                           );
                         },
                       ),

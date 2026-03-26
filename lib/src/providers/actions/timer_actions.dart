@@ -27,15 +27,17 @@ class TimerActions {
       pauseTimer(timerId); 
     }
 
-    // Auto-add engaged task to Daily Plan to sync with the dashboard
+    // Auto-add engaged task to Day Plan (Top) to sync with the dashboard
     if (type == 'subtask') {
       final dateStr = helper.getTodayDateString();
       final currentPlan = List<String>.from(_provider.taskActions.getDayPlan(dateStr));
       final compoundId = "$mainTaskId|$id";
-      if (!currentPlan.contains(compoundId)) {
-        currentPlan.add(compoundId);
-        _provider.taskActions.updateDayPlan(dateStr, currentPlan);
-      }
+      
+      // Remove if it exists to move it to the top
+      currentPlan.remove(compoundId);
+      currentPlan.insert(0, compoundId);
+      
+      _provider.taskActions.updateDayPlan(dateStr, currentPlan);
     }
 
     Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);

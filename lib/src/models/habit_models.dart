@@ -20,8 +20,11 @@ class HabitRule {
   });
 
   factory HabitRule.fromJson(Map<String, dynamic> json) {
+    String parsedId = json['id'] as String? ?? '';
+    if (parsedId.trim().isEmpty) parsedId = const Uuid().v4();
+
     return HabitRule(
-      id: json['id'] as String? ?? const Uuid().v4(),
+      id: parsedId,
       appName: json['appName'] as String? ?? 'Unknown',
       isGrayscale: json['isGrayscale'] as bool? ?? false,
       frictionDelaySeconds: (json['frictionDelaySeconds'] as num? ?? 0).toInt(),

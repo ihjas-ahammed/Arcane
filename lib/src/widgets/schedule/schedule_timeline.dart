@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/models/timeline_models.dart';
 import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/schedule/timeline_entry_card.dart';
 import 'package:intl/intl.dart';
 
 class ScheduleTimeline extends StatefulWidget {
@@ -28,11 +29,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   @override
   void initState() {
     super.initState();
-    _scrollController =
-        ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Auto-scroll to earliest relevant time or 8am
       if (widget.entries.isNotEmpty) {
         double earliestHour = 24;
         for (var e in widget.entries) {
@@ -59,12 +58,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Show all sessions >= 1 minute (60 seconds) to ensure even the smallest are visible
-    final filtered = entries.where((e) => e.durationSeconds >= 60).toList();
+    // Exact representation, so no minimum duration required visually if drawn properly
+    if (entries.isEmpty) return [];
 
-    if (filtered.isEmpty) return [];
-
-    final sorted = List<TimelineEntry>.from(filtered)
+    final sorted = List<TimelineEntry>.from(entries)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     final List<_LayoutEntry> layout = [];
@@ -140,16 +137,14 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         decoration: BoxDecoration(
                           border: Border(
                               top: BorderSide(
-                                  color:
-                                      AppTheme.fhBorderColor.withOpacity(0.2),
+                                  color: AppTheme.fhBorderColor.withOpacity(0.2),
                                   width: 1)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.only(left: 8, top: 4),
                           child: Text("${index.toString().padLeft(2, '0')}:00",
                               style: TextStyle(
-                                  color:
-                                      AppTheme.fhTextSecondary.withOpacity(0.5),
+                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
                                   fontSize: 10,
                                   fontFamily: 'RobotoMono')),
                         ),
@@ -163,91 +158,26 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                   // Entries
                   ...layoutEntries.map((le) {
                     final entry = le.entry;
-                    final startTotalHours =
-                        entry.startTime.hour + (entry.startTime.minute / 60.0);
+                    final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0);
                     final top = startTotalHours * pixelsPerHour;
-                    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
-                    final height = rawHeight.clamp(24.0, double.infinity); // Min height to prevent layout breaks
+                    
+                    // Exact Height Calculation
+                    final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
 
                     const double leftGutter = 60.0;
-                    // Ensure padding even on narrow screens
-                    final double availableWidth =
-                        (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
+                    final double availableWidth = (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
                     final double widthPerCol = availableWidth / le.totalCols;
                     final double left = leftGutter + (le.col * widthPerCol);
-
-                    final isPredicted = entry.isPredicted;
-                    final effectiveColor = isPredicted
-                        ? entry.color.withOpacity(0.15)
-                        : entry.color.withOpacity(0.25);
-                    final borderColor = isPredicted
-                        ? entry.color.withOpacity(0.3)
-                        : entry.color;
 
                     return Positioned(
                       top: top,
                       left: left,
-                      width: (widthPerCol - 4).clamp(0.0, double.infinity),
-                      height: height,
-                      child: GestureDetector(
+                      child: TimelineEntryCard(
+                        entry: entry,
+                        height: height,
+                        width: (widthPerCol - 4).clamp(0.0, double.infinity),
                         onTap: () => widget.onEditEntry(entry),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: effectiveColor,
-                            border: Border.all(
-                                color: borderColor,
-                                width: isPredicted ? 1 : 1,
-                                style: BorderStyle.solid // Could dash if wanted
-                                ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          // Use ClipRect to ensure text does not overflow out of small height boxes
-                          child: ClipRect(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (isPredicted)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                            right: 4.0),
-                                        child: Icon(Icons.auto_awesome,
-                                            size: 10, color: borderColor),
-                                      ),
-                                    Expanded(
-                                      child: Text(entry.title,
-                                          style: TextStyle(
-                                              color: isPredicted
-                                                  ? Colors.white70
-                                                  : Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: isPredicted
-                                                  ? FontWeight.normal
-                                                  : FontWeight.bold),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
-                                    ),
-                                  ],
-                                ),
-                                if (height > 32) // Only show time text if height allows without clipping heavily
-                                  Text(
-                                    "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
-                                    style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
-                                        fontSize: 9,
-                                        fontFamily: 'RobotoMono'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  )
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      )
                     );
                   }),
                 ],
