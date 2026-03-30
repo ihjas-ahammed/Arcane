@@ -2,7 +2,7 @@ name: arcane
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none'
 
-version: 2026.1.25+712
+version: 2026.3.27+2076
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -58,15 +58,14 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/fonts/icons/icon.png"
-  adaptive_icon_background: "#000000"
+  adaptive_icon_background: "#25282d"
   adaptive_icon_foreground: "assets/fonts/icons/icon.png"
-  adaptive_icon_foreground_inset: 25
   min_sdk_android: 21
   web:
     generate: true
     image_path: "assets/fonts/icons/icon.png"
-    background_color: "#000000"
-    theme_color: "#000000"
+    background_color: "#25282d"
+    theme_color: "#25282d"
   windows:
     generate: true
     image_path: "assets/fonts/icons/icon.png"
