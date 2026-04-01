@@ -1,90 +1,1264 @@
---- START OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+--- START OF FILE lib/src/models/app_state_models.dart ---
+// lib/src/models/app_state_models.dart
+import 'package:arcane/src/models/habit_models.dart';
+import 'package:uuid/uuid.dart';
 
-class ValorantFormField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData? prefixIcon;
-  final Widget? suffixIcon;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
-  final void Function(String?)? onSaved;
+class SomedayItem {
+  String id;
+  String title;
+  DateTime createdAt;
 
-  const ValorantFormField({
-    super.key,
-    required this.controller,
-    required this.label,
-    this.prefixIcon,
-    this.suffixIcon,
-    this.obscureText = false,
-    this.keyboardType,
-    this.validator,
-    this.onSaved,
+  SomedayItem({
+    required this.id,
+    required this.title,
+    required this.createdAt,
   });
 
+  factory SomedayItem.fromJson(Map<String, dynamic> json) {
+    return SomedayItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Idea',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
+
+class AppSettings {
+  bool descriptionsVisible;
+  bool dailyAutoGenerateContent;
+  bool autoSaveEnabled;
+  int wakeupTimeHour;
+  int wakeupTimeMinute;
+  List<String> liteModels;
+  List<String> heavyModels;
+  List<String> customApiKeys; 
+  String? customChatbotPrompt;
+  String? customReflectionPrompt;
+  List<String> savedPrompts;
+  int startOfWeek;
+  int dataVersion;
+  int lastModified; 
+  
+  // Security and Nora AI Settings
+  String? journalPin;
+  bool noraAccessSessions;
+  bool noraAccessFinance;
+
+  // Habit / Override Framework
+  List<HabitRule> habitRules;
+  
+  // Someday / Maybe List
+  List<SomedayItem> somedayList;
+
+  // Onboarding
+  bool hasCompletedTour;
+
+  AppSettings({
+    this.descriptionsVisible = true,
+    this.dailyAutoGenerateContent = true,
+    this.autoSaveEnabled = true,
+    this.wakeupTimeHour = 7,
+    this.wakeupTimeMinute = 0,
+    this.liteModels = const [
+      'gemini-2.0-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ],
+    this.heavyModels = const [
+      'gemini-2.0-flash',
+      'gemini-2.0-pro-exp-02-05',
+      'gemini-1.5-pro'
+    ],
+    this.customApiKeys = const [],
+    this.customChatbotPrompt,
+    this.customReflectionPrompt,
+    this.savedPrompts = const [],
+    this.startOfWeek = 1,
+    this.dataVersion = 0,
+    int? lastModified,
+    this.journalPin,
+    this.noraAccessSessions = false,
+    this.noraAccessFinance = false,
+    this.habitRules = const [],
+    this.somedayList = const [],
+    this.hasCompletedTour = false,
+  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    List<String> keys = [];
+    if (json['customApiKeys'] != null) {
+      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
+    } else if (json['customApiKey'] != null &&
+        json['customApiKey'].toString().isNotEmpty) {
+      keys.add(json['customApiKey'].toString());
+    }
+
+    return AppSettings(
+      descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
+      dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
+          json['autoGenerateContent'] as bool? ??
+          true,
+      autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
+      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
+      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
+      liteModels: (json['liteModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+      heavyModels: (json['heavyModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
+      customApiKeys: keys,
+      customChatbotPrompt: json['customChatbotPrompt'] as String?,
+      customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      savedPrompts: (json['savedPrompts'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      startOfWeek: json['startOfWeek'] as int? ?? 1,
+      dataVersion: json['dataVersion'] as int? ?? 0,
+      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      journalPin: json['journalPin'] as String?,
+      noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
+      noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
+      habitRules: (json['habitRules'] as List<dynamic>?)
+              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+      somedayList: (json['somedayList'] as List<dynamic>?)
+              ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+      hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'descriptionsVisible': descriptionsVisible,
+      'dailyAutoGenerateContent': dailyAutoGenerateContent,
+      'autoSaveEnabled': autoSaveEnabled,
+      'wakeupTimeHour': wakeupTimeHour,
+      'wakeupTimeMinute': wakeupTimeMinute,
+      'liteModels': liteModels,
+      'heavyModels': heavyModels,
+      'customApiKeys': customApiKeys,
+      'customChatbotPrompt': customChatbotPrompt,
+      'customReflectionPrompt': customReflectionPrompt,
+      'savedPrompts': savedPrompts,
+      'startOfWeek': startOfWeek,
+      'dataVersion': dataVersion,
+      'lastModified': lastModified,
+      'journalPin': journalPin,
+      'noraAccessSessions': noraAccessSessions,
+      'noraAccessFinance': noraAccessFinance,
+      'habitRules': habitRules.map((e) => e.toJson()).toList(),
+      'somedayList': somedayList.map((e) => e.toJson()).toList(),
+      'hasCompletedTour': hasCompletedTour,
+    };
+  }
+}
+
+class ActiveTimerInfo {
+  DateTime startTime;
+  double accumulatedDisplayTime; // In seconds
+  bool isRunning;
+  String type;
+  String mainTaskId;
+
+  ActiveTimerInfo({
+    required this.startTime,
+    this.accumulatedDisplayTime = 0,
+    required this.isRunning,
+    required this.type,
+    required this.mainTaskId,
+  });
+
+  factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
+    return ActiveTimerInfo(
+      startTime: DateTime.parse(json['startTime'] as String),
+      accumulatedDisplayTime:
+          (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
+      isRunning: json['isRunning'] as bool? ?? false,
+      type: json['type'] as String? ?? 'subtask',
+      mainTaskId: json['mainTaskId'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'startTime': startTime.toIso8601String(),
+      'accumulatedDisplayTime': accumulatedDisplayTime,
+      'isRunning': isRunning,
+      'type': type,
+      'mainTaskId': mainTaskId,
+    };
+  }
+}
+
+--- END OF FILE lib/src/models/app_state_models.dart ---
+
+--- START OF FILE lib/src/providers/app_provider.dart ---
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:arcane/src/services/storage_service.dart';
+import 'package:arcane/src/services/data_export_service.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:arcane/src/utils/history_helper.dart'; 
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/finance_models.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// Import Mixins
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:arcane/src/providers/mixins/task_mixin.dart';
+import 'package:arcane/src/providers/mixins/finance_mixin.dart';
+import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
+
+// Import Actions
+import 'package:arcane/src/providers/actions/task_actions.dart';
+import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
+import 'package:arcane/src/providers/actions/timer_actions.dart';
+import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart';
+import 'package:arcane/src/providers/actions/finance_actions.dart';
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
+
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
+  
+  final AIService _aiService = AIService();
+  final DataExportService _exportService = DataExportService();
+  final StorageService _cloudStorage = StorageService();
+  final LocalStorageService _localStorage = LocalStorageService();
+
+  AIService get aiService => _aiService;
+
+  // UI State
+  String? _loadingTaskName;
+  String? get loadingTaskName => _loadingTaskName;
+  bool _isGeneratingSubquestsForTask = false;
+  bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+  
+  bool get isDataLoadingAfterLogin => false; 
+
+  // Actions
+  late final TaskActions _taskActions;
+  late final AIGenerationActions _aiGenerationActions;
+  late final TimerActions _timerActions;
+  late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions;
+  late final FinanceActions _financeActions;
+  late final JournalingActions _journalingActions;
+
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  TimerActions get timerActions => _timerActions;
+  ProjectActions get projectActions => _projectActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions;
+  FinanceActions get financeActions => _financeActions;
+  JournalingActions get journalingActions => _journalingActions;
+
+  AppProvider() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _projectActions = ProjectActions(this);
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
+    _journalingActions = JournalingActions(this);
+
+    _initialize();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (currentUser != null) {
+        fetchDailyReportsFromCloud();
+      }
+    }
+  }
+
+  @override
+  Future<void> manuallyLoadFromCloud() async {
+    await super.manuallyLoadFromCloud();
+    await fetchDailyReportsFromCloud();
+  }
+
+  // --- Initialization ---
+
+  Future<void> _initialize() async {
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
+  }
+
+  Future<void> _onAuthStateChanged(User? user) async {
+    if (user != null) {
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
+        
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
+        } else {
+          await _resetToInitialState();
+        }
+        setAuthLoading(false); 
+      }
+
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
+      try {
+        await fetchDailyReportsFromCloud();
+      } catch (_) {}
+
+    } else {
+      setCurrentUser(null);
+      await _resetToInitialState();
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> fetchDailyReportsFromCloud() async {
+    if (currentUser == null) return;
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    if (recentDaily.isNotEmpty) {
+      final newHistory = Map<String, dynamic>.from(completedByDay);
+      recentDaily.forEach((date, data) {
+        final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
+        bool changed = false;
+        if (data.containsKey('briefing')) {
+          dayData['aiBriefing'] = data['briefing'];
+          changed = true;
+        }
+        if (data.containsKey('report')) {
+          dayData['startDayReport'] = data['report'];
+          changed = true;
+        }
+        if (changed) {
+          newHistory[date] = dayData;
+        }
+      });
+      setCompletedByDay(newHistory);
+    }
+  }
+
+  Future<void> _resetToInitialState() async {
+    setLastLoginDate(null);
+    setSettings(AppSettings());
+    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
+    setCompletedByDay({});
+    setActiveTimers({});
+    setReflectionLogs([]);
+    setTransactions([]);
+    setCategories([]);
+    setSavingsGoals([]);
+    setChatbotMemory(ChatbotMemory());
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+  }
+
+  // --- Mixin Implementations & Legacy Compat ---
+
+  @override
+  Map<String, dynamic> getFullAppState() {
+    final map = <String, dynamic>{};
+    map.addAll(getTaskStateMap());
+    map.addAll(getFinanceStateMap());
+    map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
+    return map;
+  }
+
+  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
+  
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+
+  @override
+  void loadStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadFinanceState(data);
+    loadUserState(data);
+    loadHealthState(data);
+    
+    if (settings.dataVersion < 1) {
+      settings.dataVersion = 1;
+      markDirty('settings');
+    }
+  }
+
+  // --- UI Helpers ---
+
+  void setLoadingTask(String? name) {
+    _loadingTaskName = name;
+    notifyListeners();
+  }
+
+  void setProviderAISubquestLoading(bool loading) {
+    _isGeneratingSubquestsForTask = loading;
+    notifyListeners();
+  }
+
+  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
+
+  // --- State Bridge ---
+  
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, dynamic>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
+    if (mainTasks != null) setMainTasks(mainTasks);
+    if (completedByDay != null) setCompletedByDay(completedByDay);
+    if (activeTimers != null) setActiveTimers(activeTimers);
+    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
+    if (transactions != null) setTransactions(transactions);
+    if (categories != null) setCategories(categories);
+    if (savingsGoals != null) setSavingsGoals(savingsGoals);
+    
+    if (doNotify) notifyListeners();
+  }
+
+  // --- Delegated Actions ---
+
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
+
+  // --- Auth & Wrappers ---
+
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> logoutUser() async => await fb_service.signOut();
+  
+  Future<void> signupUser(String email, String password) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName("OPERATIVE");
+      await user.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+  
+  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
+  Future<void> updateUserDisplayName(String name) async {
+    if (currentUser != null) {
+      await currentUser!.updateDisplayName(name);
+      await currentUser!.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+    }
+  }
+
+  Future<void> clearAllData() async {
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState(currentUser!.uid);
+    await _resetToInitialState();
+    markDirty('settings');
+    markDirty('tasks');
+    markDirty('history');
+    markDirty('reflections');
+    markDirty('finance');
+    markDirty('health');
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadStateFromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  void initializeChatbotMemory() {
+    notifyListeners(); 
+  }
+
+  Future<void> exportReflections() async {
+    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      final currentIds = reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      if (newLogs.isNotEmpty) {
+        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
+      }
+    }
+  }
+
+  // --- Gratitude / Assets Actions ---
+  void updateGratitudeList(List<GratitudeItem> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.gratitudeList = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+  
+  // --- Someday List Actions ---
+  void addSomedayItem(String title) {
+    final newItem = SomedayItem(id: const Uuid().v4(), title: title, createdAt: DateTime.now());
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.insert(0, newItem);
+    setSettings(newSettings);
+  }
+
+  void removeSomedayItem(String id) {
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.removeWhere((i) => i.id == id);
+    setSettings(newSettings);
+  }
+
+  // --- Reports Logic ---
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
+    final recentReflections = reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+  
+  String getWeeklyWellbeingComparison() {
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (var skill in getBaseWellbeingSkills()) {
+      final curr = currentXp[skill.name] ?? 0;
+      final prev = prevXp[skill.name] ?? 0;
+      if (curr > 0 || prev > 0) {
+        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+      }
+    }
+    return buffer.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (currentUser == null) return[];
+    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
+    }
+  }
+
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+    }
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Map<String, dynamic>? getTacticalBriefing(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
+      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
+      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
+    }
+    
+    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      fullContext: allLogsContext,
+      modelCandidates: settings.heavyModels, 
+      currentApiKeyIndex: apiKeyIndex, 
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+      }
+    }
+
+    return result;
+  }
+
+  void _cleanOverlappingSessions() {
+    bool changed = false;
+    final newMainTasks = mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned =[sorted.first];
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
+
+    if (changed) setMainTasks(newMainTasks);
+  }
+
+  void _fixTimerAnomalies() {
+    // Handled in mixins
+  }
+
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    if (lastLoginDate != todayStr) {
+      bool changed = false;
+      final newMainTasks = mainTasks.map((task) {
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+             bool shouldReset = false;
+             if (st.completed && st.lastCompletedDate != null) {
+                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+             } else if (st.completed) {
+                shouldReset = true;
+             }
+             if (shouldReset) {
+               changed = true;
+               return SubTask(
+                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
+                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
+                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+               );
+             }
+          }
+          return st;
+        }).toList();
+        
+        if (task.dailyTimeSpent > 0) {
+          changed = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }).toList();
+
+      setLastLoginDate(todayStr);
+      if (changed) setMainTasks(newMainTasks);
+    }
+  }
+
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday;
+    final startOffset = settings.startOfWeek;
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    final startOfWeekDate = now.subtract(Duration(days: diff));
+
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break;
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
+      }
+    }
+    return weeklyStatus;
+  }
+
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  int get7DayWellbeingMomentum(String skillName) {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<void> syncWeeklyWellbeing() async {
+    setLoadingTask("Analyzing Weekly Wellbeing...");
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+      if (recentLogs.isEmpty) {
+        throw Exception("No reflection logs in the past 7 days to analyze.");
+      }
+      
+      final logsPayload = recentLogs.map((l) => {
+        "log_id": l.id,
+        "trigger": l.trigger,
+        "emotion": l.emotion,
+        "action": l.action,
+      }).toList();
+      
+      final updates = await aiService.evaluateBatchReflections(
+        logsPayload: logsPayload,
+        modelCandidates: settings.heavyModels, 
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      bool logsChanged = false;
+      for (var update in updates) {
+        final logId = update['log_id'];
+        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final idx = newLogs.indexWhere((l) => l.id == logId);
+        if (idx != -1) {
+          newLogs[idx] = ReflectionLog(
+            id: newLogs[idx].id,
+            timestamp: newLogs[idx].timestamp,
+            trigger: newLogs[idx].trigger,
+            emotion: newLogs[idx].emotion,
+            reason: newLogs[idx].reason,
+            action: newLogs[idx].action,
+            aiFeedback: newLogs[idx].aiFeedback,
+            xpGained: xpMap, 
+          );
+          logsChanged = true;
+        }
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId, timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Pending AI analysis...", xpGained: {}
+    );
+    // Setting logs triggers the 7-day recalculation in mixin natively
+    setReflectionLogs([...reflectionLogs, log]);
+
+    try {
+      final eval = await _aiService.evaluateReflection(
+        trigger: trigger, emotion: emotion, reason: reason, action: action,
+        modelCandidates: settings.liteModels, 
+        customApiKeys: settings.customApiKeys,
+        recentContext: recentContext,
+        systemInstruction: settings.customReflectionPrompt,
+      );
+      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      
+      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
+      
+      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+    } catch (e) {
+      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
+      rethrow;
+    }
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = reflectionLogs[index];
+      final updated = ReflectionLog(
+        id: old.id,
+        timestamp: old.timestamp,
+        trigger: trigger ?? old.trigger,
+        emotion: emotion ?? old.emotion,
+        reason: reason ?? old.reason,
+        action: action ?? old.action,
+        aiFeedback: aiFeedback ?? old.aiFeedback,
+        xpGained: xpGained ?? old.xpGained,
+      );
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      newLogs[index] = updated;
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  NoraSession? get activeNoraSession {
+    if (chatbotMemory.activeNoraSessionId == null) return null;
+    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({
+    required String title, 
+    required String tone, 
+    required DateTime startDate, 
+    required DateTime endDate, 
+    String? customContext,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(), 
+      title: title, 
+      tone: tone, 
+      startDate: startDate, 
+      endDate: endDate, 
+      customContext: customContext,
+      messageLimit: messageLimit ?? 0,
+      modelOverride: modelOverride,
+      contextDays: contextDays ?? 7,
+      systemPromptOverride: systemPromptOverride,
+    );
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.add(newSession);
+    newMemory.activeNoraSessionId = newSession.id;
+    setChatbotMemory(newMemory);
+  }
+  
+  void updateNoraSessionConfig({
+    required String sessionId,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    final index = newMemory.noraSessions.indexWhere((s) => s.id == sessionId);
+    if (index != -1) {
+      if (messageLimit != null) newMemory.noraSessions[index].messageLimit = messageLimit;
+      newMemory.noraSessions[index].modelOverride = modelOverride; // allow nulling
+      if (contextDays != null) newMemory.noraSessions[index].contextDays = contextDays;
+      newMemory.noraSessions[index].systemPromptOverride = systemPromptOverride; // allow nulling
+      setChatbotMemory(newMemory);
+    }
+  }
+
+  void switchNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.activeNoraSessionId = sessionId;
+    setChatbotMemory(newMemory);
+  }
+
+  void deleteNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (newMemory.activeNoraSessionId == sessionId) {
+      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
+    }
+    setChatbotMemory(newMemory);
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    session.messages.add(userMsg);
+    markDirty('settings'); 
+
+    // Gather Context bounded by session config
+    DateTime start = session.startDate;
+    DateTime end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    
+    // If contextDays is configured, override the date range to just look back X days from now
+    if (session.contextDays > 0) {
+       start = DateTime.now().subtract(Duration(days: session.contextDays));
+       end = DateTime.now();
+    }
+
+    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+
+    final List<String> sessionStrs = [];
+    if (settings.noraAccessSessions) {
+      for (var task in mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var sess in sub.sessions) {
+            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+            }
+          }
+        }
+      }
+    }
+
+    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
+    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+
+    final fullContext = """
+    SYSTEM: $systemPrompt
+    ${session.customContext ?? ''}
+
+    CONTEXT DATA FOR REQUESTED PERIOD:
+    Reflections: $refStr
+    Sessions: ${sessionStrs.join(" | ")}
+    Known Entities: $peopleStr
+    Known Assets: $assetsStr
+    """;
+    
+    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
+    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
+    
+    try {
+      final responses = await _aiService.queryNeuralArchive(
+        query: text, 
+        logsContext: fullContext, 
+        maxMessages: maxMessagesToGen,
+        modelCandidates: modelCandidates, 
+        currentApiKeyIndex: apiKeyIndex, 
+        customApiKeys: settings.customApiKeys, 
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
+        onLog: (m) {}
+      );
+      
+      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
+      final clampedResponses = responses.take(clampLimit).toList();
+
+      for (String resp in clampedResponses) {
+        // dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+        session.messages.add(botMsg);
+        markDirty('settings');
+        notifyListeners();
+      }
+    } catch(e) {
+      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(errorMsg);
+      markDirty('settings');
+      notifyListeners();
+    }
+  }
+  
+  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
+  
+  void addCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void removeCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void setJournalPin(String pin) {
+    setSettings(settings..journalPin = pin);
+  }
+}
+--- END OF FILE lib/src/providers/app_provider.dart ---
+
+--- START OF FILE lib/src/app.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/screens/home_screen.dart';
+import 'package:arcane/src/screens/login_screen.dart';
+import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: AppTheme.fhTextSecondary,
-            fontFamily: AppTheme.fontDisplay,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          validator: validator,
-          onSaved: onSaved,
-          style: const TextStyle(
-            color: AppTheme.fhTextPrimary,
-            fontFamily: AppTheme.fontBody,
-            fontSize: 14,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
-            contentPadding: const EdgeInsets.all(16),
-            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.fhTextSecondary) : null,
-            suffixIcon: suffixIcon,
-            border: const OutlineInputBorder(
-              borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fhBorderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fhAccentRed, width: 1.0),
-            ),
-            errorBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fhAccentRed),
-            ),
-            errorStyle: const TextStyle(
-              color: AppTheme.fhAccentRed,
-              fontFamily: AppTheme.fontBody,
-              fontSize: 11
+    return MaterialApp(
+      title: 'Primus',
+      builder: (context, child) {
+        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        return Container(
+          color: Colors.black, 
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: child,
             ),
           ),
-        ),
-      ],
+        );
+      },
+      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+      debugShowCheckedModeBanner: false,
+      home: Consumer<AppProvider>(
+        builder: (context, appProvider, child) {
+          
+          if (appProvider.authLoading) {
+            return const Scaffold(
+              backgroundColor: AppTheme.fhBgDeepDark,
+              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
+            );
+          }
+
+          if (appProvider.currentUser == null) {
+            return const LoginScreen();
+          }
+
+          // Check if onboarding is completed
+          if (!appProvider.settings.hasCompletedTour) {
+            return Theme(
+              data: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
+              child: const AppTourScreen(),
+            );
+          }
+
+          final Color currentTaskColor =
+              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+          return Theme(
+            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
+            child: const HomeScreen(),
+          );
+        },
+      ),
     );
   }
 }
---- END OF FILE lib/src/widgets/valorant/valorant_form_field.dart ---
+--- END OF FILE lib/src/app.dart ---
 
 --- START OF FILE lib/src/screens/login_screen.dart ---
 import 'package:flutter/material.dart';
@@ -107,18 +1281,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   String _email = '';
   String _password = '';
-  String _username = '';
   bool _isLogin = true;
   bool _isLoading = false;
   String _error = '';
   bool _obscurePassword = true;
-  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -139,7 +1310,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isLogin) {
         await appProvider.loginUser(_email, _password);
       } else {
-        await appProvider.signupUser(_email, _password, _username);
+        await appProvider.signupUser(_email, _password);
       }
     } catch (e) {
       setState(() {
@@ -224,20 +1395,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        if (!_isLogin) ...[
-                          ValorantFormField(
-                            controller: _usernameController,
-                            label: 'CALLSIGN',
-                            prefixIcon: MdiIcons.accountOutline,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) return 'REQUIRED';
-                              if (value.trim().length < 3) return 'TOO SHORT';
-                              return null;
-                            },
-                            onSaved: (value) => _username = value!.trim(),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
                         ValorantFormField(
                           controller: _emailController,
                           label: 'EMAIL IDENTIFIER',
@@ -312,7 +1469,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _isLogin = !_isLogin;
                                 _error = '';
                                 _formKey.currentState?.reset();
-                                _usernameController.clear();
                                 _emailController.clear();
                                 _passwordController.clear();
                               });
@@ -344,975 +1500,753 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 --- END OF FILE lib/src/screens/login_screen.dart ---
 
---- START OF FILE lib/src/widgets/cards/task_header_card.dart ---
+--- START OF FILE lib/src/screens/home_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class TaskHeaderCard extends StatelessWidget {
-  final MainTask task;
-  final int yesterdayTime;
-  final List<bool> weeklyCompletion;
-
-  const TaskHeaderCard({
-    super.key,
-    required this.task,
-    required this.yesterdayTime,
-    required this.weeklyCompletion,
-  });
-
-  String _formatMinutesToHHMM(int totalMinutes) {
-    final hours = (totalMinutes / 3600).floor().round();
-    final minutes = ((totalMinutes/60) % 60).floor().round();
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final double maxTime = yesterdayTime > 0 ? yesterdayTime.toDouble() : 60.0;
-    final double progress = task.dailyTimeSpent / maxTime;
-    final String timeSpentFormatted = _formatMinutesToHHMM(task.dailyTimeSpent);
-    final String maxTimeFormatted = _formatMinutesToHHMM(maxTime.toInt());
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDeepDark,
-        image: const DecorationImage(
-          image: NetworkImage("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80"),
-          fit: BoxFit.cover,
-          opacity: 0.05,
-        ),
-        border: Border(
-          bottom: BorderSide(color: task.taskColor, width: 2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                color: task.taskColor.withOpacity(0.2),
-                child: Text(
-                  task.theme.toUpperCase(),
-                  style: TextStyle(
-                    color: task.taskColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 2.0
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Icon(MdiIcons.chartLine, color: AppTheme.fhTextSecondary, size: 18),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Resized Main Title for better wrapping
-          Text(
-            task.name.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: AppTheme.fontDisplay,
-              fontSize: 32, // Reduced from 48
-              height: 1.0,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.fhTextPrimary,
-              letterSpacing: 1.2
-            ),
-            softWrap: true,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            task.description,
-            style: const TextStyle(
-              color: AppTheme.fhTextSecondary,
-              fontSize: 13,
-              height: 1.4,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 24),
-          
-          // Stat Bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("SESSION DURATION", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                    "$timeSpentFormatted / $maxTimeFormatted",
-                    style: const TextStyle(
-                      fontFamily: "RobotoMono",
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold
-                    ),
-                  ),
-                ],
-              ),
-              // Progress Bar Visual
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 24, bottom: 6),
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    backgroundColor: AppTheme.fhBgMedium,
-                    color: task.taskColor,
-                    minHeight: 4,
-                  ),
-                ),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/task_header_card.dart ---
-
---- START OF FILE lib/src/widgets/cards/submission_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/header_widget.dart';
+import 'package:arcane/src/widgets/task_navigation_drawer.dart';
+import 'package:arcane/src/widgets/drawers/wellbeing_drawer.dart';
+import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/views/task_details_view.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/schedule_view.dart';
+import 'package:arcane/src/screens/logbook_screen.dart';
+import 'package:arcane/src/screens/more_screen.dart'; 
+import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
-class SubmissionCard extends StatelessWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionCard({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
-
-  void _openDetailScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SubmissionDetailScreen(
-          parentTask: parentTask,
-          subTask: subTask,
-        ),
-      ),
-    );
-  }
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final timerState = provider.activeTimers[subTask.id];
-
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime +
-                (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
-            : timerState.accumulatedDisplayTime)
-        : subTask.currentTimeSpent.toDouble();
-
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-
-    Color borderColor = AppTheme.fhBorderColor.withOpacity(0.3);
-    if (isRunning) borderColor = AppTheme.fhAccentRed;
-    if (subTask.completed) borderColor = AppTheme.fhAccentTeal;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: ValorantCard(
-        borderColor: borderColor,
-        isSelected: isRunning,
-        onTap: () => _openDetailScreen(context),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Checkbox
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: subTask.completed
-                  ? Icon(MdiIcons.checkAll, color: AppTheme.fhAccentTeal, size: 20)
-                  : RhombusCheckbox(
-                      checked: subTask.completed,
-                      onChanged: (val) => provider.completeSubtask(parentTask.id, subTask.id),
-                      size: CheckboxSize.small,
-                    ),
-            ),
-
-            // Name
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    subTask.name.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                      height: 1.1,
-                      decoration: subTask.completed ? TextDecoration.lineThrough : null,
-                      color: subTask.completed ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (isRunning)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        "// ACTIVE COMBAT",
-                        style: TextStyle(
-                          color: AppTheme.fhAccentRed, 
-                          fontSize: 9, 
-                          fontWeight: FontWeight.bold, 
-                          letterSpacing: 1.5
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Time & Controls
-            const SizedBox(width: 8),
-            if (!subTask.completed) ...[
-              Text(
-                formattedTime,
-                style: TextStyle(
-                  fontFamily: "RobotoMono",
-                  color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Play/Pause
-              InkWell(
-                onTap: () {
-                  if (isRunning) {
-                    provider.pauseTimer(subTask.id);
-                    provider.logTimerAndReset(subTask.id);
-                  } else {
-                    provider.startTimer(subTask.id, 'subtask', parentTask.id);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isRunning ? AppTheme.fhAccentRed.withOpacity(0.1) : Colors.transparent,
-                    border: Border.all(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary.withOpacity(0.5)),
-                  ),
-                  child: Icon(
-                    isRunning ? MdiIcons.pause : MdiIcons.play,
-                    size: 16,
-                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextPrimary,
-                  ),
-                ),
-              ),
-            ],
-            
-            // Context Menu
-            const SizedBox(width: 4),
-            PopupMenuButton<String>(
-              icon: Icon(MdiIcons.dotsVertical, color: AppTheme.fhTextSecondary, size: 18),
-              color: AppTheme.fhBgDark,
-              onSelected: (value) {
-                if (value == 'delete') {
-                  // _confirmDelete(context, provider); // Needs method logic
-                  provider.deleteSubtask(parentTask.id, subTask.id); // Direct for now or add confirm
-                } else if (value == 'duplicate') {
-                  provider.duplicateCompletedSubtask(parentTask.id, subTask.id);
-                }
-              },
-              itemBuilder: (context) => [
-                if (subTask.completed)
-                  const PopupMenuItem(value: 'duplicate', child: Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                const PopupMenuItem(value: 'delete', child: Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/cards/submission_card.dart ---
-
---- START OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/dialogs/edit_subtask_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/widgets/ui/schedule_timeline.dart';
-import 'package:arcane/src/widgets/ui/valorant_ability_slot.dart';
-import 'package:arcane/src/widgets/ui/valorant_list_item.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-
-class SubmissionDetailScreen extends StatefulWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-
-  const SubmissionDetailScreen({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
-
-  @override
-  State<SubmissionDetailScreen> createState() => _SubmissionDetailScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
-  final TextEditingController _checkpointController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
+class _HomeScreenState extends State<HomeScreen> {
+  late AppProvider _appProvider;
+  int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  @override
-  void dispose() {
-    _checkpointController.dispose();
-    super.dispose();
-  }
+  static const List<String> _viewTitles = <String>[
+    'MISSIONS',
+    'SCHEDULE',
+    'PROJECTS',
+    'ANALYTICS',
+    'WALLET',
+  ];
 
-  // ... (Keep existing methods: _getLiveSubTask, _handleAddCheckpoint, _handleEditSubtask, _showAddSessionDialog, _handleSessionEdit, _buildTimelineEntries)
-  SubTask? _getLiveSubTask(AppProvider provider) {
-    try {
-      final parent = provider.mainTasks.firstWhere((t) => t.id == widget.parentTask.id);
-      return parent.subTasks.firstWhere((s) => s.id == widget.subTask.id);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  void _handleAddCheckpoint(AppProvider provider) {
-    if (_checkpointController.text.trim().isEmpty) return;
-    provider.addSubSubtask(widget.parentTask.id, widget.subTask.id, {
-      'name': _checkpointController.text.trim(),
-      'isCountable': false,
-      'targetCount': 0,
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
     });
-    _checkpointController.clear();
   }
-
-  Future<void> _handleEditSubtask(BuildContext context, AppProvider provider, SubTask textSubTask) async {
-    final String? newName = await showDialog<String>(
-      context: context,
-      builder: (context) => EditSubtaskDialog(initialName: textSubTask.name),
-    );
-    if (newName != null && newName.isNotEmpty && newName != textSubTask.name) {
-      provider.updateSubtask(widget.parentTask.id, widget.subTask.id, {'name': newName});
-    }
-  }
-
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
-    final result = await showDialog<Map<String, DateTime>>(
-      context: context,
-      builder: (ctx) => const AddSessionDialog(),
-    );
-    if (result != null) {
-      final startBase = result['start']!;
-      final endBase = result['end']!;
-      final realStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startBase.hour, startBase.minute);
-      var realEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endBase.hour, endBase.minute);
-      if (realEnd.isBefore(realStart)) {
-        realEnd = realEnd.add(const Duration(days: 1));
-      }
-      provider.addSessionToSubtask(widget.parentTask.id, widget.subTask.id, realStart, realEnd);
-    }
-  }
-
-  void _handleSessionEdit(BuildContext context, AppProvider provider, TaskSession session) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
-    );
-    if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(widget.parentTask.id, widget.subTask.id, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(widget.parentTask.id, widget.subTask.id, session.id, result['start'], result['end']);
-      }
-    }
-  }
-
-  List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
-    final List<TimelineEntry> entries = [];
-    for (var task in provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          if (session.startTime.year == _selectedDate.year &&
-              session.startTime.month == _selectedDate.month &&
-              session.startTime.day == _selectedDate.day) {
-            final bool isCurrentSubTask = sub.id == currentSubTaskId;
-            entries.add(TimelineEntry(
-              id: session.id,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              title: sub.name,
-              subtitle: task.name,
-              color: task.taskColor,
-              isEditable: isCurrentSubTask,
-              originalObject: session,
-            ));
-          }
-        }
-      }
-    }
-    return entries;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final liveSubTask = _getLiveSubTask(provider);
-
-    if (liveSubTask == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-      return const SizedBox.shrink();
-    }
-
-    final timerState = provider.activeTimers[liveSubTask.id];
-    final double displayTimeSeconds = timerState != null
-        ? (timerState.isRunning
-            ? timerState.accumulatedDisplayTime + (DateTime.now().difference(timerState.startTime).inMilliseconds / 1000)
-            : timerState.accumulatedDisplayTime)
-        : liveSubTask.currentTimeSpent.toDouble();
-
-    final String formattedTime = helper.formatTime(displayTimeSeconds);
-    final bool isRunning = timerState?.isRunning ?? false;
-    final int completedCheckpoints = liveSubTask.subSubTasks.where((s) => s.completed).length;
-    final int totalCheckpoints = liveSubTask.subSubTasks.length;
-    final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
-
-    return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
-      body: Stack(
-        children: [
-          // Background Watermark
-          Positioned(
-            right: -50, top: 50,
-            child: Opacity(
-              opacity: 0.05,
-              child: Icon(MdiIcons.targetVariant, size: 400, color: Colors.white),
-            ),
-          ),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Top Bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Icon(MdiIcons.pencilOutline, color: Colors.white70),
-                          onPressed: () => _handleEditSubtask(context, provider, liveSubTask),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Header Info - Resized
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.parentTask.name.toUpperCase(), 
-                          style: TextStyle(
-                            color: widget.parentTask.taskColor,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            fontSize: 12,
-                            fontFamily: AppTheme.fontDisplay,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          liveSubTask.name.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 36, // Reduced from 48
-                            height: 1.0,
-                            fontFamily: AppTheme.fontDisplay,
-                            letterSpacing: 1.0,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Ability/Stat Row
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      children: [
-                        ValorantAbilitySlot(
-                          hotkey: "Q",
-                          label: "TIME",
-                          value: formattedTime,
-                          icon: MdiIcons.clockFast,
-                          isActive: isRunning,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "E",
-                          label: "STEPS",
-                          value: "$completedCheckpoints/$totalCheckpoints",
-                          icon: MdiIcons.formatListChecks,
-                          isActive: completedCheckpoints > 0 && completedCheckpoints == totalCheckpoints,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "C",
-                          label: "LOGS",
-                          value: "${liveSubTask.sessions.length}",
-                          icon: MdiIcons.history,
-                        ),
-                        const SizedBox(width: 16),
-                        ValorantAbilitySlot(
-                          hotkey: "X",
-                          label: "STATUS",
-                          value: liveSubTask.completed ? "DONE" : "ACTIVE",
-                          icon: liveSubTask.completed ? MdiIcons.checkAll : MdiIcons.target,
-                          isActive: liveSubTask.completed,
-                          onTap: () => provider.completeSubtask(widget.parentTask.id, liveSubTask.id),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(color: Colors.white10),
-
-                  // Main Content
-                  Column(
-                    children: [
-                      // Timer Control
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isRunning
-                                ? [AppTheme.fhAccentRed.withOpacity(0.2), Colors.transparent]
-                                : [Colors.white.withOpacity(0.05), Colors.transparent],
-                            begin: Alignment.bottomLeft, end: Alignment.topRight,
-                          ),
-                          border: Border(left: BorderSide(color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary, width: 2)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isRunning ? "SESSION ACTIVE" : "READY TO DEPLOY",
-                                  style: TextStyle(
-                                    color: isRunning ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.0,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  formattedTime,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontFamily: AppTheme.fontDisplay,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            FloatingActionButton.small(
-                              backgroundColor: isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentTealFixed,
-                              foregroundColor: Colors.black,
-                              onPressed: () {
-                                if (isRunning) {
-                                  provider.pauseTimer(liveSubTask.id);
-                                  provider.logTimerAndReset(liveSubTask.id);
-                                } else {
-                                  provider.startTimer(liveSubTask.id, 'subtask', widget.parentTask.id);
-                                }
-                              },
-                              child: Icon(isRunning ? MdiIcons.pause : MdiIcons.play),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Checkpoints & Timeline
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "TACTICAL OBJECTIVES",
-                              style: TextStyle(
-                                color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                                letterSpacing: 1.5
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...liveSubTask.subSubTasks.map((sss) => ValorantListItem(
-                              title: sss.name,
-                              isCompleted: sss.completed,
-                              onToggle: () => provider.completeSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                              onDelete: () => provider.deleteSubSubtask(widget.parentTask.id, liveSubTask.id, sss.id),
-                            )),
-                            
-                            // Quick Add
-                            Container(
-                              margin: const EdgeInsets.only(top: 8, bottom: 24),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.2),
-                                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-                              ),
-                              child: TextField(
-                                controller: _checkpointController,
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
-                                  hintText: "+ ADD OBJECTIVE",
-                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1.0),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                onSubmitted: (_) => _handleAddCheckpoint(provider),
-                              ),
-                            ),
-
-                            // Timeline
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                GestureDetector(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _selectedDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                                      builder: (context, child) => Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: const ColorScheme.dark(
-                                            primary: AppTheme.fhAccentTealFixed,
-                                            onPrimary: Colors.black,
-                                            surface: AppTheme.fhBgDark,
-                                            onSurface: Colors.white,
-                                          ),
-                                          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDark),
-                                        ),
-                                        child: child!,
-                                      ),
-                                    );
-                                    if (picked != null) {
-                                      setState(() => _selectedDate = picked);
-                                    }
-                                  },
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                                        style: const TextStyle(
-                                          color: AppTheme.fhAccentTealFixed,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: AppTheme.fontDisplay,
-                                          fontSize: 16
-                                        ),
-                                      ),
-                                      const Icon(Icons.arrow_drop_down, color: AppTheme.fhAccentTealFixed, size: 16),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add, size: 20, color: Colors.white54),
-                                  onPressed: () => _showAddSessionDialog(context, provider),
-                                  tooltip: "Log Manual Session",
-                                ),
-                              ],
-                            ),
-                            Container(
-                              height: 300,
-                              margin: const EdgeInsets.only(top: 8),
-                              color: Colors.black.withOpacity(0.2),
-                              child: ScheduleTimeline(
-                                entries: timelineEntries,
-                                onAddSession: () => _showAddSessionDialog(context, provider),
-                                onEditEntry: (entry) {
-                                  if (entry.originalObject is TaskSession) {
-                                    _handleSessionEdit(context, provider, entry.originalObject as TaskSession);
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
---- END OF FILE lib/src/widgets/screens/submission_detail_screen.dart ---
-
---- START OF FILE lib/src/widgets/views/task_details_view.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart';
-import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-class TaskDetailsView extends StatefulWidget {
-  const TaskDetailsView({super.key});
-
-  @override
-  State<TaskDetailsView> createState() => _TaskDetailsViewState();
-}
-
-class _TaskDetailsViewState extends State<TaskDetailsView> {
-  String _aiGenerationMode = 'text_list';
-  final _aiUserInputController = TextEditingController();
-  final _aiNumSubquestsController = TextEditingController(text: '3');
-  final _newSubTaskController = TextEditingController();
-
-  late AppProvider appProvider;
 
   @override
   void initState() {
     super.initState();
-    appProvider = Provider.of<AppProvider>(context, listen: false);
+    _appProvider = Provider.of<AppProvider>(context, listen: false);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_appProvider.selectedTaskId == null &&
+          _appProvider.mainTasks.isNotEmpty) {
+        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
+      }
+    });
   }
 
-  @override
-  void dispose() {
-    _aiUserInputController.dispose();
-    _aiNumSubquestsController.dispose();
-    _newSubTaskController.dispose();
-    super.dispose();
-  }
-
-  void _handleAiGenerateSubquests(AppProvider appProvider, MainTask task) {
-    if (_aiUserInputController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please provide input for the AI."), backgroundColor: AppTheme.fhAccentOrange),
-      );
-      return;
-    }
-    appProvider.triggerAISubquestGeneration(
-        task,
-        _aiGenerationMode,
-        _aiUserInputController.text.trim(),
-        int.tryParse(_aiNumSubquestsController.text) ?? 3);
-    _aiUserInputController.clear();
+  void _navigateToSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MoreScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProviderConsumer, child) {
-        final task = appProviderConsumer.getSelectedTask();
-        final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isLargeScreen = screenWidth > 900;
 
-        if (task == null) {
-          return Center(
-              child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(MdiIcons.targetVariant, size: 56, color: AppTheme.fhAccentTealFixed),
-                const SizedBox(height: 16),
-                const Text('NO PROTOCOL SELECTED',
-                    style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.fhAccentTealFixed)),
-                const SizedBox(height: 8),
-                const Text(
-                  'Select a mission from the menu to view details.',
-                  style: TextStyle(color: AppTheme.fhTextSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ));
-        }
+    final appProvider = context.watch<AppProvider>();
+    final Color currentTaskColor =
+        appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
+    final ThemeData dynamicTheme =
+        AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
-        final weeklyCompletion = appProviderConsumer.getCompletionStatusForCurrentWeek(task);
-        final int yesterdayTime = appProviderConsumer.getYesterdaysTimeForTask(task.id);
+    final List<Widget> widgetOptions = <Widget>[
+      Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const TaskDetailsView(),
+        ),
+      ),
+      const ScheduleView(),
+      Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: const ProjectsView(),
+        ),
+      ),
+      const LogbookScreen(), 
+      const FinanceDashboardScreen(),
+    ];
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 8, bottom: 80, left: 10, right: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TaskHeaderCard(
-                task: task,
-                yesterdayTime: yesterdayTime,
-                weeklyCompletion: weeklyCompletion,
-              ),
-
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
-                child: Row(
-                  children: [
-                    Container(width: 4, height: 16, color: task.taskColor),
-                    const SizedBox(width: 8),
-                    Text('SUB-MISSIONS',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontFamily: AppTheme.fontDisplay,
-                            color: AppTheme.fhTextPrimary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0
-                        )),
-                  ],
-                ),
-              ),
-
-              if (task.subTasks.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24.0),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
-                    color: AppTheme.fhBgDark.withOpacity(0.3)
-                  ),
-                  child: const Text(
-                      'NO ACTIVE SUB-MISSIONS.\nADD MANUALLY OR INITIALIZE AI PROTOCOL.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 0.5)
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: task.subTasks.length,
-                  itemBuilder: (ctx, index) {
-                    final st = task.subTasks[index];
-                    return SubmissionCard(key: ValueKey(st.id), parentTask: task, subTask: st);
-                  },
-                ),
-
-              _buildAddNewSubTaskButton(context, appProviderConsumer, task),
-              _buildAISubQuestCard(theme, appProviderConsumer, task),
-            ],
+    return Theme(
+      data: dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase),
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: JweTheme.bgBase,
+        appBar: HeaderWidget(
+          currentViewLabel: _viewTitles[_selectedIndex],
+          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+          customAction: IconButton(
+            icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),
+            tooltip: "SYSTEM SETTINGS",
+            onPressed: _navigateToSettings,
           ),
-        );
-      },
+        ),
+        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
+        endDrawer: const WellbeingDrawer(),
+        body: Row(
+          children: [
+            if (isLargeScreen)
+              Container(
+                width: 280,
+                decoration: BoxDecoration(
+                  color: JweTheme.panel,
+                  border: Border(
+                      right: BorderSide(
+                          color: JweTheme.border,
+                          width: 1)),
+                ),
+                child: const TaskNavigationDrawer(),
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: widgetOptions,
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: JweBottomNavBar(
+          selectedIndex: _selectedIndex,
+          activeColor: currentTaskColor,
+          onItemTapped: _onItemTapped,
+        ),
+      ),
     );
   }
+}
+--- END OF FILE lib/src/screens/home_screen.dart ---
 
-  Widget _buildAddNewSubTaskButton(BuildContext context, AppProvider provider, MainTask task) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0),
+--- START OF FILE lib/src/widgets/views/settings_view.dart ---
+// lib/src/widgets/views/settings_view.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
+import 'package:arcane/src/widgets/settings/api_key_manager.dart';
+import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
+import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
+import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
+
+class SettingsView extends StatefulWidget {
+  const SettingsView({super.key});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _customChatbotPromptController = TextEditingController();
+  final _customReflectionPromptController = TextEditingController();
+
+  bool _passwordChangeLoading = false;
+  String _passwordChangeError = '';
+  String _passwordChangeSuccess = '';
+  bool _logoutLoading = false;
+
+  List<String> _availableModels = [
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+  ];
+  bool _fetchingModels = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    _customChatbotPromptController.text =
+        appProvider.settings.customChatbotPrompt ?? '';
+    _customReflectionPromptController.text =
+        appProvider.settings.customReflectionPrompt ?? '';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchModels(appProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _customChatbotPromptController.dispose();
+    _customReflectionPromptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleChangePassword(AppProvider appProvider) async {
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      setState(() => _passwordChangeError = "Passwords do not match.");
+      return;
+    }
+    if (_newPasswordController.text.length < 6) {
+      setState(() => _passwordChangeError =
+          "Password should be at least 6 characters long.");
+      return;
+    }
+    setState(() {
+      _passwordChangeLoading = true;
+      _passwordChangeError = '';
+      _passwordChangeSuccess = '';
+    });
+    try {
+      await appProvider.changePasswordHandler(_newPasswordController.text);
+      if (!mounted) return;
+      setState(() {
+        _passwordChangeSuccess = "Password changed successfully!";
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      if (e is FirebaseAuthException) {
+        setState(() =>
+            _passwordChangeError = e.message ?? "Failed to change password.");
+      } else {
+        setState(() => _passwordChangeError =
+            "An unexpected error occurred while changing password.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _passwordChangeLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleLogout(
+      AppProvider appProvider, BuildContext pageContext) async {
+    setState(() => _logoutLoading = true);
+    try {
+      await appProvider.logoutUser();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Logout failed: ${e.toString()}'),
+          backgroundColor: AppTheme.fhAccentRed));
+    } finally {
+      if (mounted) setState(() => _logoutLoading = false);
+    }
+  }
+
+  Future<void> _fetchModels(AppProvider appProvider) async {
+    setState(() => _fetchingModels = true);
+    try {
+      final aiService = AIService();
+      final models = await aiService.fetchAvailableModels(
+          customApiKey: appProvider.settings.customApiKeys.isNotEmpty
+              ? appProvider.settings.customApiKeys.first
+              : null);
+      if (!mounted) return;
+      setState(() {
+        if (models.isNotEmpty) _availableModels = models;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Fetched ${_availableModels.length} models."), backgroundColor: AppTheme.fhAccentGreen),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching models: $e"), backgroundColor: AppTheme.fhAccentRed),
+      );
+    } finally {
+      if (mounted) setState(() => _fetchingModels = false);
+    }
+  }
+
+  Future<void> _handleChangePin(AppProvider provider) async {
+    // If PIN exists, require old PIN first to change
+    if (provider.settings.journalPin != null) {
+      final auth = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
+      if (auth != true) return;
+    }
+    
+    if (!mounted) return;
+    
+    // Set New PIN
+    final newPin = await PinDialog.show(context: context, isSetupMode: true);
+    if (newPin != null && newPin is String) {
+      provider.setJournalPin(newPin);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Security PIN Updated.")));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+
+    String lastSavedString = "Not synced yet.";
+    if (appProvider.lastSuccessfulSaveTimestamp != null) {
+      lastSavedString =
+          "Last synced: ${DateFormat('MMM d, yyyy, hh:mm:ss a').format(appProvider.lastSuccessfulSaveTimestamp!.toLocal())}";
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _newSubTaskController,
-            decoration: const InputDecoration(
-              hintText: "NEW SUB-MISSION TITLE...",
-              hintStyle: TextStyle(fontSize: 12, color: AppTheme.fhTextSecondary),
-              filled: true,
-              border: OutlineInputBorder(borderSide: BorderSide.none),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          // 1. CLOUD SYNC
+          Card(
+            margin: const EdgeInsets.only(bottom: 24),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cloudSyncOutline,
+                          color: AppTheme.fhAccentTealFixed, size: 22),
+                      const SizedBox(width: 10),
+                      Text('Cloud Synchronization',
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                  
+                  SwitchListTile.adaptive(
+                    title: const Text('Real-Time Sync'),
+                    subtitle: const Text('Automatically sync changes to cloud immediately.'),
+                    value: appProvider.settings.autoSaveEnabled,
+                    activeTrackColor: AppTheme.fhAccentTeal,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      appProvider.setSettings(appProvider.settings..autoSaveEnabled = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  ElevatedButton.icon(
+                    icon: appProvider.isSyncing 
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                        : Icon(MdiIcons.cloudUploadOutline, size: 18),
+                    label: const Text('FORCE CLOUD SYNC'),
+                    onPressed: appProvider.isSyncing ? null : () => appProvider.manuallySaveToCloud(),
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhAccentTealFixed,
+                        foregroundColor: AppTheme.fhBgDark),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
+                    label: const Text('RESTORE FROM CLOUD (OVERWRITE)'),
+                    onPressed: appProvider.isSyncing || appProvider.isManuallyLoading ? null : () async {
+                       final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Confirm Restore'),
+                              content: const Text(
+                                  'This will overwrite local data with cloud data. Continue?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+                                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESTORE')),
+                              ],
+                            ),
+                          );
+                       if (confirm == true) appProvider.manuallyLoadFromCloud();
+                    },
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: const BorderSide(color: AppTheme.fhAccentTealFixed)),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: Icon(MdiIcons.backupRestore, size: 18),
+                    label: const Text('DATA RECOVERY & BACKUPS'),
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const DataRecoveryScreen()));
+                    },
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhTextSecondary.withOpacity(0.5))),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      lastSavedString,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppTheme.fhTextSecondary.withOpacity(0.8),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            style: const TextStyle(fontSize: 14, color: AppTheme.fhTextPrimary),
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) {
-                provider.addSubtask(task.id, {'name': value.trim(), 'isCountable': false});
-                _newSubTaskController.clear();
-              }
-            },
           ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            icon: Icon(MdiIcons.plus, size: 18),
-            label: const Text("ADD OBJECTIVE"),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.fhBgDark,
-                foregroundColor: AppTheme.fhAccentTeal,
-                minimumSize: const Size(double.infinity, 44),
-                shape: const BeveledRectangleBorder(),
-                side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))),
-            onPressed: () {
-              if (_newSubTaskController.text.trim().isNotEmpty) {
-                provider.addSubtask(task.id, {
-                  'name': _newSubTaskController.text.trim(),
-                  'isCountable': false
-                });
-                _newSubTaskController.clear();
-              }
-            },
+
+          // 2. SECURITY
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.shieldLockOutline,
+              title: 'Security & Nora Privacy',
+              children: [
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.dialpad, size: 18),
+                  label: Text(appProvider.settings.journalPin == null ? "SET SECURITY PIN" : "CHANGE SECURITY PIN"),
+                  onPressed: () => _handleChangePin(appProvider),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentPurple,
+                    side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5))
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Session Logs', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessSessions,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessSessions = value);
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Finance Data', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessFinance,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessFinance = value);
+                  },
+                ),
+              ]),
+
+          // 3. AI MODELS
+          ModelConfigurationWidget(
+            appProvider: appProvider,
+            availableModels: _availableModels,
+            isFetching: _fetchingModels,
+            onFetch: () => _fetchModels(appProvider),
           ),
+
+          // 4. ADVANCED AI
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.keyVariant,
+              title: 'Advanced AI Settings',
+              children: [
+                const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                const SizedBox(height: 8),
+                const ApiKeyManager(),
+
+                const SizedBox(height: 16),
+                Text("Custom System Prompts",
+                    style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _customReflectionPromptController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Reflection Analysis System Prompt',
+                    hintText:
+                        'Define how reflections are analyzed and XP awarded.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                    appProvider.setSettings(
+                        appProvider.settings..customReflectionPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text("Leave blank to use built-in defaults.",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 11)),
+              ]
+          ),
+
+          // 5. WEEKLY PROGRESS
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.calendarWeek,
+              title: 'Weekly Progress',
+              children: [
+                DropdownButtonFormField<int>(
+                  decoration: InputDecoration(
+                    labelText: 'Start Day of the Week',
+                    prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgMedium,
+                  initialValue: appProvider.settings.startOfWeek,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Monday')),
+                    DropdownMenuItem(value: 2, child: Text('Tuesday')),
+                    DropdownMenuItem(value: 3, child: Text('Wednesday')),
+                    DropdownMenuItem(value: 4, child: Text('Thursday')),
+                    DropdownMenuItem(value: 5, child: Text('Friday')),
+                    DropdownMenuItem(value: 6, child: Text('Saturday')),
+                    DropdownMenuItem(value: 7, child: Text('Sunday')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      appProvider.setSettings(
+                          appProvider.settings..startOfWeek = value);
+                    }
+                  },
+                ),
+              ]),
+
+          // 6. UI CONFIG
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.eyeSettingsOutline,
+              title: 'User Interface Config',
+              children: [
+                SwitchListTile.adaptive(
+                  title: const Text('Verbose Data Display'),
+                  subtitle: const Text(
+                      'Show detailed descriptions for stats and items throughout the interface.'),
+                  value: appProvider.settings.descriptionsVisible,
+                  onChanged: (value) => appProvider.setSettings(
+                      appProvider.settings..descriptionsVisible = value),
+                  activeTrackColor: (appProvider.getSelectedTask()?.taskColor ??
+                      AppTheme.fhAccentTealFixed),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ]),
+          
+          // 7. DIAGNOSTICS & ONBOARDING
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.tools,
+              title: 'System Diagnostics',
+              children: [
+                const Text(
+                  'Use these tools to repair data inconsistencies or replay tutorials.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.databaseSyncOutline, size: 18),
+                  label: const Text('RECALIBRATE TIME LOGS'),
+                  onPressed: () async {
+                    try {
+                      await appProvider.recalibrateTimeLogs();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Time logs successfully recalibrated from session history.'),
+                          backgroundColor: AppTheme.fhAccentGreen
+                        ));
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Recalibration failed: $e'),
+                          backgroundColor: AppTheme.fhAccentRed
+                        ));
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentOrange,
+                    side: BorderSide(color: AppTheme.fhAccentOrange.withOpacity(0.5))
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.presentationPlay, size: 18),
+                  label: const Text('REPLAY SYSTEM TOUR'),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AppTourScreen()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentTeal,
+                    side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
+                  ),
+                ),
+              ]),
+
+          // 8. CREDENTIALS
+          if (appProvider.currentUser != null)
+            _buildSettingsSection(appProvider, theme,
+                icon: MdiIcons.shieldAccountOutline,
+                title: 'Access Credentials',
+                children: [
+                  TextFormField(
+                    controller: _newPasswordController,
+                    decoration: InputDecoration(
+                        labelText: 'New Passcode Sequence',
+                        prefixIcon:
+                            Icon(MdiIcons.formTextboxPassword, size: 20)),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    decoration: InputDecoration(
+                        labelText: 'Confirm Passcode Sequence',
+                        prefixIcon:
+                            Icon(MdiIcons.formTextboxPassword, size: 20)),
+                    obscureText: true,
+                  ),
+                  if (_passwordChangeError.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
+                      child: Text(_passwordChangeError,
+                          style: const TextStyle(
+                              color: AppTheme.fhAccentRed, fontSize: 12)),
+                    ),
+                  if (_passwordChangeSuccess.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
+                      child: Text(_passwordChangeSuccess,
+                          style: const TextStyle(
+                              color: AppTheme.fhAccentGreen, fontSize: 12)),
+                    ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: _passwordChangeLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.fhTextPrimary))
+                        : Icon(MdiIcons.keyChange, size: 18),
+                    label: const Text('UPDATE PASSCODE'),
+                    onPressed: _passwordChangeLoading
+                        ? null
+                        : () => _handleChangePassword(appProvider),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            (appProvider.getSelectedTask()?.taskColor ??
+                                AppTheme.fhAccentTealFixed),
+                        foregroundColor: AppTheme.fhBgDark,
+                        minimumSize: const Size(double.infinity, 44)),
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    icon: _logoutLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.fhAccentOrange))
+                        : Icon(MdiIcons.logoutVariant, size: 18),
+                    label: const Text('TERMINATE SESSION'),
+                    onPressed: _logoutLoading
+                        ? null
+                        : () => _handleLogout(appProvider, context),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.fhAccentOrange,
+                        side: const BorderSide(
+                            color: AppTheme.fhAccentOrange, width: 1.5),
+                        minimumSize: const Size(double.infinity, 44)),
+                  ),
+                ]),
+
+          // 9. DATA RESET
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.databaseRemoveOutline,
+              title: 'Data & System Reset',
+              children: [
+                Text(
+                  'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: Icon(MdiIcons.alertOctagonOutline, size: 18),
+                  label: const Text('PURGE ALL DATA'),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Row(children: [
+                          Icon(MdiIcons.alertOutline,
+                              color: AppTheme.fhAccentRed),
+                          const SizedBox(width: 10),
+                          const Text('Confirm System Purge',
+                              style: TextStyle(color: AppTheme.fhAccentRed))
+                        ]),
+                        content: const Text(
+                            'Are you absolutely certain you wish to erase all data? This operation cannot be undone and will result in total loss of progress.'),
+                        actionsAlignment: MainAxisAlignment.spaceBetween,
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('CANCEL')),
+                          ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.fhAccentRed,
+                                  foregroundColor: AppTheme.fhTextPrimary),
+                              child: const Text('CONFIRM PURGE')),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      appProvider.clearAllData();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('All data has been purged.'),
+                          backgroundColor: AppTheme.fhAccentGreen));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.fhAccentRed,
+                      foregroundColor: AppTheme.fhTextPrimary,
+                      minimumSize: const Size(double.infinity, 44)),
+                ),
+              ]),
         ],
       ),
     );
   }
 
-  Widget _buildAISubQuestCard(ThemeData theme, AppProvider appProviderConsumer, MainTask task) {
+  Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
+      {required IconData icon,
+      required String title,
+      required List<Widget> children}) {
     return Card(
-      color: AppTheme.fhBgDark.withOpacity(0.5),
-      margin: const EdgeInsets.only(top: 24),
-      shape: const BeveledRectangleBorder(
-        side: BorderSide(color: AppTheme.fhAccentPurple, width: 1),
-      ),
+      margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -1320,90 +2254,1005 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           children: [
             Row(
               children: [
-                Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 20),
+                Icon(icon,
+                    color: (appProvider.getSelectedTask()?.taskColor ??
+                        AppTheme.fhAccentTealFixed),
+                    size: 22),
                 const SizedBox(width: 10),
-                const Text('AI GENERATION PROTOCOL',
-                    style: TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        color: AppTheme.fhTextPrimary,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                        fontSize: 14
-                    )),
+                Text(title,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
               ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _aiUserInputController,
-              decoration: const InputDecoration(
-                labelText: 'INPUT PARAMETERS',
-                labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0),
-                hintText: "e.g. 'Read chapters 1-3 of Design Patterns'",
-                hintStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                filled: true,
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-              style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                        labelText: 'MODE',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
-                    ),
-                    dropdownColor: AppTheme.fhBgMedium,
-                    value: _aiGenerationMode,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.fhTextPrimary),
-                    items: const [
-                      DropdownMenuItem(value: 'text_list', child: Text('List')),
-                      DropdownMenuItem(value: 'book_chapter', child: Text('Chapter')),
-                      DropdownMenuItem(value: 'general_plan', child: Text('General')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _aiGenerationMode = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _aiNumSubquestsController,
-                    decoration: const InputDecoration(
-                        labelText: 'COUNT',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        labelStyle: TextStyle(fontSize: 11, fontFamily: AppTheme.fontDisplay)
-                    ),
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.fhTextPrimary),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: appProviderConsumer.isGeneratingSubquests
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Icon(MdiIcons.check, size: 16),
-              label: Text(appProviderConsumer.isGeneratingSubquests ? 'PROCESSING...' : 'EXECUTE'),
-              onPressed: appProviderConsumer.isGeneratingSubquests
-                  ? null
-                  : () => _handleAiGenerateSubquests(appProviderConsumer, task),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.fhAccentPurple,
-                  foregroundColor: Colors.white,
-                  shape: const BeveledRectangleBorder(),
-                  minimumSize: const Size(double.infinity, 40)),
-            ),
+            Divider(
+                height: 24,
+                thickness: 0.5,
+                color: AppTheme.fhBorderColor.withOpacity(0.5)),
+            ...children,
           ],
         ),
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/views/task_details_view.dart ---
+--- END OF FILE lib/src/widgets/views/settings_view.dart ---
+
+--- START OF FILE lib/src/screens/nora_ai_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/dialogs/nora_control_panel.dart';
+import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+
+class NoraAiScreen extends StatefulWidget {
+  const NoraAiScreen({super.key});
+
+  @override
+  State<NoraAiScreen> createState() => _NoraAiScreenState();
+}
+
+class _NoraAiScreenState extends State<NoraAiScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
+    final messageText = _messageController.text.trim();
+    _messageController.clear();
+
+    setState(() => _isSending = true);
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    await appProvider.sendNoraMessage(messageText);
+
+    if (mounted) {
+      setState(() => _isSending = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
+  void _showNewSessionDialog(AppProvider provider) {
+    String title = "Session ${DateFormat('MM-dd').format(DateTime.now())}";
+    String tone = "Assistant";
+    DateTime startDate = DateTime.now().subtract(const Duration(days: 30));
+    DateTime endDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            backgroundColor: AppTheme.fhBgMedium,
+            title: const Text("INITIALIZE NORA LINK", style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    decoration: const InputDecoration(labelText: "Thread Title"),
+                    onChanged: (val) => title = val,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: tone,
+                    decoration: const InputDecoration(labelText: "Persona Tone"),
+                    dropdownColor: AppTheme.fhBgDark,
+                    items: const [
+                      DropdownMenuItem(value: "Assistant", child: Text("Assistant")),
+                      DropdownMenuItem(value: "Therapist", child: Text("Therapist")),
+                      DropdownMenuItem(value: "Philosopher", child: Text("Philosopher")),
+                      DropdownMenuItem(value: "Tactical Commander", child: Text("Tactician")),
+                      DropdownMenuItem(value: "Friend", child: Text("Friend")),
+                    ],
+                    onChanged: (val) => setStateDialog(() => tone = val!),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("DATA CONTEXT RANGE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final p = await showDatePicker(context: context, initialDate: startDate, firstDate: DateTime(2020), lastDate: DateTime.now());
+                            if (p != null) setStateDialog(() => startDate = p);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                            child: Text(DateFormat('MM/dd/yy').format(startDate), style: const TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                      ),
+                      const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Text("-")),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final p = await showDatePicker(context: context, initialDate: endDate, firstDate: DateTime(2020), lastDate: DateTime.now());
+                            if (p != null) setStateDialog(() => endDate = p);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
+                            child: Text(DateFormat('MM/dd/yy').format(endDate), style: const TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+              ValorantButton(
+                label: "ESTABLISH",
+                color: AppTheme.fhAccentPurple,
+                onPressed: () {
+                  provider.createNoraSession(title: title, tone: tone, startDate: startDate, endDate: endDate);
+                  Navigator.pop(ctx);
+                },
+              )
+            ],
+          );
+        }
+      )
+    );
+  }
+
+  void _showControlsPanel(AppProvider provider) {
+    if (provider.activeNoraSession == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => NoraControlPanel(
+        session: provider.activeNoraSession!,
+        onSave: (config) {
+          provider.updateNoraSessionConfig(
+            sessionId: provider.activeNoraSession!.id,
+            messageLimit: config['messageLimit'],
+            modelOverride: config['modelOverride'],
+            contextDays: config['contextDays'],
+            systemPromptOverride: config['systemPromptOverride']
+          );
+        }
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final memory = appProvider.chatbotMemory;
+    final activeSession = appProvider.activeNoraSession;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppTheme.fhBgDeepDark,
+      appBar: AppBar(
+        title: const Text("NORA", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 4.0)),
+        centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+        actions: [
+          if (activeSession != null)
+            IconButton(
+              icon: Icon(MdiIcons.tuneVariant, color: AppTheme.fhAccentPurple),
+              tooltip: "Session Parameters",
+              onPressed: () => _showControlsPanel(appProvider),
+            ),
+          IconButton(
+            icon: Icon(MdiIcons.menu, color: AppTheme.fhTextSecondary),
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          )
+        ],
+      ),
+      endDrawer: Drawer(
+        backgroundColor: AppTheme.fhBgDeepDark,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: AppTheme.fhBgDark, border: Border(bottom: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(MdiIcons.brain, color: AppTheme.fhAccentPurple, size: 32),
+                  const SizedBox(height: 8),
+                  const Text("NORA LINKS", style: TextStyle(color: Colors.white, fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ValorantButton(
+                label: "NEW LINK",
+                icon: Icons.add,
+                color: AppTheme.fhAccentPurple,
+                onPressed: () {
+                  Navigator.pop(context); // Close drawer
+                  _showNewSessionDialog(appProvider);
+                },
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: memory.noraSessions.length,
+                itemBuilder: (context, index) {
+                  if (index >= memory.noraSessions.length) return const SizedBox.shrink();
+                  final session = memory.noraSessions[index];
+                  final isSelected = session.id == memory.activeNoraSessionId;
+                  return ListTile(
+                    selected: isSelected,
+                    selectedTileColor: AppTheme.fhAccentPurple.withOpacity(0.1),
+                    title: Text(session.title, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+                    subtitle: Text("${session.tone} • ${DateFormat('MM/dd').format(session.startDate)}", style: const TextStyle(fontSize: 10)),
+                    onTap: () {
+                      appProvider.switchNoraSession(session.id);
+                      Navigator.pop(context);
+                    },
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.fhAccentRed),
+                      onPressed: () => appProvider.deleteNoraSession(session.id),
+                    ),
+                  );
+                },
+              ),
+            )
+          ],
+        ),
+      ),
+      body: activeSession == null 
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(MdiIcons.brain, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.2)),
+                const SizedBox(height: 16),
+                const Text("NO ACTIVE LINK", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 20)),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
+                  onPressed: () => _showNewSessionDialog(appProvider),
+                  child: const Text("INITIALIZE LINK"),
+                )
+              ],
+            ),
+          )
+        : Column(
+          children: [
+            // Session Header Info
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: AppTheme.fhBgDark,
+              child: Row(
+                children: [
+                  Icon(MdiIcons.circleSmall, color: AppTheme.fhAccentPurple),
+                  Text("TONE: ${activeSession.tone.toUpperCase()}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Text("${DateFormat('MM/dd/yy').format(activeSession.startDate)} - ${DateFormat('MM/dd/yy').format(activeSession.endDate)}", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
+                ],
+              ),
+            ),
+            
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: activeSession.messages.length + (_isSending ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (_isSending && index == activeSession.messages.length) {
+                     return NoraMessageBubble(
+                        message: ChatbotMessage(id: 't', text: '...', sender: MessageSender.bot, timestamp: DateTime.now()), 
+                        accentColor: AppTheme.fhAccentPurple, 
+                        isTyping: true
+                     );
+                  }
+                  if (index >= activeSession.messages.length) return const SizedBox.shrink();
+                  final msg = activeSession.messages[index];
+                  return NoraMessageBubble(
+                    message: msg, 
+                    accentColor: AppTheme.fhAccentPurple, 
+                    isTyping: false
+                  );
+                },
+              ),
+            ),
+
+            // Input Area
+            Container(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8, top: 8, left: 16, right: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark,
+                border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: InputDecoration(
+                        hintText: "Input query...",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                        filled: true,
+                        fillColor: AppTheme.fhBgMedium,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: _isSending 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                      : Icon(MdiIcons.send, color: AppTheme.fhAccentPurple),
+                    onPressed: _isSending ? null : _sendMessage,
+                  )
+                ],
+              ),
+            )
+          ],
+        ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/nora_ai_screen.dart ---
+
+--- START OF FILE lib/src/widgets/views/chatbot_view.dart ---
+// lib/src/widgets/views/chatbot_view.dart
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
+import 'package:provider/provider.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'dart:convert';
+
+class ChatbotView extends StatefulWidget {
+  const ChatbotView({super.key});
+
+  @override
+  State<ChatbotView> createState() => _ChatbotViewState();
+}
+
+class _ChatbotViewState extends State<ChatbotView> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AppProvider>(context, listen: false)
+          .initializeChatbotMemory();
+      _scrollToBottom();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatbotView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
+    final messageText = _messageController.text.trim();
+    _messageController.clear();
+
+    setState(() => _isSending = true);
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    await appProvider.sendMessageToChatbot(messageText);
+
+    if (mounted) {
+      setState(() => _isSending = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final theme = Theme.of(context);
+    final chatbotMemory = appProvider.chatbotMemory;
+    final Color dynamicAccent =
+        appProvider.getSelectedTask()?.taskColor ?? theme.colorScheme.secondary;
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: Icon(MdiIcons.refresh,
+                    size: 16, color: AppTheme.fhTextSecondary),
+                label: const Text("Restart Session",
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12)),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                            title: Text("Restart Chat?",
+                                style: TextStyle(color: dynamicAccent)),
+                            content: const Text(
+                                "This will clear the current conversation history, but remembered items and summaries will remain. Continue?"),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                  child: const Text("Cancel")),
+                              ElevatedButton(
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: dynamicAccent),
+                                child: Text("Restart",
+                                    style: TextStyle(
+                                        color: ThemeData
+                                                    .estimateBrightnessForColor(
+                                                        dynamicAccent) ==
+                                                Brightness.dark
+                                            ? AppTheme.fhTextPrimary
+                                            : AppTheme.fhBgDark)),
+                              ),
+                            ],
+                          ));
+                  if (confirm == true) {
+                    appProvider.chatbotMemory.conversationHistory.clear();
+                  }
+                },
+              ),
+            ),
+          ),
+          Expanded(
+            child: chatbotMemory.conversationHistory.isEmpty && !_isSending
+                ? Center(
+                    child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(MdiIcons.robotHappyOutline,
+                          size: 48,
+                          color: dynamicAccent.withValues(alpha: 0.7)),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Arcane Advisor Online",
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(color: dynamicAccent),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Ask about your past week's summary, completed goals, or tell me things to 'Remember'.",
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.fhTextSecondary),
+                      ),
+                    ],
+                  ))
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: chatbotMemory.conversationHistory.length +
+                        (_isSending ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (_isSending &&
+                          index == chatbotMemory.conversationHistory.length) {
+                        return NoraMessageBubble(
+                          message: ChatbotMessage(
+                            id: 'typing',
+                            text: '...',
+                            sender: MessageSender.bot,
+                            timestamp: DateTime.now(),
+                          ),
+                          accentColor: dynamicAccent,
+                          isTyping: true,
+                        );
+                      }
+                      final message = chatbotMemory.conversationHistory[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          NoraMessageBubble(
+                            message: message, 
+                            accentColor: dynamicAccent, 
+                            isTyping: false
+                          ),
+                          if (message.uiPayload != null)
+                             _buildDynamicUiWidget(message.uiPayload!, theme, dynamicAccent),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Send a message to Arcane Advisor...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                        borderSide:
+                            const BorderSide(color: AppTheme.fhBorderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                        borderSide:
+                            BorderSide(color: dynamicAccent, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                    style: const TextStyle(
+                        color: AppTheme.fhTextPrimary, fontSize: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: _isSending
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: dynamicAccent))
+                      : Icon(MdiIcons.sendCircleOutline, color: dynamicAccent),
+                  onPressed: _isSending ? null : _sendMessage,
+                  iconSize: 28,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDynamicUiWidget(
+      DynamicUiPayload payload, ThemeData theme, Color dynamicAccent) {
+    switch (payload.type) {
+      case DynamicUiType.graph:
+        return _buildGraphFromPayload(payload.data, theme, dynamicAccent);
+      case DynamicUiType.unknown:
+        return Text(
+          "[Dynamic UI Error: Unknown payload type or data error. Raw: ${jsonEncode(payload.data)}]",
+          style: TextStyle(
+              color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
+              fontSize: 10,
+              fontStyle: FontStyle.italic),
+        );
+    }
+  }
+
+  Widget _buildGraphFromPayload(
+      Map<String, dynamic> data, ThemeData theme, Color dynamicAccent) {
+    final String graphType = data['graphType'] as String? ?? '';
+    final String source = data['source'] as String? ?? '';
+
+    // Emotion tracking removed, returning error for legacy emotion graphs.
+    if (graphType == 'emotion_trend_bar' || source == 'emotion_logs') {
+      return const Text("Emotion tracking is no longer supported.",
+          style: TextStyle(
+              color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
+    }
+
+    return Text(
+      "[Dynamic UI Error: Graph type '$graphType' or source '$source' not supported. Data: ${jsonEncode(data)}]",
+      style: TextStyle(
+          color: AppTheme.fhAccentRed.withValues(alpha: 0.8),
+          fontSize: 10,
+          fontStyle: FontStyle.italic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+}
+--- END OF FILE lib/src/widgets/views/chatbot_view.dart ---
+
+--- START OF FILE lib/src/screens/onboarding/app_tour_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/onboarding/tour_slide.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/widgets/cards/submission_card.dart';
+import 'package:arcane/src/widgets/ui/wellbeing_card.dart';
+import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
+import 'package:provider/provider.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class AppTourScreen extends StatefulWidget {
+  const AppTourScreen({super.key});
+
+  @override
+  State<AppTourScreen> createState() => _AppTourScreenState();
+}
+
+class _AppTourScreenState extends State<AppTourScreen> {
+  final PageController _pageController = PageController();
+  final TextEditingController _apiController = TextEditingController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _apiController.dispose();
+    super.dispose();
+  }
+
+  void _finishTour(AppProvider provider) {
+    if (_apiController.text.trim().isNotEmpty) {
+      provider.addCustomApiKey(_apiController.text.trim());
+    }
+    
+    // Mark as complete and redirect
+    provider.setSettings(provider.settings..hasCompletedTour = true);
+    
+    // Check if we are inside the nav stack from Settings or straight from App
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    // Dummy data for widgets
+    final dummyTask = MainTask(
+      id: 'dummy', name: 'OPERATION AEGIS', description: 'Core system defense.', theme: 'tech', colorHex: '00E5FF'
+    );
+    final dummySub = SubTask(
+      id: 'dummy_sub', name: 'CALIBRATE SENSORS', completed: false, currentTimeSpent: 0
+    );
+    final dummySkill = Skill(
+      id: 'res', name: 'Resilience', description: 'Capacity to recover quickly from difficulties.', level: 5, currentXp: 1500, maxXp: 2000
+    );
+    final dummyMessage = ChatbotMessage(
+      id: 'd1', text: "Operative, I've analyzed your recent logs. Your resilience is trending upward. Ready for today's directives?", sender: MessageSender.bot, timestamp: DateTime.now()
+    );
+
+    final slides = [
+      TourSlide(
+        title: "SYSTEM OVERVIEW",
+        subtitle: "START WITH WHY?!",
+        content: "Productivity apps feel like a chore because they treat life as a sterile checklist.\n\nTask Dominion bridges the gap between gaming and reality. By treating life as a series of tactical operations complete with post-action debriefs and biometrics, self-improvement becomes engaging and structured.\n\nYou are not just surviving. You are managing a complex system: You.",
+        visual: Icon(Icons.architecture, size: 80, color: JweTheme.accentCyan.withOpacity(0.5)),
+        accentColor: JweTheme.accentCyan,
+      ),
+      TourSlide(
+        title: "MISSIONS & PROTOCOLS",
+        subtitle: "ACTIONABLE OBJECTIVES",
+        content: "Your chores and goals are broken down into Missions. Log your time, track completion, and maintain system velocity.",
+        visual: IgnorePointer(
+          child: SubmissionCard(parentTask: dummyTask, subTask: dummySub),
+        ),
+        accentColor: JweTheme.accentCyan,
+      ),
+      TourSlide(
+        title: "PSYCHOLOGICAL BIOMETRICS",
+        subtitle: "SYSTEM DIAGNOSTICS",
+        content: "Your mental state is your system integrity. Log events and emotions to gain XP across 12 psychological traits. If you stop logging, levels naturally decay, enforcing consistent reflection.",
+        visual: IgnorePointer(
+          child: WellbeingCard(skill: dummySkill, onTap: () {}),
+        ),
+        accentColor: JweTheme.accentAmber,
+      ),
+      TourSlide(
+        title: "NORA NEURAL AI",
+        subtitle: "UPLINK CONFIGURATION",
+        content: "NORA acts as your tactical commander, therapist, or friend. She requires a Gemini API Key to process your logs and provide intelligence.\n\nObtain one for free at:\naistudio.google.com/app/apikey",
+        visual: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            IgnorePointer(
+              child: NoraMessageBubble(message: dummyMessage, accentColor: const Color(0xFF8A2BE2), isTyping: false),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _apiController,
+              style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontSize: 14),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                hintText: "Paste Gemini API Key here (Optional)",
+                hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
+                border: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A2BE2))),
+              ),
+            )
+          ],
+        ),
+        accentColor: const Color(0xFF8A2BE2),
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              children: [
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (idx) => setState(() => _currentPage = idx),
+                    children: slides,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SmoothPageIndicator(
+                        controller: _pageController,
+                        count: slides.length,
+                        effect: const ExpandingDotsEffect(
+                          dotHeight: 6,
+                          dotWidth: 6,
+                          expansionFactor: 4,
+                          activeDotColor: JweTheme.accentCyan,
+                          dotColor: JweTheme.border,
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _currentPage == slides.length - 1 ? JweTheme.accentCyan : JweTheme.panel,
+                          foregroundColor: _currentPage == slides.length - 1 ? Colors.black : JweTheme.textWhite,
+                          shape: const BeveledRectangleBorder(
+                            side: BorderSide(color: JweTheme.accentCyan)
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        ),
+                        onPressed: () {
+                          if (_currentPage < slides.length - 1) {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300), 
+                              curve: Curves.easeInOut
+                            );
+                          } else {
+                            _finishTour(provider);
+                          }
+                        },
+                        child: Text(
+                          _currentPage == slides.length - 1 ? "COMPLETE BOOT SEQUENCE" : "NEXT",
+                          style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                        ),
+                      )
+                    ],
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/onboarding/app_tour_screen.dart ---
+
+--- START OF FILE lib/src/widgets/onboarding/tour_slide.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class TourSlide extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String content;
+  final Widget visual;
+  final Color accentColor;
+
+  const TourSlide({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.content,
+    required this.visual,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 40),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: accentColor,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: GoogleFonts.rajdhani(
+              color: JweTheme.textWhite,
+              fontWeight: FontWeight.w900,
+              fontSize: 36,
+              height: 1.0,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 32),
+          JwePanel(
+            accentColor: accentColor,
+            child: visual,
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: accentColor, width: 3)),
+              color: JweTheme.panel.withOpacity(0.5),
+            ),
+            child: Text(
+              content,
+              style: const TextStyle(
+                color: JweTheme.textWhite,
+                fontSize: 14,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/onboarding/tour_slide.dart ---
+
+--- START OF FILE lib/src/widgets/ui/nora_message_bubble.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:intl/intl.dart';
+
+class NoraMessageBubble extends StatelessWidget {
+  final ChatbotMessage message;
+  final Color accentColor;
+  final bool isTyping;
+
+  const NoraMessageBubble({
+    super.key,
+    required this.message,
+    required this.accentColor,
+    required this.isTyping,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = message.sender == MessageSender.user;
+    final theme = Theme.of(context);
+    
+    final Color bubbleColor = isUser ? accentColor : AppTheme.fhBgMedium;
+    final Color textColor = isUser
+        ? (ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
+            ? AppTheme.fhTextPrimary
+            : AppTheme.fhBgDark)
+        : AppTheme.fhTextPrimary;
+
+    final CrossAxisAlignment crossAxisAlignment =
+        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final MainAxisAlignment mainAxisAlignment =
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: mainAxisAlignment,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) 
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0, bottom: 4), 
+              child: Icon(MdiIcons.brain, size: 16, color: accentColor)
+            ),
+            
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18),
+                    topRight: const Radius.circular(18),
+                    bottomLeft: isUser ? const Radius.circular(18) : const Radius.circular(4),
+                    bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
+                  ),
+                  border: Border.all(
+                      color: bubbleColor.withOpacity(0.5), width: 0.5)),
+              child: Column(
+                crossAxisAlignment: crossAxisAlignment,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message.text,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                        color: textColor, fontSize: 13.5, height: 1.4),
+                  ),
+                  if (!isTyping) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('HH:mm').format(message.timestamp.toLocal()),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: textColor.withOpacity(0.7), fontSize: 9),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/ui/nora_message_bubble.dart ---

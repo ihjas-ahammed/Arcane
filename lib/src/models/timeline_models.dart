@@ -8,6 +8,7 @@ class TimelineEntry {
   final String? subtitle;
   final Color color;
   final bool isEditable;
+  final bool isPredicted; // New field
   final dynamic originalObject; // To pass back for editing actions
 
   TimelineEntry({
@@ -18,6 +19,7 @@ class TimelineEntry {
     this.subtitle,
     required this.color,
     this.isEditable = false,
+    this.isPredicted = false,
     this.originalObject,
   });
 

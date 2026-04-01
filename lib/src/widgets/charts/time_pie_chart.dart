@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class TimePieChart extends StatelessWidget {
   final Map<String, double> taskData; // Task Name -> Minutes
@@ -30,9 +31,9 @@ class TimePieChart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(MdiIcons.clockAlertOutline, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3), size: 32),
+            Icon(MdiIcons.clockAlertOutline, color: JweTheme.textMuted.withOpacity(0.3), size: 32),
             const SizedBox(height: 8),
-            Text("NO TIME LOGS", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 16)),
+            Text("NO TIME LOGS", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -44,14 +45,14 @@ class TimePieChart extends StatelessWidget {
     // Default Center Text
     String centerTopText = "TOTAL TIME";
     String centerBottomText = "${totalTime.toInt()}m";
-    Color centerColor = AppTheme.fhTextPrimary;
+    Color centerColor = JweTheme.textWhite;
 
     // Dynamic Center Text based on selection
     if (selectedTask != null && activeData.containsKey(selectedTask)) {
       centerTopText = selectedTask!.toUpperCase();
       if (centerTopText.length > 12) centerTopText = "${centerTopText.substring(0, 10)}..";
       centerBottomText = "${activeData[selectedTask]!.toInt()}m";
-      centerColor = taskColors[selectedTask] ?? AppTheme.fhAccentTeal;
+      centerColor = taskColors[selectedTask] ?? JweTheme.accentCyan;
     }
 
     return Stack(
@@ -59,18 +60,18 @@ class TimePieChart extends StatelessWidget {
       children: [
         PieChart(
           PieChartData(
-            sectionsSpace: 4, // "Tech" gaps
+            sectionsSpace: 4, // Gaps
             centerSpaceRadius: 40,
             sections: entries.map((e) {
               final isSelected = e.key == selectedTask;
-              final color = taskColors[e.key] ?? AppTheme.fhAccentTeal;
+              final color = taskColors[e.key] ?? JweTheme.accentCyan;
               
               return PieChartSectionData(
-                color: color.withValues(alpha: isSelected ? 1.0 : 0.6),
+                color: color.withOpacity(isSelected ? 1.0 : 0.6),
                 value: e.value,
                 title: '',
                 radius: isSelected ? 20 : 15,
-                borderSide: BorderSide(color: AppTheme.fhBgDeepDark, width: 2),
+                borderSide: BorderSide(color: JweTheme.bgBase, width: 2),
               );
             }).toList(),
             pieTouchData: PieTouchData(
@@ -94,19 +95,18 @@ class TimePieChart extends StatelessWidget {
           children: [
             Text(
               centerTopText,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10, 
-                color: AppTheme.fhTextSecondary, 
+                color: JweTheme.textMuted, 
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5
               )
             ),
             Text(
               centerBottomText,
-              style: TextStyle(
+              style: GoogleFonts.rajdhani(
                 fontSize: 20, 
                 color: centerColor, 
-                fontFamily: AppTheme.fontDisplay,
                 fontWeight: FontWeight.bold
               )
             ),

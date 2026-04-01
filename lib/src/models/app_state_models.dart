@@ -1,20 +1,66 @@
 // lib/src/models/app_state_models.dart
-// For TimeOfDay
+import 'package:arcane/src/models/habit_models.dart';
+import 'package:uuid/uuid.dart';
+
+class SomedayItem {
+  String id;
+  String title;
+  DateTime createdAt;
+
+  SomedayItem({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+  });
+
+  factory SomedayItem.fromJson(Map<String, dynamic> json) {
+    return SomedayItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      title: json['title'] as String? ?? 'Untitled Idea',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
 
 class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
-  bool autoSaveEnabled; // New setting
+  bool autoSaveEnabled;
   int wakeupTimeHour;
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  String? customApiKey;
+  List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
-  List<String> savedPrompts; // New: Saved AI Prompts
-  int startOfWeek; // 1 for Monday, 7 for Sunday
-  int dataVersion; // 0 for minutes, 1 for seconds
+  List<String> savedPrompts;
+  int startOfWeek;
+  int dataVersion;
+  int lastModified; 
+  
+  // Security and Nora AI Settings
+  String? journalPin;
+  bool noraAccessSessions;
+  bool noraAccessFinance;
+
+  // Habit / Override Framework
+  List<HabitRule> habitRules;
+  
+  // Someday / Maybe List
+  List<SomedayItem> somedayList;
+
+  // Onboarding
+  bool hasCompletedTour;
 
   AppSettings({
     this.descriptionsVisible = true,
@@ -32,15 +78,30 @@ class AppSettings {
       'gemini-2.0-pro-exp-02-05',
       'gemini-1.5-pro'
     ],
-    this.customApiKey,
+    this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
-    this.savedPrompts = const [], // Default empty
+    this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
-  });
+    int? lastModified,
+    this.journalPin,
+    this.noraAccessSessions = false,
+    this.noraAccessFinance = false,
+    this.habitRules = const [],
+    this.somedayList = const [],
+    this.hasCompletedTour = false,
+  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
+    List<String> keys = [];
+    if (json['customApiKeys'] != null) {
+      keys = (json['customApiKeys'] as List).map((e) => e.toString()).toList();
+    } else if (json['customApiKey'] != null &&
+        json['customApiKey'].toString().isNotEmpty) {
+      keys.add(json['customApiKey'].toString());
+    }
+
     return AppSettings(
       descriptionsVisible: json['descriptionsVisible'] as bool? ?? true,
       dailyAutoGenerateContent: json['dailyAutoGenerateContent'] as bool? ??
@@ -52,32 +113,12 @@ class AppSettings {
       liteModels: (json['liteModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash-lite',
-                  'gemini-1.5-flash'
-                ]
-              : [
-                  'gemini-2.0-flash-lite',
-                  'gemini-2.0-flash',
-                  'gemini-1.5-flash'
-                ]),
+          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
       heavyModels: (json['heavyModels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          (json['aiModelName'] != null
-              ? [
-                  json['aiModelName'] as String,
-                  'gemini-2.0-flash',
-                  'gemini-1.5-pro'
-                ]
-              : [
-                  'gemini-2.0-flash',
-                  'gemini-2.0-pro-exp-02-05',
-                  'gemini-1.5-pro'
-                ]),
-      customApiKey: json['customApiKey'] as String?,
+          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
+      customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
@@ -86,8 +127,20 @@ class AppSettings {
           [],
       startOfWeek: json['startOfWeek'] as int? ?? 1,
       dataVersion: json['dataVersion'] as int? ?? 0,
+      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      journalPin: json['journalPin'] as String?,
+      noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
+      noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
+      habitRules: (json['habitRules'] as List<dynamic>?)
+              ?.map((e) => HabitRule.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+      somedayList: (json['somedayList'] as List<dynamic>?)
+              ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
+      hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
     );
   }
+  
   Map<String, dynamic> toJson() {
     return {
       'descriptionsVisible': descriptionsVisible,
@@ -97,12 +150,19 @@ class AppSettings {
       'wakeupTimeMinute': wakeupTimeMinute,
       'liteModels': liteModels,
       'heavyModels': heavyModels,
-      'customApiKey': customApiKey,
+      'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
+      'lastModified': lastModified,
+      'journalPin': journalPin,
+      'noraAccessSessions': noraAccessSessions,
+      'noraAccessFinance': noraAccessFinance,
+      'habitRules': habitRules.map((e) => e.toJson()).toList(),
+      'somedayList': somedayList.map((e) => e.toJson()).toList(),
+      'hasCompletedTour': hasCompletedTour,
     };
   }
 }

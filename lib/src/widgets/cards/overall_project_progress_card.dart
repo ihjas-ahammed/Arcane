@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;
@@ -19,67 +21,51 @@ class OverallProjectProgressCard extends StatelessWidget {
     final int percentage = (avgProgress * 100).toInt();
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF2C3E50), AppTheme.fhBgDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
+        color: JweTheme.panel,
+        border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children:[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
+            children:[
+              const Text(
                 "OVERALL PROGRESS",
                 style: TextStyle(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.6),
-                  fontSize: 11,
+                  color: JweTheme.textMuted,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+                  letterSpacing: 1.5,
                 ),
               ),
               Text(
                 "$percentage%",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
+                style: GoogleFonts.rajdhani(
+                  color: JweTheme.textWhite,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  fontFamily: AppTheme.fontDisplay,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: avgProgress,
-              minHeight: 8,
-              backgroundColor: AppTheme.fhBgDeepDark,
-              color: AppTheme.fhAccentTeal,
-            ),
-          ),
+          
+          JweProgressBar(progress: avgProgress, color: JweTheme.accentCyan),
+          
           const SizedBox(height: 8),
-          Text(
-            "${activeProjects.length} Active Projects",
-            style: TextStyle(
-                color: AppTheme.fhTextSecondary.withValues(alpha: 0.7),
-                fontSize: 11),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              "${activeProjects.length} ACTIVE OPERATIONS",
+              style: const TextStyle(
+                  color: JweTheme.textMuted,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  fontSize: 10),
+            ),
           ),
         ],
       ),

@@ -41,12 +41,12 @@ ADDITIONAL_IGNORE_PATTERNS = [
     "windows/",
     "macos/",
     "linux/",
-    "android/",
     "ios/",
     "ai.txt",
     "ai.md",
     "project_snapshot.txt",
-    "LOGS.md"
+    "LOGS.md",
+    "lib\src\config\api_keys.dart"
    # The script dynamically adds its own output file to this list later.
     # Note: Rely on project's .gitignore for most build artifacts like 'build/',
     # 'ios/Pods/', 'android/.gradle/' as they can be configured differently.

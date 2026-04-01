@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/theme/wellbeing_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -25,13 +26,11 @@ class ChartDataHelper {
 
       // --- Activity Data Calculation ---
       double totalMins = 0;
-      Color dominantColor = AppTheme.fhBgMedium;
+      Color dominantColor = JweTheme.border;
       double maxMinsForTask = 0;
 
       if (isToday) {
-        // Live data calculation for today
         for (var task in provider.mainTasks) {
-          // FIX: Apply filter to "Today" logic
           if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
             continue;
           }
@@ -44,7 +43,6 @@ class ChartDataHelper {
           }
         }
       } else {
-        // Stored data for past days
         final dayData = provider.completedByDay[dateStr];
         if (dayData != null && dayData['taskTimes'] != null) {
           final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
@@ -55,7 +53,6 @@ class ChartDataHelper {
                   MainTask(id: '', name: 'Unknown', description: '', theme: ''),
             );
 
-            // Apply Filter
             if (selectedTaskFilter != null && task.name != selectedTaskFilter) {
               return;
             }
@@ -93,11 +90,11 @@ class ChartDataHelper {
       }
       virtueData[i] = totalXp;
 
-      Color dominantVirtueColor = AppTheme.fhAccentGold;
+      Color dominantVirtueColor = JweTheme.accentAmber; // Default JWE Gold/Amber
       if (virtueTotals.isNotEmpty) {
         var maxVirtue =
             virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = _getVirtueColor(maxVirtue.key);
+        dominantVirtueColor = WellbeingTheme.getColor(maxVirtue.key);
       }
       virtueColors[i] = dominantVirtueColor;
     }
@@ -127,7 +124,7 @@ class ChartDataHelper {
                 provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
             final String name = task?.name ?? "Unknown";
             dailyTaskTimeData[name] = (time as num).toDouble() / 60.0;
-            taskColors[name] = task?.taskColor ?? AppTheme.fhAccentTeal;
+            taskColors[name] = task?.taskColor ?? JweTheme.accentCyan;
           });
         }
       }
@@ -156,24 +153,5 @@ class ChartDataHelper {
       }
     }
     return totalMinutes;
-  }
-
-  static Color _getVirtueColor(String name) {
-    switch (name.toLowerCase()) {
-      case 'wisdom':
-        return Colors.blueAccent;
-      case 'courage':
-        return AppTheme.fhAccentRed;
-      case 'humanity':
-        return const Color(0xFFE91E63);
-      case 'justice':
-        return AppTheme.fhAccentGold;
-      case 'temperance':
-        return AppTheme.fhAccentTeal;
-      case 'transcendence':
-        return AppTheme.fhAccentPurple;
-      default:
-        return Colors.grey;
-    }
   }
 }

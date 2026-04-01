@@ -7,6 +7,11 @@ import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
+import 'package:arcane/src/widgets/settings/api_key_manager.dart';
+import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
+import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
+import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -16,20 +21,14 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
-  // ... (existing controllers)
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _newUsernameController = TextEditingController();
-  final _apiKeyController = TextEditingController();
   final _customChatbotPromptController = TextEditingController();
   final _customReflectionPromptController = TextEditingController();
 
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
-  bool _usernameChangeLoading = false;
-  String _usernameChangeError = '';
-  String _usernameChangeSuccess = '';
   bool _logoutLoading = false;
 
   List<String> _availableModels = [
@@ -44,20 +43,20 @@ class _SettingsViewState extends State<SettingsView> {
   void initState() {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    _newUsernameController.text = appProvider.currentUser?.displayName ?? '';
-    _apiKeyController.text = appProvider.settings.customApiKey ?? '';
     _customChatbotPromptController.text =
         appProvider.settings.customChatbotPrompt ?? '';
     _customReflectionPromptController.text =
         appProvider.settings.customReflectionPrompt ?? '';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchModels(appProvider);
+    });
   }
 
   @override
   void dispose() {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
-    _newUsernameController.dispose();
-    _apiKeyController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
     super.dispose();
@@ -102,44 +101,6 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
-  Future<void> _handleChangeUsername(AppProvider appProvider) async {
-    if (_newUsernameController.text.trim().isEmpty) {
-      setState(() => _usernameChangeError = "Username cannot be empty.");
-      return;
-    }
-    if (_newUsernameController.text.trim().length < 3) {
-      setState(() =>
-          _usernameChangeError = "Username must be at least 3 characters.");
-      return;
-    }
-    setState(() {
-      _usernameChangeLoading = true;
-      _usernameChangeError = '';
-      _usernameChangeSuccess = '';
-    });
-    try {
-      await appProvider
-          .updateUserDisplayName(_newUsernameController.text.trim());
-      if (!mounted) return;
-      setState(() {
-        _usernameChangeSuccess = "Username updated successfully!";
-      });
-    } catch (e) {
-      if (!mounted) return;
-      if (e is FirebaseAuthException) {
-        setState(() =>
-            _usernameChangeError = e.message ?? "Failed to update username.");
-      } else {
-        setState(() => _usernameChangeError =
-            "An unexpected error occurred while updating username.");
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _usernameChangeLoading = false);
-      }
-    }
-  }
-
   Future<void> _handleLogout(
       AppProvider appProvider, BuildContext pageContext) async {
     setState(() => _logoutLoading = true);
@@ -160,21 +121,42 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final aiService = AIService();
       final models = await aiService.fetchAvailableModels(
-          customApiKey: appProvider.settings.customApiKey);
+          customApiKey: appProvider.settings.customApiKeys.isNotEmpty
+              ? appProvider.settings.customApiKeys.first
+              : null);
       if (!mounted) return;
       setState(() {
-        _availableModels = models;
+        if (models.isNotEmpty) _availableModels = models;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Fetched ${models.length} models.'),
-          backgroundColor: AppTheme.fhAccentGreen));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Fetched ${_availableModels.length} models."), backgroundColor: AppTheme.fhAccentGreen),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to fetch models: $e'),
-          backgroundColor: AppTheme.fhAccentRed));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching models: $e"), backgroundColor: AppTheme.fhAccentRed),
+      );
     } finally {
       if (mounted) setState(() => _fetchingModels = false);
+    }
+  }
+
+  Future<void> _handleChangePin(AppProvider provider) async {
+    // If PIN exists, require old PIN first to change
+    if (provider.settings.journalPin != null) {
+      final auth = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
+      if (auth != true) return;
+    }
+    
+    if (!mounted) return;
+    
+    // Set New PIN
+    final newPin = await PinDialog.show(context: context, isSetupMode: true);
+    if (newPin != null && newPin is String) {
+      provider.setJournalPin(newPin);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Security PIN Updated.")));
+      }
     }
   }
 
@@ -194,226 +176,163 @@ class _SettingsViewState extends State<SettingsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.cloudSyncOutline,
-              title: 'Cloud Synchronization',
-              children: [
-                SwitchListTile.adaptive(
-                  title: const Text('Auto-Sync Data'),
-                  subtitle: const Text(
-                      'Automatically sync changes to cloud every minute.'),
-                  value: appProvider.settings.autoSaveEnabled,
-                  activeTrackColor: AppTheme.fhAccentTeal,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (bool value) {
-                    appProvider.setSettings(
-                        appProvider.settings..autoSaveEnabled = value);
-                  },
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: appProvider.isManuallySaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.cloudUploadOutline, size: 18),
-                  label: const Text('SAVE TO CLOUD NOW'),
-                  onPressed: appProvider.isManuallySaving ||
-                          appProvider.isManuallyLoading
-                      ? null
-                      : () async {
-                          try {
-                            await appProvider.manuallySaveToCloud();
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Data saved to cloud.'),
-                                    backgroundColor: AppTheme.fhAccentGreen));
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content:
-                                    Text('Cloud save failed: ${e.toString()}'),
-                                backgroundColor: AppTheme.fhAccentRed));
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      backgroundColor:
-                          (appProvider.getSelectedTask()?.taskColor ??
-                              AppTheme.fhAccentTealFixed),
-                      foregroundColor: AppTheme.fhBgDark),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: appProvider.isManuallyLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.cloudDownloadOutline, size: 18),
-                  label: const Text('LOAD FROM CLOUD NOW'),
-                  onPressed: appProvider.isManuallySaving ||
-                          appProvider.isManuallyLoading
-                      ? null
-                      : () async {
-                          // ... confirm dialog
-                          final confirm = await showDialog<bool>(
+          // 1. CLOUD SYNC
+          Card(
+            margin: const EdgeInsets.only(bottom: 24),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cloudSyncOutline,
+                          color: AppTheme.fhAccentTealFixed, size: 22),
+                      const SizedBox(width: 10),
+                      Text('Cloud Synchronization',
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                  
+                  SwitchListTile.adaptive(
+                    title: const Text('Real-Time Sync'),
+                    subtitle: const Text('Automatically sync changes to cloud immediately.'),
+                    value: appProvider.settings.autoSaveEnabled,
+                    activeTrackColor: AppTheme.fhAccentTeal,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      appProvider.setSettings(appProvider.settings..autoSaveEnabled = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  ElevatedButton.icon(
+                    icon: appProvider.isSyncing 
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                        : Icon(MdiIcons.cloudUploadOutline, size: 18),
+                    label: const Text('FORCE CLOUD SYNC'),
+                    onPressed: appProvider.isSyncing ? null : () => appProvider.manuallySaveToCloud(),
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhAccentTealFixed,
+                        foregroundColor: AppTheme.fhBgDark),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
+                    label: const Text('RESTORE FROM CLOUD (OVERWRITE)'),
+                    onPressed: appProvider.isSyncing || appProvider.isManuallyLoading ? null : () async {
+                       final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Row(children: [
-                                Icon(MdiIcons.cloudQuestionOutline,
-                                    color: AppTheme.fhAccentOrange),
-                                const SizedBox(width: 10),
-                                const Text('Confirm Load')
-                              ]),
+                              title: const Text('Confirm Restore'),
                               content: const Text(
-                                  'This will overwrite any local unsaved changes with data from the cloud. Are you sure?'),
-                              actionsAlignment: MainAxisAlignment.spaceBetween,
+                                  'This will overwrite local data with cloud data. Continue?'),
                               actions: [
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(false),
-                                    child: const Text('CANCEL')),
-                                ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(true),
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppTheme.fhAccentOrange),
-                                    child: const Text('CONFIRM LOAD')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+                                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESTORE')),
                               ],
                             ),
                           );
-                          if (confirm == true) {
-                            try {
-                              await appProvider.manuallyLoadFromCloud();
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Data loaded from cloud.'),
-                                      backgroundColor: AppTheme.fhAccentGreen));
-                            } catch (e) {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Cloud load failed: ${e.toString()}'),
-                                      backgroundColor: AppTheme.fhAccentRed));
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      backgroundColor:
-                          (appProvider.getSelectedTask()?.taskColor ??
-                              AppTheme.fhAccentTealFixed),
-                      foregroundColor: AppTheme.fhBgDark),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    lastSavedString,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic),
+                       if (confirm == true) appProvider.manuallyLoadFromCloud();
+                    },
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        backgroundColor: AppTheme.fhBgDark,
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: const BorderSide(color: AppTheme.fhAccentTealFixed)),
                   ),
+                  
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: Icon(MdiIcons.backupRestore, size: 18),
+                    label: const Text('DATA RECOVERY & BACKUPS'),
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const DataRecoveryScreen()));
+                    },
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        foregroundColor: AppTheme.fhTextPrimary,
+                        side: BorderSide(
+                            color: AppTheme.fhTextSecondary.withOpacity(0.5))),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      lastSavedString,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppTheme.fhTextSecondary.withOpacity(0.8),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. SECURITY
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.shieldLockOutline,
+              title: 'Security & Nora Privacy',
+              children: [
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.dialpad, size: 18),
+                  label: Text(appProvider.settings.journalPin == null ? "SET SECURITY PIN" : "CHANGE SECURITY PIN"),
+                  onPressed: () => _handleChangePin(appProvider),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentPurple,
+                    side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5))
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Session Logs', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessSessions,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessSessions = value);
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  title: const Text('Access Finance Data', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.noraAccessFinance,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings..noraAccessFinance = value);
+                  },
                 ),
               ]),
 
-          // AI CONFIGURATION
+          // 3. AI MODELS
+          ModelConfigurationWidget(
+            appProvider: appProvider,
+            availableModels: _availableModels,
+            isFetching: _fetchingModels,
+            onFetch: () => _fetchModels(appProvider),
+          ),
+
+          // 4. ADVANCED AI
           _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.robotHappyOutline,
-              title: 'AI Configuration',
+              icon: MdiIcons.keyVariant,
+              title: 'Advanced AI Settings',
               children: [
-                // --- Lite Models Section ---
-                Text("Lite Models (Fast - for Sub-missions & Chat)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentTeal)),
+                const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
                 const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Lite", appProvider.settings.liteModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..liteModels = newList);
-                }),
-                const SizedBox(height: 16),
+                const ApiKeyManager(),
 
-                // --- Heavy Models Section ---
-                Text("Pro Models (Advanced - for Projects)",
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: AppTheme.fhAccentPurple)),
-                const SizedBox(height: 8),
-                _buildModelPriorityList(
-                    appProvider, "Pro", appProvider.settings.heavyModels,
-                    (newList) {
-                  appProvider
-                      .setSettings(appProvider.settings..heavyModels = newList);
-                }),
-                const SizedBox(height: 16),
-
-                // --- Fetch Button ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      icon: _fetchingModels
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(MdiIcons.refresh, size: 18),
-                      label: const Text("Refetch Available Models"),
-                      onPressed: _fetchingModels
-                          ? null
-                          : () => _fetchModels(appProvider),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _apiKeyController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                      labelText: 'Custom Gemini API Key (Optional)',
-                      hintText: 'Paste your API Key here',
-                      prefixIcon: Icon(MdiIcons.keyVariant, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(MdiIcons.contentSave, size: 20),
-                        onPressed: () {
-                          appProvider.setSettings(appProvider.settings
-                            ..customApiKey = _apiKeyController.text.trim());
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("API Key saved locally.")));
-                        },
-                      )),
-                  onChanged: (val) {
-                    // Do not auto-save on every keystroke for security/perf, rely on save button or leave logic
-                  },
-                ),
                 const SizedBox(height: 16),
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _customChatbotPromptController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'AI Advisor System Prompt',
-                    hintText: 'Define the persona and behavior of the chatbot.',
-                    alignLabelWithHint: true,
-                  ),
-                  onChanged: (val) {
-                    appProvider.setSettings(
-                        appProvider.settings..customChatbotPrompt = val);
-                  },
-                ),
-                const SizedBox(height: 12),
                 TextFormField(
                   controller: _customReflectionPromptController,
                   maxLines: 3,
@@ -432,8 +351,10 @@ class _SettingsViewState extends State<SettingsView> {
                 const Text("Leave blank to use built-in defaults.",
                     style: TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 11)),
-              ]),
+              ]
+          ),
 
+          // 5. WEEKLY PROGRESS
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.calendarWeek,
               title: 'Weekly Progress',
@@ -444,7 +365,7 @@ class _SettingsViewState extends State<SettingsView> {
                     prefixIcon: Icon(MdiIcons.calendarStartOutline, size: 20),
                   ),
                   dropdownColor: AppTheme.fhBgMedium,
-                  value: appProvider.settings.startOfWeek,
+                  initialValue: appProvider.settings.startOfWeek,
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('Monday')),
                     DropdownMenuItem(value: 2, child: Text('Tuesday')),
@@ -462,56 +383,8 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
               ]),
-          _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.accountEditOutline,
-              title: 'User Profile',
-              children: [
-                TextFormField(
-                  controller: _newUsernameController,
-                  decoration: InputDecoration(
-                      labelText: 'Display Name',
-                      prefixIcon: Icon(MdiIcons.accountBadgeOutline, size: 20)),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Display name cannot be empty.';
-                    }
-                    if (value.trim().length < 3) {
-                      return 'Must be at least 3 characters.';
-                    }
-                    return null;
-                  },
-                ),
-                if (_usernameChangeError.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(_usernameChangeError,
-                        style: const TextStyle(
-                            color: AppTheme.fhAccentRed, fontSize: 12)),
-                  ),
-                if (_usernameChangeSuccess.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(_usernameChangeSuccess,
-                        style: const TextStyle(
-                            color: AppTheme.fhAccentGreen, fontSize: 12)),
-                  ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  icon: _usernameChangeLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.fhTextPrimary))
-                      : Icon(MdiIcons.contentSaveOutline, size: 18),
-                  label: const Text('UPDATE DISPLAY NAME'),
-                  onPressed: _usernameChangeLoading
-                      ? null
-                      : () => _handleChangeUsername(appProvider),
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44)),
-                ),
-              ]),
+
+          // 6. UI CONFIG
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.eyeSettingsOutline,
               title: 'User Interface Config',
@@ -528,6 +401,60 @@ class _SettingsViewState extends State<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ]),
+          
+          // 7. DIAGNOSTICS & ONBOARDING
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.tools,
+              title: 'System Diagnostics',
+              children: [
+                const Text(
+                  'Use these tools to repair data inconsistencies or replay tutorials.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.databaseSyncOutline, size: 18),
+                  label: const Text('RECALIBRATE TIME LOGS'),
+                  onPressed: () async {
+                    try {
+                      await appProvider.recalibrateTimeLogs();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Time logs successfully recalibrated from session history.'),
+                          backgroundColor: AppTheme.fhAccentGreen
+                        ));
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Recalibration failed: $e'),
+                          backgroundColor: AppTheme.fhAccentRed
+                        ));
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentOrange,
+                    side: BorderSide(color: AppTheme.fhAccentOrange.withOpacity(0.5))
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: Icon(MdiIcons.presentationPlay, size: 18),
+                  label: const Text('REPLAY SYSTEM TOUR'),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AppTourScreen()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: AppTheme.fhAccentTeal,
+                    side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
+                  ),
+                ),
+              ]),
+
+          // 8. CREDENTIALS
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
@@ -606,6 +533,8 @@ class _SettingsViewState extends State<SettingsView> {
                         minimumSize: const Size(double.infinity, 44)),
                   ),
                 ]),
+
+          // 9. DATA RESET
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
@@ -691,66 +620,11 @@ class _SettingsViewState extends State<SettingsView> {
             Divider(
                 height: 24,
                 thickness: 0.5,
-                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+                color: AppTheme.fhBorderColor.withOpacity(0.5)),
             ...children,
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildModelPriorityList(AppProvider appProvider, String prefix,
-      List<String> currentList, Function(List<String>) onUpdate) {
-    return Column(
-      children: List.generate(3, (index) {
-        final label =
-            index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
-        // Ensure list has enough items, pad if necessary
-        if (currentList.length <= index) {
-          currentList.add(_availableModels.isNotEmpty
-              ? _availableModels.first
-              : 'gemini-2.0-flash');
-        }
-
-        final currentSelection = currentList[index];
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            value: _availableModels.contains(currentSelection)
-                ? currentSelection
-                : null,
-            // If not in list, it might be a custom one or default. Show it if we can add it to items or handle null.
-            // Ideally we add it to the dropdown items if it's missing.
-            decoration: InputDecoration(
-              labelText: label,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              border: const OutlineInputBorder(),
-            ),
-            dropdownColor: AppTheme.fhBgMedium,
-            items: {
-              ..._availableModels,
-              if (!_availableModels.contains(currentSelection)) currentSelection
-            }
-                .map((m) => DropdownMenuItem(
-                      // toSet to remove dupes
-                      value: m,
-                      child:
-                          Text(m, overflow: TextOverflow.ellipsis, maxLines: 1),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) {
-                final newList = List<String>.from(currentList);
-                newList[index] = val;
-                onUpdate(newList);
-              }
-            },
-          ),
-        );
-      }),
     );
   }
 }

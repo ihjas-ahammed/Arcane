@@ -1,8 +1,8 @@
-// lib/src/providers/actions/ai_generation_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
 class AIGenerationActions {
   final AppProvider _provider;
@@ -25,7 +25,7 @@ class AIGenerationActions {
 
     try {
       final generatedSubquestsRaw = await _aiService.generateAISubquests(
-        modelCandidates: _provider.settings.liteModels, // Lite for sub-missions
+        modelCandidates: _provider.settings.liteModels,
         mainTaskName: mainTaskForSubquests.name,
         mainTaskDescription: mainTaskForSubquests.description,
         mainTaskTheme: mainTaskForSubquests.theme,
@@ -33,6 +33,7 @@ class AIGenerationActions {
         userInput: userInput,
         numSubquests: numSubquests,
         currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (newIndex) {
           _provider.setProviderApiKeyIndex(newIndex);
         },
@@ -74,7 +75,6 @@ class AIGenerationActions {
 
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskForSubquests.id) {
-          // Use copyWith to preserve other fields like 'projects'
           return task.copyWith(
             subTasks: [...task.subTasks, ...newSubTasksForParent],
           );
@@ -93,6 +93,133 @@ class AIGenerationActions {
       }
     } finally {
       _provider.setProviderAISubquestLoading(false);
+    }
+  }
+
+  Future<void> generateCheckpointsForSubtask(
+      String mainTaskId, String subTaskId, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Checkpoints...");
+
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+      final existingCheckpoints = subTask.subSubTasks.map((s) => s.name).toList();
+
+      final newCheckpoints = await _aiService.generateCheckpointsForSubtask(
+        subtaskName: subTask.name,
+        parentTaskName: mainTask.name,
+        existingCheckpoints: existingCheckpoints,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      for (var cpData in newCheckpoints) {
+        _provider.addSubSubtask(mainTaskId, subTaskId, {
+          'name': cpData['name'] ?? 'New Checkpoint',
+          'isCountable': false,
+          'targetCount': 0,
+        });
+      }
+
+    } catch (e) {
+      debugPrint("Error generating checkpoints: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> generateActionPlanSteps(
+      String mainTaskId, String subTaskId, String why, String userPrompt) async {
+    _provider.setProviderAISubquestLoading(true);
+    _provider.setLoadingTask("Generating Strategy...");
+
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+
+      final result = await _aiService.generateActionPlanSteps(
+        taskName: subTask.name,
+        why: why,
+        userPrompt: userPrompt,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+      final what = result['what'] as String? ?? '';
+
+      _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
+
+      for (var step in steps) {
+        _provider.addSubSubtask(mainTaskId, subTaskId, {
+          'name': step['name'] ?? 'Action Step',
+          'isCountable': false,
+          'targetCount': 0,
+        });
+      }
+
+    } catch (e) {
+      debugPrint("Error generating action plan: $e");
+    } finally {
+      _provider.setProviderAISubquestLoading(false);
+      _provider.setLoadingTask(null);
+    }
+  }
+
+  Future<void> autoAssignAssets(String mainTaskId, String subTaskId) async {
+    _provider.setLoadingTask("Scanning Assets...");
+    try {
+      final mainTask = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final subTask = mainTask.subTasks.firstWhere((s) => s.id == subTaskId);
+
+      final taskContext = """
+      Mission: ${mainTask.name}
+      Objective: ${subTask.name}
+      Why: ${subTask.why}
+      What: ${subTask.what}
+      Sub-routines: ${subTask.subSubTasks.map((e) => e.name).join(', ')}
+      """;
+
+      final assetsListStr = _provider.chatbotMemory.gratitudeList.map((a) => "${a.id} | ${a.name} | ${a.type} | ${a.why} | ${a.what}").join('\n');
+
+      if (assetsListStr.trim().isEmpty) {
+        _logToApp("No assets available to assign.");
+        return;
+      }
+
+      final assetIds = await _aiService.autoAssignAssetsToTask(
+        taskContext: taskContext,
+        assetsList: assetsListStr,
+        modelCandidates: _provider.settings.liteModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: _logToApp,
+      );
+
+      if (assetIds.isNotEmpty) {
+        // Merge with existing
+        List<String> currentIds = [];
+        try {
+          currentIds = (jsonDecode(subTask.resources) as List).map((e) => e.toString()).toList();
+        } catch (_) {}
+
+        final newSet = Set<String>.from(currentIds)..addAll(assetIds);
+        _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'resources': jsonEncode(newSet.toList())});
+      }
+    } catch (e) {
+      debugPrint("Error auto-assigning assets: $e");
+    } finally {
+      _provider.setLoadingTask(null);
     }
   }
 }

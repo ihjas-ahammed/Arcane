@@ -1,6 +1,7 @@
-// lib/src/providers/actions/timer_actions.dart
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:collection/collection.dart';
 
 class TimerActions {
   final AppProvider _provider;
@@ -8,30 +9,38 @@ class TimerActions {
   TimerActions(this._provider);
 
   void startTimer(String id, String type, String mainTaskId) {
-    // If we're starting a new timer, make sure to stop/log any other running timers first?
-    // Current logic just pauses others.
+    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return; 
 
-    Map<String, ActiveTimerInfo> updatedActiveTimers =
-        Map.from(_provider.activeTimers);
-
-    // Pause others
-    for (var entry in updatedActiveTimers.entries) {
-      final timerId = entry.key;
-      final timerInfo = entry.value;
-      if (timerInfo.isRunning && timerId != id) {
-        // Pausing effectively commits the session for other running timers
-        // We replicate pauseTimer logic here for the 'other' timers
-        _commitSessionAndPause(timerId, timerInfo);
-
-        updatedActiveTimers[timerId] = ActiveTimerInfo(
-          startTime: DateTime.now(), // Reset start for next resume
-          accumulatedDisplayTime: timerInfo.accumulatedDisplayTime + (DateTime.now().difference(timerInfo.startTime).inMilliseconds / 1000.0),
-          isRunning: false,
-          type: timerInfo.type,
-          mainTaskId: timerInfo.mainTaskId,
-        );
-      }
+    if (type == 'subtask') {
+      final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
+      if (subTask == null) return;
+      if (subTask.completed) return; 
     }
+
+    final runningTimerIds = _provider.activeTimers.entries
+        .where((e) => e.value.isRunning && e.key != id)
+        .map((e) => e.key)
+        .toList();
+
+    for (var timerId in runningTimerIds) {
+      pauseTimer(timerId); 
+    }
+
+    // Auto-add engaged task to Day Plan (Top) to sync with the dashboard
+    if (type == 'subtask') {
+      final dateStr = helper.getTodayDateString();
+      final currentPlan = List<String>.from(_provider.taskActions.getDayPlan(dateStr));
+      final compoundId = "$mainTaskId|$id";
+      
+      // Remove if it exists to move it to the top
+      currentPlan.remove(compoundId);
+      currentPlan.insert(0, compoundId);
+      
+      _provider.taskActions.updateDayPlan(dateStr, currentPlan);
+    }
+
+    Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
 
     final existingTimer = updatedActiveTimers[id];
     updatedActiveTimers[id] = ActiveTimerInfo(
@@ -41,53 +50,64 @@ class TimerActions {
       type: type,
       mainTaskId: mainTaskId,
     );
+    
     _provider.setProviderState(activeTimers: updatedActiveTimers);
+
+    if (_provider.settings.autoSaveEnabled) {
+      _provider.manuallySaveToCloud();
+    }
   }
 
   void pauseTimer(String id) {
     final timer = _provider.activeTimers[id];
     if (timer != null && timer.isRunning) {
-      // 1. Commit the current active session to log
       _commitSessionAndPause(id, timer);
 
-      // 2. Update timer state to paused
-      final double elapsed =
-          (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
-      final newActiveTimers =
-          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      
       newActiveTimers[id] = ActiveTimerInfo(
-        startTime: DateTime.now(), // Reset start for next resume
+        startTime: DateTime.now(), 
         accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
         isRunning: false,
         type: timer.type,
         mainTaskId: timer.mainTaskId,
       );
+      
       _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
     }
   }
 
   void logTimerAndReset(String id) {
     final timer = _provider.activeTimers[id];
     if (timer != null) {
-      // If running, log the final chunk
       if (timer.isRunning) {
         _commitSessionAndPause(id, timer);
       }
 
-      // Remove the active timer state entirely (Reset)
-      final newActiveTimers =
-          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers.remove(id);
+      
       _provider.setProviderState(activeTimers: newActiveTimers);
+
+      if (_provider.settings.autoSaveEnabled) {
+        _provider.manuallySaveToCloud();
+      }
     }
   }
 
-  // Helper to push the session to the task log
   void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
     final now = DateTime.now();
-    final start = timer.startTime;
+    DateTime start = timer.startTime;
 
-    // Only log if there's actual time elapsed (> 0ms, effectively)
+    if (now.difference(start).inHours >= 12) {
+      start = now.subtract(const Duration(hours: 1)); 
+    }
+
     if (now.isAfter(start)) {
       if (timer.type == 'subtask') {
         _provider.addSessionToSubtask(timer.mainTaskId, id, start, now);

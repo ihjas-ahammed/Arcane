@@ -18,18 +18,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   String _email = '';
   String _password = '';
-  String _username = '';
   bool _isLogin = true;
   bool _isLoading = false;
   String _error = '';
   bool _obscurePassword = true;
-  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -50,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isLogin) {
         await appProvider.loginUser(_email, _password);
       } else {
-        await appProvider.signupUser(_email, _password, _username);
+        await appProvider.signupUser(_email, _password);
       }
     } catch (e) {
       setState(() {
@@ -135,20 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        if (!_isLogin) ...[
-                          ValorantFormField(
-                            controller: _usernameController,
-                            label: 'CALLSIGN',
-                            prefixIcon: MdiIcons.accountOutline,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) return 'REQUIRED';
-                              if (value.trim().length < 3) return 'TOO SHORT';
-                              return null;
-                            },
-                            onSaved: (value) => _username = value!.trim(),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
                         ValorantFormField(
                           controller: _emailController,
                           label: 'EMAIL IDENTIFIER',
@@ -223,7 +206,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _isLogin = !_isLogin;
                                 _error = '';
                                 _formKey.currentState?.reset();
-                                _usernameController.clear();
                                 _emailController.clear();
                                 _passwordController.clear();
                               });

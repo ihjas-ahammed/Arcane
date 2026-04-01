@@ -4,7 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
-import 'package:arcane/src/widgets/dialogs/link_submission_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -63,52 +63,7 @@ class StepDetailScreen extends StatelessWidget {
         ),
         title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
         actions: [
-          IconButton(
-            tooltip: "Link to Submission",
-            icon: Icon(MdiIcons.linkVariant, size: 20),
-            onPressed: () async {
-              // 1. Find the MainTask
-              try {
-                final task =
-                    provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
-
-                // 2. Show Dialog
-                final result = await showDialog<Map<String, dynamic>>(
-                  context: context,
-                  builder: (ctx) => LinkSubmissionDialog(
-                    initialName: currentStep.title,
-                    availableSubmissions: task.subTasks,
-                  ),
-                );
-
-                if (!context.mounted) return;
-                if (result != null) {
-                  final String name = result['name'];
-                  final String type = result['type'];
-
-                  if (type == 'submission') {
-                    provider.addSubtask(mainTaskId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Sub-Mission: $name")));
-                  } else if (type == 'checkpoint') {
-                    final String parentId = result['parentId'];
-                    provider.addSubSubtask(mainTaskId, parentId, {
-                      'name': name,
-                      'completed': currentStep.isCompleted,
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Linked to new Checkpoint: $name")));
-                  }
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text("Error linking: $e")));
-              }
-            },
-          ),
+          // Removed the broken Link Button
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
             onPressed: () async {
@@ -238,22 +193,36 @@ class StepDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: AppTheme.fhTextPrimary),
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await showDialog<Map<String, String>>(
-                      context: context,
-                      builder: (ctx) => const AddEditStepDialog(),
-                    );
-                    if (!context.mounted) return;
-                    if (result != null) {
-                      provider.projectActions.addSubstep(mainTaskId, projectId,
-                          currentStep.id, result['title']!, result['desc']!);
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text("Add"),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.fhAccentTeal),
+                Row(
+                  children: [
+                    // AI Generation for Substeps
+                    InkWell(
+                      onTap: () => _showAiSubstepGenerationDialog(context, provider, currentStep),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(border: Border.all(color: AppTheme.fhAccentPurple)),
+                        child: Icon(MdiIcons.robotExcitedOutline, size: 16, color: AppTheme.fhAccentPurple),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<Map<String, String>>(
+                          context: context,
+                          builder: (ctx) => const AddEditStepDialog(),
+                        );
+                        if (!context.mounted) return;
+                        if (result != null) {
+                          provider.projectActions.addSubstep(mainTaskId, projectId,
+                              currentStep.id, result['title']!, result['desc']!);
+                        }
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text("Add"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.fhAccentTeal),
+                    ),
+                  ],
                 )
               ],
             ),
@@ -303,7 +272,6 @@ class StepDetailScreen extends StatelessWidget {
                 },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
-                  // Recursive numbering: e.g., 1.2.1
                   final displayPrefix = "$stepNumber.${index + 1}";
 
                   return KeyedSubtree(
@@ -319,7 +287,7 @@ class StepDetailScreen extends StatelessWidget {
               ),
 
             // Manual Completion Toggle (Only if leaf node)
-            if (currentStep.substeps.isEmpty) ...[
+            if (currentStep.substeps.isEmpty && currentStep.linkedTaskId == null) ...[
               const SizedBox(height: 30),
               Divider(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
               const SizedBox(height: 10),
@@ -327,7 +295,7 @@ class StepDetailScreen extends StatelessWidget {
                 title: const Text("Mark as Complete",
                     style: TextStyle(color: AppTheme.fhTextPrimary)),
                 subtitle: const Text(
-                    "This step has no sub-steps, so you can toggle it directly.",
+                    "Toggle completion status.",
                     style: TextStyle(fontSize: 12)),
                 value: currentStep.isCompleted,
                 activeThumbColor: AppTheme.fhAccentGreen,
@@ -343,5 +311,23 @@ class StepDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showAiSubstepGenerationDialog(BuildContext context, AppProvider provider, ProjectStep currentStep) async {
+    final prompt = await showDialog<String>(
+      context: context,
+      builder: (context) => const AiGenerationPromptDialog(
+        title: "GENERATE SUB-STEPS", 
+        hintText: "E.g., Breakdown into smaller tasks...", 
+        actionLabel: "GENERATE"
+      ),
+    );
+
+    if (prompt != null && prompt.isNotEmpty) {
+      provider.projectActions.generateSubstepsForStep(mainTaskId, projectId, currentStep.id, prompt);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AI Generation Initiated...")));
+      }
+    }
   }
 }

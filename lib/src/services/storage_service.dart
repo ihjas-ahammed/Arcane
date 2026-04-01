@@ -1,81 +1,242 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 
-const String _userCollection = 'users';
+const String _userCollection = 'users'; 
 const String _userSubcollectionDocId = 'data';
 const String _gameStateDocId = 'gameState';
 
+const String _docTasks = 'tasks';
+const String _docSettings = 'settings';
+const String _docFinance = 'finance';
+const String _docHealth = 'health';
+
 class StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
 
-  DocumentReference<Map<String, dynamic>> _userDocRef(String userId) {
-    return _firestore
-        .collection(_userCollection)
-        .doc(userId)
-        .collection(_userSubcollectionDocId)
-        .doc(_gameStateDocId);
+  // --- Realtime Database (Primary) ---
+
+  DatabaseReference _rtdbRef(String userId, String chunk) {
+    return _rtdb.ref('users/$userId/data/$chunk');
   }
 
   Future<Map<String, dynamic>?> getUserData(String userId) async {
-    if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for getUserData.");
-      return null;
-    }
+    if (userId.isEmpty) return null;
+
     try {
-      final docSnap = await _userDocRef(userId).get();
-      if (docSnap.exists) {
-        return docSnap.data();
+      final snap = await _rtdb.ref('users/$userId/data').get();
+      
+      if (snap.exists && snap.value != null) {
+        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
       } else {
-        // print("No game data found for user $userId, will initialize.");
-        return null; // Indicates no data, GameProvider will initialize
+        return null;
       }
     } catch (e) {
-      // print("Error getting user data from Firestore: $e");
       return null;
     }
   }
 
-  Future<bool> setUserData(String userId, Map<String, dynamic> data) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for setUserData.");
-      return false;
-    }
+  // --- Metadata/Timestamp ---
+  Future<int> getLastModified(String userId) async {
+    if (userId.isEmpty) return 0;
     try {
-      await _userDocRef(userId).set(data);
+      final snap = await _rtdb.ref('users/$userId/lastModified').get();
+      return (snap.value as num?)?.toInt() ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<void> setLastModified(String userId, int timestamp) async {
+    if (userId.isEmpty) return;
+    await _rtdb.ref('users/$userId/lastModified').set(timestamp);
+  }
+
+  Stream<int> watchLastModified(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    return _rtdb.ref('users/$userId/lastModified').onValue.map((event) {
+      return (event.snapshot.value as num?)?.toInt() ?? 0;
+    });
+  }
+
+  Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
+    Map<String, dynamic> fullData = {};
+    if (raw[_docSettings] is String) fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    if (raw[_docTasks] is String) fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    if (raw[_docFinance] is String) fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    if (raw[_docHealth] is String) fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    
+    if (raw['history'] != null) {
+      if (raw['history'] is String) {
+        fullData.addAll(jsonDecode(raw['history'] as String));
+      } else if (raw['history'] is Map) {
+        Map<String, dynamic> history = {};
+        (raw['history'] as Map).forEach((date, jsonStr) {
+          history[date.toString()] = jsonDecode(jsonStr.toString());
+        });
+        fullData['completedByDay'] = history;
+      }
+    }
+    
+    if (raw['reflections'] != null) {
+      if (raw['reflections'] is String) {
+        fullData.addAll(jsonDecode(raw['reflections'] as String));
+      } else if (raw['reflections'] is Map) {
+        List<dynamic> reflections = [];
+        (raw['reflections'] as Map).forEach((id, jsonStr) {
+          reflections.add(jsonDecode(jsonStr.toString()));
+        });
+        fullData['reflectionLogs'] = reflections;
+      }
+    }
+    
+    return fullData;
+  }
+
+  Future<bool> saveTasks(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docTasks, data);
+  Future<bool> saveSettings(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docSettings, data);
+  Future<bool> saveFinance(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docFinance, data);
+  Future<bool> saveHealth(String userId, Map<String, dynamic> data) async => _saveChunkToRTDB(userId, _docHealth, data);
+
+  Future<bool> _saveChunkToRTDB(String userId, String chunk, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _rtdbRef(userId, chunk).set(jsonEncode(data));
       return true;
     } catch (e) {
-      // print("Error setting user data in Firestore: $e");
       return false;
     }
   }
 
-  Future<bool> updateUserData(String userId, Map<String, dynamic> partialData) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for updateUserData.");
-      return false;
-    }
+  Future<bool> saveHistory(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
     try {
-      await _userDocRef(userId).update(partialData);
+      final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
+      final Map<String, dynamic> updates = {};
+      history.forEach((date, dayData) {
+        updates[date] = jsonEncode(dayData);
+      });
+      await _rtdb.ref('users/$userId/data/history').update(updates);
       return true;
     } catch (e) {
-      // print("Error updating user data in Firestore: $e");
-      // If the document doesn't exist, update will fail.
-      // Consider checking doc existence or using set with merge:true if needed.
+      return false;
+    }
+  }
+
+  Future<bool> saveReflections(String userId, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final logs = data['reflectionLogs'] as List<dynamic>? ??[];
+      final Map<String, dynamic> updates = {};
+      for (var log in logs) {
+        updates[log['id']] = jsonEncode(log);
+      }
+      await _rtdb.ref('users/$userId/data/reflections').set(updates); 
+      return true;
+    } catch (e) {
       return false;
     }
   }
 
   Future<bool> deleteUserData(String userId) async {
-     if (userId.isEmpty) {
-      // print("StorageService Error: userId is required for deleteUserData.");
-      return false;
-    }
+    if (userId.isEmpty) return false;
     try {
-      await _userDocRef(userId).delete();
-      // print("Game data deleted for user $userId.");
+      await _rtdb.ref('users/$userId').remove();
+
+      final batch = _firestore.batch();
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc(_gameStateDocId));
+      batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc('base_state'));
+      await batch.commit();
+      
       return true;
     } catch (e) {
-      // print("Error deleting user data from Firestore: $e");
       return false;
+    }
+  }
+
+  // --- Historical Archives ---
+
+  Future<bool> saveDailyData(String userId, String date, String type, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .doc(date)
+          .set({
+            type: data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
+    if (userId.isEmpty) return {};
+    try {
+      final now = DateTime.now();
+      final Map<String, Map<String, dynamic>> result = {};
+      final cutoffDate = now.subtract(Duration(days: days));
+      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
+
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('daily')
+          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .get();
+
+      for (var doc in snap.docs) {
+        result[doc.id] = doc.data();
+      }
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<bool> saveWeeklyReport(String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .doc(date)
+          .set({
+            'report': data,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId) async {
+    if (userId.isEmpty) return[];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('weekly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+          
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e) {
+      return[];
     }
   }
 }

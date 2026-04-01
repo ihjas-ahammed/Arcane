@@ -1,16 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:universal_html/html.dart' as html;
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/json_editor_widget.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:arcane/src/services/data_export_service.dart';
 
 class DatabaseEditorScreen extends StatefulWidget {
   const DatabaseEditorScreen({super.key});
@@ -22,6 +16,7 @@ class DatabaseEditorScreen extends StatefulWidget {
 class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
   Map<String, dynamic> _localData = {};
   bool _isInit = true;
+  final DataExportService _exportService = DataExportService();
 
   @override
   void didChangeDependencies() {
@@ -33,9 +28,6 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
     }
   }
 
-  // ... (Keep existing helper methods: _saveChanges, _exportJson, _importJson, _ensureStringMap) ...
-  // Re-implementing briefly for context completeness
-  
   void _saveChanges() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
     if (!_localData.containsKey('mainTasks')) {
@@ -44,7 +36,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
     }
     try {
       provider.loadAppStateFromMap(_localData);
-      await provider.manuallySaveToCloud();
+      provider.manuallySaveToCloud();
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Database synced.")));
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -52,28 +44,26 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
   }
 
   Future<void> _exportJson() async {
-     // ... (standard export logic)
-     final jsonStr = jsonEncode(_localData);
-     if (kIsWeb) {
-        final bytes = utf8.encode(jsonStr);
-        final blob = html.Blob([bytes]);
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.document.createElement('a') as html.AnchorElement
-          ..href = url
-          ..style.display = 'none'
-          ..download = 'arcane_backup.json';
-        html.document.body!.children.add(anchor);
-        anchor.click();
-        html.document.body!.children.remove(anchor);
-        html.Url.revokeObjectUrl(url);
-     } else {
-        // Mobile fallback
-        // ...
-     }
+    try {
+      await _exportService.exportJson(_localData, 'arcane_backup');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Export initiated.")));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e")));
+    }
   }
 
   Future<void> _importJson() async {
-    // ... (standard import logic)
+    try {
+      final importedData = await _exportService.importJson();
+      if (importedData != null) {
+        setState(() {
+          _localData = _ensureStringMap(importedData);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data loaded into editor. Review and Commit.")));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e")));
+    }
   }
 
   Map<String, dynamic> _ensureStringMap(Map map) {
@@ -112,7 +102,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "SYSTEM DATABASE", 
+                      "firestore", 
                       style: const TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 24,

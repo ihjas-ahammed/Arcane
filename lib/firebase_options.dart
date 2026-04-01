@@ -50,7 +50,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg',
-    appId: '1:1059901273076:android:edb8027313c28e2c843fa1',
+    appId: '1:1059901273076:android:092a770ad41f5234843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',

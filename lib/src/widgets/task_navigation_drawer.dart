@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_drawer_protocol_item.dart';
+import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
+import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/models/task_models.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -15,17 +18,12 @@ class TaskNavigationDrawer extends StatefulWidget {
 }
 
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
-  // ... (Controllers kept same as before)
   final _newTaskNameController = TextEditingController();
   final _newTaskDescController = TextEditingController();
-  final _editTaskNameController = TextEditingController();
-  final _editTaskDescController = TextEditingController();
 
   String _dialogSelectedTheme = 'tech';
-  String _dialogSelectedColorHex =
-      AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase();
+  String _dialogSelectedColorHex = AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
 
-  // ... (Available Themes Data kept same)
   final List<Map<String, dynamic>> _availableThemes = [
     {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
     {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
@@ -51,68 +49,99 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
         orElse: () => _availableThemes.last)['icon'] as IconData;
   }
 
-  // ... (Dispose kept same)
   @override
   void dispose() {
     _newTaskNameController.dispose();
     _newTaskDescController.dispose();
-    _editTaskNameController.dispose();
-    _editTaskDescController.dispose();
     super.dispose();
   }
 
-  // Reuse existing logic for dialogs but update UI inside them? 
-  // For brevity, I will apply standard Material styles in dialogs but use new colors.
-  // Ideally, create a ValorantDialog widget, but context constraints apply.
-  
   void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
-    // ... logic reset ...
     _newTaskNameController.clear();
     _newTaskDescController.clear();
     _dialogSelectedTheme = 'tech';
-    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase();
+    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
 
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
             builder: (BuildContext context, StateSetter setStateDialog) {
+          final currentColor = Color(int.parse("0xFF$_dialogSelectedColorHex"));
+
           return AlertDialog(
-            // Dialog Theme comes from AppTheme
-            title: const Text('NEW PROTOCOL'),
+            backgroundColor: JweTheme.panel,
+            shape: Border.all(color: JweTheme.accentCyan, width: 2),
+            title: Text('NEW AGENT', style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  TextField(controller: _newTaskNameController, decoration: const InputDecoration(labelText: 'CODENAME')),
+                  TextField(
+                    controller: _newTaskNameController, 
+                    style: const TextStyle(color: JweTheme.textWhite),
+                    decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+                  ),
                   const SizedBox(height: 12),
-                  TextField(controller: _newTaskDescController, decoration: const InputDecoration(labelText: 'BRIEFING'), maxLines: 2),
+                  TextField(
+                    controller: _newTaskDescController, 
+                    maxLines: 2,
+                    style: const TextStyle(color: JweTheme.textWhite),
+                    decoration: const InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+                  ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'CLASS'),
-                    dropdownColor: AppTheme.fhBgDark,
+                    decoration: const InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
+                    dropdownColor: JweTheme.panel,
                     value: _dialogSelectedTheme,
                     items: _availableThemes.map((themeMap) => DropdownMenuItem(
                       value: themeMap['name'] as String,
-                      child: Text((themeMap['name'] as String).toUpperCase(), style: const TextStyle(fontFamily: AppTheme.fontDisplay))
+                      child: Text((themeMap['name'] as String).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold))
                     )).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setStateDialog(() {
                           _dialogSelectedTheme = val;
-                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase();
+                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
                         });
                       }
                     },
                   ),
-                  // Color picker logic omitted for brevity, utilizing theme default
+                  const SizedBox(height: 16),
+                  const Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => ColorSelectorDialog(
+                          selectedColor: currentColor,
+                          onColorSelected: (color) {
+                            setStateDialog(() {
+                              _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
+                            });
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 40,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: currentColor,
+                        border: Border.all(color: JweTheme.border),
+                      ),
+                      child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
+                    ),
+                  )
                 ],
               ),
             ),
             actions: [
-              TextButton(child: const Text('ABORT'), onPressed: () => Navigator.pop(dialogContext)),
-              ValorantButton(
-                label: 'INITIALIZE',
+              TextButton(child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(dialogContext)),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
                 onPressed: () {
                   if (_newTaskNameController.text.isNotEmpty) {
                     appProvider.addMainTask(
@@ -124,6 +153,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                     Navigator.pop(dialogContext);
                   }
                 },
+                child: const Text('INITIALIZE', style: TextStyle(fontWeight: FontWeight.bold)),
               )
             ],
           );
@@ -136,101 +166,110 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
-    return Container(
-      width: 300,
-      color: AppTheme.fhBgDeepDark,
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    
+    return Drawer(
+      width: 280,
+      backgroundColor: JweTheme.bgBase,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drawer Header
+          // Header Section
           Container(
             padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor, width: 1)),
+              border: Border(bottom: BorderSide(color: JweTheme.border, width: 2)),
+              color: JweTheme.panel,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("PROTOCOLS", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppTheme.fhTextSecondary)),
+                Text(
+                  "PROTOCOLS", 
+                  style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2.0)
+                ),
                 const SizedBox(height: 4),
-                Text("SELECT MISSION PROFILE", style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 2.0)),
+                const Text(
+                  "SELECT MISSION PROFILE", 
+                  style: TextStyle(color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                ),
               ],
             ),
           ),
           
-          // List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: appProvider.mainTasks.length,
-              itemBuilder: (context, index) {
-                final task = appProvider.mainTasks[index];
-                final isSelected = appProvider.selectedTaskId == task.id;
-                final color = Color(int.parse("0x${task.colorHex}"));
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (activeTasks.isNotEmpty) ...[
+                  ...activeTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ValorantCard(
-                    isSelected: isSelected,
-                    borderColor: isSelected ? color : null,
-                    onTap: () {
-                      appProvider.setSelectedTaskId(task.id);
-                      if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
-                    },
-                    child: Row(
-                      children: [
-                        // Icon Box
-                        Container(
-                          width: 48, height: 48,
-                          decoration: BoxDecoration(
-                            color: isSelected ? color.withValues(alpha: 0.2) : Colors.black26,
-                            border: Border.all(color: isSelected ? color : Colors.transparent),
-                          ),
-                          child: Icon(_getThemeIcon(task.theme), color: isSelected ? color : AppTheme.fhTextSecondary),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                task.name.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontDisplay,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: isSelected ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
-                                  letterSpacing: 1.0,
-                                ),
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                task.theme.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10, 
-                                  color: isSelected ? color : AppTheme.fhTextDisabled,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w600
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      ],
+                    return JweDrawerProtocolItem(
+                      task: task,
+                      isSelected: isSelected,
+                      icon: _getThemeIcon(task.theme),
+                      onTap: () {
+                        appProvider.setSelectedTaskId(task.id);
+                        if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                      },
+                      onLongPress: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => JweTaskOptionsDialog(task: task),
+                        );
+                      },
+                    );
+                  }),
+                ],
+                
+                if (inactiveTasks.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                    child: Text(
+                      "INACTIVE ARCHIVE", 
+                      style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)
                     ),
                   ),
-                );
-              },
+                  ...inactiveTasks.map((task) {
+                    final isSelected = appProvider.selectedTaskId == task.id;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: JweCompactTaskCard(
+                        task: task,
+                        isSelected: isSelected,
+                        onTap: () {
+                          appProvider.setSelectedTaskId(task.id);
+                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        },
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => JweTaskOptionsDialog(task: task),
+                          );
+                        },
+                      ),
+                    );
+                  }),
+                ]
+              ],
             ),
           ),
 
-          // Footer Action
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ValorantButton(
-              label: "NEW AGENT",
-              icon: MdiIcons.plus,
-              isPrimary: false,
+            child: OutlinedButton.icon(
+              icon:  Icon(MdiIcons.plus, size: 18),
+              label: Text("NEW AGENT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: JweTheme.accentCyan,
+                side: const BorderSide(color: JweTheme.accentCyan, width: 1.5),
+                shape: const BeveledRectangleBorder(),
+                padding: const EdgeInsets.symmetric(vertical: 16)
+              ),
               onPressed: () => _showAddTaskDialog(context, appProvider),
             ),
           )

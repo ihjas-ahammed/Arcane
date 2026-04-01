@@ -15,17 +15,6 @@ class CompletedProjectsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (completedProjects.isEmpty) return const SizedBox.shrink();
 
-    // Group by Month (using a naive approach since Project doesn't have a 'completedDate' explicitly,
-    // but in a real app you'd want a 'completedDate' field.
-    // For now, we'll group them all under "Recently Completed" or simulate month based on an assumed date
-    // OR just list them if we don't have dates.
-    // Assuming for this requirement we group simply or treat all as current month if no date.)
-
-    // To strictly follow "Filtered by Month", we'd need a date field.
-    // Since 'Project' model lacks 'completedDate', we will render them in a single expandable list for now
-    // or group by an arbitrary key if we had one.
-    // Let's wrap the whole list in an ExpansionTile titled "Completed Archives".
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -50,15 +39,19 @@ class CompletedProjectsSection extends StatelessWidget {
             ),
             childrenPadding: EdgeInsets.zero,
             children: [
-              // We can show a dropdown-like filter here if we had dates,
-              // for now we just show the list.
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: completedProjects.length,
                 itemBuilder: (context, index) {
                   final item = completedProjects[index];
-                  return GestureDetector(
+                  // Passed onTap directly to ProjectDashboardCard instead of wrapping with GestureDetector
+                  return ProjectDashboardCard(
+                    project: item['project'] as Project,
+                    mainTaskId: item['mainTaskId'] as String,
+                    mainTaskName: item['mainTaskName'] as String,
+                    accentColor:
+                        AppTheme.fhTextDisabled, // Gray out completed
                     onTap: () {
                       Navigator.push(
                         context,
@@ -70,13 +63,6 @@ class CompletedProjectsSection extends StatelessWidget {
                         ),
                       );
                     },
-                    child: ProjectDashboardCard(
-                      project: item['project'] as Project,
-                      mainTaskId: item['mainTaskId'] as String,
-                      mainTaskName: item['mainTaskName'] as String,
-                      accentColor:
-                          AppTheme.fhTextDisabled, // Gray out completed
-                    ),
                   );
                 },
               ),

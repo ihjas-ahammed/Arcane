@@ -7,6 +7,7 @@ class ValorantCard extends StatelessWidget {
   final Color? backgroundColor;
   final bool isSelected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final double cornerCut;
@@ -18,6 +19,7 @@ class ValorantCard extends StatelessWidget {
     this.backgroundColor,
     this.isSelected = false,
     this.onTap,
+    this.onLongPress,
     this.padding,
     this.margin,
     this.cornerCut = 12.0, // Size of the corner cut
@@ -25,10 +27,7 @@ class ValorantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderColor = isSelected
-        ? AppTheme.fhAccentTeal
-        : (borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3));
-    
+    final effectiveBorderColor = borderColor ?? AppTheme.fhBorderColor.withValues(alpha: 0.3);
     final effectiveBgColor = backgroundColor ?? AppTheme.fhBgDark.withValues(alpha: 0.6);
 
     return Container(
@@ -37,6 +36,7 @@ class ValorantCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           // Custom shape for ink splash to match beveled border
           customBorder: BeveledRectangleBorder(
             borderRadius: BorderRadius.only(
@@ -66,11 +66,11 @@ class ValorantCard extends StatelessWidget {
                 if (isSelected) ...[
                   Positioned(
                     top: 0, left: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                   Positioned(
                     bottom: 0, right: 0,
-                    child: Container(width: 6, height: 6, color: AppTheme.fhAccentTeal),
+                    child: Container(width: 6, height: 6, color: borderColor),
                   ),
                 ] else ...[
                    // Subtle decoration for normal state

@@ -1,1112 +1,979 @@
-// [EXISTING IMPORTS]
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:arcane/src/services/ai_service.dart';
 import 'package:arcane/src/services/firebase_service.dart' as fb_service;
+import 'package:arcane/src/services/local_storage_service.dart';
 import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/services/data_export_service.dart';
 import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:arcane/src/utils/history_helper.dart'; 
+import 'package:arcane/src/utils/constants.dart';
+import 'package:arcane/src/models/app_state_models.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/skill_models.dart';
+import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:arcane/src/models/finance_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/value_models.dart';
+// Import Mixins
+import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:arcane/src/providers/mixins/task_mixin.dart';
+import 'package:arcane/src/providers/mixins/finance_mixin.dart';
+import 'package:arcane/src/providers/mixins/user_mixin.dart';
+import 'package:arcane/src/providers/mixins/health_mixin.dart';
 
-import 'actions/task_actions.dart';
-import 'actions/ai_generation_actions.dart';
-import 'actions/timer_actions.dart';
-import 'actions/project_actions.dart';
-import 'package:arcane/src/services/ai_service.dart';
+// Import Actions
+import 'package:arcane/src/providers/actions/task_actions.dart';
+import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
+import 'package:arcane/src/providers/actions/timer_actions.dart';
+import 'package:arcane/src/providers/actions/project_actions.dart';
+import 'package:arcane/src/providers/actions/report_actions.dart';
+import 'package:arcane/src/providers/actions/schedule_actions.dart';
+import 'package:arcane/src/providers/actions/finance_actions.dart';
+import 'package:arcane/src/providers/actions/journaling_actions.dart';
 
-class AppProvider with ChangeNotifier {
-  // ... [KEEP ALL EXISTING VARIABLES AND GETTERS] ...
-  final StorageService _storageService = StorageService();
+class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
+  
   final AIService _aiService = AIService();
+  final DataExportService _exportService = DataExportService();
+  final StorageService _cloudStorage = StorageService();
+  final LocalStorageService _localStorage = LocalStorageService();
 
-  Timer? _periodicUiTimer;
-  Timer? _autoSaveTimer;
+  AIService get aiService => _aiService;
 
-  // Global Loading State
+  // UI State
   String? _loadingTaskName;
   String? get loadingTaskName => _loadingTaskName;
-
-  User? _currentUser;
-  User? get currentUser => _currentUser;
-  bool _authLoading = true;
-  bool get authLoading => _authLoading;
-  bool _isDataLoadingAfterLogin = false;
-  bool get isDataLoadingAfterLogin => _isDataLoadingAfterLogin;
-  bool _isUsernameMissing = false;
-  bool get isUsernameMissing => _isUsernameMissing;
-
-  String? _lastLoginDate;
-  List<MainTask> _mainTasks =
-      initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-  Map<String, dynamic> _completedByDay = {};
-
-  List<Skill> _skills = [];
-  List<Skill> get skills => _skills;
-  List<ReflectionLog> _reflectionLogs = [];
-  List<ReflectionLog> get reflectionLogs => _reflectionLogs;
-
-  List<LifeValue> _lifeValues = [];
-  List<LifeValue> get lifeValues => _lifeValues;
-
-  AppSettings _settings = AppSettings();
-  String? _selectedTaskId = initialMainTaskTemplates.isNotEmpty
-      ? initialMainTaskTemplates[0].id
-      : null;
-  int _apiKeyIndex = 0;
-  Map<String, ActiveTimerInfo> _activeTimers = {};
-
-  bool _hasUnsavedChanges = false;
-  bool _isManuallySaving = false;
-  bool get isManuallySaving => _isManuallySaving;
-  bool _isManuallyLoading = false;
-  bool get isManuallyLoading => _isManuallyLoading;
-  DateTime? _lastSuccessfulSaveTimestamp;
-  DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
-
   bool _isGeneratingSubquestsForTask = false;
   bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
+  
+  bool get isDataLoadingAfterLogin => false; 
 
-  String? get lastLoginDate => _lastLoginDate;
-  List<MainTask> get mainTasks => _mainTasks;
-  Map<String, dynamic> get completedByDay => _completedByDay;
-
-  AppSettings get settings => _settings;
-  String? get selectedTaskId => _selectedTaskId;
-  int get apiKeyIndex => _apiKeyIndex;
-  Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
-
-  TimeOfDay get wakeupTime => TimeOfDay(
-      hour: _settings.wakeupTimeHour, minute: _settings.wakeupTimeMinute);
-
-  ChatbotMemory _chatbotMemory = ChatbotMemory();
-  ChatbotMemory get chatbotMemory => _chatbotMemory;
-  bool _isChatbotMemoryInitialized = false;
-
+  // Actions
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
   late final ProjectActions _projectActions;
+  late final ReportActions _reportActions;
+  late final ScheduleActions _scheduleActions;
+  late final FinanceActions _financeActions;
+  late final JournalingActions _journalingActions;
 
-  // ... [KEEP CONSTRUCTOR AND INIT] ...
+  TaskActions get taskActions => _taskActions;
+  AIGenerationActions get aiGenerationActions => _aiGenerationActions;
+  TimerActions get timerActions => _timerActions;
+  ProjectActions get projectActions => _projectActions;
+  ReportActions get reportActions => _reportActions;
+  ScheduleActions get scheduleActions => _scheduleActions;
+  FinanceActions get financeActions => _financeActions;
+  JournalingActions get journalingActions => _journalingActions;
+
   AppProvider() {
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
     _projectActions = ProjectActions(this);
-    _initializeSkills();
-    _initializeValues();
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
+    _journalingActions = JournalingActions(this);
+
     _initialize();
-
-    _periodicUiTimer?.cancel();
-    _periodicUiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_activeTimers.values.any((info) => info.isRunning)) {
-        notifyListeners();
-      }
-    });
-  }
-
-  // ... [KEEP ALL EXISTING METHODS UNTIL saveDailySummary] ...
-  void setLoadingTask(String? taskName) {
-    if (_loadingTaskName != taskName) {
-      _loadingTaskName = taskName;
-      notifyListeners();
-    }
-  }
-
-  void _initializeSkills() {
-    if (_skills.isEmpty) {
-      _skills = [
-        Skill(
-            id: 'wis',
-            name: 'Wisdom',
-            description: 'Good judgment, learning, perspective.'),
-        Skill(
-            id: 'cou',
-            name: 'Courage',
-            description: 'Bravery, persistence, integrity.'),
-        Skill(
-            id: 'hum',
-            name: 'Humanity',
-            description: 'Love, kindness, social intelligence.'),
-        Skill(
-            id: 'jus',
-            name: 'Justice',
-            description: 'Teamwork, fairness, leadership.'),
-        Skill(
-            id: 'tem',
-            name: 'Temperance',
-            description: 'Forgiveness, humility, self-regulation.'),
-        Skill(
-            id: 'tra',
-            name: 'Transcendence',
-            description: 'Appreciation of beauty, gratitude, hope.'),
-      ];
-    }
-  }
-
-  void _initializeValues() {
-    if (_lifeValues.isEmpty) {
-      _lifeValues = LifeValue.getDefaults();
-    }
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    _periodicUiTimer?.cancel();
-    _autoSaveTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  Future<void> _initialize() async {
-    fb_service.authStateChanges.listen(_onAuthStateChanged);
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_hasUnsavedChanges &&
-          _currentUser != null &&
-          !_isManuallySaving &&
-          !_isManuallyLoading &&
-          _settings.autoSaveEnabled) {
-        _performActualSave();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (currentUser != null) {
+        fetchDailyReportsFromCloud();
       }
-    });
+    }
+  }
+
+  @override
+  Future<void> manuallyLoadFromCloud() async {
+    await super.manuallyLoadFromCloud();
+    await fetchDailyReportsFromCloud();
+  }
+
+  // --- Initialization ---
+
+  Future<void> _initialize() async {
+    initializeSkills();
+    initializeDefaultFinanceCategories();
+    
+    fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
-    if (_authLoading &&
-        _currentUser != null &&
-        user != null &&
-        _currentUser!.uid == user.uid) {
-      return;
-    }
-
-    _authLoading = true;
-    notifyListeners();
-
     if (user != null) {
-      _currentUser = user;
-      _isDataLoadingAfterLogin = true;
-      notifyListeners();
-
-      final data = await _storageService.getUserData(user.uid);
-      if (data != null) {
-        _loadStateFromMap(data);
-        _hasUnsavedChanges = false;
-        _handleDailyReset();
-      } else {
-        await _resetToInitialState();
-        _lastLoginDate = helper.getTodayDateString();
-        _hasUnsavedChanges = true;
-        await _performActualSave();
-        _handleDailyReset();
-      }
-      _isChatbotMemoryInitialized = false;
-      initializeChatbotMemory();
-
-      if (_currentUser?.displayName == null ||
-          _currentUser!.displayName!.trim().isEmpty) {
-        _isUsernameMissing = true;
-      } else {
-        _isUsernameMissing = false;
-      }
-      _isDataLoadingAfterLogin = false;
-    } else {
-      _currentUser = null;
-      await _resetToInitialState();
-      _isDataLoadingAfterLogin = false;
-      _hasUnsavedChanges = false;
-      _isChatbotMemoryInitialized = false;
-    }
-
-    _authLoading = false;
-    notifyListeners();
-  }
-
-  // ... [KEEP SAVE/LOAD STATE LOGIC] ...
-  Map<String, dynamic> _appStateToMap() {
-    return {
-      'lastLoginDate': _lastLoginDate,
-      'mainTasks': _mainTasks.map((mt) => mt.toJson()).toList(),
-      'completedByDay': _completedByDay,
-      'settings': settings.toJson(),
-      'selectedTaskId': _selectedTaskId,
-      'apiKeyIndex': _apiKeyIndex,
-      'activeTimers':
-          _activeTimers.map((key, value) => MapEntry(key, value.toJson())),
-      'lastSuccessfulSaveTimestamp':
-          _lastSuccessfulSaveTimestamp?.toIso8601String(),
-      'chatbotMemory': _chatbotMemory.toJson(),
-      'skills': _skills.map((s) => s.toJson()).toList(),
-      'reflectionLogs': _reflectionLogs.map((l) => l.toJson()).toList(),
-      'lifeValues': _lifeValues.map((v) => v.toJson()).toList(),
-    };
-  }
-
-  Map<String, dynamic> getAppStateAsMap() => _appStateToMap();
-
-  void loadAppStateFromMap(Map<String, dynamic> data) {
-    _loadStateFromMap(data);
-    _hasUnsavedChanges = true;
-    notifyListeners();
-  }
-
-  void _loadStateFromMap(Map<String, dynamic> data) {
-    _lastLoginDate = data['lastLoginDate'] as String?;
-    _mainTasks = (data['mainTasks'] as List<dynamic>?)
-            ?.map((mtJson) => MainTask.fromJson(mtJson as Map<String, dynamic>))
-            .toList() ??
-        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-
-    _completedByDay = data['completedByDay'] as Map<String, dynamic>? ?? {};
-
-    _completedByDay.forEach((date, dayDataMap) {
-      if (dayDataMap is Map<String, dynamic>) {
-        dayDataMap.putIfAbsent('taskTimes', () => <String, int>{});
-        dayDataMap.putIfAbsent(
-            'subtasksCompleted', () => <Map<String, dynamic>>[]);
-        dayDataMap.putIfAbsent(
-            'checkpointsCompleted', () => <Map<String, dynamic>>[]);
-        // Ensure aiSummary key exists if present in data, otherwise it's null/absent
-      }
-    });
-
-    _settings = data['settings'] != null
-        ? AppSettings.fromJson(data['settings'] as Map<String, dynamic>)
-        : AppSettings();
-
-    _selectedTaskId = data['selectedTaskId'] as String? ??
-        (_mainTasks.isNotEmpty ? _mainTasks[0].id : null);
-    _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
-
-    _activeTimers = (data['activeTimers'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(key,
-                ActiveTimerInfo.fromJson(value as Map<String, dynamic>))) ??
-        {};
-
-    final timestampString = data['lastSuccessfulSaveTimestamp'] as String?;
-    _lastSuccessfulSaveTimestamp =
-        timestampString != null ? DateTime.tryParse(timestampString) : null;
-
-    _chatbotMemory = data['chatbotMemory'] != null
-        ? ChatbotMemory.fromJson(data['chatbotMemory'] as Map<String, dynamic>)
-        : ChatbotMemory();
-
-    if (data['skills'] != null && data['skills'] is List) {
-      _skills = (data['skills'] as List)
-          .where((s) => s != null && s is Map<String, dynamic>)
-          .map((s) => Skill.fromJson(s as Map<String, dynamic>))
-          .toList();
-    } else {
-      _initializeSkills();
-    }
-    if (_skills.isEmpty) {
-      _initializeSkills();
-    }
-
-    if (data['reflectionLogs'] != null && data['reflectionLogs'] is List) {
-      _reflectionLogs = (data['reflectionLogs'] as List)
-          .where((l) => l != null && l is Map<String, dynamic>)
-          .map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>))
-          .toList();
-    }
-
-    if (data['lifeValues'] != null && data['lifeValues'] is List) {
-      _lifeValues = (data['lifeValues'] as List)
-          .where((v) => v != null && v is Map<String, dynamic>)
-          .map((v) => LifeValue.fromJson(v as Map<String, dynamic>))
-          .toList();
-    } else {
-      _initializeValues();
-    }
-    if (_lifeValues.length < 10) {
-      final defaults = LifeValue.getDefaults();
-      for (var def in defaults) {
-        if (!_lifeValues.any((v) => v.id == def.id)) {
-          _lifeValues.add(def);
-        }
-      }
-    }
-
-    _isChatbotMemoryInitialized = true;
-
-    if (_settings.dataVersion < 1) {
-      _migrateDataToSeconds();
-      _settings.dataVersion = 1;
-      _hasUnsavedChanges = true;
-    }
-    notifyListeners();
-  }
-
-  void _migrateDataToSeconds() {
-    List<MainTask> migratedTasks = [];
-    for (var task in _mainTasks) {
-      int newTaskTotalTime = 0;
-      List<SubTask> migratedSubtasks = [];
-      for (var sub in task.subTasks) {
-        int newSubTime = 0;
-        if (sub.sessions.isNotEmpty) {
-          for (var s in sub.sessions) {
-            newSubTime += s.durationSeconds;
-          }
+      if (currentUser == null || currentUser!.uid != user.uid) {
+        setCurrentUser(user);
+        
+        // IMMEDIATE OFFLINE FIRST BOOT
+        final localData = await _localStorage.loadState(user.uid);
+        if (localData != null) {
+          loadStateFromMap(localData);
         } else {
-          if (sub.currentTimeSpent > 0) {
-            newSubTime = sub.currentTimeSpent * 60;
-          }
+          await _resetToInitialState();
         }
-        migratedSubtasks.add(SubTask(
-          id: sub.id,
-          name: sub.name,
-          completed: sub.completed,
-          currentTimeSpent: newSubTime,
-          completedDate: sub.completedDate,
-          isCountable: sub.isCountable,
-          targetCount: sub.targetCount,
-          currentCount: sub.currentCount,
-          subSubTasks: sub.subSubTasks,
-          sessions: sub.sessions,
-        ));
-        newTaskTotalTime += newSubTime;
+        setAuthLoading(false); 
       }
-      migratedTasks.add(task.copyWith(
-          subTasks: migratedSubtasks, dailyTimeSpent: newTaskTotalTime));
-    }
-    _mainTasks = migratedTasks;
 
-    Map<String, dynamic> migratedHistory = {};
-    _completedByDay.forEach((dateKey, dayData) {
-      if (dayData is Map<String, dynamic>) {
-        final newDayData = Map<String, dynamic>.from(dayData);
-        if (newDayData['taskTimes'] != null) {
-          final oldTimes = newDayData['taskTimes'] as Map<String, dynamic>;
-          final Map<String, int> newTimes = {};
-          oldTimes.forEach((taskId, timeVal) {
-            if (timeVal is num) {
-              newTimes[taskId] = (timeVal * 60).toInt();
-            }
-          });
-          newDayData['taskTimes'] = newTimes;
-        }
-        migratedHistory[dateKey] = newDayData;
-      } else {
-        migratedHistory[dateKey] = dayData;
-      }
-    });
-    _completedByDay = migratedHistory;
-  }
-
-  // ... [KEEP ALL OTHER METHODS: reset, save, load, login, signup, etc.] ...
-  Future<void> _resetToInitialState() async {
-    _lastLoginDate = null;
-    _mainTasks =
-        initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
-    _completedByDay = {};
-    _settings = AppSettings();
-    _selectedTaskId = _mainTasks.isNotEmpty ? _mainTasks[0].id : null;
-    _apiKeyIndex = 0;
-    _activeTimers = {};
-    _isUsernameMissing = false;
-    _lastSuccessfulSaveTimestamp = null;
-    _chatbotMemory = ChatbotMemory();
-    _isChatbotMemoryInitialized = true;
-    _initializeSkills();
-    _initializeValues();
-    _reflectionLogs = [];
-    _hasUnsavedChanges = true;
-  }
-
-  Future<void> _performActualSave() async {
-    if (_currentUser != null) {
-      bool isAutoSave = !_isManuallySaving;
-      if (!isAutoSave) setLoadingTask("Syncing Database...");
-
+      // Background Validation and Maintenance
+      _cleanOverlappingSessions();
+      _fixTimerAnomalies();
+      await _taskActions.recalibrateTimeLogs(silent: true);
+      _handleDailyReset();
+      
       try {
-        final success = await _storageService.setUserData(
-            _currentUser!.uid, _appStateToMap());
-        if (success) {
-          _lastSuccessfulSaveTimestamp = DateTime.now();
-          _hasUnsavedChanges = false;
+        await fetchDailyReportsFromCloud();
+      } catch (_) {}
+
+    } else {
+      setCurrentUser(null);
+      await _resetToInitialState();
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> fetchDailyReportsFromCloud() async {
+    if (currentUser == null) return;
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    if (recentDaily.isNotEmpty) {
+      final newHistory = Map<String, dynamic>.from(completedByDay);
+      recentDaily.forEach((date, data) {
+        final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
+        bool changed = false;
+        if (data.containsKey('briefing')) {
+          dayData['aiBriefing'] = data['briefing'];
+          changed = true;
         }
-      } finally {
-        if (!isAutoSave) setLoadingTask(null);
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> manuallySaveToCloud() async {
-    if (_currentUser == null) throw Exception("Not logged in. Cannot save.");
-    _isManuallySaving = true;
-    notifyListeners();
-    try {
-      await _performActualSave();
-    } finally {
-      _isManuallySaving = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> manuallyLoadFromCloud() async {
-    if (_currentUser == null) throw Exception("Not logged in. Cannot load.");
-    _isManuallyLoading = true;
-    notifyListeners();
-    try {
-      final data = await _storageService.getUserData(_currentUser!.uid);
-      if (data != null) {
-        _loadStateFromMap(data);
-        _handleDailyReset();
-        if (_currentUser?.displayName == null ||
-            _currentUser!.displayName!.trim().isEmpty) {
-          _isUsernameMissing = true;
-        } else {
-          _isUsernameMissing = false;
+        if (data.containsKey('report')) {
+          dayData['startDayReport'] = data['report'];
+          changed = true;
         }
-        _hasUnsavedChanges = false;
-        _isChatbotMemoryInitialized = false;
-        initializeChatbotMemory();
-      } else {
-        throw Exception("No data found on cloud.");
-      }
-    } finally {
-      _isManuallyLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> loginUser(String email, String password) async {
-    await fb_service.signInWithEmail(email, password);
-  }
-
-  Future<void> signupUser(
-      String email, String password, String username) async {
-    _authLoading = true;
-    notifyListeners();
-    try {
-      UserCredential userCredential =
-          await fb_service.firebaseAuthInstance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      _currentUser = userCredential.user;
-      if (_currentUser != null) {
-        await _currentUser!.updateDisplayName(username);
-        await _currentUser!.reload();
-        _currentUser = fb_service.firebaseAuthInstance.currentUser;
-
-        await _resetToInitialState();
-        _lastLoginDate = helper.getTodayDateString();
-        _hasUnsavedChanges = true;
-        await _performActualSave();
-        _isChatbotMemoryInitialized = false;
-        initializeChatbotMemory();
-        _handleDailyReset();
-        _isDataLoadingAfterLogin = false;
-        _isUsernameMissing = false;
-      } else {
-        throw Exception("Signup successful but user object is null.");
-      }
-    } catch (e) {
-      _currentUser = null;
-      rethrow;
-    } finally {
-      _authLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> logoutUser() async {
-    if (_hasUnsavedChanges && _currentUser != null) {
-      await _performActualSave();
-    }
-    await fb_service.signOut();
-  }
-
-  Future<void> changePasswordHandler(String newPassword) async {
-    if (_currentUser == null) {
-      throw Exception("No user is currently signed in.");
-    }
-    await fb_service.changePassword(newPassword);
-    _hasUnsavedChanges = true;
-    notifyListeners();
-  }
-
-  Future<void> updateUserDisplayName(String newUsername) async {
-    if (_currentUser == null) return;
-    await _currentUser!.updateDisplayName(newUsername);
-    await _currentUser!.reload();
-    _currentUser = fb_service.firebaseAuthInstance.currentUser;
-    _isUsernameMissing = false;
-    _hasUnsavedChanges = true;
-    notifyListeners();
-    await _performActualSave();
-  }
-
-  void setSelectedTaskId(String? taskId) {
-    if (_selectedTaskId != taskId) {
-      _selectedTaskId = taskId;
-      _hasUnsavedChanges = true;
-      notifyListeners();
-    }
-  }
-
-  void setSettings(AppSettings newSettings) {
-    _settings = newSettings;
-    _hasUnsavedChanges = true;
-    notifyListeners();
-  }
-
-  MainTask? getSelectedTask() {
-    if (_selectedTaskId == null) return _mainTasks.firstOrNull;
-    return _mainTasks.firstWhereOrNull((t) => t.id == _selectedTaskId) ??
-        _mainTasks.firstOrNull;
-  }
-
-  String _getWeekKey(DateTime date, int startOfWeek) {
-    int day = date.weekday;
-    DateTime adjustedDate =
-        date.subtract(Duration(days: (day - startOfWeek + 7) % 7));
-    int weekOfYear =
-        (adjustedDate.difference(DateTime(adjustedDate.year, 1, 1)).inDays / 7)
-                .ceil() +
-            1;
-    return '${adjustedDate.year}-W${weekOfYear.toString().padLeft(2, '0')}';
-  }
-
-  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
-    final weekKey = _getWeekKey(DateTime.now(), _settings.startOfWeek);
-    return task.weeklyCompletionStatus[weekKey] ?? List.filled(7, false);
-  }
-
-  void markDailyTaskGoalMet(String taskId) {
-    final task = _mainTasks.firstWhereOrNull((t) => t.id == taskId);
-    if (task == null) return;
-
-    final today = DateTime.now();
-    final weekKey = _getWeekKey(today, _settings.startOfWeek);
-    final dayOfWeekIndex = (today.weekday - _settings.startOfWeek + 7) % 7;
-
-    task.weeklyCompletionStatus
-        .putIfAbsent(weekKey, () => List.filled(7, false));
-    if (task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] == false) {
-      task.weeklyCompletionStatus[weekKey]![dayOfWeekIndex] = true;
-      _hasUnsavedChanges = true;
-      notifyListeners();
-    }
-  }
-
-  int getYesterdaysTimeForTask(String taskId) {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
-
-    final dayData = _completedByDay[yesterdayStr];
-    if (dayData != null && dayData['taskTimes'] != null) {
-      final taskTimes = dayData['taskTimes'] as Map<String, dynamic>;
-      return (taskTimes[taskId] as num?)?.toInt() ?? 0;
-    }
-    return 0;
-  }
-
-  Future<void> _handleDailyReset() async {
-    if (_currentUser == null) return;
-    final today = helper.getTodayDateString();
-    bool hasResetRun = false;
-
-    if (_lastLoginDate != today) {
-      hasResetRun = true;
-      _lastLoginDate = today;
-      _hasUnsavedChanges = true;
-      for (var task in _mainTasks) {
-        if (task.lastWorkedDate != today) {
-          task.dailyTimeSpent = 0;
+        if (changed) {
+          newHistory[date] = dayData;
         }
-      }
-    }
-
-    if (hasResetRun) {
-      _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
-      _getCompletedGoalsForChatbotMemory();
-      setProviderState(chatbotMemory: _chatbotMemory, doNotify: false);
-      notifyListeners();
+      });
+      setCompletedByDay(newHistory);
     }
   }
 
-  String _generateWeeklySummaryForChatbot() {
-    return "Summary placeholder";
+  Future<void> _resetToInitialState() async {
+    setLastLoginDate(null);
+    setSettings(AppSettings());
+    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
+    setCompletedByDay({});
+    setActiveTimers({});
+    setReflectionLogs([]);
+    setTransactions([]);
+    setCategories([]);
+    setSavingsGoals([]);
+    setChatbotMemory(ChatbotMemory());
+    initializeSkills();
+    initializeDefaultFinanceCategories();
   }
 
-  void _getCompletedGoalsForChatbotMemory() {}
+  // --- Mixin Implementations & Legacy Compat ---
 
-  void initializeChatbotMemory() {
-    if (_isChatbotMemoryInitialized) return;
-    _chatbotMemory.lastWeeklySummary = _generateWeeklySummaryForChatbot();
-    _getCompletedGoalsForChatbotMemory();
-    if (_chatbotMemory.conversationHistory.isEmpty) {
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'init_${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              "Hello! I am Arcane Advisor. How can I assist with your mission logs or goals today?",
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-    }
-    _isChatbotMemoryInitialized = true;
-    notifyListeners();
+  @override
+  Map<String, dynamic> getFullAppState() {
+    final map = <String, dynamic>{};
+    map.addAll(getTaskStateMap());
+    map.addAll(getFinanceStateMap());
+    map.addAll(getUserStateMap());
+    map.addAll(getHealthStateMap());
+    return map;
   }
 
-  // --- NEW: Daily Summary Management ---
+  Map<String, dynamic> getAppStateAsMap() => getFullAppState();
   
-  void saveDailySummary(String date, String summary) {
-    if (!_completedByDay.containsKey(date)) {
-      _completedByDay[date] = {};
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+
+  @override
+  void loadStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadFinanceState(data);
+    loadUserState(data);
+    loadHealthState(data);
+    
+    if (settings.dataVersion < 1) {
+      settings.dataVersion = 1;
+      markDirty('settings');
     }
-    if (_completedByDay[date] is! Map) {
-       _completedByDay[date] = <String, dynamic>{};
-    }
-    _completedByDay[date]['aiSummary'] = summary;
-    _hasUnsavedChanges = true;
+  }
+
+  // --- UI Helpers ---
+
+  void setLoadingTask(String? name) {
+    _loadingTaskName = name;
     notifyListeners();
   }
 
-  void deleteDailySummary(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
-      _completedByDay[date].remove('aiSummary');
-      _hasUnsavedChanges = true;
-      notifyListeners();
-    }
-  }
-
-  String? getDailySummary(String date) {
-    if (_completedByDay.containsKey(date) && _completedByDay[date] is Map) {
-      return _completedByDay[date]['aiSummary'] as String?;
-    }
-    return null;
-  }
-
-  // ... [KEEP REST OF METHODS] ...
-  void updateValueAnswer(String valueId, String questionId, String answer) {
-    final valueIndex = _lifeValues.indexWhere((v) => v.id == valueId);
-    if (valueIndex != -1) {
-      final qIndex = _lifeValues[valueIndex]
-          .questions
-          .indexWhere((q) => q.id == questionId);
-      if (qIndex != -1) {
-        _lifeValues[valueIndex].questions[qIndex].answer = answer;
-        _hasUnsavedChanges = true;
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> analyzeValueAlignment(String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return;
-
-    setLoadingTask("Analyzing Value...");
-    try {
-      final score = await _aiService.analyzeValueAlignment(
-        valueName: value.title,
-        questionsAndAnswers: value.questions
-            .map((q) => {'question': q.question, 'answer': q.answer})
-            .toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-
-      value.score = score;
-      _hasUnsavedChanges = true;
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Error analyzing value: $e");
-      rethrow;
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> generateTasksFromValue(
-      String valueId) async {
-    final value = _lifeValues.firstWhereOrNull((v) => v.id == valueId);
-    if (value == null) return [];
-
-    setLoadingTask("Generating Actions...");
-    try {
-      final tasks = await _aiService.generateTasksFromValues(
-        valueName: value.title,
-        questionsAndAnswers: value.questions
-            .map((q) => {'question': q.question, 'answer': q.answer})
-            .toList(),
-        modelCandidates: settings.liteModels,
-        currentApiKeyIndex: apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        onNewApiKeyIndex: (idx) => setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[ValueAI] $msg"),
-      );
-      return tasks;
-    } catch (e) {
-      debugPrint("Error generating tasks from value: $e");
-      rethrow;
-    } finally {
-      setLoadingTask(null);
-    }
-  }
-
-  String _buildUserDataContext() {
-    final sb = StringBuffer();
-    sb.writeln("Active Missions:");
-    for (var t in _mainTasks) {
-      sb.writeln("- ${t.name} (${t.theme}): ${t.description}");
-      sb.writeln("  Sub-missions:");
-      for (var st in t.subTasks) {
-        sb.writeln(
-            "  - ${st.name} [${st.completed ? 'Completed' : 'Pending'}]");
-      }
-      if (t.projects.isNotEmpty) {
-        sb.writeln("  Projects:");
-        for (var p in t.projects) {
-          sb.writeln("  - ${p.title} (${(p.progress * 100).toInt()}% Done)");
-        }
-      }
-    }
-
-    sb.writeln("\nLogs from Last 7 Days:");
-    final today = DateTime.now();
-    for (int i = 6; i >= 0; i--) {
-      final d = today.subtract(Duration(days: i));
-      final dateStr = DateFormat('yyyy-MM-dd').format(d);
-      if (_completedByDay.containsKey(dateStr)) {
-        sb.writeln("Date: $dateStr");
-        // Reflections
-        final reflections = _reflectionLogs
-            .where((r) {
-              final rd = r.timestamp;
-              return rd.year == d.year &&
-                  rd.month == d.month &&
-                  rd.day == d.day;
-            })
-            .map((r) => "  Reflection: ${r.trigger} -> ${r.emotion}")
-            .join("\n");
-        if (reflections.isNotEmpty) sb.writeln(reflections);
-      }
-    }
-    return sb.toString();
-  }
-
-  Future<void> sendMessageToChatbot(String userMessageText) async {
-    if (!_isChatbotMemoryInitialized) initializeChatbotMemory();
-    final userMessage = ChatbotMessage(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        text: userMessageText,
-        sender: MessageSender.user,
-        timestamp: DateTime.now());
-    _chatbotMemory.conversationHistory.add(userMessage);
-
+  void setProviderAISubquestLoading(bool loading) {
+    _isGeneratingSubquestsForTask = loading;
     notifyListeners();
-    setLoadingTask("Consulting Advisor...");
+  }
 
-    try {
-      final dataContext = _buildUserDataContext();
+  void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
 
-      final botResponseText = await _aiService.getChatbotResponse(
-        modelCandidates: settings.liteModels,
-        memory: _chatbotMemory,
-        userMessage: userMessageText,
-        dataContext: dataContext,
-        currentApiKeyIndex: _apiKeyIndex,
-        customApiKey: settings.customApiKey,
-        systemInstruction: settings.customChatbotPrompt,
-        onNewApiKeyIndex: (newIndex) => _apiKeyIndex = newIndex,
-        onLog: (logMsg) => {},
-      );
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
-          text: botResponseText,
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-    } catch (e) {
-      _chatbotMemory.conversationHistory.add(ChatbotMessage(
-          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              "I'm having trouble connecting right now. Please try again later. ${e.toString()}",
-          sender: MessageSender.bot,
-          timestamp: DateTime.now()));
-    } finally {
-      setLoadingTask(null);
-      setProviderState(chatbotMemory: _chatbotMemory);
+  // --- State Bridge ---
+  
+  void setProviderState({
+      String? lastLoginDate,
+      List<MainTask>? mainTasks,
+      Map<String, dynamic>? completedByDay,
+      Map<String, dynamic>? activeTimers,
+      DateTime? lastSuccessfulSaveTimestamp,
+      bool? isUsernameMissing,
+      ChatbotMemory? chatbotMemory,
+      List<FinanceTransaction>? transactions,
+      List<FinanceCategory>? categories,
+      List<SavingsGoal>? savingsGoals,
+      bool doNotify = true,
+      bool doPersist = true
+  }) {
+    if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
+    if (mainTasks != null) setMainTasks(mainTasks);
+    if (completedByDay != null) setCompletedByDay(completedByDay);
+    if (activeTimers != null) setActiveTimers(activeTimers);
+    if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
+    if (transactions != null) setTransactions(transactions);
+    if (categories != null) setCategories(categories);
+    if (savingsGoals != null) setSavingsGoals(savingsGoals);
+    
+    if (doNotify) notifyListeners();
+  }
+
+  // --- Delegated Actions ---
+
+  void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) => _taskActions.editMainTask(taskId, name: name, description: description, theme: theme, colorHex: colorHex);
+  void logToDailySummary(String type, Map<String, dynamic> data) => _taskActions.logToDailySummary(type, data);
+  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) => _taskActions.addSubtask(mainTaskId, subtaskData);
+  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
+  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
+  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
+  void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
+  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
+  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
+  void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
+  void pauseTimer(String id) => _timerActions.pauseTimer(id);
+  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
+  Future<void> triggerAISubquestGeneration(MainTask mainTask, String generationMode, String userInput, int numSubquests) => _aiGenerationActions.triggerAISubquestGeneration(mainTask, generationMode, userInput, numSubquests);
+
+  // --- Auth & Wrappers ---
+
+  Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
+  Future<void> logoutUser() async => await fb_service.signOut();
+  
+  Future<void> signupUser(String email, String password) async {
+    final user = await fb_service.signUpWithEmail(email, password);
+    if (user != null) {
+      await user.updateDisplayName("OPERATIVE");
+      await user.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
     }
   }
-
-  int getXpGainedForSkillToday(String skillName) {
-    final today = DateTime.now();
-
-    return _reflectionLogs.where((log) {
-      final logDt = log.timestamp;
-      return logDt.year == today.year &&
-          logDt.month == today.month &&
-          logDt.day == today.day;
-    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
-  }
-
-  int get7DaySkillMomentum(String skillName) {
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-
-    return _reflectionLogs.where((log) {
-      return log.timestamp.isAfter(sevenDaysAgo) &&
-          log.timestamp.isBefore(now.add(const Duration(days: 1)));
-    }).fold(0, (sum, log) => sum + (log.xpGained[skillName] ?? 0));
-  }
-
-  Future<Map<String, int>> processReflection({
-    required String trigger,
-    required String emotion,
-    required String reason,
-    DateTime? timestamp,
-  }) async {
-    final actualTimestamp = timestamp ?? DateTime.now();
-
-    final dailyReflections = _reflectionLogs
-        .where((log) {
-          final logDt = log.timestamp;
-          return logDt.year == actualTimestamp.year &&
-              logDt.month == actualTimestamp.month &&
-              logDt.day == actualTimestamp.day;
-        })
-        .map((r) => {
-              'trigger': r.trigger,
-              'emotion': r.emotion,
-              'reason': r.reason,
-            })
-        .toList();
-
-    setLoadingTask("Analyzing Reflection...");
-
-    final result = await _aiService.evaluateReflection(
-      trigger: trigger,
-      emotion: emotion,
-      reason: reason,
-      modelCandidates: settings.liteModels,
-      dailyReflections: dailyReflections,
-      customApiKey: settings.customApiKey,
-      systemInstruction: settings.customReflectionPrompt,
-    );
-
-    setLoadingTask(null);
-
-    Map<String, int> xpAllocation = {};
-    if (result['xp_allocation'] is Map) {
-      (result['xp_allocation'] as Map).forEach((key, value) {
-        xpAllocation[key.toString()] = (value as num).toInt();
-      });
-    }
-
-    List<Skill> updatedSkills = List.from(_skills);
-    xpAllocation.forEach((skillName, xp) {
-      final skill = updatedSkills.firstWhereOrNull(
-          (s) => s.name.toLowerCase() == skillName.toLowerCase());
-      if (skill != null) {
-        skill.addXp(xp);
-      }
-    });
-
-    final log = ReflectionLog(
-      id: 'ref_${DateTime.now().millisecondsSinceEpoch}',
-      timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger,
-      emotion: emotion,
-      reason: reason,
-      aiFeedback: result['feedback'] ?? "Log recorded.",
-      xpGained: xpAllocation,
-    );
-
-    _reflectionLogs.add(log);
-    _skills = updatedSkills;
-    _hasUnsavedChanges = true;
-    notifyListeners();
-
-    return xpAllocation;
-  }
-
-  void updateReflectionLog(String id,
-      {String? trigger, String? emotion, String? reason}) {
-    final index = _reflectionLogs.indexWhere((l) => l.id == id);
-    if (index != -1) {
-      final old = _reflectionLogs[index];
-      if (trigger != null) old.trigger = trigger;
-      if (emotion != null) old.emotion = emotion;
-      if (reason != null) old.reason = reason;
-
-      _hasUnsavedChanges = true;
-      notifyListeners();
-    }
-  }
-
-  void deleteReflectionLog(String id) {
-    final index = _reflectionLogs.indexWhere((l) => l.id == id);
-    if (index != -1) {
-      final log = _reflectionLogs[index];
-      List<Skill> updatedSkills = List.from(_skills);
-      log.xpGained.forEach((skillName, xp) {
-        final skill = updatedSkills.firstWhereOrNull(
-            (s) => s.name.toLowerCase() == skillName.toLowerCase());
-        if (skill != null) {
-          skill.currentXp = (skill.currentXp - xp).clamp(0, skill.maxXp);
-        }
-      });
-      _skills = updatedSkills;
-      _reflectionLogs.removeAt(index);
-      _hasUnsavedChanges = true;
-      notifyListeners();
+  
+  Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
+  Future<void> updateUserDisplayName(String name) async {
+    if (currentUser != null) {
+      await currentUser!.updateDisplayName(name);
+      await currentUser!.reload();
+      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
     }
   }
 
   Future<void> clearAllData() async {
-    if (_currentUser == null) return;
-    await _storageService.deleteUserData(_currentUser!.uid);
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState(currentUser!.uid);
     await _resetToInitialState();
-    await _performActualSave();
-    notifyListeners();
+    markDirty('settings');
+    markDirty('tasks');
+    markDirty('history');
+    markDirty('reflections');
+    markDirty('finance');
+    markDirty('health');
   }
 
-  void setProviderState({
-    String? lastLoginDate,
-    List<MainTask>? mainTasks,
-    Map<String, dynamic>? completedByDay,
-    Map<String, ActiveTimerInfo>? activeTimers,
-    DateTime? lastSuccessfulSaveTimestamp,
-    bool? isUsernameMissing,
-    ChatbotMemory? chatbotMemory,
-    bool doNotify = true,
-    bool doPersist = true,
-  }) {
+  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+    try {
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      loadStateFromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  void initializeChatbotMemory() {
+    notifyListeners(); 
+  }
+
+  Future<void> exportReflections() async {
+    final data = {'reflectionLogs': reflectionLogs.map((l) => l.toJson()).toList()};
+    await _exportService.exportJson(data, 'arcane_reflections');
+  }
+
+  Future<void> importReflections() async {
+    final data = await _exportService.importJson();
+    if (data != null && data['reflectionLogs'] != null) {
+      final List<dynamic> logsJson = data['reflectionLogs'];
+      final importedLogs = logsJson.map((l) => ReflectionLog.fromJson(l as Map<String, dynamic>)).toList();
+      final currentIds = reflectionLogs.map((l) => l.id).toSet();
+      final newLogs = importedLogs.where((l) => !currentIds.contains(l.id)).toList();
+      if (newLogs.isNotEmpty) {
+        setReflectionLogs([...reflectionLogs, ...newLogs]..sort((a,b) => a.timestamp.compareTo(b.timestamp)));
+      }
+    }
+  }
+
+  // --- Gratitude / Assets Actions ---
+  void updateGratitudeList(List<GratitudeItem> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.gratitudeList = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updateGratitudeItem(GratitudeItem updatedItem) {
+    final currentList = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+    final index = currentList.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      currentList[index] = updatedItem;
+    } else {
+      currentList.insert(0, updatedItem);
+    }
+    updateGratitudeList(currentList);
+  }
+  
+  // --- Someday List Actions ---
+  void addSomedayItem(String title) {
+    final newItem = SomedayItem(id: const Uuid().v4(), title: title, createdAt: DateTime.now());
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.insert(0, newItem);
+    setSettings(newSettings);
+  }
+
+  void removeSomedayItem(String id) {
+    final newSettings = AppSettings.fromJson(settings.toJson());
+    newSettings.somedayList.removeWhere((i) => i.id == id);
+    setSettings(newSettings);
+  }
+
+  // --- Reports Logic ---
+  Map<String, dynamic> getLast7DaysData() { 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
+    final recentReflections = reflectionLogs
+        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+        .join("\n");
+    return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
+  }
+  
+  String getWeeklyWellbeingComparison() {
+    final now = DateTime.now();
+    final last7 = now.subtract(const Duration(days: 7));
+    final prev7 = now.subtract(const Duration(days: 14));
+    
+    Map<String, int> currentXp = {};
+    Map<String, int> prevXp = {};
+    
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(last7)) {
+        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+      } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
+        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (var skill in getBaseWellbeingSkills()) {
+      final curr = currentXp[skill.name] ?? 0;
+      final prev = prevXp[skill.name] ?? 0;
+      if (curr > 0 || prev > 0) {
+        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+      }
+    }
+    return buffer.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
+    if (currentUser == null) return[];
+    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  }
+
+  Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
+    }
+  }
+
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['aiBriefing'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+    }
+  }
+
+  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['startDayReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+    }
+  }
+
+  Map<String, dynamic>? getTacticalBriefing(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['aiBriefing'] != null) {
+      return completedByDay[date]['aiBriefing'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getStartDayReport(String date) {
+    if (completedByDay[date] != null && completedByDay[date]['startDayReport'] != null) {
+      return completedByDay[date]['startDayReport'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+    final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
+    final recentBriefings = <String>[];
+    for (int i=1; i<=3; i++) {
+       final d = DateTime.parse(date).subtract(Duration(days: i));
+       final dStr = DateFormat('yyyy-MM-dd').format(d);
+       final b = getTacticalBriefing(dStr);
+       if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
+    }
+    
+    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final result = await _aiService.generateDailySummary(
+      reflections: logsFormatted, 
+      previousBriefings: recentBriefings, 
+      fullContext: allLogsContext,
+      modelCandidates: settings.heavyModels, 
+      currentApiKeyIndex: apiKeyIndex, 
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onLog: (m) => debugPrint(m)
+    );
+
+    if (result['grateful_assets'] != null) {
+      final extracted = result['grateful_assets'] as List<dynamic>;
+      final currentAssets = List<GratitudeItem>.from(chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final type = map['type'] as String? ?? 'resource';
+        final why = map['why'] as String? ?? '';
+        final what = map['what'] as String? ?? '';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx != -1) {
+          if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+            currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? "" : " ") + why;
+            changed = true;
+          }
+          if (what.isNotEmpty && !currentAssets[existingIdx].what.contains(what)) {
+             currentAssets[existingIdx].what += (currentAssets[existingIdx].what.isEmpty ? "" : " ") + what;
+             changed = true;
+          }
+        } else {
+          currentAssets.insert(0, GratitudeItem(id: const Uuid().v4(), type: type, name: name, why: why, what: what));
+          changed = true;
+        }
+      }
+      if (changed) updateGratitudeList(currentAssets);
+    }
+
+    if (result['grateful_people'] != null) {
+      final extracted = result['grateful_people'] as List<dynamic>;
+      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+      bool changed = false;
+      for (var e in extracted) {
+        final map = e as Map<String, dynamic>;
+        final name = map['name'] as String? ?? '';
+        final relation = map['relation'] as String? ?? 'Acquaintance';
+        if (name.isEmpty) continue;
+
+        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+        if (existingIdx == -1) {
+          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
+          changed = true;
+        }
+      }
+      if (changed) {
+        chatbotMemory.people = currentPeople;
+        markDirty('settings');
+      }
+    }
+
+    return result;
+  }
+
+  void _cleanOverlappingSessions() {
     bool changed = false;
-    if (lastLoginDate != null && _lastLoginDate != lastLoginDate) {
-      _lastLoginDate = lastLoginDate;
-      changed = true;
-    }
-    if (mainTasks != null && !listEquals(_mainTasks, mainTasks)) {
-      _mainTasks = List.from(mainTasks);
-      changed = true;
-    }
-    if (completedByDay != null && !mapEquals(_completedByDay, completedByDay)) {
-      _completedByDay = Map.from(completedByDay);
-      changed = true;
-    }
-    if (activeTimers != null && !mapEquals(_activeTimers, activeTimers)) {
-      _activeTimers = Map.from(activeTimers);
-      changed = true;
-    }
-    if (lastSuccessfulSaveTimestamp != null &&
-        _lastSuccessfulSaveTimestamp != lastSuccessfulSaveTimestamp) {
-      _lastSuccessfulSaveTimestamp = lastSuccessfulSaveTimestamp;
-      changed = true;
-    }
-    if (isUsernameMissing != null && _isUsernameMissing != isUsernameMissing) {
-      _isUsernameMissing = isUsernameMissing;
-      changed = true;
-    }
-    if (chatbotMemory != null && _chatbotMemory != chatbotMemory) {
-      _chatbotMemory = chatbotMemory;
-      changed = true;
-    }
+    final newMainTasks = mainTasks.map((task) {
+      return task.copyWith(
+        subTasks: task.subTasks.map((sub) {
+          if (sub.sessions.length <= 1) return sub;
+          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
+          final List<TaskSession> cleaned =[sorted.first];
+          for (int i = 1; i < sorted.length; i++) {
+            final current = sorted[i];
+            final previous = cleaned.last;
+            if (current.startTime.isBefore(previous.endTime)) {
+              changed = true;
+              if (current.endTime.isAfter(previous.endTime)) {
+                cleaned.removeLast();
+                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
+              }
+            } else {
+              cleaned.add(current);
+            }
+          }
+          if (cleaned.length != sub.sessions.length) {
+            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
+            return SubTask(
+              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
+              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
+              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
+            );
+          }
+          return sub;
+        }).toList()
+      );
+    }).toList();
 
-    if (changed) {
-      if (doPersist) _hasUnsavedChanges = true;
-      if (doNotify) notifyListeners();
+    if (changed) setMainTasks(newMainTasks);
+  }
+
+  void _fixTimerAnomalies() {
+    // Handled in mixins
+  }
+
+  Future<void> _handleDailyReset() async {
+    final todayStr = helper.getTodayDateString();
+    if (lastLoginDate != todayStr) {
+      bool changed = false;
+      final newMainTasks = mainTasks.map((task) {
+        final updatedSubtasks = task.subTasks.map((st) {
+          if (st.isRecurring) {
+             bool shouldReset = false;
+             if (st.completed && st.lastCompletedDate != null) {
+                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+             } else if (st.completed) {
+                shouldReset = true;
+             }
+             if (shouldReset) {
+               changed = true;
+               return SubTask(
+                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
+                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
+                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
+                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
+                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
+               );
+             }
+          }
+          return st;
+        }).toList();
+        
+        if (task.dailyTimeSpent > 0) {
+          changed = true;
+          return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
+        }
+        return task.copyWith(subTasks: updatedSubtasks);
+      }).toList();
+
+      setLastLoginDate(todayStr);
+      if (changed) setMainTasks(newMainTasks);
     }
   }
 
-  void setProviderAISubquestLoading(bool isLoading) {
-    if (_isGeneratingSubquestsForTask != isLoading) {
-      _isGeneratingSubquestsForTask = isLoading;
+  List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
+    List<bool> weeklyStatus = List.filled(7, false);
+    final now = DateTime.now();
+    final currentWeekday = now.weekday;
+    final startOffset = settings.startOfWeek;
+    int diff = currentWeekday - startOffset;
+    if (diff < 0) diff += 7;
+    final startOfWeekDate = now.subtract(Duration(days: diff));
+
+    for (int i = 0; i < 7; i++) {
+      final targetDate = startOfWeekDate.add(Duration(days: i));
+      if (targetDate.isAfter(now)) break;
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final dayData = completedByDay[dateStr];
+      if (dayData != null && dayData['taskTimes'] != null) {
+         final times = dayData['taskTimes'] as Map<String, dynamic>;
+         if (times.containsKey(task.id) && (times[task.id] as int) > 0) weeklyStatus[i] = true;
+      }
+    }
+    return weeklyStatus;
+  }
+
+  int getYesterdaysTimeForTask(String taskId) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final dayData = completedByDay[dateStr];
+    if (dayData != null && dayData['taskTimes'] != null) {
+      return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
+    for (var mainTask in mainTasks) {
+      for (var project in mainTask.projects) {
+        final step = _findStepByTargetId(project.steps, targetId);
+        if (step != null) {
+          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
+        }
+      }
+    }
+    return null;
+  }
+  
+  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
+    for (var step in steps) {
+      if (step.linkedTaskId == targetId) return step;
+      final found = _findStepByTargetId(step.substeps, targetId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  int get7DayWellbeingMomentum(String skillName) {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    int total = 0;
+    for (var log in reflectionLogs) {
+      if (log.timestamp.isAfter(sevenDaysAgo)) {
+        total += log.xpGained[skillName] ?? 0;
+      }
+    }
+    return total;
+  }
+
+  Future<void> syncWeeklyWellbeing() async {
+    setLoadingTask("Analyzing Weekly Wellbeing...");
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+      if (recentLogs.isEmpty) {
+        throw Exception("No reflection logs in the past 7 days to analyze.");
+      }
+      
+      final logsPayload = recentLogs.map((l) => {
+        "log_id": l.id,
+        "trigger": l.trigger,
+        "emotion": l.emotion,
+        "action": l.action,
+      }).toList();
+      
+      final updates = await aiService.evaluateBatchReflections(
+        logsPayload: logsPayload,
+        modelCandidates: settings.heavyModels, 
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (msg) => debugPrint(msg),
+      );
+      
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      bool logsChanged = false;
+      for (var update in updates) {
+        final logId = update['log_id'];
+        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final idx = newLogs.indexWhere((l) => l.id == logId);
+        if (idx != -1) {
+          newLogs[idx] = ReflectionLog(
+            id: newLogs[idx].id,
+            timestamp: newLogs[idx].timestamp,
+            trigger: newLogs[idx].trigger,
+            emotion: newLogs[idx].emotion,
+            reason: newLogs[idx].reason,
+            action: newLogs[idx].action,
+            aiFeedback: newLogs[idx].aiFeedback,
+            xpGained: xpMap, 
+          );
+          logsChanged = true;
+        }
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId, timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger, emotion: emotion, reason: reason, action: action,
+      aiFeedback: "Pending AI analysis...", xpGained: {}
+    );
+    // Setting logs triggers the 7-day recalculation in mixin natively
+    setReflectionLogs([...reflectionLogs, log]);
+
+    try {
+      final eval = await _aiService.evaluateReflection(
+        trigger: trigger, emotion: emotion, reason: reason, action: action,
+        modelCandidates: settings.liteModels, 
+        customApiKeys: settings.customApiKeys,
+        recentContext: recentContext,
+        systemInstruction: settings.customReflectionPrompt,
+      );
+      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      
+      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
+      
+      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+    } catch (e) {
+      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
+      rethrow;
+    }
+  }
+
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final old = reflectionLogs[index];
+      final updated = ReflectionLog(
+        id: old.id,
+        timestamp: old.timestamp,
+        trigger: trigger ?? old.trigger,
+        emotion: emotion ?? old.emotion,
+        reason: reason ?? old.reason,
+        action: action ?? old.action,
+        aiFeedback: aiFeedback ?? old.aiFeedback,
+        xpGained: xpGained ?? old.xpGained,
+      );
+      final newLogs = List<ReflectionLog>.from(reflectionLogs);
+      newLogs[index] = updated;
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  void deleteReflectionLog(String id) {
+    final index = reflectionLogs.indexWhere((l) => l.id == id);
+    if (index != -1) {
+      final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
+      setReflectionLogs(newLogs);
+    }
+  }
+
+  NoraSession? get activeNoraSession {
+    if (chatbotMemory.activeNoraSessionId == null) return null;
+    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+  }
+
+  void createNoraSession({
+    required String title, 
+    required String tone, 
+    required DateTime startDate, 
+    required DateTime endDate, 
+    String? customContext,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newSession = NoraSession(
+      id: const Uuid().v4(), 
+      title: title, 
+      tone: tone, 
+      startDate: startDate, 
+      endDate: endDate, 
+      customContext: customContext,
+      messageLimit: messageLimit ?? 0,
+      modelOverride: modelOverride,
+      contextDays: contextDays ?? 7,
+      systemPromptOverride: systemPromptOverride,
+    );
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.add(newSession);
+    newMemory.activeNoraSessionId = newSession.id;
+    setChatbotMemory(newMemory);
+  }
+  
+  void updateNoraSessionConfig({
+    required String sessionId,
+    int? messageLimit,
+    String? modelOverride,
+    int? contextDays,
+    String? systemPromptOverride,
+  }) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    final index = newMemory.noraSessions.indexWhere((s) => s.id == sessionId);
+    if (index != -1) {
+      if (messageLimit != null) newMemory.noraSessions[index].messageLimit = messageLimit;
+      newMemory.noraSessions[index].modelOverride = modelOverride; // allow nulling
+      if (contextDays != null) newMemory.noraSessions[index].contextDays = contextDays;
+      newMemory.noraSessions[index].systemPromptOverride = systemPromptOverride; // allow nulling
+      setChatbotMemory(newMemory);
+    }
+  }
+
+  void switchNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.activeNoraSessionId = sessionId;
+    setChatbotMemory(newMemory);
+  }
+
+  void deleteNoraSession(String sessionId) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.noraSessions.removeWhere((s) => s.id == sessionId);
+    if (newMemory.activeNoraSessionId == sessionId) {
+      newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
+    }
+    setChatbotMemory(newMemory);
+  }
+
+  Future<void> sendNoraMessage(String text) async {
+    final session = activeNoraSession;
+    if (session == null) return;
+
+    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    session.messages.add(userMsg);
+    markDirty('settings'); 
+
+    // Gather Context bounded by session config
+    DateTime start = session.startDate;
+    DateTime end = session.endDate.add(const Duration(days: 1)); // Include end day fully
+    
+    // If contextDays is configured, override the date range to just look back X days from now
+    if (session.contextDays > 0) {
+       start = DateTime.now().subtract(Duration(days: session.contextDays));
+       end = DateTime.now();
+    }
+
+    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
+    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+
+    final List<String> sessionStrs = [];
+    if (settings.noraAccessSessions) {
+      for (var task in mainTasks) {
+        for (var sub in task.subTasks) {
+          for (var sess in sub.sessions) {
+            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
+              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
+            }
+          }
+        }
+      }
+    }
+
+    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
+    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+
+    final fullContext = """
+    SYSTEM: $systemPrompt
+    ${session.customContext ?? ''}
+
+    CONTEXT DATA FOR REQUESTED PERIOD:
+    Reflections: $refStr
+    Sessions: ${sessionStrs.join(" | ")}
+    Known Entities: $peopleStr
+    Known Assets: $assetsStr
+    """;
+    
+    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
+    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
+    
+    try {
+      final responses = await _aiService.queryNeuralArchive(
+        query: text, 
+        logsContext: fullContext, 
+        maxMessages: maxMessagesToGen,
+        modelCandidates: modelCandidates, 
+        currentApiKeyIndex: apiKeyIndex, 
+        customApiKeys: settings.customApiKeys, 
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
+        onLog: (m) {}
+      );
+      
+      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
+      final clampedResponses = responses.take(clampLimit).toList();
+
+      for (String resp in clampedResponses) {
+        // dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+        session.messages.add(botMsg);
+        markDirty('settings');
+        notifyListeners();
+      }
+    } catch(e) {
+      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+      session.messages.add(errorMsg);
+      markDirty('settings');
       notifyListeners();
     }
   }
-
-  void setProviderApiKeyIndex(int index) {
-    if (_apiKeyIndex != index) {
-      _apiKeyIndex = index;
-    }
+  
+  Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
+  
+  void addCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..add(key);
+    setSettings(settings..customApiKeys = newKeys);
   }
-
-  Future<void> triggerAISubquestGeneration(MainTask mainTask,
-          String generationMode, String userInput, int numSubquests) =>
-      _aiGenerationActions.triggerAISubquestGeneration(
-          mainTask, generationMode, userInput, numSubquests);
-
-  void addMainTask(
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.addMainTask(
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
-  void editMainTask(String taskId,
-          {required String name,
-          required String description,
-          required String theme,
-          required String colorHex}) =>
-      _taskActions.editMainTask(taskId,
-          name: name,
-          description: description,
-          theme: theme,
-          colorHex: colorHex);
-  void logToDailySummary(String type, Map<String, dynamic> data) =>
-      _taskActions.logToDailySummary(type, data);
-  String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) =>
-      _taskActions.addSubtask(mainTaskId, subtaskData);
-  void updateSubtask(
-          String mainTaskId, String subtaskId, Map<String, dynamic> updates) =>
-      _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
-
-  void addSessionToSubtask(
-          String mainTaskId, String subTaskId, DateTime start, DateTime end) =>
-      _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
-
-  void updateSessionInSubtask(String mainTaskId, String subTaskId,
-          String sessionId, DateTime newStart, DateTime newEnd) =>
-      _taskActions.updateSessionInSubtask(
-          mainTaskId, subTaskId, sessionId, newStart, newEnd);
-
-  void deleteSessionFromSubtask(
-          String mainTaskId, String subTaskId, String sessionId) =>
-      _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
-
-  bool completeSubtask(String mainTaskId, String subtaskId) =>
-      _taskActions.completeSubtask(mainTaskId, subtaskId);
-  void deleteSubtask(String mainTaskId, String subtaskId) =>
-      _taskActions.deleteSubtask(mainTaskId, subtaskId);
-  void duplicateCompletedSubtask(String mainTaskId, String subtaskId) =>
-      _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId,
-          Map<String, dynamic> subSubtaskData) =>
-      _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData);
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
-          String subSubtaskId, Map<String, dynamic> updates) =>
-      _taskActions.updateSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId, updates);
-  void completeSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
-      _taskActions.completeSubSubtask(
-          mainTaskId, parentSubtaskId, subSubtaskId);
-  void deleteSubSubtask(
-          String mainTaskId, String parentSubtaskId, String subSubtaskId) =>
-      _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
-
-  void startTimer(String id, String type, String mainTaskId) =>
-      _timerActions.startTimer(id, type, mainTaskId);
-  void pauseTimer(String id) => _timerActions.pauseTimer(id);
-  void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
-
-  ProjectActions get projectActions => _projectActions;
+  
+  void removeCustomApiKey(String key) {
+    final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
+    setSettings(settings..customApiKeys = newKeys);
+  }
+  
+  void setJournalPin(String pin) {
+    setSettings(settings..journalPin = pin);
+  }
 }

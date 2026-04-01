@@ -64,15 +64,15 @@ class Skill {
     };
   }
 
-  // Returns true if leveled up
+  // Fallback direct modifier (System relies on recalculateFromTotal7DayXp primarily)
   bool addXp(int amount) {
     currentXp += amount;
     bool leveledUp = false;
     while (currentXp >= maxXp) {
       currentXp -= maxXp;
       level++;
-      // Increase requirement by 20% each level
-      maxXp = (maxXp * 1.2).round();
+      // Exponentially increasing requirement
+      maxXp = (maxXp * 1.15).round();
       leveledUp = true;
     }
     return leveledUp;
@@ -85,6 +85,7 @@ class ReflectionLog {
   String trigger;
   String emotion;
   String reason;
+  String action; 
   final String aiFeedback;
   final Map<String, int> xpGained;
 
@@ -94,6 +95,7 @@ class ReflectionLog {
     required this.trigger,
     required this.emotion,
     required this.reason,
+    this.action = '',
     required this.aiFeedback,
     required this.xpGained,
   });
@@ -105,6 +107,7 @@ class ReflectionLog {
       trigger: json['trigger'] as String? ?? '',
       emotion: json['emotion'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
+      action: json['action'] as String? ?? '', 
       aiFeedback: json['aiFeedback'] as String? ?? '',
       xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
     );
@@ -117,6 +120,7 @@ class ReflectionLog {
       'trigger': trigger,
       'emotion': emotion,
       'reason': reason,
+      'action': action,
       'aiFeedback': aiFeedback,
       'xpGained': xpGained,
     };

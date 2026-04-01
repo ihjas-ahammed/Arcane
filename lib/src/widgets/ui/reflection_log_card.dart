@@ -57,6 +57,18 @@ class ReflectionLogCard extends StatelessWidget {
                   )
               ],
             ),
+            if (log.action.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "Action: ${log.action}",
+                style: const TextStyle(
+                  color: AppTheme.fhTextPrimary, 
+                  fontSize: 12, 
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               log.aiFeedback.isNotEmpty ? log.aiFeedback : "No feedback recorded.",

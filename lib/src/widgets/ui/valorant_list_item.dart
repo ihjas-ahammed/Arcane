@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
 
 class ValorantListItem extends StatelessWidget {
   final String title;
@@ -9,6 +10,8 @@ class ValorantListItem extends StatelessWidget {
   final VoidCallback? onToggle;
   final VoidCallback? onDelete;
   final bool isCompact;
+  final String? linkedLabel;
+  final VoidCallback? onUnlink;
 
   const ValorantListItem({
     super.key,
@@ -18,6 +21,8 @@ class ValorantListItem extends StatelessWidget {
     this.onToggle,
     this.onDelete,
     this.isCompact = false,
+    this.linkedLabel,
+    this.onUnlink,
   });
 
   @override
@@ -64,12 +69,23 @@ class ValorantListItem extends StatelessWidget {
                     letterSpacing: 0.5,
                   ),
                 ),
+                if (linkedLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: LinkedTaskIndicator(
+                      label: linkedLabel!,
+                      onUnlink: onUnlink,
+                    ),
+                  ),
                 if (subtitle != null && subtitle!.isNotEmpty)
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      color: AppTheme.fhTextSecondary,
-                      fontSize: 11,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: AppTheme.fhTextSecondary,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
               ],
