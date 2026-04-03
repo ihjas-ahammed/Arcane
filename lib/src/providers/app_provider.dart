@@ -128,7 +128,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         if (localData != null) {
           loadStateFromMap(localData);
         } else {
+          // FIX: Auto load from cloud if local state is missing (Fixes web resets)
           await _resetToInitialState();
+          await manuallyLoadFromCloud();
         }
         setAuthLoading(false); 
       }

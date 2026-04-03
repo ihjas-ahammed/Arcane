@@ -15,7 +15,6 @@ class ScheduleHeroWidget extends StatelessWidget {
   
   final VoidCallback onPlayPause;
   final VoidCallback onOpenPlan;
-  final VoidCallback onPostpone;
   final VoidCallback onFinishCheckpoint;
   final VoidCallback onFinishSubTask;
   final VoidCallback onTitleTap;
@@ -29,7 +28,6 @@ class ScheduleHeroWidget extends StatelessWidget {
     required this.totalTodaySeconds,
     required this.onPlayPause,
     required this.onOpenPlan,
-    required this.onPostpone,
     required this.onFinishCheckpoint,
     required this.onFinishSubTask,
     required this.onTitleTap,
@@ -194,14 +192,6 @@ class ScheduleHeroWidget extends StatelessWidget {
                           isFilled: false,
                           onTap: onFinishCheckpoint
                         ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: PersonInfoTheme.spideyRed,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
                       ] else ...[
                         _buildCompactButton(
                           label: isRunning ? "HALT" : "ENGAGE",
@@ -217,14 +207,6 @@ class ScheduleHeroWidget extends StatelessWidget {
                           color: mainColor,
                           isFilled: false,
                           onTap: onFinishSubTask
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: AppTheme.fhTextSecondary,
-                          isFilled: false,
-                          onTap: onPostpone
                         ),
                       ]
                     ],

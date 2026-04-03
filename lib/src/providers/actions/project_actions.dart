@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
@@ -132,6 +133,60 @@ class ProjectActions {
 
       if (taskUpdated) {
         return task.copyWith(projects: updatedProjects);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Transformation ---
+
+  void upgradeSubtaskToProject(String mainTaskId, SubTask subTask) {
+    // 1. Map Checkpoints to ProjectSteps
+    ProjectStep mapCheckpoint(SubSubTask sss) {
+      return ProjectStep(
+        id: sss.id,
+        title: sss.name,
+        description: sss.why,
+        isCompleted: sss.completed,
+        substeps: sss.substeps.map(mapCheckpoint).toList(),
+        createdAt: DateTime.now(),
+      );
+    }
+
+    final steps = subTask.subSubTasks.map(mapCheckpoint).toList();
+
+    // 2. Create Project
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: subTask.name,
+      description: subTask.description,
+      linkedMainTaskId: mainTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
+      createdAt: subTask.createdAt,
+      steps: steps,
+    );
+
+    // 3. Add Initial Snapshot based on existing subtask time
+    if (subTask.currentTimeSpent > 0) {
+      newProject.snapshots.add(ProjectSnapshot(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        totalSecondsInvested: subTask.currentTimeSpent,
+        progress: newProject.calculateProgress(),
+        note: "Initial legacy mission state imported.",
+      ));
+    }
+
+    // 4. Update MainTasks: Add project and remove the subtask
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.where((s) => s.id != subTask.id).toList(),
+          projects: [...task.projects, newProject],
+        );
       }
       return task;
     }).toList();

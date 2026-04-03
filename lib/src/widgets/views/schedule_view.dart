@@ -407,12 +407,6 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
             }
           },
-          onPostpone: () {
-            if (nextQueueId != null) {
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
-            }
-          },
           onFinishCheckpoint: () {
             if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
               provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);

@@ -17,7 +17,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Missions',
+      title: 'Primus',
       builder: (context, child) {
         // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
         return Container(
