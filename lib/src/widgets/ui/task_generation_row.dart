@@ -63,6 +63,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
   @override
   Widget build(BuildContext context) {
     final availableParents = _getAvailableParents();
+    final filteredMissions = widget.availableMissions.where((t) => !t.isDeleted).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -129,7 +130,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
                 fillColor: AppTheme.fhBgMedium,
                 border: const OutlineInputBorder(),
               ),
-              items: widget.availableMissions.map((m) {
+              items: filteredMissions.map((m) {
                 return DropdownMenuItem(
                   value: m.id,
                   child: Text(m.name,

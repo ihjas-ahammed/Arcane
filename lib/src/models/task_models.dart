@@ -43,6 +43,7 @@ class MainTask {
   int dailyTimeSpent;
   String? lastWorkedDate;
   bool isActive; 
+  bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -56,6 +57,7 @@ class MainTask {
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
     this.isActive = true,
+    this.isDeleted = false,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -72,6 +74,7 @@ class MainTask {
     int? dailyTimeSpent,
     String? lastWorkedDate,
     bool? isActive,
+    bool? isDeleted,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -85,6 +88,7 @@ class MainTask {
       dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
       lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
       isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
@@ -116,6 +120,7 @@ class MainTask {
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
       isActive: json['isActive'] as bool? ?? true,
+      isDeleted: json['isDeleted'] as bool? ?? false,
       weeklyCompletionStatus:
           weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
       subTasks: (json['subTasks'] as List<dynamic>?)
@@ -140,6 +145,7 @@ class MainTask {
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
       'isActive': isActive,
+      'isDeleted': isDeleted,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
       'projects': projects.map((p) => p.toJson()).toList(),
@@ -177,6 +183,7 @@ class SubTask {
   DateTime createdAt;
   DateTime updatedAt;
   bool isActive; 
+  bool isDeleted; // Added soft delete
 
   SubTask({
     required this.id,
@@ -198,6 +205,7 @@ class SubTask {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.isActive = true,
+    this.isDeleted = false,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         createdAt = createdAt ?? DateTime.now(),
@@ -223,6 +231,7 @@ class SubTask {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    bool? isDeleted,
   }) {
     return SubTask(
       id: id ?? this.id,
@@ -244,6 +253,7 @@ class SubTask {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
@@ -272,6 +282,7 @@ class SubTask {
           ? DateTime.parse(json['updatedAt'] as String) 
           : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
+      isDeleted: json['isDeleted'] as bool? ?? false,
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -304,6 +315,7 @@ class SubTask {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isActive': isActive,
+      'isDeleted': isDeleted,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };

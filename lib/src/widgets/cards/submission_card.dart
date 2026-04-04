@@ -81,34 +81,37 @@ class SubmissionCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Dismissible(
         key: ValueKey("subtask_${currentSubTask.id}"),
+        direction: DismissDirection.horizontal,
         background: _buildSwipeAction(
           alignment: Alignment.centerLeft,
-          color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
-          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
-          label: isCompleted ? "RESTORE" : "COMPLETE",
-        ),
-        secondaryBackground: _buildSwipeAction(
-          alignment: Alignment.centerRight,
           color: AppTheme.fhAccentRed,
           icon: Icons.delete_forever,
           label: "DELETE",
         ),
+        secondaryBackground: _buildSwipeAction(
+          alignment: Alignment.centerRight,
+          color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhAccentGreen,
+          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
+          label: isCompleted ? "RESTORE" : "COMPLETE",
+        ),
         confirmDismiss: (direction) async {
-          if (direction == DismissDirection.endToStart) {
-            return await _showDeleteConfirm(context);
-          } else {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
-              return false; 
-            } else {
-              provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
-              return false; 
-            }
+          if (direction == DismissDirection.startToEnd) {
+             // Slide right -> Delete
+             return await _showDeleteConfirm(context);
+          } else if (direction == DismissDirection.endToStart) {
+             // Slide left -> Complete / Restore
+             if (isCompleted) {
+               provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
+             } else {
+               provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
+             }
+             return false; // bounce back
           }
+          return false;
         },
         onDismissed: (direction) {
-          if (direction == DismissDirection.endToStart) {
-            provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
+          if (direction == DismissDirection.startToEnd) {
+             provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
           }
         },
         child: GestureDetector(

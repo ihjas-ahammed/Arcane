@@ -59,7 +59,8 @@ class _ChangeAgentSheetState extends State<ChangeAgentSheet> {
               ValorantDropdown<String>(
                 label: "DESTINATION AGENT",
                 value: _selectedAgentId,
-                items: provider.mainTasks.map((t) {
+                // Filter out deleted tasks
+                items: provider.mainTasks.where((t) => !t.isDeleted).map((t) {
                   return DropdownMenuItem(
                     value: t.id,
                     child: Text(t.name.toUpperCase()),

@@ -92,6 +92,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     // 1. Process standard recorded sessions
+    // We explicitly DON'T filter deleted tasks here because we want historical records to remain intact!
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
@@ -165,7 +166,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       builder: (ctx) => FractionallySizedBox(
         heightFactor: 0.85,
         child: ProtocolControlPanel(
-          protocols: provider.mainTasks,
+          protocols: provider.mainTasks.where((t) => !t.isDeleted).toList(),
           selectedProtocolId: provider.selectedTaskId,
           onSelect: (id) => provider.setSelectedTaskId(id),
           onAdd: () => _showAddProtocolDialog(context, provider),
@@ -233,6 +234,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     showDialog(
       context: context,
       builder: (ctx) {
+        final validTasks = provider.mainTasks.where((t) => !t.isDeleted).toList();
         return AlertDialog(
           backgroundColor: AppTheme.fhBgMedium,
           title: const Text("SELECT MISSION"),
@@ -240,10 +242,10 @@ class _ScheduleViewState extends State<ScheduleView> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: provider.mainTasks.length,
+              itemCount: validTasks.length,
               itemBuilder: (context, index) {
-                final task = provider.mainTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                final task = validTasks[index];
+                final activeSubtasks = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
                 if (activeSubtasks.isEmpty) return const SizedBox.shrink();
 
                 return ExpansionTile(
@@ -356,8 +358,8 @@ class _ScheduleViewState extends State<ScheduleView> {
     for (String idPair in plan) {
       final parts = idPair.split('|');
       if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
         
         if (sTask != null && !sTask.completed) {
           if (parts.length == 3) {

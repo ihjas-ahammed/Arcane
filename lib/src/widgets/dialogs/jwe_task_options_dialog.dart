@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -69,6 +70,23 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              
+              OutlinedButton.icon(
+                icon: Icon(MdiIcons.pencilOutline, size: 18),
+                label: const Text("EDIT PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.textWhite,
+                  side: const BorderSide(color: JweTheme.border),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(context: context, builder: (_) => AddEditProtocolDialog(task: task));
+                },
+              ),
+              const SizedBox(height: 12),
+
               OutlinedButton.icon(
                 icon: Icon(isActive ? MdiIcons.pauseOctagonOutline : MdiIcons.playCircleOutline, size: 18),
                 label: Text(isActive ? "SUSPEND PROTOCOL" : "REACTIVATE PROTOCOL"),
@@ -84,10 +102,46 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+                icon: Icon(MdiIcons.deleteOutline, size: 18),
+                label: const Text("DELETE PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.accentRed,
+                  side: const BorderSide(color: JweTheme.accentRed),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: JweTheme.panel,
+                      title: Text("DELETE PROTOCOL?", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold)),
+                      content: const Text("This action cannot be undone and will delete all nested missions.", style: TextStyle(color: JweTheme.textMuted)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text("DELETE")
+                        )
+                      ],
+                    )
+                  );
+                  
+                  if (confirm == true && context.mounted) {
+                    provider.taskActions.deleteMainTask(task.id);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 24),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: JweTheme.textMuted,
-                  side: const BorderSide(color: JweTheme.border),
+                  side: const BorderSide(color: Colors.transparent),
                   shape: const BeveledRectangleBorder(),
                 ),
                 onPressed: () => Navigator.pop(context),

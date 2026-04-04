@@ -180,16 +180,15 @@ class StorageService {
   Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
     if (userId.isEmpty) return {};
     try {
-      final now = DateTime.now();
       final Map<String, Map<String, dynamic>> result = {};
-      final cutoffDate = now.subtract(Duration(days: days));
-      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
 
+      // FIX: Changed to order by documentId and limit, avoiding the invalid argument error for inequality queries
       final snap = await _firestore
           .collection(_userCollection)
           .doc(userId)
           .collection('daily')
-          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .orderBy(FieldPath.documentId, descending: true)
+          .limit(days)
           .get();
 
       for (var doc in snap.docs) {

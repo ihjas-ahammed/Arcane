@@ -3154,7 +3154,7 @@ flutter {
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="Primus"
+            android:label="Missions"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
@@ -3927,7 +3927,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Primus',
+      title: 'Missions',
       builder: (context, child) {
         // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
         return Container(
@@ -5960,7 +5960,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         if (localData != null) {
           loadStateFromMap(localData);
         } else {
+          // FIX: Auto load from cloud if local state is missing (Fixes web resets)
           await _resetToInitialState();
+          await manuallyLoadFromCloud();
         }
         setAuthLoading(false); 
       }
@@ -7467,6 +7469,7 @@ class JournalingActions {
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
@@ -7598,6 +7601,60 @@ class ProjectActions {
 
       if (taskUpdated) {
         return task.copyWith(projects: updatedProjects);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Transformation ---
+
+  void upgradeSubtaskToProject(String mainTaskId, SubTask subTask) {
+    // 1. Map Checkpoints to ProjectSteps
+    ProjectStep mapCheckpoint(SubSubTask sss) {
+      return ProjectStep(
+        id: sss.id,
+        title: sss.name,
+        description: sss.why,
+        isCompleted: sss.completed,
+        substeps: sss.substeps.map(mapCheckpoint).toList(),
+        createdAt: DateTime.now(),
+      );
+    }
+
+    final steps = subTask.subSubTasks.map(mapCheckpoint).toList();
+
+    // 2. Create Project
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: subTask.name,
+      description: subTask.description,
+      linkedMainTaskId: mainTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
+      createdAt: subTask.createdAt,
+      steps: steps,
+    );
+
+    // 3. Add Initial Snapshot based on existing subtask time
+    if (subTask.currentTimeSpent > 0) {
+      newProject.snapshots.add(ProjectSnapshot(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        totalSecondsInvested: subTask.currentTimeSpent,
+        progress: newProject.calculateProgress(),
+        note: "Initial legacy mission state imported.",
+      ));
+    }
+
+    // 4. Update MainTasks: Add project and remove the subtask
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.where((s) => s.id != subTask.id).toList(),
+          projects: [...task.projects, newProject],
+        );
       }
       return task;
     }).toList();
@@ -7812,6 +7869,97 @@ class ProjectActions {
     for (var s in steps) {
       _deleteStepRecursive(s.substeps, stepId);
     }
+  }
+
+  void duplicateStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _duplicateStepRecursive(project.steps, stepId);
+    });
+  }
+
+  bool _duplicateStepRecursive(List<ProjectStep> steps, String targetId) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == targetId) {
+        final cloned = _deepCloneStep(steps[i], suffix: "(Copy)");
+        steps.insert(i + 1, cloned);
+        return true;
+      }
+      if (_duplicateStepRecursive(steps[i].substeps, targetId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  ProjectStep _deepCloneStep(ProjectStep original, {String? suffix}) {
+    return ProjectStep(
+      id: const Uuid().v4(),
+      title: suffix != null ? "${original.title} $suffix" : original.title,
+      description: original.description,
+      isCompleted: false,
+      createdAt: DateTime.now(),
+      substeps: original.substeps.map((s) => _deepCloneStep(s)).toList(),
+    );
+  }
+
+  void moveStepRelative(String mainTaskId, String projectId, String draggedId, String targetId, String position) {
+    if (draggedId == targetId) return;
+
+    _performStepAction(mainTaskId, projectId, (project) {
+      bool isDescendant(List<ProjectStep> list) {
+        for (var node in list) {
+           if (node.id == targetId) return true;
+           if (isDescendant(node.substeps)) return true;
+        }
+        return false;
+      }
+
+      ProjectStep? draggedNodeRaw;
+      void findDragged(List<ProjectStep> list) {
+        for (var node in list) {
+          if (node.id == draggedId) draggedNodeRaw = node;
+          findDragged(node.substeps);
+        }
+      }
+      findDragged(project.steps);
+
+      if (draggedNodeRaw != null && (position == 'inside' || position == 'before' || position == 'after') && isDescendant(draggedNodeRaw!.substeps)) {
+        return; // Prevent paradox
+      }
+
+      ProjectStep? detachedNode;
+      bool extractNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == draggedId) {
+               detachedNode = list.removeAt(i);
+               return true;
+            }
+            if (extractNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      extractNode(project.steps);
+
+      if (detachedNode == null) return;
+
+      bool insertNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == targetId) {
+               if (position == 'inside') {
+                  list[i].substeps.add(detachedNode!);
+               } else if (position == 'before') {
+                  list.insert(i, detachedNode!);
+               } else if (position == 'after') {
+                  list.insert(i + 1, detachedNode!);
+               }
+               return true;
+            }
+            if (insertNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      insertNode(project.steps);
+    });
   }
 
   void addSubstep(String mainTaskId, String projectId, String parentStepId,
@@ -9014,6 +9162,14 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void deleteMainTask(String id) {
+    final newTasks = _provider.mainTasks.where((t) => t.id != id).toList();
+    _provider.setProviderState(mainTasks: newTasks);
+    if (_provider.selectedTaskId == id) {
+      _provider.setSelectedTaskId(newTasks.isNotEmpty ? newTasks.first.id : null);
+    }
   }
 
   // --- Utility ---
@@ -10963,7 +11119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Icon(MdiIcons.triangleOutline, size: 64, color: AppTheme.fhAccentRed),
                       const SizedBox(height: 16),
                       const Text(
-                        'PRIMUS',
+                        'AUTHORIZE',
                         style: TextStyle(
                           color: AppTheme.fhTextPrimary,
                           fontFamily: AppTheme.fontDisplay,
@@ -11658,6 +11814,7 @@ import 'package:arcane/src/widgets/ui/project_graph_section.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:arcane/src/widgets/items/draggable_step_wrapper.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11854,25 +12011,19 @@ class ProjectDetailScreen extends StatelessWidget {
                       ),
                     )
                   else
-                    ReorderableListView.builder(
+                    ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: currentProject.steps.length,
-                      onReorder: (oldIndex, newIndex) {
-                        provider.projectActions.reorderRootSteps(
-                            mainTaskId, currentProject.id, oldIndex, newIndex);
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          color: Colors.transparent,
-                          child: child,
-                        );
-                      },
                       itemBuilder: (context, index) {
                         final step = currentProject.steps[index];
-                        return KeyedSubtree(
-                          key: ValueKey(step.id),
+                        return DraggableStepWrapper(
+                          stepId: step.id,
+                          onMove: (draggedId, targetId, pos) {
+                            provider.projectActions.moveStepRelative(mainTaskId, currentProject.id, draggedId, targetId, pos);
+                          },
                           child: ProjectStepListTile(
+                            key: ValueKey(step.id),
                             step: step,
                             mainTaskId: mainTaskId,
                             projectId: currentProject.id,
@@ -12179,6 +12330,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
+import 'package:arcane/src/widgets/items/draggable_step_wrapper.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -12237,7 +12390,6 @@ class StepDetailScreen extends StatelessWidget {
         ),
         title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
         actions: [
-          // Removed the broken Link Button
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
             onPressed: () async {
@@ -12263,7 +12415,6 @@ class StepDetailScreen extends StatelessWidget {
             icon: Icon(MdiIcons.deleteOutline,
                 size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
-              // Confirm Delete
               showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -12282,8 +12433,8 @@ class StepDetailScreen extends StatelessWidget {
                               onPressed: () {
                                 provider.projectActions.deleteStep(
                                     mainTaskId, projectId, currentStep.id);
-                                Navigator.pop(ctx); // Close dialog
-                                Navigator.pop(context); // Close screen
+                                Navigator.pop(ctx); 
+                                Navigator.pop(context); 
                               },
                               child: const Text("Delete"))
                         ],
@@ -12428,29 +12579,21 @@ class StepDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ReorderableListView.builder(
+              ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
-                      currentStep.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                    child: child,
-                  );
-                },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
                   final displayPrefix = "$stepNumber.${index + 1}";
 
-                  return KeyedSubtree(
-                    key: ValueKey(substep.id),
+                  return DraggableStepWrapper(
+                    stepId: substep.id,
+                    onMove: (draggedId, targetId, pos) {
+                      provider.projectActions.moveStepRelative(mainTaskId, projectId, draggedId, targetId, pos);
+                    },
                     child: ProjectStepListTile(
+                      key: ValueKey(substep.id),
                       step: substep,
                       mainTaskId: mainTaskId,
                       projectId: projectId,
@@ -16309,6 +16452,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Top-level function for isolate
 String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
@@ -16322,6 +16466,12 @@ class LocalStorageService {
 
   Future<void> saveState(String userId, Map<String, dynamic> state) async {
     try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final jsonString = jsonEncode(state);
+        await prefs.setString('arcane_local_cache_$userId', jsonString);
+        return;
+      }
       final file = await _localFile(userId);
       // Offload heavy JSON serialization to a background isolate
       final jsonString = await compute(_encodeJson, state);
@@ -16333,6 +16483,12 @@ class LocalStorageService {
 
   Future<Map<String, dynamic>?> loadState(String userId) async {
     try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final contents = prefs.getString('arcane_local_cache_$userId');
+        if (contents == null || contents.isEmpty) return null;
+        return jsonDecode(contents);
+      }
       final file = await _localFile(userId);
       if (await file.exists()) {
         final contents = await file.readAsString();
@@ -16348,6 +16504,11 @@ class LocalStorageService {
 
   Future<void> clearState(String userId) async {
     try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('arcane_local_cache_$userId');
+        return;
+      }
       final file = await _localFile(userId);
       if (await file.exists()) {
         await file.delete();
@@ -17752,11 +17913,12 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/jwe_drawer_protocol_item.dart';
 import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
-import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -17766,11 +17928,6 @@ class TaskNavigationDrawer extends StatefulWidget {
 }
 
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
-  final _newTaskNameController = TextEditingController();
-  final _newTaskDescController = TextEditingController();
-
-  String _dialogSelectedTheme = 'tech';
-  String _dialogSelectedColorHex = AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
 
   final List<Map<String, dynamic>> _availableThemes = [
     {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
@@ -17787,125 +17944,16 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
-  Color _getColorForTheme(String themeName) {
-    return _availableThemes.firstWhere((t) => t['name'] == themeName,
-        orElse: () => {'color': AppTheme.fhAccentTealFixed})['color'] as Color;
-  }
-
   IconData _getThemeIcon(String? themeName) {
     return _availableThemes.firstWhere((t) => t['name'] == themeName,
         orElse: () => _availableThemes.last)['icon'] as IconData;
   }
 
-  @override
-  void dispose() {
-    _newTaskNameController.dispose();
-    _newTaskDescController.dispose();
-    super.dispose();
-  }
-
-  void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
-    _newTaskNameController.clear();
-    _newTaskDescController.clear();
-    _dialogSelectedTheme = 'tech';
-    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
-
+  void _showAddTaskDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setStateDialog) {
-          final currentColor = Color(int.parse("0xFF$_dialogSelectedColorHex"));
-
-          return AlertDialog(
-            backgroundColor: JweTheme.panel,
-            shape: Border.all(color: JweTheme.accentCyan, width: 2),
-            title: Text('NEW AGENT', style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  TextField(
-                    controller: _newTaskNameController, 
-                    style: const TextStyle(color: JweTheme.textWhite),
-                    decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _newTaskDescController, 
-                    maxLines: 2,
-                    style: const TextStyle(color: JweTheme.textWhite),
-                    decoration: const InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
-                    dropdownColor: JweTheme.panel,
-                    value: _dialogSelectedTheme,
-                    items: _availableThemes.map((themeMap) => DropdownMenuItem(
-                      value: themeMap['name'] as String,
-                      child: Text((themeMap['name'] as String).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold))
-                    )).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setStateDialog(() {
-                          _dialogSelectedTheme = val;
-                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  const Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => ColorSelectorDialog(
-                          selectedColor: currentColor,
-                          onColorSelected: (color) {
-                            setStateDialog(() {
-                              _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
-                            });
-                          },
-                        ),
-                      );
-                    },
-                    child: Container(
-                      height: 40,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: currentColor,
-                        border: Border.all(color: JweTheme.border),
-                      ),
-                      child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
-                    ),
-                  )
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(dialogContext)),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
-                onPressed: () {
-                  if (_newTaskNameController.text.isNotEmpty) {
-                    appProvider.addMainTask(
-                      name: _newTaskNameController.text,
-                      description: _newTaskDescController.text,
-                      theme: _dialogSelectedTheme,
-                      colorHex: _dialogSelectedColorHex,
-                    );
-                    Navigator.pop(dialogContext);
-                  }
-                },
-                child: const Text('INITIALIZE', style: TextStyle(fontWeight: FontWeight.bold)),
-              )
-            ],
-          );
-        });
+        return const AddEditProtocolDialog();
       },
     );
   }
@@ -18018,7 +18066,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 shape: const BeveledRectangleBorder(),
                 padding: const EdgeInsets.symmetric(vertical: 16)
               ),
-              onPressed: () => _showAddTaskDialog(context, appProvider),
+              onPressed: () => _showAddTaskDialog(context),
             ),
           )
         ],
@@ -20220,34 +20268,37 @@ class SubmissionCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Dismissible(
         key: ValueKey("subtask_${currentSubTask.id}"),
+        direction: DismissDirection.horizontal,
         background: _buildSwipeAction(
           alignment: Alignment.centerLeft,
-          color: isCompleted ? AppTheme.fhAccentTeal : AppTheme.fhAccentGreen,
-          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
-          label: isCompleted ? "RESTORE" : "COMPLETE",
-        ),
-        secondaryBackground: _buildSwipeAction(
-          alignment: Alignment.centerRight,
           color: AppTheme.fhAccentRed,
           icon: Icons.delete_forever,
           label: "DELETE",
         ),
+        secondaryBackground: _buildSwipeAction(
+          alignment: Alignment.centerRight,
+          color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhAccentGreen,
+          icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
+          label: isCompleted ? "RESTORE" : "COMPLETE",
+        ),
         confirmDismiss: (direction) async {
-          if (direction == DismissDirection.endToStart) {
-            return await _showDeleteConfirm(context);
-          } else {
-            if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
-              return false; 
-            } else {
-              provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
-              return false; 
-            }
+          if (direction == DismissDirection.startToEnd) {
+             // Slide right -> Delete
+             return await _showDeleteConfirm(context);
+          } else if (direction == DismissDirection.endToStart) {
+             // Slide left -> Complete / Restore
+             if (isCompleted) {
+               provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
+             } else {
+               provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
+             }
+             return false; // bounce back
           }
+          return false;
         },
         onDismissed: (direction) {
-          if (direction == DismissDirection.endToStart) {
-            provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
+          if (direction == DismissDirection.startToEnd) {
+             provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
           }
         },
         child: GestureDetector(
@@ -21786,6 +21837,177 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
 }
 --- END OF FILE lib/src/widgets/dialogs/add_category_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/add_edit_protocol_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+import 'package:arcane/src/models/task_models.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+
+class AddEditProtocolDialog extends StatefulWidget {
+  final MainTask? task;
+
+  const AddEditProtocolDialog({super.key, this.task});
+
+  @override
+  State<AddEditProtocolDialog> createState() => _AddEditProtocolDialogState();
+}
+
+class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
+  late TextEditingController _nameController;
+  late TextEditingController _descController;
+  late String _selectedTheme;
+  late String _selectedColorHex;
+
+  final List<Map<String, dynamic>> _availableThemes = [
+    {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
+    {'name': 'knowledge', 'icon': MdiIcons.bookOpenPageVariantOutline, 'color': AppTheme.fhAccentPurple},
+    {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
+    {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
+    {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
+    {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
+  ];
+
+  Color _getColorForTheme(String themeName) {
+    return _availableThemes.firstWhere((t) => t['name'] == themeName,
+        orElse: () => {'color': AppTheme.fhAccentTealFixed})['color'] as Color;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.task?.name ?? '');
+    _descController = TextEditingController(text: widget.task?.description ?? '');
+    _selectedTheme = widget.task?.theme ?? 'tech';
+    _selectedColorHex = widget.task?.colorHex ?? _getColorForTheme(_selectedTheme).value.toRadixString(16).toUpperCase().substring(2);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentColor = Color(int.parse("0xFF$_selectedColorHex"));
+    final isEditing = widget.task != null;
+
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: Border.all(color: JweTheme.accentCyan, width: 2),
+      title: Text(isEditing ? 'EDIT PROTOCOL' : 'NEW PROTOCOL', style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            TextField(
+              controller: _nameController, 
+              style: const TextStyle(color: JweTheme.textWhite),
+              decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descController, 
+              maxLines: 2,
+              style: const TextStyle(color: JweTheme.textWhite),
+              decoration: const InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
+              dropdownColor: JweTheme.panel,
+              value: _selectedTheme,
+              items: _availableThemes.map((themeMap) => DropdownMenuItem(
+                value: themeMap['name'] as String,
+                child: Text((themeMap['name'] as String).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold))
+              )).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _selectedTheme = val;
+                    // Auto-update color if it hasn't been manually set, or we can just always sync it.
+                    _selectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => ColorSelectorDialog(
+                    selectedColor: currentColor,
+                    onColorSelected: (color) {
+                      setState(() {
+                        _selectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
+                      });
+                    },
+                  ),
+                );
+              },
+              child: Container(
+                height: 40,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: currentColor,
+                  border: Border.all(color: JweTheme.border),
+                ),
+                child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
+              ),
+            )
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(context)),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
+          onPressed: () {
+            if (_nameController.text.isNotEmpty) {
+              final provider = Provider.of<AppProvider>(context, listen: false);
+              if (isEditing) {
+                provider.editMainTask(
+                  widget.task!.id,
+                  name: _nameController.text,
+                  description: _descController.text,
+                  theme: _selectedTheme,
+                  colorHex: _selectedColorHex,
+                );
+              } else {
+                provider.addMainTask(
+                  name: _nameController.text,
+                  description: _descController.text,
+                  theme: _selectedTheme,
+                  colorHex: _selectedColorHex,
+                );
+              }
+              Navigator.pop(context);
+            }
+          },
+          child: Text(isEditing ? 'UPDATE' : 'INITIALIZE', style: const TextStyle(fontWeight: FontWeight.bold)),
+        )
+      ],
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/add_edit_protocol_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/dialogs/add_gratitude_dialog.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/person_info_theme.dart';
@@ -23029,6 +23251,7 @@ import 'package:flutter/material.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -23096,6 +23319,23 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              
+              OutlinedButton.icon(
+                icon: Icon(MdiIcons.pencilOutline, size: 18),
+                label: const Text("EDIT PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.textWhite,
+                  side: const BorderSide(color: JweTheme.border),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(context: context, builder: (_) => AddEditProtocolDialog(task: task));
+                },
+              ),
+              const SizedBox(height: 12),
+
               OutlinedButton.icon(
                 icon: Icon(isActive ? MdiIcons.pauseOctagonOutline : MdiIcons.playCircleOutline, size: 18),
                 label: Text(isActive ? "SUSPEND PROTOCOL" : "REACTIVATE PROTOCOL"),
@@ -23111,10 +23351,46 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+                icon: Icon(MdiIcons.deleteOutline, size: 18),
+                label: const Text("DELETE PROTOCOL"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.accentRed,
+                  side: const BorderSide(color: JweTheme.accentRed),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: JweTheme.panel,
+                      title: Text("DELETE PROTOCOL?", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold)),
+                      content: const Text("This action cannot be undone and will delete all nested missions.", style: TextStyle(color: JweTheme.textMuted)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text("DELETE")
+                        )
+                      ],
+                    )
+                  );
+                  
+                  if (confirm == true && context.mounted) {
+                    provider.taskActions.deleteMainTask(task.id);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 24),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: JweTheme.textMuted,
-                  side: const BorderSide(color: JweTheme.border),
+                  side: const BorderSide(color: Colors.transparent),
                   shape: const BeveledRectangleBorder(),
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -24608,6 +24884,85 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
   }
 }
 --- END OF FILE lib/src/widgets/dialogs/subtask_config_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/upgrade_to_project_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class UpgradeToProjectDialog extends StatelessWidget {
+  final String missionName;
+
+  const UpgradeToProjectDialog({super.key, required this.missionName});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: const BeveledRectangleBorder(side: BorderSide(color: Color(0xFF8A2BE2), width: 2)), // Purple for projects
+      title: Row(
+        children: [
+          Icon(MdiIcons.rocketLaunch, color: const Color(0xFF8A2BE2)),
+          const SizedBox(width: 12),
+          Text(
+            "INITIATE UPGRADE", 
+            style: GoogleFonts.rajdhani(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2.0)
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "You are about to transform '$missionName' into a long-term Project Protocol.",
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          _buildFeatureItem(MdiIcons.history, "Legacy time logs will be preserved in project velocity."),
+          _buildFeatureItem(MdiIcons.fileTree, "All sub-routines will be converted to recursive project steps."),
+          _buildFeatureItem(MdiIcons.deleteSweep, "Original mission entry will be purged after conversion."),
+          const SizedBox(height: 16),
+          const Text(
+            "This operation cannot be reversed.",
+            style: TextStyle(color: JweTheme.accentRed, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("ABORT", style: TextStyle(color: JweTheme.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8A2BE2), 
+            foregroundColor: Colors.white,
+            shape: const BeveledRectangleBorder()
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("EXECUTE TRANSFORMATION", style: TextStyle(fontWeight: FontWeight.bold)),
+        )
+      ],
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: JweTheme.textMuted),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/upgrade_to_project_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/weekly_report_dialog.dart ---
 import 'package:flutter/material.dart';
@@ -27422,112 +27777,159 @@ class _CheckpointItemState extends State<CheckpointItem> {
     final iconColor = isInfo ? color : (_localCompleted ? color : AppTheme.fhTextSecondary);
     final textColor = AppTheme.fhTextPrimary; 
 
-    return GestureDetector(
-      onTap: widget.onTap, 
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(left: BorderSide(color: borderColor, width: 4)),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children:[
-                if (!isInfo)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: RhombusCheckbox(
-                      checked: _localCompleted,
-                      onChanged: (_) => _handleToggle(),
-                      size: CheckboxSize.small,
-                    ),
-                  )
-                else 
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
-                  ),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children:[
-                      Text(
-                        widget.title.toUpperCase(),
-                        style: GoogleFonts.chakraPetch(
-                          color: textColor,
-                          fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
-                          decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
-                          fontSize: 14,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      if (widget.linkedLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: LinkedTaskIndicator(
-                            label: widget.linkedLabel!,
-                            onUnlink: widget.onUnlink,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                
-                if (widget.hasCheckableSubsteps)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Icon(MdiIcons.fileTree, size: 14, color: color),
-                  ),
-
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
-                  color: AppTheme.fhBgDark,
-                  onSelected: (value) {
-                    if (value == 'delete') widget.onDelete();
-                    if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
-                    if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
-                    if (value == 'open' && widget.onTap != null) widget.onTap!();
-                  },
-                  itemBuilder: (context) =>[
-                      PopupMenuItem(
-                      value: 'open',
-                      child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
-                    ),
-                      PopupMenuItem(
-                      value: 'duplicate',
-                      child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
-                    ),
-                    PopupMenuItem(
-                      value: 'toggle_type',
-                      child: Row(children:[
-                        Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
-                        const SizedBox(width: 8), 
-                        Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
-                      ]),
-                    ),
-                      PopupMenuItem(
-                      value: 'delete',
-                      child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
-                    ),
-                  ],
+    return Dismissible(
+      key: widget.key ?? ValueKey("cp_${widget.title}_${widget.hashCode}"),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        color: AppTheme.fhAccentRed,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      secondaryBackground: Container(
+        color: _localCompleted ? AppTheme.fhTextSecondary : AppTheme.fhAccentTeal,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Icon(_localCompleted ? MdiIcons.restore : MdiIcons.check, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Slide right -> Delete
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: AppTheme.fhBgDark,
+              title: const Text("Delete Objective?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+              content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Delete")
                 ),
               ],
-            ),
-            
-            // JWE Progress Bar if it has checkable sub-steps
-            if (widget.hasCheckableSubsteps && !_localCompleted)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: JweProgressBar(
-                  progress: widget.progress,
-                  color: color,
-                  label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
-                ),
+            )
+          );
+          if (confirm == true) {
+            widget.onDelete();
+            return true;
+          }
+          return false;
+        } else if (direction == DismissDirection.endToStart) {
+          // Slide left -> Complete
+          if (!isInfo) _handleToggle();
+          return false; // bounce back
+        }
+        return false;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap, 
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border(left: BorderSide(color: borderColor, width: 4)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children:[
+                  if (!isInfo)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: RhombusCheckbox(
+                        checked: _localCompleted,
+                        onChanged: (_) => _handleToggle(),
+                        size: CheckboxSize.small,
+                      ),
+                    )
+                  else 
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(MdiIcons.informationOutline, size: 18, color: iconColor),
+                    ),
+      
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:[
+                        Text(
+                          widget.title.toUpperCase(),
+                          style: GoogleFonts.chakraPetch(
+                            color: textColor,
+                            fontWeight: isInfo ? FontWeight.w900 : FontWeight.bold,
+                            decoration: (!isInfo && _localCompleted) ? TextDecoration.lineThrough : null,
+                            fontSize: 14,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (widget.linkedLabel != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: LinkedTaskIndicator(
+                              label: widget.linkedLabel!,
+                              onUnlink: widget.onUnlink,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  
+                  if (widget.hasCheckableSubsteps)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Icon(MdiIcons.fileTree, size: 14, color: color),
+                    ),
+      
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+                    color: AppTheme.fhBgDark,
+                    onSelected: (value) {
+                      if (value == 'delete') widget.onDelete();
+                      if (value == 'duplicate' && widget.onDuplicate != null) widget.onDuplicate!();
+                      if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
+                      if (value == 'open' && widget.onTap != null) widget.onTap!();
+                    },
+                    itemBuilder: (context) =>[
+                        PopupMenuItem(
+                        value: 'open',
+                        child: Row(children:[Icon(MdiIcons.arrowRight, size: 16, color: color), const SizedBox(width: 8), Text("Open Details", style: TextStyle(color: color))]),
+                      ),
+                        PopupMenuItem(
+                        value: 'duplicate',
+                        child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                      ),
+                      PopupMenuItem(
+                        value: 'toggle_type',
+                        child: Row(children:[
+                          Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
+                          const SizedBox(width: 8), 
+                          Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                        ]),
+                      ),
+                        PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-          ],
+              
+              // JWE Progress Bar if it has checkable sub-steps
+              if (widget.hasCheckableSubsteps && !_localCompleted)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: JweProgressBar(
+                    progress: widget.progress,
+                    color: color,
+                    label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -27636,6 +28038,102 @@ class _DraggableCheckpointWrapperState extends State<DraggableCheckpointWrapper>
   }
 }
 --- END OF FILE lib/src/widgets/items/draggable_checkpoint_wrapper.dart ---
+
+--- START OF FILE lib/src/widgets/items/draggable_step_wrapper.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/app_theme.dart';
+
+class DraggableStepWrapper extends StatefulWidget {
+  final String stepId;
+  final Widget child;
+  final Function(String draggedId, String targetId, String position) onMove;
+
+  const DraggableStepWrapper({
+    super.key,
+    required this.stepId,
+    required this.child,
+    required this.onMove,
+  });
+
+  @override
+  State<DraggableStepWrapper> createState() => _DraggableStepWrapperState();
+}
+
+class _DraggableStepWrapperState extends State<DraggableStepWrapper> {
+  String? _hoverPosition;
+
+  @override
+  void didUpdateWidget(covariant DraggableStepWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_hoverPosition != null) {
+      _hoverPosition = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LongPressDraggable<String>(
+      data: widget.stepId,
+      delay: const Duration(milliseconds: 250), 
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(
+          opacity: 0.8, 
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width - 60, 
+            child: widget.child
+          )
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: widget.child),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) => details.data != widget.stepId,
+        onAcceptWithDetails: (details) {
+          final pos = _hoverPosition ?? 'inside';
+          setState(() => _hoverPosition = null);
+          widget.onMove(details.data, widget.stepId, pos);
+        },
+        onMove: (details) {
+          final RenderBox? box = context.findRenderObject() as RenderBox?;
+          if (box == null) return;
+          
+          final Offset localOffset = box.globalToLocal(details.offset);
+          final double y = localOffset.dy;
+          final double height = box.size.height;
+          
+          String pos = 'inside';
+          if (y < height * 0.3) {
+            pos = 'before';
+          } else if (y > height * 0.7) {
+            pos = 'after';
+          }
+
+          if (_hoverPosition != pos) {
+            setState(() => _hoverPosition = pos);
+          }
+        },
+        onLeave: (_) {
+          setState(() => _hoverPosition = null);
+        },
+        builder: (context, candidateData, rejectedData) {
+          return Container(
+            decoration: BoxDecoration(
+              border: _hoverPosition == 'before' 
+                  ? const Border(top: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
+                  : _hoverPosition == 'after' 
+                      ? const Border(bottom: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
+                      : _hoverPosition == 'inside' 
+                          ? Border.all(color: AppTheme.fhAccentTeal, width: 2) 
+                          : null,
+            ),
+            child: widget.child,
+          );
+        },
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/items/draggable_step_wrapper.dart ---
 
 --- START OF FILE lib/src/widgets/journaling/person_core_stats.dart ---
 import 'package:flutter/material.dart';
@@ -28305,7 +28803,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 
@@ -28388,15 +28886,12 @@ class ProtocolControlPanel extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        // Color Indicator / Selector
-                        GestureDetector(
-                          onTap: () => _showColorPicker(context, protocol),
-                          child: Container(
-                            width: 16, height: 16,
-                            decoration: BoxDecoration(
-                              color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
-                              border: Border.all(color: Colors.white30),
-                            ),
+                        // Color Indicator
+                        Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
+                            border: Border.all(color: Colors.white30),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -28442,7 +28937,12 @@ class ProtocolControlPanel extends StatelessWidget {
                         // Edit Action
                         IconButton(
                           icon: Icon(MdiIcons.pencilOutline, size: 20, color: AppTheme.fhTextSecondary),
-                          onPressed: () => onEdit(protocol),
+                          onPressed: () {
+                            showDialog(
+                              context: context, 
+                              builder: (_) => AddEditProtocolDialog(task: protocol)
+                            );
+                          },
                         ),
                         
                         if (isSelected)
@@ -28462,24 +28962,12 @@ class ProtocolControlPanel extends StatelessWidget {
               label: "INITIALIZE NEW PROTOCOL",
               icon: MdiIcons.plus,
               isPrimary: true,
-              onPressed: onAdd,
+              onPressed: () {
+                showDialog(context: context, builder: (_) => const AddEditProtocolDialog());
+              },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showColorPicker(BuildContext context, MainTask protocol) {
-    showDialog(
-      context: context,
-      builder: (ctx) => ColorSelectorDialog(
-        selectedColor: protocol.taskColor,
-        onColorSelected: (color) {
-          final hex = color.value.toRadixString(16).toUpperCase().substring(2);
-          final updated = protocol.copyWith(colorHex: hex);
-          onEdit(updated);
-        },
       ),
     );
   }
@@ -28504,7 +28992,6 @@ class ScheduleHeroWidget extends StatelessWidget {
   
   final VoidCallback onPlayPause;
   final VoidCallback onOpenPlan;
-  final VoidCallback onPostpone;
   final VoidCallback onFinishCheckpoint;
   final VoidCallback onFinishSubTask;
   final VoidCallback onTitleTap;
@@ -28518,7 +29005,6 @@ class ScheduleHeroWidget extends StatelessWidget {
     required this.totalTodaySeconds,
     required this.onPlayPause,
     required this.onOpenPlan,
-    required this.onPostpone,
     required this.onFinishCheckpoint,
     required this.onFinishSubTask,
     required this.onTitleTap,
@@ -28683,14 +29169,6 @@ class ScheduleHeroWidget extends StatelessWidget {
                           isFilled: false,
                           onTap: onFinishCheckpoint
                         ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: PersonInfoTheme.spideyRed,
-                          isFilled: false,
-                          onTap: onPostpone
-                        ),
                       ] else ...[
                         _buildCompactButton(
                           label: isRunning ? "HALT" : "ENGAGE",
@@ -28706,14 +29184,6 @@ class ScheduleHeroWidget extends StatelessWidget {
                           color: mainColor,
                           isFilled: false,
                           onTap: onFinishSubTask
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCompactButton(
-                          label: "POSTPONE",
-                          icon: MdiIcons.skipNext,
-                          color: AppTheme.fhTextSecondary,
-                          isFilled: false,
-                          onTap: onPostpone
                         ),
                       ]
                     ],
@@ -29766,6 +30236,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/upgrade_to_project_dialog.dart';
 import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
@@ -30135,33 +30606,59 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                     // --- FOOTER ACTIONS ---
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Row(
-                        children:[
-                          Expanded(
-                            child: ValorantButton(
-                              label: "FINISH",
-                              icon: MdiIcons.contentSave,
-                              color: AppTheme.fhAccentGreen,
-                              onPressed: () {
-                                provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children:[
+                              Expanded(
+                                child: ValorantButton(
+                                  label: "FINISH",
+                                  icon: MdiIcons.contentSave,
+                                  color: AppTheme.fhAccentGreen,
+                                  onPressed: () {
+                                    provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ValorantButton(
+                                  label: "DELETE",
+                                  icon: MdiIcons.deleteOutline,
+                                  color: AppTheme.fhAccentRed,
+                                  isPrimary: false,
+                                  onPressed: () {
+                                    provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ValorantButton(
-                              label: "DELETE",
-                              icon: MdiIcons.deleteOutline,
-                              color: AppTheme.fhAccentRed,
-                              isPrimary: false,
-                              onPressed: () {
-                                provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            icon: Icon(MdiIcons.rocketLaunchOutline, size: 18),
+                            label: Text("UPGRADE TO PROJECT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.fhAccentPurple,
+                              side: const BorderSide(color: AppTheme.fhAccentPurple, width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: const BeveledRectangleBorder()
                             ),
-                          ),
+                            onPressed: () async {
+                               final confirm = await showDialog<bool>(
+                                 context: context,
+                                 builder: (ctx) => UpgradeToProjectDialog(missionName: liveSubTask.name),
+                               );
+                               if (confirm == true) {
+                                 provider.projectActions.upgradeSubtaskToProject(widget.parentTask.id, liveSubTask);
+                                 if (mounted) Navigator.pop(context);
+                               }
+                            },
+                          )
                         ],
                       ),
                     ),
@@ -34087,7 +34584,28 @@ class ProjectStepListTile extends StatelessWidget {
                           ),
                         ),
                        const SizedBox(height: 4),
-                        Icon(MdiIcons.chevronRight, color: JweTheme.textMuted, size: 20),
+                       
+                       PopupMenuButton<String>(
+                         icon: Icon(Icons.more_vert, size: 18, color: JweTheme.textMuted),
+                         color: JweTheme.panel,
+                         onSelected: (val) {
+                           if (val == 'duplicate') {
+                             provider.projectActions.duplicateStep(mainTaskId, projectId, step.id);
+                           } else if (val == 'delete') {
+                             provider.projectActions.deleteStep(mainTaskId, projectId, step.id);
+                           }
+                         },
+                         itemBuilder: (context) => [
+                           PopupMenuItem(
+                             value: 'duplicate',
+                             child: Row(children: [Icon(MdiIcons.contentCopy, size: 16, color: JweTheme.textWhite), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: JweTheme.textWhite))]),
+                           ),
+                           PopupMenuItem(
+                             value: 'delete',
+                             child: Row(children: [Icon(MdiIcons.deleteOutline, size: 16, color: JweTheme.accentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: JweTheme.accentRed))]),
+                           ),
+                         ],
+                       )
                     ],
                   )
                 ],
@@ -37548,17 +38066,6 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.logTimerAndReset(nextSubTask!.id);
             } else {
               provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
-            }
-          },
-          onPostpone: () {
-            if (nextQueueId != null && nextSubTask != null) {
-              // Requirement: Stop task when postponed
-              if (isRunning) {
-                 provider.pauseTimer(nextSubTask!.id);
-                 provider.logTimerAndReset(nextSubTask!.id);
-              }
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
             }
           },
           onFinishCheckpoint: () {

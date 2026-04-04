@@ -5,6 +5,8 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/ui/project_step_list_tile.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
+import 'package:arcane/src/widgets/items/draggable_step_wrapper.dart';
+import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -63,7 +65,6 @@ class StepDetailScreen extends StatelessWidget {
         ),
         title: Text("Step $stepNumber", style: const TextStyle(fontSize: 16)),
         actions: [
-          // Removed the broken Link Button
           IconButton(
             icon: Icon(MdiIcons.pencilOutline, size: 20),
             onPressed: () async {
@@ -89,7 +90,6 @@ class StepDetailScreen extends StatelessWidget {
             icon: Icon(MdiIcons.deleteOutline,
                 size: 20, color: AppTheme.fhAccentRed),
             onPressed: () {
-              // Confirm Delete
               showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -108,8 +108,8 @@ class StepDetailScreen extends StatelessWidget {
                               onPressed: () {
                                 provider.projectActions.deleteStep(
                                     mainTaskId, projectId, currentStep.id);
-                                Navigator.pop(ctx); // Close dialog
-                                Navigator.pop(context); // Close screen
+                                Navigator.pop(ctx); 
+                                Navigator.pop(context); 
                               },
                               child: const Text("Delete"))
                         ],
@@ -254,29 +254,21 @@ class StepDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              ReorderableListView.builder(
+              ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentStep.substeps.length,
-                onReorder: (oldIndex, newIndex) {
-                  provider.projectActions.reorderSubSteps(mainTaskId, projectId,
-                      currentStep.id, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    color: Colors.transparent,
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.5),
-                    child: child,
-                  );
-                },
                 itemBuilder: (context, index) {
                   final substep = currentStep.substeps[index];
                   final displayPrefix = "$stepNumber.${index + 1}";
 
-                  return KeyedSubtree(
-                    key: ValueKey(substep.id),
+                  return DraggableStepWrapper(
+                    stepId: substep.id,
+                    onMove: (draggedId, targetId, pos) {
+                      provider.projectActions.moveStepRelative(mainTaskId, projectId, draggedId, targetId, pos);
+                    },
                     child: ProjectStepListTile(
+                      key: ValueKey(substep.id),
                       step: substep,
                       mainTaskId: mainTaskId,
                       projectId: projectId,

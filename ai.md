@@ -1,16 +1,13 @@
 Make the following changes:
 
-    - Auto load from cloud:
-        When I open the app, if the storage data seems new (reset), try checking if the user have data on database and load it (only if it seems reset) this is to fix app from resetting on web in each run
+    - Fix: the shown error which made the app stuck often
+    - Fix deletion:
+        - It looks like when I delete a subtask or a protocol, their session data is also gone, this cant happen,so save their session logs when I click delete and so still show them in schedule no matter how past it was
+    - Make the system startup overview expandable for privacy
+    
 
-    - Remove postpone button from day planner  (since halt does the same action, we dont need that)
 
 
-    - Upgrade to project:
-        Add an option to upgrade task to project:
-            - the previous time spend will be the projects initial time data
-            - sub routines will turn to substeps
-            - Do this by adding a button below Finish and Delete
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

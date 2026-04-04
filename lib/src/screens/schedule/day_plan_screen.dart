@@ -63,10 +63,10 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
     // Build available list
     List<Widget> availableWidgets = [];
-    final activeTasks = provider.mainTasks.where((t) => t.isActive).toList(); // Only active
+    final activeTasks = provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList(); // Only active, non-deleted
     
     for (var task in activeTasks) {
-      final activeSubs = task.subTasks.where((s) => !s.completed).toList();
+      final activeSubs = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList(); // Filter deleted
       if (activeSubs.isEmpty) continue;
 
       List<Widget> taskWidgets = [];
@@ -186,7 +186,7 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
                             final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
                             final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
                             
-                            if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
+                            if (task == null || sub == null || task.isDeleted || sub.isDeleted) return SizedBox.shrink(key: ValueKey(compId));
 
                             final isCheckpoint = parts.length == 3;
                             String title = sub.name;

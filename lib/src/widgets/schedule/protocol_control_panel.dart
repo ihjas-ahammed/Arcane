@@ -3,7 +3,7 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 
@@ -86,15 +86,12 @@ class ProtocolControlPanel extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        // Color Indicator / Selector
-                        GestureDetector(
-                          onTap: () => _showColorPicker(context, protocol),
-                          child: Container(
-                            width: 16, height: 16,
-                            decoration: BoxDecoration(
-                              color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
-                              border: Border.all(color: Colors.white30),
-                            ),
+                        // Color Indicator
+                        Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
+                            border: Border.all(color: Colors.white30),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -140,7 +137,12 @@ class ProtocolControlPanel extends StatelessWidget {
                         // Edit Action
                         IconButton(
                           icon: Icon(MdiIcons.pencilOutline, size: 20, color: AppTheme.fhTextSecondary),
-                          onPressed: () => onEdit(protocol),
+                          onPressed: () {
+                            showDialog(
+                              context: context, 
+                              builder: (_) => AddEditProtocolDialog(task: protocol)
+                            );
+                          },
                         ),
                         
                         if (isSelected)
@@ -160,24 +162,12 @@ class ProtocolControlPanel extends StatelessWidget {
               label: "INITIALIZE NEW PROTOCOL",
               icon: MdiIcons.plus,
               isPrimary: true,
-              onPressed: onAdd,
+              onPressed: () {
+                showDialog(context: context, builder: (_) => const AddEditProtocolDialog());
+              },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showColorPicker(BuildContext context, MainTask protocol) {
-    showDialog(
-      context: context,
-      builder: (ctx) => ColorSelectorDialog(
-        selectedColor: protocol.taskColor,
-        onColorSelected: (color) {
-          final hex = color.value.toRadixString(16).toUpperCase().substring(2);
-          final updated = protocol.copyWith(colorHex: hex);
-          onEdit(updated);
-        },
       ),
     );
   }

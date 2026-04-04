@@ -403,6 +403,97 @@ class ProjectActions {
     }
   }
 
+  void duplicateStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _duplicateStepRecursive(project.steps, stepId);
+    });
+  }
+
+  bool _duplicateStepRecursive(List<ProjectStep> steps, String targetId) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == targetId) {
+        final cloned = _deepCloneStep(steps[i], suffix: "(Copy)");
+        steps.insert(i + 1, cloned);
+        return true;
+      }
+      if (_duplicateStepRecursive(steps[i].substeps, targetId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  ProjectStep _deepCloneStep(ProjectStep original, {String? suffix}) {
+    return ProjectStep(
+      id: const Uuid().v4(),
+      title: suffix != null ? "${original.title} $suffix" : original.title,
+      description: original.description,
+      isCompleted: false,
+      createdAt: DateTime.now(),
+      substeps: original.substeps.map((s) => _deepCloneStep(s)).toList(),
+    );
+  }
+
+  void moveStepRelative(String mainTaskId, String projectId, String draggedId, String targetId, String position) {
+    if (draggedId == targetId) return;
+
+    _performStepAction(mainTaskId, projectId, (project) {
+      bool isDescendant(List<ProjectStep> list) {
+        for (var node in list) {
+           if (node.id == targetId) return true;
+           if (isDescendant(node.substeps)) return true;
+        }
+        return false;
+      }
+
+      ProjectStep? draggedNodeRaw;
+      void findDragged(List<ProjectStep> list) {
+        for (var node in list) {
+          if (node.id == draggedId) draggedNodeRaw = node;
+          findDragged(node.substeps);
+        }
+      }
+      findDragged(project.steps);
+
+      if (draggedNodeRaw != null && (position == 'inside' || position == 'before' || position == 'after') && isDescendant(draggedNodeRaw!.substeps)) {
+        return; // Prevent paradox
+      }
+
+      ProjectStep? detachedNode;
+      bool extractNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == draggedId) {
+               detachedNode = list.removeAt(i);
+               return true;
+            }
+            if (extractNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      extractNode(project.steps);
+
+      if (detachedNode == null) return;
+
+      bool insertNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == targetId) {
+               if (position == 'inside') {
+                  list[i].substeps.add(detachedNode!);
+               } else if (position == 'before') {
+                  list.insert(i, detachedNode!);
+               } else if (position == 'after') {
+                  list.insert(i + 1, detachedNode!);
+               }
+               return true;
+            }
+            if (insertNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      insertNode(project.steps);
+    });
+  }
+
   void addSubstep(String mainTaskId, String projectId, String parentStepId,
       String title, String description) {
     final newStep = ProjectStep(

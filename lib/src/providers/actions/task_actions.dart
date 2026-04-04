@@ -494,11 +494,12 @@ class TaskActions {
     }
   }
 
+  // FIX: Perform soft deletion to preserve session logs for schedule history
   void deleteSubtask(String mainTaskId, String subtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+          subTasks: task.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: true) : st).toList(),
         );
       }
       return task;
@@ -677,6 +678,16 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // FIX: Soft delete protocol/MainTask
+  void deleteMainTask(String id) {
+    final newTasks = _provider.mainTasks.map((t) => t.id == id ? t.copyWith(isDeleted: true) : t).toList();
+    _provider.setProviderState(mainTasks: newTasks);
+    if (_provider.selectedTaskId == id) {
+      final firstValid = newTasks.firstWhereOrNull((t) => !t.isDeleted);
+      _provider.setSelectedTaskId(firstValid?.id);
+    }
   }
 
   // --- Utility ---
