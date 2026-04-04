@@ -186,7 +186,28 @@ class ProjectStepListTile extends StatelessWidget {
                           ),
                         ),
                        const SizedBox(height: 4),
-                        Icon(MdiIcons.chevronRight, color: JweTheme.textMuted, size: 20),
+                       
+                       PopupMenuButton<String>(
+                         icon: Icon(Icons.more_vert, size: 18, color: JweTheme.textMuted),
+                         color: JweTheme.panel,
+                         onSelected: (val) {
+                           if (val == 'duplicate') {
+                             provider.projectActions.duplicateStep(mainTaskId, projectId, step.id);
+                           } else if (val == 'delete') {
+                             provider.projectActions.deleteStep(mainTaskId, projectId, step.id);
+                           }
+                         },
+                         itemBuilder: (context) => [
+                           PopupMenuItem(
+                             value: 'duplicate',
+                             child: Row(children: [Icon(MdiIcons.contentCopy, size: 16, color: JweTheme.textWhite), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: JweTheme.textWhite))]),
+                           ),
+                           PopupMenuItem(
+                             value: 'delete',
+                             child: Row(children: [Icon(MdiIcons.deleteOutline, size: 16, color: JweTheme.accentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: JweTheme.accentRed))]),
+                           ),
+                         ],
+                       )
                     ],
                   )
                 ],

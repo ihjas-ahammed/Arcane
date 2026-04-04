@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Icon(MdiIcons.triangleOutline, size: 64, color: AppTheme.fhAccentRed),
                       const SizedBox(height: 16),
                       const Text(
-                        'PRIMUS',
+                        'AUTHORIZE',
                         style: TextStyle(
                           color: AppTheme.fhTextPrimary,
                           fontFamily: AppTheme.fontDisplay,

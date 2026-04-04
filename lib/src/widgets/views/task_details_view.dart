@@ -57,18 +57,18 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final task = appProvider.getSelectedTask();
         final theme = Theme.of(context);
 
-        if (task == null) {
+        if (task == null || task.isDeleted) {
           return const Center(child: Text('NO PROTOCOL SELECTED'));
         }
 
         final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
         final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
 
-        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive).toList();
-        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive).toList();
+        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive && !st.isDeleted).toList();
+        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive && !st.isDeleted).toList();
         
-        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
-        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
+        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring && !st.isDeleted).toList();
+        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring && !st.isDeleted).toList();
 
         return RefreshIndicator(
           color: AppTheme.fhAccentTeal,

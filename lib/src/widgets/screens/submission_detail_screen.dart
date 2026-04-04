@@ -7,6 +7,7 @@ import 'package:arcane/src/utils/task_calculations.dart';
 import 'package:arcane/src/widgets/dialogs/subtask_config_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/upgrade_to_project_dialog.dart';
 import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
 import 'package:arcane/src/widgets/ui/active_session_timer_display.dart'; 
 import 'package:arcane/src/widgets/action_plan/action_plan_why_card.dart';
@@ -376,33 +377,59 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                     // --- FOOTER ACTIONS ---
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Row(
-                        children:[
-                          Expanded(
-                            child: ValorantButton(
-                              label: "FINISH",
-                              icon: MdiIcons.contentSave,
-                              color: AppTheme.fhAccentGreen,
-                              onPressed: () {
-                                provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
-                            ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children:[
+                              Expanded(
+                                child: ValorantButton(
+                                  label: "FINISH",
+                                  icon: MdiIcons.contentSave,
+                                  color: AppTheme.fhAccentGreen,
+                                  onPressed: () {
+                                    provider.taskActions.completeSubtask(widget.parentTask.id, liveSubTask!.id);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ValorantButton(
+                                  label: "DELETE",
+                                  icon: MdiIcons.deleteOutline,
+                                  color: AppTheme.fhAccentRed,
+                                  isPrimary: false,
+                                  onPressed: () {
+                                    provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ValorantButton(
-                              label: "DELETE",
-                              icon: MdiIcons.deleteOutline,
-                              color: AppTheme.fhAccentRed,
-                              isPrimary: false,
-                              onPressed: () {
-                                provider.taskActions.deleteSubtask(widget.parentTask.id, liveSubTask!.id);
-                                Navigator.pop(context);
-                              },
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            icon: Icon(MdiIcons.rocketLaunchOutline, size: 18),
+                            label: Text("UPGRADE TO PROJECT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.fhAccentPurple,
+                              side: const BorderSide(color: AppTheme.fhAccentPurple, width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: const BeveledRectangleBorder()
                             ),
-                          ),
+                            onPressed: () async {
+                               final confirm = await showDialog<bool>(
+                                 context: context,
+                                 builder: (ctx) => UpgradeToProjectDialog(missionName: liveSubTask.name),
+                               );
+                               if (confirm == true) {
+                                 provider.projectActions.upgradeSubtaskToProject(widget.parentTask.id, liveSubTask);
+                                 if (mounted) Navigator.pop(context);
+                               }
+                            },
+                          )
                         ],
                       ),
                     ),

@@ -4,11 +4,12 @@ import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/ui/jwe_drawer_protocol_item.dart';
 import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
-import 'package:arcane/src/widgets/dialogs/color_selector_dialog.dart';
 import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
+import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
   const TaskNavigationDrawer({super.key});
@@ -18,11 +19,6 @@ class TaskNavigationDrawer extends StatefulWidget {
 }
 
 class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
-  final _newTaskNameController = TextEditingController();
-  final _newTaskDescController = TextEditingController();
-
-  String _dialogSelectedTheme = 'tech';
-  String _dialogSelectedColorHex = AppTheme.fhAccentTealFixed.value.toRadixString(16).toUpperCase().substring(2);
 
   final List<Map<String, dynamic>> _availableThemes = [
     {'name': 'tech', 'icon': MdiIcons.memory, 'color': AppTheme.fhAccentTealFixed},
@@ -39,125 +35,16 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
     {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
-  Color _getColorForTheme(String themeName) {
-    return _availableThemes.firstWhere((t) => t['name'] == themeName,
-        orElse: () => {'color': AppTheme.fhAccentTealFixed})['color'] as Color;
-  }
-
   IconData _getThemeIcon(String? themeName) {
     return _availableThemes.firstWhere((t) => t['name'] == themeName,
         orElse: () => _availableThemes.last)['icon'] as IconData;
   }
 
-  @override
-  void dispose() {
-    _newTaskNameController.dispose();
-    _newTaskDescController.dispose();
-    super.dispose();
-  }
-
-  void _showAddTaskDialog(BuildContext context, AppProvider appProvider) {
-    _newTaskNameController.clear();
-    _newTaskDescController.clear();
-    _dialogSelectedTheme = 'tech';
-    _dialogSelectedColorHex = _getColorForTheme(_dialogSelectedTheme).value.toRadixString(16).toUpperCase().substring(2);
-
+  void _showAddTaskDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setStateDialog) {
-          final currentColor = Color(int.parse("0xFF$_dialogSelectedColorHex"));
-
-          return AlertDialog(
-            backgroundColor: JweTheme.panel,
-            shape: Border.all(color: JweTheme.accentCyan, width: 2),
-            title: Text('NEW AGENT', style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  TextField(
-                    controller: _newTaskNameController, 
-                    style: const TextStyle(color: JweTheme.textWhite),
-                    decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _newTaskDescController, 
-                    maxLines: 2,
-                    style: const TextStyle(color: JweTheme.textWhite),
-                    decoration: const InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
-                    dropdownColor: JweTheme.panel,
-                    value: _dialogSelectedTheme,
-                    items: _availableThemes.map((themeMap) => DropdownMenuItem(
-                      value: themeMap['name'] as String,
-                      child: Text((themeMap['name'] as String).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold))
-                    )).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setStateDialog(() {
-                          _dialogSelectedTheme = val;
-                          _dialogSelectedColorHex = _getColorForTheme(val).value.toRadixString(16).toUpperCase().substring(2);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  const Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => ColorSelectorDialog(
-                          selectedColor: currentColor,
-                          onColorSelected: (color) {
-                            setStateDialog(() {
-                              _dialogSelectedColorHex = color.value.toRadixString(16).toUpperCase().substring(2);
-                            });
-                          },
-                        ),
-                      );
-                    },
-                    child: Container(
-                      height: 40,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: currentColor,
-                        border: Border.all(color: JweTheme.border),
-                      ),
-                      child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
-                    ),
-                  )
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(dialogContext)),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
-                onPressed: () {
-                  if (_newTaskNameController.text.isNotEmpty) {
-                    appProvider.addMainTask(
-                      name: _newTaskNameController.text,
-                      description: _newTaskDescController.text,
-                      theme: _dialogSelectedTheme,
-                      colorHex: _dialogSelectedColorHex,
-                    );
-                    Navigator.pop(dialogContext);
-                  }
-                },
-                child: const Text('INITIALIZE', style: TextStyle(fontWeight: FontWeight.bold)),
-              )
-            ],
-          );
-        });
+        return const AddEditProtocolDialog();
       },
     );
   }
@@ -166,8 +53,9 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
-    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
-    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    // Filter out soft-deleted tasks
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive && !t.isDeleted).toList();
     
     return Drawer(
       width: 280,
@@ -270,7 +158,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 shape: const BeveledRectangleBorder(),
                 padding: const EdgeInsets.symmetric(vertical: 16)
               ),
-              onPressed: () => _showAddTaskDialog(context, appProvider),
+              onPressed: () => _showAddTaskDialog(context),
             ),
           )
         ],

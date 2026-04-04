@@ -9,6 +9,7 @@ import 'package:arcane/src/widgets/ui/project_graph_section.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart'; 
 import 'package:arcane/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:arcane/src/widgets/items/draggable_step_wrapper.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -205,25 +206,19 @@ class ProjectDetailScreen extends StatelessWidget {
                       ),
                     )
                   else
-                    ReorderableListView.builder(
+                    ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: currentProject.steps.length,
-                      onReorder: (oldIndex, newIndex) {
-                        provider.projectActions.reorderRootSteps(
-                            mainTaskId, currentProject.id, oldIndex, newIndex);
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          color: Colors.transparent,
-                          child: child,
-                        );
-                      },
                       itemBuilder: (context, index) {
                         final step = currentProject.steps[index];
-                        return KeyedSubtree(
-                          key: ValueKey(step.id),
+                        return DraggableStepWrapper(
+                          stepId: step.id,
+                          onMove: (draggedId, targetId, pos) {
+                            provider.projectActions.moveStepRelative(mainTaskId, currentProject.id, draggedId, targetId, pos);
+                          },
                           child: ProjectStepListTile(
+                            key: ValueKey(step.id),
                             step: step,
                             mainTaskId: mainTaskId,
                             projectId: currentProject.id,

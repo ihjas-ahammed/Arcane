@@ -14,6 +14,7 @@ import 'package:arcane/src/screens/more_screen.dart';
 import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,7 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_appProvider.selectedTaskId == null &&
           _appProvider.mainTasks.isNotEmpty) {
-        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
+        // FIX: Ensure default selected task is not soft-deleted
+        final firstValid = _appProvider.mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+        if (firstValid != null) _appProvider.setSelectedTaskId(firstValid.id);
       }
     });
   }

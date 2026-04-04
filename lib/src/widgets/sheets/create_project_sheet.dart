@@ -6,6 +6,7 @@ import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:collection/collection.dart';
 import 'dart:io';
 
 class CreateProjectSheet extends StatefulWidget {
@@ -27,7 +28,7 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.where((t) => !t.isDeleted).firstOrNull?.id;
   }
 
   @override
@@ -97,7 +98,7 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
                 ValorantDropdown<String>(
                   label: "LINK TO MISSION",
                   value: _selectedMainTaskId,
-                  items: provider.mainTasks.map((task) {
+                  items: provider.mainTasks.where((t) => !t.isDeleted).map((task) {
                     return DropdownMenuItem(
                       value: task.id,
                       child: Text(task.name.toUpperCase()),

@@ -5,6 +5,7 @@ import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -45,7 +46,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
     _selectedMainTaskId =
-        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+        provider.selectedTaskId ?? provider.mainTasks.where((t) => !t.isDeleted).firstOrNull?.id;
   }
 
   void _saveCurrentPrompt(AppProvider provider) {
@@ -140,7 +141,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 border: OutlineInputBorder(
                     borderSide: BorderSide(color: AppTheme.fhBorderColor)),
               ),
-              items: provider.mainTasks
+              items: provider.mainTasks.where((t) => !t.isDeleted)
                   .map(
                       (t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase())))
                   .toList(),

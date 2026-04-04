@@ -29,8 +29,10 @@ class DayPlanDashboardWidget extends StatelessWidget {
 
       final mainId = parts[0];
       final subId = parts[1];
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
+      
+      // Filter out soft-deleted tasks
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId && !t.isDeleted);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId && !s.isDeleted);
 
       if (task == null || sub == null) continue;
 

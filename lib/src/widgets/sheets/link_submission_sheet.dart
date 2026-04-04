@@ -90,8 +90,8 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
 
     final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
 
-    // Filter available SubTasks (only incomplete)
-    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed).toList() ?? [];
+    // Filter available SubTasks (only incomplete and non-deleted)
+    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed && !s.isDeleted).toList() ?? [];
 
     List<SubSubTask> availableCheckpoints = [];
     if (_selectedTargetSubTaskId != null) {
@@ -124,7 +124,7 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                         ValorantDropdown<String>(
                           label: "SOURCE MISSION",
                           value: _selectedMainTaskId,
-                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          items: provider.mainTasks.where((t) => !t.isDeleted).map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
                           onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
                         ),
                         const SizedBox(height: 16),
@@ -202,7 +202,7 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                       ValorantDropdown<String>(
                         label: "TARGET MISSION",
                         value: _selectedTargetMainTaskId,
-                        items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                        items: provider.mainTasks.where((t) => !t.isDeleted).map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
                         onChanged: (val) => setState(() {
                           _selectedTargetMainTaskId = val;
                           _selectedTargetSubTaskId = null;

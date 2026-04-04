@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:arcane/src/models/project_models.dart';
+import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
 import 'package:collection/collection.dart';
@@ -132,6 +133,60 @@ class ProjectActions {
 
       if (taskUpdated) {
         return task.copyWith(projects: updatedProjects);
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- Transformation ---
+
+  void upgradeSubtaskToProject(String mainTaskId, SubTask subTask) {
+    // 1. Map Checkpoints to ProjectSteps
+    ProjectStep mapCheckpoint(SubSubTask sss) {
+      return ProjectStep(
+        id: sss.id,
+        title: sss.name,
+        description: sss.why,
+        isCompleted: sss.completed,
+        substeps: sss.substeps.map(mapCheckpoint).toList(),
+        createdAt: DateTime.now(),
+      );
+    }
+
+    final steps = subTask.subSubTasks.map(mapCheckpoint).toList();
+
+    // 2. Create Project
+    final newProject = Project(
+      id: const Uuid().v4(),
+      title: subTask.name,
+      description: subTask.description,
+      linkedMainTaskId: mainTaskId,
+      isActive: true,
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
+      createdAt: subTask.createdAt,
+      steps: steps,
+    );
+
+    // 3. Add Initial Snapshot based on existing subtask time
+    if (subTask.currentTimeSpent > 0) {
+      newProject.snapshots.add(ProjectSnapshot(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        totalSecondsInvested: subTask.currentTimeSpent,
+        progress: newProject.calculateProgress(),
+        note: "Initial legacy mission state imported.",
+      ));
+    }
+
+    // 4. Update MainTasks: Add project and remove the subtask
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.where((s) => s.id != subTask.id).toList(),
+          projects: [...task.projects, newProject],
+        );
       }
       return task;
     }).toList();
@@ -346,6 +401,97 @@ class ProjectActions {
     for (var s in steps) {
       _deleteStepRecursive(s.substeps, stepId);
     }
+  }
+
+  void duplicateStep(String mainTaskId, String projectId, String stepId) {
+    _performStepAction(mainTaskId, projectId, (project) {
+      _duplicateStepRecursive(project.steps, stepId);
+    });
+  }
+
+  bool _duplicateStepRecursive(List<ProjectStep> steps, String targetId) {
+    for (int i = 0; i < steps.length; i++) {
+      if (steps[i].id == targetId) {
+        final cloned = _deepCloneStep(steps[i], suffix: "(Copy)");
+        steps.insert(i + 1, cloned);
+        return true;
+      }
+      if (_duplicateStepRecursive(steps[i].substeps, targetId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  ProjectStep _deepCloneStep(ProjectStep original, {String? suffix}) {
+    return ProjectStep(
+      id: const Uuid().v4(),
+      title: suffix != null ? "${original.title} $suffix" : original.title,
+      description: original.description,
+      isCompleted: false,
+      createdAt: DateTime.now(),
+      substeps: original.substeps.map((s) => _deepCloneStep(s)).toList(),
+    );
+  }
+
+  void moveStepRelative(String mainTaskId, String projectId, String draggedId, String targetId, String position) {
+    if (draggedId == targetId) return;
+
+    _performStepAction(mainTaskId, projectId, (project) {
+      bool isDescendant(List<ProjectStep> list) {
+        for (var node in list) {
+           if (node.id == targetId) return true;
+           if (isDescendant(node.substeps)) return true;
+        }
+        return false;
+      }
+
+      ProjectStep? draggedNodeRaw;
+      void findDragged(List<ProjectStep> list) {
+        for (var node in list) {
+          if (node.id == draggedId) draggedNodeRaw = node;
+          findDragged(node.substeps);
+        }
+      }
+      findDragged(project.steps);
+
+      if (draggedNodeRaw != null && (position == 'inside' || position == 'before' || position == 'after') && isDescendant(draggedNodeRaw!.substeps)) {
+        return; // Prevent paradox
+      }
+
+      ProjectStep? detachedNode;
+      bool extractNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == draggedId) {
+               detachedNode = list.removeAt(i);
+               return true;
+            }
+            if (extractNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      extractNode(project.steps);
+
+      if (detachedNode == null) return;
+
+      bool insertNode(List<ProjectStep> list) {
+         for (int i = 0; i < list.length; i++) {
+            if (list[i].id == targetId) {
+               if (position == 'inside') {
+                  list[i].substeps.add(detachedNode!);
+               } else if (position == 'before') {
+                  list.insert(i, detachedNode!);
+               } else if (position == 'after') {
+                  list.insert(i + 1, detachedNode!);
+               }
+               return true;
+            }
+            if (insertNode(list[i].substeps)) return true;
+         }
+         return false;
+      }
+      insertNode(project.steps);
+    });
   }
 
   void addSubstep(String mainTaskId, String projectId, String parentStepId,

@@ -1,12 +1,13 @@
 Make the following changes:
 
-    - Remove the callsign feature needed by new users
-    - Also add a quick tour of app for new users and in settings add option to do this again:
-        - A new screen just like any other app
-        - Use real elements (widgets we already have) to teach basic working of app
-        - Ask for adding api keys if they dont have (refer to google ai studio)
-        - Start With Why?!
-        - It should be done in slides like a presnetation by end of it user should have an idea how app works and how to use it
+    - Fix: the shown error which made the app stuck often
+    - Fix deletion:
+        - It looks like when I delete a subtask or a protocol, their session data is also gone, this cant happen,so save their session logs when I click delete and so still show them in schedule no matter how past it was
+    - Make the system startup overview expandable for privacy
+    
+
+
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

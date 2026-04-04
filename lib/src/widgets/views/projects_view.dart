@@ -44,6 +44,7 @@ class _ProjectsViewState extends State<ProjectsView> {
     final List<_ProjectViewItem> allProjects = [];
     
     for (var task in provider.mainTasks) {
+      if (task.isDeleted) continue; // Skip deleted tasks
       for (var project in task.projects) {
         allProjects.add(_ProjectViewItem(
           project: project,

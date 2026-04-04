@@ -1,9 +1,9 @@
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/utils/helpers.dart';
 import 'package:arcane/src/utils/time_validation_helper.dart';
 import 'package:arcane/src/utils/task_calculations.dart';
+import 'package:arcane/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
@@ -37,19 +37,11 @@ class TaskActions {
           newNodes.add(updatedNode);
         } else if (action == 'duplicate') {
           newNodes.add(node);
-          final copy = node.copyWith(
-            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_copy_${node.name.hashCode}',
-            name: "${node.name} (Copy)",
-            completed: false,
-            currentCount: 0,
-            completionTimestamp: null,
-            substeps: List.from(node.substeps),
-          );
-          newNodes.add(copy);
+          newNodes.add(_deepCloneCheckpoint(node, suffix: "(Copy)"));
         } else if (action == 'add_child') {
           final data = payload as Map<String, dynamic>;
           final newChild = SubSubTask(
-            id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${data['name']?.hashCode ?? 0}',
+            id: IdGenerator.generateCheckpointId(),
             name: data['name'] as String,
             isCountable: data['isCountable'] as bool? ?? false,
             targetCount: data['isCountable'] as bool? ?? false ? (data['targetCount'] as int? ?? 1) : 0,
@@ -67,6 +59,21 @@ class TaskActions {
       }
     }
     return newNodes;
+  }
+
+  SubSubTask _deepCloneCheckpoint(SubSubTask original, {String? suffix}) {
+    return SubSubTask(
+      id: IdGenerator.generateCheckpointId(),
+      name: suffix != null ? "${original.name} $suffix" : original.name,
+      completed: false,
+      isCountable: original.isCountable,
+      targetCount: original.targetCount,
+      currentCount: 0,
+      type: original.type,
+      why: original.why,
+      what: original.what,
+      substeps: original.substeps.map((s) => _deepCloneCheckpoint(s)).toList(),
+    );
   }
 
   // --- Day Plan Management ---
@@ -87,6 +94,15 @@ class TaskActions {
     }
     newHistory[dateStr]['dailyPlan'] = plan;
     _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  void removeFromDayPlan(String compoundId) {
+    final today = getTodayDateString();
+    final currentPlan = getDayPlan(today);
+    if (currentPlan.contains(compoundId)) {
+      final newPlan = List<String>.from(currentPlan)..remove(compoundId);
+      updateDayPlan(today, newPlan);
+    }
   }
 
   // --- SubSubTask Actions ---
@@ -111,7 +127,7 @@ class TaskActions {
       return "";
     } else {
       final newSubSubtask = SubSubTask(
-        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${subSubtaskData['name']?.hashCode ?? 0}',
+        id: IdGenerator.generateCheckpointId(),
         name: subSubtaskData['name'] as String,
         isCountable: subSubtaskData['isCountable'] as bool? ?? false,
         targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
@@ -333,7 +349,7 @@ class TaskActions {
 
   String addSubtask(String mainTaskId, Map<String, dynamic> subtaskData) {
     final newSubtask = SubTask(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
+      id: IdGenerator.generateSubTaskId(),
       name: subtaskData['name'] as String,
       description: subtaskData['description'] as String? ?? '',
       isCountable: subtaskData['isCountable'] as bool? ?? false,
@@ -478,11 +494,12 @@ class TaskActions {
     }
   }
 
+  // FIX: Perform soft deletion to preserve session logs for schedule history
   void deleteSubtask(String mainTaskId, String subtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+          subTasks: task.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: true) : st).toList(),
         );
       }
       return task;
@@ -500,14 +517,24 @@ class TaskActions {
     SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
     if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
 
-    final newSubtask = subTaskToDuplicate.copyWith(
-      id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${(taskToUpdate.subTasks.length + 1)}',
-      completed: false, currentTimeSpent: 0, completedDate: null, currentCount: 0,
-      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => sss.copyWith(
-        id: 'ssub_${DateTime.now().millisecondsSinceEpoch}_${(subTaskToDuplicate.subSubTasks.length + 1)}_${sss.name.hashCode}',
-        completed: false, currentCount: 0, completionTimestamp: null
-      )).toList(), sessions: [], lastCompletedDate: null,
-      createdAt: DateTime.now(), updatedAt: DateTime.now(), isActive: true,
+    final newSubtask = SubTask(
+      id: IdGenerator.generateSubTaskId(),
+      name: "${subTaskToDuplicate.name} (Copy)",
+      description: subTaskToDuplicate.description,
+      completed: false,
+      currentTimeSpent: 0,
+      isCountable: subTaskToDuplicate.isCountable,
+      targetCount: subTaskToDuplicate.targetCount,
+      currentCount: 0,
+      why: subTaskToDuplicate.why,
+      what: subTaskToDuplicate.what,
+      resources: subTaskToDuplicate.resources,
+      isRecurring: subTaskToDuplicate.isRecurring,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      isActive: true,
+      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => _deepCloneCheckpoint(sss)).toList(),
+      sessions: [],
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -556,7 +583,7 @@ class TaskActions {
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) return false;
 
-    final session = TaskSession(id: 'sess_${DateTime.now().millisecondsSinceEpoch}', startTime: start, endTime: end);
+    final session = TaskSession(id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
     final durationSeconds = session.durationSeconds;
     
     final newMainTasks = _provider.mainTasks.map((task) {
@@ -653,6 +680,16 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // FIX: Soft delete protocol/MainTask
+  void deleteMainTask(String id) {
+    final newTasks = _provider.mainTasks.map((t) => t.id == id ? t.copyWith(isDeleted: true) : t).toList();
+    _provider.setProviderState(mainTasks: newTasks);
+    if (_provider.selectedTaskId == id) {
+      final firstValid = newTasks.firstWhereOrNull((t) => !t.isDeleted);
+      _provider.setSelectedTaskId(firstValid?.id);
+    }
+  }
+
   // --- Utility ---
 
   Future<void> recalibrateTimeLogs({bool silent = false}) async {
@@ -722,7 +759,7 @@ class TaskActions {
 
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) {
     final newTask = MainTask(
-      id: 'mt_${DateTime.now().millisecondsSinceEpoch}',
+      id: IdGenerator.generateMainTaskId(),
       name: name,
       description: description,
       theme: theme,

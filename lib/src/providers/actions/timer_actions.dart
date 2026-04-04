@@ -76,6 +76,11 @@ class TimerActions {
       
       _provider.setProviderState(activeTimers: newActiveTimers);
 
+      // Requirement: Remove from day plan when stopped manually
+      if (timer.type == 'subtask') {
+         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
+      }
+
       if (_provider.settings.autoSaveEnabled) {
         _provider.manuallySaveToCloud();
       }
@@ -93,6 +98,11 @@ class TimerActions {
       newActiveTimers.remove(id);
       
       _provider.setProviderState(activeTimers: newActiveTimers);
+
+      // Requirement: Remove from day plan when stopped manually
+      if (timer.type == 'subtask') {
+         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
+      }
 
       if (_provider.settings.autoSaveEnabled) {
         _provider.manuallySaveToCloud();
