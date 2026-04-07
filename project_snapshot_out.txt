@@ -7472,6 +7472,7 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -7660,6 +7661,56 @@ class ProjectActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+  
+  void downgradeProjectToSubtask(String mainTaskId, Project project) {
+    // 1. Map ProjectSteps back to Checkpoints
+    SubSubTask mapStepToCheckpoint(ProjectStep step) {
+      return SubSubTask(
+        id: IdGenerator.generateCheckpointId(),
+        name: step.title,
+        completed: step.isCompleted,
+        why: step.description,
+        substeps: step.substeps.map((s) => mapStepToCheckpoint(s)).toList(),
+      );
+    }
+
+    final steps = project.steps.map((s) => mapStepToCheckpoint(s)).toList();
+
+    // 2. Create SubTask
+    final newSubtask = SubTask(
+      id: IdGenerator.generateSubTaskId(),
+      name: project.title,
+      description: project.description,
+      subSubTasks: steps,
+      createdAt: project.createdAt,
+      sessions: [], 
+    );
+
+    // 3. Consolidate time
+    final int totalSeconds = project.calculateTotalTimeSeconds(_provider.mainTasks);
+    if (totalSeconds > 0) {
+      newSubtask.sessions.add(TaskSession(
+        id: IdGenerator.generateSessionId(),
+        startTime: DateTime.now().subtract(Duration(seconds: totalSeconds)),
+        endTime: DateTime.now(),
+      ));
+      newSubtask.currentTimeSpent = totalSeconds;
+    }
+
+    // 4. Update MainTasks: Add subtask and remove the project
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          projects: task.projects.where((p) => p.id != project.id).toList(),
+          subTasks: [...task.subTasks, newSubtask],
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _provider.taskActions.recalibrateTimeLogs(silent: true);
   }
 
   // --- Snapshot Management ---
@@ -10877,7 +10928,7 @@ import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/health_dashboard_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/more_screen.dart'; 
@@ -10900,7 +10951,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'SCHEDULE',
-    'PROJECTS',
+    'BIOMETRICS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -10954,8 +11005,8 @@ class _HomeScreenState extends State<HomeScreen> {
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: const HealthDashboardView(),
         ),
       ),
       const LogbookScreen(), 
@@ -11280,6 +11331,7 @@ import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:arcane/src/screens/journaling/someday_list_screen.dart';
 import 'package:arcane/src/screens/settings/habit_control_screen.dart';
+import 'package:arcane/src/screens/projects_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11342,6 +11394,18 @@ class MoreScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                           builder: (context) => const SomedayListScreen()));
+                }),
+
+                _buildMenuTile(context,
+                    icon: MdiIcons.rocketLaunchOutline,
+                    title: "Project Protocols",
+                    subtitle: "Long-term operations and recursive steps",
+                    colorOverride: const Color(0xFF8A2BE2),
+                    onTap: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ProjectsScreen()));
                 }),
 
                 _buildMenuTile(context,
@@ -11801,6 +11865,38 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   }
 }
 --- END OF FILE lib/src/screens/nora_ai_screen.dart ---
+
+--- START OF FILE lib/src/screens/projects_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class ProjectsScreen extends StatelessWidget {
+  const ProjectsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      appBar: AppBar(
+        title: Text("PROJECT PROTOCOLS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+      ),
+      body:  SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 1000),
+            child: ProjectsView()
+          )
+        )
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/projects_screen.dart ---
 
 --- START OF FILE lib/src/screens/project_detail_screen.dart ---
 import 'package:flutter/material.dart';
@@ -12878,34 +12974,15 @@ class SavingsDetailScreen extends StatelessWidget {
 
 --- START OF FILE lib/src/screens/health/health_dashboard_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/health/health_combined_chart.dart';
-import 'package:arcane/src/widgets/health/sleep_panel.dart';
-import 'package:arcane/src/widgets/health/activity_panel.dart';
-import 'package:arcane/src/widgets/health/nutrition_panel.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/widgets/views/health_dashboard_view.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class HealthDashboardScreen extends StatefulWidget {
+class HealthDashboardScreen extends StatelessWidget {
   const HealthDashboardScreen({super.key});
 
   @override
-  State<HealthDashboardScreen> createState() => _HealthDashboardScreenState();
-}
-
-class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
-  DateTime _selectedDate = DateTime.now();
-
-  @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final log = provider.getDailyHealthLog(dateStr);
-
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
@@ -12913,66 +12990,11 @@ class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
         backgroundColor: JweTheme.bgBase,
         iconTheme: const IconThemeData(color: JweTheme.accentCyan),
       ),
-      body: SafeArea(
+      body:  SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children:[
-                  // Date Selector
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children:[
-                      IconButton(icon: const Icon(Icons.chevron_left, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)))),
-                      Text(DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-                      IconButton(icon: const Icon(Icons.chevron_right, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)))),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Chart
-                  JwePanel(
-                    title: "TREND ANALYSIS (7-DAY)",
-                    accentColor: JweTheme.accentAmber,
-                    child: SizedBox(
-                      height: 200,
-                      child: HealthCombinedChart(provider: provider),
-                    ),
-                  ),
-
-                  // Hydration
-                  JwePanel(
-                    title: "HYDRATION",
-                    accentColor: JweTheme.accentCyan,
-                    child: Column(
-                      children:[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children:[
-                            IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
-                            Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                            IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
-                          ],
-                        ),
-                        const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-        
-                  // Sleep
-                  SleepPanel(dateStr: dateStr),
-        
-                  // Activity
-                  ActivityPanel(dateStr: dateStr),
-        
-                  // Nutrition
-                  NutritionPanel(dateStr: dateStr),
-                ],
-              ),
-            ),
+            constraints: BoxConstraints(maxWidth: 800),
+            child: HealthDashboardView(),
           ),
         ),
       ),
@@ -22992,6 +23014,85 @@ class ColorSelectorDialog extends StatelessWidget {
 }
 --- END OF FILE lib/src/widgets/dialogs/color_selector_dialog.dart ---
 
+--- START OF FILE lib/src/widgets/dialogs/downgrade_to_mission_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DowngradeToMissionDialog extends StatelessWidget {
+  final String projectName;
+
+  const DowngradeToMissionDialog({super.key, required this.projectName});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: const BeveledRectangleBorder(side: BorderSide(color: Color(0xFF8A2BE2), width: 2)), // Purple
+      title: Row(
+        children: [
+          Icon(MdiIcons.arrowCollapseDown, color: const Color(0xFF8A2BE2)),
+          const SizedBox(width: 12),
+          Text(
+            "INITIATE DOWNGRADE", 
+            style: GoogleFonts.rajdhani(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2.0)
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "You are about to transform Project '$projectName' back into a single Mission Protocol.",
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          _buildFeatureItem(MdiIcons.history, "Total invested time will be consolidated into a single session log."),
+          _buildFeatureItem(MdiIcons.fileTree, "Project steps will be converted to nested checkpoints."),
+          _buildFeatureItem(MdiIcons.linkOff, "Existing step-links to other missions will be severed."),
+          const SizedBox(height: 16),
+          const Text(
+            "This operation cannot be reversed.",
+            style: TextStyle(color: JweTheme.accentRed, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("ABORT", style: TextStyle(color: JweTheme.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8A2BE2), 
+            foregroundColor: Colors.white,
+            shape: const BeveledRectangleBorder()
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("EXECUTE DOWNGRADE", style: TextStyle(fontWeight: FontWeight.bold)),
+        )
+      ],
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: JweTheme.textMuted),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/downgrade_to_mission_dialog.dart ---
+
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
 import 'package:flutter/material.dart';
@@ -31827,6 +31928,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/sheets/change_agent_sheet.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/downgrade_to_mission_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -31918,6 +32020,23 @@ class ProjectOptionsSheet extends StatelessWidget {
               onTap: () {
                 provider.projectActions.toggleProjectStatus(currentMainTaskId, project.id, !project.isActive);
                 Navigator.pop(context);
+              },
+            ),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.arrowCollapseDown,
+              label: "DOWNGRADE TO MISSION",
+              color: AppTheme.fhAccentPurple,
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => DowngradeToMissionDialog(projectName: project.title),
+                );
+                if (confirm == true) {
+                  provider.projectActions.downgradeProjectToSubtask(currentMainTaskId, project);
+                }
               },
             ),
 
@@ -33286,7 +33405,7 @@ class JweBottomNavBar extends StatelessWidget {
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.targetAccount, size: 22)), label: 'MISSIONS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.calendarClock, size: 22)), label: 'SCHEDULE'),
-          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.rocketLaunchOutline, size: 22)), label: 'PROJECTS'),
+          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.heartPulse, size: 22)), label: 'BIOMETRICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.notebookOutline, size: 22)), label: 'ANALYTICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.walletOutline, size: 22)), label: 'WALLET'),
         ],
@@ -37371,6 +37490,95 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   }
 }
 --- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
+
+--- START OF FILE lib/src/widgets/views/health_dashboard_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/health_combined_chart.dart';
+import 'package:arcane/src/widgets/health/sleep_panel.dart';
+import 'package:arcane/src/widgets/health/activity_panel.dart';
+import 'package:arcane/src/widgets/health/nutrition_panel.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class HealthDashboardView extends StatefulWidget {
+  const HealthDashboardView({super.key});
+
+  @override
+  State<HealthDashboardView> createState() => _HealthDashboardViewState();
+}
+
+class _HealthDashboardViewState extends State<HealthDashboardView> {
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final log = provider.getDailyHealthLog(dateStr);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children:[
+          // Date Selector
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              IconButton(icon: const Icon(Icons.chevron_left, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)))),
+              Text(DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+              IconButton(icon: const Icon(Icons.chevron_right, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Chart
+          JwePanel(
+            title: "TREND ANALYSIS (7-DAY)",
+            accentColor: JweTheme.accentAmber,
+            child: SizedBox(
+              height: 200,
+              child: HealthCombinedChart(provider: provider),
+            ),
+          ),
+
+          // Hydration
+          JwePanel(
+            title: "HYDRATION",
+            accentColor: JweTheme.accentCyan,
+            child: Column(
+              children:[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children:[
+                    IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
+                    Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                    IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
+                  ],
+                ),
+                const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+
+          // Sleep
+          SleepPanel(dateStr: dateStr),
+
+          // Activity
+          ActivityPanel(dateStr: dateStr),
+
+          // Nutrition
+          NutritionPanel(dateStr: dateStr),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/health_dashboard_view.dart ---
 
 --- START OF FILE lib/src/widgets/views/projects_view.dart ---
 import 'package:flutter/material.dart';
