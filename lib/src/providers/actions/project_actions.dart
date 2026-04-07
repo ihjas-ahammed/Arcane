@@ -4,6 +4,7 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -192,6 +193,56 @@ class ProjectActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+  
+  void downgradeProjectToSubtask(String mainTaskId, Project project) {
+    // 1. Map ProjectSteps back to Checkpoints
+    SubSubTask mapStepToCheckpoint(ProjectStep step) {
+      return SubSubTask(
+        id: IdGenerator.generateCheckpointId(),
+        name: step.title,
+        completed: step.isCompleted,
+        why: step.description,
+        substeps: step.substeps.map((s) => mapStepToCheckpoint(s)).toList(),
+      );
+    }
+
+    final steps = project.steps.map((s) => mapStepToCheckpoint(s)).toList();
+
+    // 2. Create SubTask
+    final newSubtask = SubTask(
+      id: IdGenerator.generateSubTaskId(),
+      name: project.title,
+      description: project.description,
+      subSubTasks: steps,
+      createdAt: project.createdAt,
+      sessions: [], 
+    );
+
+    // 3. Consolidate time
+    final int totalSeconds = project.calculateTotalTimeSeconds(_provider.mainTasks);
+    if (totalSeconds > 0) {
+      newSubtask.sessions.add(TaskSession(
+        id: IdGenerator.generateSessionId(),
+        startTime: DateTime.now().subtract(Duration(seconds: totalSeconds)),
+        endTime: DateTime.now(),
+      ));
+      newSubtask.currentTimeSpent = totalSeconds;
+    }
+
+    // 4. Update MainTasks: Add subtask and remove the project
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          projects: task.projects.where((p) => p.id != project.id).toList(),
+          subTasks: [...task.subTasks, newSubtask],
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _provider.taskActions.recalibrateTimeLogs(silent: true);
   }
 
   // --- Snapshot Management ---

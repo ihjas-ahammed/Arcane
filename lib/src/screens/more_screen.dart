@@ -7,6 +7,7 @@ import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:arcane/src/screens/journaling/someday_list_screen.dart';
 import 'package:arcane/src/screens/settings/habit_control_screen.dart';
+import 'package:arcane/src/screens/projects_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -69,6 +70,18 @@ class MoreScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                           builder: (context) => const SomedayListScreen()));
+                }),
+
+                _buildMenuTile(context,
+                    icon: MdiIcons.rocketLaunchOutline,
+                    title: "Project Protocols",
+                    subtitle: "Long-term operations and recursive steps",
+                    colorOverride: const Color(0xFF8A2BE2),
+                    onTap: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ProjectsScreen()));
                 }),
 
                 _buildMenuTile(context,

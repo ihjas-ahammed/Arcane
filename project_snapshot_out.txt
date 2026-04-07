@@ -2646,270 +2646,9 @@ android.useAndroidX=true
 
 --- END OF FILE android/gradle.properties ---
 
---- START OF FILE android/gradlew ---
-#!/usr/bin/env bash
-
-##############################################################################
-##
-##  Gradle start up script for UN*X
-##
-##############################################################################
-
-# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS=""
-
-APP_NAME="Gradle"
-APP_BASE_NAME=`basename "$0"`
-
-# Use the maximum available, or set MAX_FD != -1 to use that value.
-MAX_FD="maximum"
-
-warn ( ) {
-    echo "$*"
-}
-
-die ( ) {
-    echo
-    echo "$*"
-    echo
-    exit 1
-}
-
-# OS specific support (must be 'true' or 'false').
-cygwin=false
-msys=false
-darwin=false
-case "`uname`" in
-  CYGWIN* )
-    cygwin=true
-    ;;
-  Darwin* )
-    darwin=true
-    ;;
-  MINGW* )
-    msys=true
-    ;;
-esac
-
-# Attempt to set APP_HOME
-# Resolve links: $0 may be a link
-PRG="$0"
-# Need this for relative symlinks.
-while [ -h "$PRG" ] ; do
-    ls=`ls -ld "$PRG"`
-    link=`expr "$ls" : '.*-> \(.*\)$'`
-    if expr "$link" : '/.*' > /dev/null; then
-        PRG="$link"
-    else
-        PRG=`dirname "$PRG"`"/$link"
-    fi
-done
-SAVED="`pwd`"
-cd "`dirname \"$PRG\"`/" >/dev/null
-APP_HOME="`pwd -P`"
-cd "$SAVED" >/dev/null
-
-CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
-
-# Determine the Java command to use to start the JVM.
-if [ -n "$JAVA_HOME" ] ; then
-    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
-        # IBM's JDK on AIX uses strange locations for the executables
-        JAVACMD="$JAVA_HOME/jre/sh/java"
-    else
-        JAVACMD="$JAVA_HOME/bin/java"
-    fi
-    if [ ! -x "$JAVACMD" ] ; then
-        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
-
-Please set the JAVA_HOME variable in your environment to match the
-location of your Java installation."
-    fi
-else
-    JAVACMD="java"
-    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
-
-Please set the JAVA_HOME variable in your environment to match the
-location of your Java installation."
-fi
-
-# Increase the maximum file descriptors if we can.
-if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
-    MAX_FD_LIMIT=`ulimit -H -n`
-    if [ $? -eq 0 ] ; then
-        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
-            MAX_FD="$MAX_FD_LIMIT"
-        fi
-        ulimit -n $MAX_FD
-        if [ $? -ne 0 ] ; then
-            warn "Could not set maximum file descriptor limit: $MAX_FD"
-        fi
-    else
-        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
-    fi
-fi
-
-# For Darwin, add options to specify how the application appears in the dock
-if $darwin; then
-    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
-fi
-
-# For Cygwin, switch paths to Windows format before running java
-if $cygwin ; then
-    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
-    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
-    JAVACMD=`cygpath --unix "$JAVACMD"`
-
-    # We build the pattern for arguments to be converted via cygpath
-    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
-    SEP=""
-    for dir in $ROOTDIRSRAW ; do
-        ROOTDIRS="$ROOTDIRS$SEP$dir"
-        SEP="|"
-    done
-    OURCYGPATTERN="(^($ROOTDIRS))"
-    # Add a user-defined pattern to the cygpath arguments
-    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
-        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
-    fi
-    # Now convert the arguments - kludge to limit ourselves to /bin/sh
-    i=0
-    for arg in "$@" ; do
-        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
-        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
-
-        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
-            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
-        else
-            eval `echo args$i`="\"$arg\""
-        fi
-        i=$((i+1))
-    done
-    case $i in
-        (0) set -- ;;
-        (1) set -- "$args0" ;;
-        (2) set -- "$args0" "$args1" ;;
-        (3) set -- "$args0" "$args1" "$args2" ;;
-        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
-        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
-        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
-        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
-        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
-        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
-    esac
-fi
-
-# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
-function splitJvmOpts() {
-    JVM_OPTS=("$@")
-}
-eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
-JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
-
-exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-
---- END OF FILE android/gradlew ---
-
---- START OF FILE android/gradlew.bat ---
-@if "%DEBUG%" == "" @echo off
-@rem ##########################################################################
-@rem
-@rem  Gradle startup script for Windows
-@rem
-@rem ##########################################################################
-
-@rem Set local scope for the variables with windows NT shell
-if "%OS%"=="Windows_NT" setlocal
-
-@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-set DEFAULT_JVM_OPTS=
-
-set DIRNAME=%~dp0
-if "%DIRNAME%" == "" set DIRNAME=.
-set APP_BASE_NAME=%~n0
-set APP_HOME=%DIRNAME%
-
-@rem Find java.exe
-if defined JAVA_HOME goto findJavaFromJavaHome
-
-set JAVA_EXE=java.exe
-%JAVA_EXE% -version >NUL 2>&1
-if "%ERRORLEVEL%" == "0" goto init
-
-echo.
-echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
-echo.
-echo Please set the JAVA_HOME variable in your environment to match the
-echo location of your Java installation.
-
-goto fail
-
-:findJavaFromJavaHome
-set JAVA_HOME=%JAVA_HOME:"=%
-set JAVA_EXE=%JAVA_HOME%/bin/java.exe
-
-if exist "%JAVA_EXE%" goto init
-
-echo.
-echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
-echo.
-echo Please set the JAVA_HOME variable in your environment to match the
-echo location of your Java installation.
-
-goto fail
-
-:init
-@rem Get command-line arguments, handling Windowz variants
-
-if not "%OS%" == "Windows_NT" goto win9xME_args
-if "%@eval[2+2]" == "4" goto 4NT_args
-
-:win9xME_args
-@rem Slurp the command line arguments.
-set CMD_LINE_ARGS=
-set _SKIP=2
-
-:win9xME_args_slurp
-if "x%~1" == "x" goto execute
-
-set CMD_LINE_ARGS=%*
-goto execute
-
-:4NT_args
-@rem Get arguments from the 4NT Shell from JP Software
-set CMD_LINE_ARGS=%$
-
-:execute
-@rem Setup the command line
-
-set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
-
-@rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
-
-:end
-@rem End local scope for the variables with windows NT shell
-if "%ERRORLEVEL%"=="0" goto mainEnd
-
-:fail
-rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
-rem the _cmd.exe /c_ return code!
-if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
-exit /b 1
-
-:mainEnd
-if "%OS%"=="Windows_NT" endlocal
-
-:omega
-
---- END OF FILE android/gradlew.bat ---
-
 --- START OF FILE android/local.properties ---
-sdk.dir=C:\\Users\\Hii\\AppData\\Local\\Android\\sdk
-flutter.sdk=C:\\Users\\Hii\\Documents\\flutter\\flutter
-flutter.buildMode=debug
-flutter.versionName=2026.3.27
-flutter.versionCode=2076
+sdk.dir=C:\\Users\\ihjas\\AppData\\Local\\Android\\sdk
+flutter.sdk=C:\\Users\\ihjas\\Documents\\flutter
 --- END OF FILE android/local.properties ---
 
 --- START OF FILE android/settings.gradle.kts ---
@@ -2945,15 +2684,13 @@ include(":app")
 
 --- END OF FILE android/settings.gradle.kts ---
 
---- START OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
-#Wed Apr 01 13:49:20 IST 2026
-gradle.version=8.14
-
---- END OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
-
 --- START OF FILE android/.kotlin/sessions/kotlin-compiler-14123676837969612425.salive ---
 
 --- END OF FILE android/.kotlin/sessions/kotlin-compiler-14123676837969612425.salive ---
+
+--- START OF FILE android/.kotlin/sessions/kotlin-compiler-15636895198897932625.salive ---
+
+--- END OF FILE android/.kotlin/sessions/kotlin-compiler-15636895198897932625.salive ---
 
 --- START OF FILE android/app/build.gradle.kts ---
 plugins {
@@ -5397,6 +5134,7 @@ class MainTask {
   int dailyTimeSpent;
   String? lastWorkedDate;
   bool isActive; 
+  bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
   List<Project> projects;
@@ -5410,6 +5148,7 @@ class MainTask {
     this.dailyTimeSpent = 0,
     this.lastWorkedDate,
     this.isActive = true,
+    this.isDeleted = false,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -5426,6 +5165,7 @@ class MainTask {
     int? dailyTimeSpent,
     String? lastWorkedDate,
     bool? isActive,
+    bool? isDeleted,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
     List<Project>? projects,
@@ -5439,6 +5179,7 @@ class MainTask {
       dailyTimeSpent: dailyTimeSpent ?? this.dailyTimeSpent,
       lastWorkedDate: lastWorkedDate ?? this.lastWorkedDate,
       isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
@@ -5470,6 +5211,7 @@ class MainTask {
       dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
       isActive: json['isActive'] as bool? ?? true,
+      isDeleted: json['isDeleted'] as bool? ?? false,
       weeklyCompletionStatus:
           weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
       subTasks: (json['subTasks'] as List<dynamic>?)
@@ -5494,6 +5236,7 @@ class MainTask {
       'dailyTimeSpent': dailyTimeSpent,
       'lastWorkedDate': lastWorkedDate,
       'isActive': isActive,
+      'isDeleted': isDeleted,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
       'projects': projects.map((p) => p.toJson()).toList(),
@@ -5531,6 +5274,7 @@ class SubTask {
   DateTime createdAt;
   DateTime updatedAt;
   bool isActive; 
+  bool isDeleted; // Added soft delete
 
   SubTask({
     required this.id,
@@ -5552,6 +5296,7 @@ class SubTask {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.isActive = true,
+    this.isDeleted = false,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         createdAt = createdAt ?? DateTime.now(),
@@ -5577,6 +5322,7 @@ class SubTask {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    bool? isDeleted,
   }) {
     return SubTask(
       id: id ?? this.id,
@@ -5598,6 +5344,7 @@ class SubTask {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
@@ -5626,6 +5373,7 @@ class SubTask {
           ? DateTime.parse(json['updatedAt'] as String) 
           : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
+      isDeleted: json['isDeleted'] as bool? ?? false,
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -5658,6 +5406,7 @@ class SubTask {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isActive': isActive,
+      'isDeleted': isDeleted,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
@@ -7472,6 +7221,7 @@ import 'package:arcane/src/models/project_models.dart';
 import 'package:arcane/src/models/task_models.dart';
 import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/services/ai_service.dart';
+import 'package:arcane/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -7660,6 +7410,56 @@ class ProjectActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+  
+  void downgradeProjectToSubtask(String mainTaskId, Project project) {
+    // 1. Map ProjectSteps back to Checkpoints
+    SubSubTask mapStepToCheckpoint(ProjectStep step) {
+      return SubSubTask(
+        id: IdGenerator.generateCheckpointId(),
+        name: step.title,
+        completed: step.isCompleted,
+        why: step.description,
+        substeps: step.substeps.map((s) => mapStepToCheckpoint(s)).toList(),
+      );
+    }
+
+    final steps = project.steps.map((s) => mapStepToCheckpoint(s)).toList();
+
+    // 2. Create SubTask
+    final newSubtask = SubTask(
+      id: IdGenerator.generateSubTaskId(),
+      name: project.title,
+      description: project.description,
+      subSubTasks: steps,
+      createdAt: project.createdAt,
+      sessions: [], 
+    );
+
+    // 3. Consolidate time
+    final int totalSeconds = project.calculateTotalTimeSeconds(_provider.mainTasks);
+    if (totalSeconds > 0) {
+      newSubtask.sessions.add(TaskSession(
+        id: IdGenerator.generateSessionId(),
+        startTime: DateTime.now().subtract(Duration(seconds: totalSeconds)),
+        endTime: DateTime.now(),
+      ));
+      newSubtask.currentTimeSpent = totalSeconds;
+    }
+
+    // 4. Update MainTasks: Add subtask and remove the project
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          projects: task.projects.where((p) => p.id != project.id).toList(),
+          subTasks: [...task.subTasks, newSubtask],
+        );
+      }
+      return task;
+    }).toList();
+
+    _provider.setProviderState(mainTasks: newMainTasks);
+    _provider.taskActions.recalibrateTimeLogs(silent: true);
   }
 
   // --- Snapshot Management ---
@@ -8979,11 +8779,12 @@ class TaskActions {
     }
   }
 
+  // FIX: Perform soft deletion to preserve session logs for schedule history
   void deleteSubtask(String mainTaskId, String subtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-          subTasks: task.subTasks.where((st) => st.id != subtaskId).toList(),
+          subTasks: task.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: true) : st).toList(),
         );
       }
       return task;
@@ -9164,11 +8965,13 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  // FIX: Soft delete protocol/MainTask
   void deleteMainTask(String id) {
-    final newTasks = _provider.mainTasks.where((t) => t.id != id).toList();
+    final newTasks = _provider.mainTasks.map((t) => t.id == id ? t.copyWith(isDeleted: true) : t).toList();
     _provider.setProviderState(mainTasks: newTasks);
     if (_provider.selectedTaskId == id) {
-      _provider.setSelectedTaskId(newTasks.isNotEmpty ? newTasks.first.id : null);
+      final firstValid = newTasks.firstWhereOrNull((t) => !t.isDeleted);
+      _provider.setSelectedTaskId(firstValid?.id);
     }
   }
 
@@ -10877,13 +10680,14 @@ import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/health_dashboard_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/more_screen.dart'; 
 import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10900,7 +10704,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'SCHEDULE',
-    'PROJECTS',
+    'BIOMETRICS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -10919,7 +10723,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_appProvider.selectedTaskId == null &&
           _appProvider.mainTasks.isNotEmpty) {
-        _appProvider.setSelectedTaskId(_appProvider.mainTasks.first.id);
+        // FIX: Ensure default selected task is not soft-deleted
+        final firstValid = _appProvider.mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+        if (firstValid != null) _appProvider.setSelectedTaskId(firstValid.id);
       }
     });
   }
@@ -10954,8 +10760,8 @@ class _HomeScreenState extends State<HomeScreen> {
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: const HealthDashboardView(),
         ),
       ),
       const LogbookScreen(), 
@@ -11280,6 +11086,7 @@ import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:arcane/src/screens/journaling/someday_list_screen.dart';
 import 'package:arcane/src/screens/settings/habit_control_screen.dart';
+import 'package:arcane/src/screens/projects_screen.dart';
 import 'package:arcane/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11342,6 +11149,18 @@ class MoreScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                           builder: (context) => const SomedayListScreen()));
+                }),
+
+                _buildMenuTile(context,
+                    icon: MdiIcons.rocketLaunchOutline,
+                    title: "Project Protocols",
+                    subtitle: "Long-term operations and recursive steps",
+                    colorOverride: const Color(0xFF8A2BE2),
+                    onTap: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ProjectsScreen()));
                 }),
 
                 _buildMenuTile(context,
@@ -11801,6 +11620,38 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   }
 }
 --- END OF FILE lib/src/screens/nora_ai_screen.dart ---
+
+--- START OF FILE lib/src/screens/projects_screen.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class ProjectsScreen extends StatelessWidget {
+  const ProjectsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      appBar: AppBar(
+        title: Text("PROJECT PROTOCOLS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+        backgroundColor: JweTheme.bgBase,
+        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+      ),
+      body:  SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 1000),
+            child: ProjectsView()
+          )
+        )
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/screens/projects_screen.dart ---
 
 --- START OF FILE lib/src/screens/project_detail_screen.dart ---
 import 'package:flutter/material.dart';
@@ -12878,34 +12729,15 @@ class SavingsDetailScreen extends StatelessWidget {
 
 --- START OF FILE lib/src/screens/health/health_dashboard_screen.dart ---
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/health/health_combined_chart.dart';
-import 'package:arcane/src/widgets/health/sleep_panel.dart';
-import 'package:arcane/src/widgets/health/activity_panel.dart';
-import 'package:arcane/src/widgets/health/nutrition_panel.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:arcane/src/widgets/views/health_dashboard_view.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class HealthDashboardScreen extends StatefulWidget {
+class HealthDashboardScreen extends StatelessWidget {
   const HealthDashboardScreen({super.key});
 
   @override
-  State<HealthDashboardScreen> createState() => _HealthDashboardScreenState();
-}
-
-class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
-  DateTime _selectedDate = DateTime.now();
-
-  @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final log = provider.getDailyHealthLog(dateStr);
-
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
       appBar: AppBar(
@@ -12913,66 +12745,11 @@ class _HealthDashboardScreenState extends State<HealthDashboardScreen> {
         backgroundColor: JweTheme.bgBase,
         iconTheme: const IconThemeData(color: JweTheme.accentCyan),
       ),
-      body: SafeArea(
+      body:  SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children:[
-                  // Date Selector
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children:[
-                      IconButton(icon: const Icon(Icons.chevron_left, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)))),
-                      Text(DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-                      IconButton(icon: const Icon(Icons.chevron_right, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)))),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Chart
-                  JwePanel(
-                    title: "TREND ANALYSIS (7-DAY)",
-                    accentColor: JweTheme.accentAmber,
-                    child: SizedBox(
-                      height: 200,
-                      child: HealthCombinedChart(provider: provider),
-                    ),
-                  ),
-
-                  // Hydration
-                  JwePanel(
-                    title: "HYDRATION",
-                    accentColor: JweTheme.accentCyan,
-                    child: Column(
-                      children:[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children:[
-                            IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
-                            Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
-                            IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
-                          ],
-                        ),
-                        const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-        
-                  // Sleep
-                  SleepPanel(dateStr: dateStr),
-        
-                  // Activity
-                  ActivityPanel(dateStr: dateStr),
-        
-                  // Nutrition
-                  NutritionPanel(dateStr: dateStr),
-                ],
-              ),
-            ),
+            constraints: BoxConstraints(maxWidth: 800),
+            child: HealthDashboardView(),
           ),
         ),
       ),
@@ -14662,10 +14439,10 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
 
     // Build available list
     List<Widget> availableWidgets = [];
-    final activeTasks = provider.mainTasks.where((t) => t.isActive).toList(); // Only active
+    final activeTasks = provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList(); // Only active, non-deleted
     
     for (var task in activeTasks) {
-      final activeSubs = task.subTasks.where((s) => !s.completed).toList();
+      final activeSubs = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList(); // Filter deleted
       if (activeSubs.isEmpty) continue;
 
       List<Widget> taskWidgets = [];
@@ -14785,7 +14562,7 @@ class _DayPlanScreenState extends State<DayPlanScreen> {
                             final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
                             final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
                             
-                            if (task == null || sub == null) return SizedBox.shrink(key: ValueKey(compId));
+                            if (task == null || sub == null || task.isDeleted || sub.isDeleted) return SizedBox.shrink(key: ValueKey(compId));
 
                             final isCheckpoint = parts.length == 3;
                             String title = sub.name;
@@ -16703,16 +16480,15 @@ class StorageService {
   Future<Map<String, Map<String, dynamic>>> fetchRecentDailyData(String userId, int days) async {
     if (userId.isEmpty) return {};
     try {
-      final now = DateTime.now();
       final Map<String, Map<String, dynamic>> result = {};
-      final cutoffDate = now.subtract(Duration(days: days));
-      final cutoffDateStr = DateFormat('yyyy-MM-dd').format(cutoffDate);
 
+      // FIX: Changed to order by documentId and limit, avoiding the invalid argument error for inequality queries
       final snap = await _firestore
           .collection(_userCollection)
           .doc(userId)
           .collection('daily')
-          .where(FieldPath.documentId, isGreaterThanOrEqualTo: cutoffDateStr)
+          .orderBy(FieldPath.documentId, descending: true)
+          .limit(days)
           .get();
 
       for (var doc in snap.docs) {
@@ -17962,8 +17738,9 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     
-    final activeTasks = appProvider.mainTasks.where((t) => t.isActive).toList();
-    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive).toList();
+    // Filter out soft-deleted tasks
+    final activeTasks = appProvider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
+    final inactiveTasks = appProvider.mainTasks.where((t) => !t.isActive && !t.isDeleted).toList();
     
     return Drawer(
       width: 280,
@@ -20033,7 +19810,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class StartDayReportCard extends StatelessWidget {
+class StartDayReportCard extends StatefulWidget {
   final Map<String, dynamic> report;
   final VoidCallback? onRegenerate;
   final bool isRegenerating;
@@ -20045,10 +19822,17 @@ class StartDayReportCard extends StatelessWidget {
     this.isRegenerating = false,
   });
 
+  @override
+  State<StartDayReportCard> createState() => _StartDayReportCardState();
+}
+
+class _StartDayReportCardState extends State<StartDayReportCard> {
+  bool _isExpanded = false;
+
   void _startWithNora(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final forecast = report['forecast'] as String? ?? "System Started.";
-    final directives = (report['directives'] as List?)?.join(', ') ?? "";
+    final forecast = widget.report['forecast'] as String? ?? "System Started.";
+    final directives = (widget.report['directives'] as List?)?.join(', ') ?? "";
     
     final customContext = """
     STARTUP CONTEXT:
@@ -20071,9 +19855,9 @@ class StartDayReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final forecast = report['forecast'] as String? ?? report['briefing'] as String? ?? "Systems nominal. Ready for input.";
-    final directives = (report['directives'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-    final metrics = report['metrics'] as List<dynamic>?;
+    final forecast = widget.report['forecast'] as String? ?? widget.report['briefing'] as String? ?? "Systems nominal. Ready for input.";
+    final directives = (widget.report['directives'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final metrics = widget.report['metrics'] as List<dynamic>?;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -20084,99 +19868,107 @@ class StartDayReportCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // HEADER
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: JweTheme.accentCyan.withOpacity(0.1),
-              border: Border(bottom: BorderSide(color: JweTheme.accentCyan.withOpacity(0.3))),
-            ),
-            child: Row(
-              children: [
-                 Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "SYSTEM STARTUP OVERVIEW",
-                    style: GoogleFonts.rajdhani(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: JweTheme.accentCyan,
-                      letterSpacing: 1.5,
+          // HEADER (Expandable Toggle)
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: JweTheme.accentCyan.withOpacity(0.1),
+                border: Border(bottom: BorderSide(color: JweTheme.accentCyan.withOpacity(0.3))),
+              ),
+              child: Row(
+                children: [
+                   Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "SYSTEM STARTUP OVERVIEW",
+                      style: GoogleFonts.rajdhani(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: JweTheme.accentCyan,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
-                ),
-                if (onRegenerate != null)
-                  InkWell(
-                    onTap: isRegenerating ? null : onRegenerate,
-                    child: isRegenerating 
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.accentCyan))
-                      :  Icon(MdiIcons.refresh, size: 16, color: JweTheme.textMuted),
-                  )
-              ],
+                  if (widget.onRegenerate != null && _isExpanded)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: InkWell(
+                        onTap: widget.isRegenerating ? null : widget.onRegenerate,
+                        child: widget.isRegenerating 
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.accentCyan))
+                          :  Icon(MdiIcons.refresh, size: 16, color: JweTheme.textMuted),
+                      ),
+                    ),
+                  Icon(_isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown, color: JweTheme.textMuted, size: 20),
+                ],
+              ),
             ),
           ),
 
           // BODY
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Forecast Text
-                const Text("AI FORECAST", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                const SizedBox(height: 6),
-                Text(
-                  forecast,
-                  style: const TextStyle(
-                    color: JweTheme.textWhite,
-                    height: 1.4,
-                    fontSize: 12,
-                    fontFamily: "RobotoMono"
-                  ),
-                ),
-
-                if (directives.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text("DIRECTIVES", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Forecast Text
+                  const Text("AI FORECAST", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                   const SizedBox(height: 6),
-                  ...directives.map((d) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("> ", style: TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 12)),
-                        Expanded(child: Text(d, style: const TextStyle(color: JweTheme.textWhite, fontSize: 12, height: 1.3))),
-                      ],
+                  Text(
+                    forecast,
+                    style: const TextStyle(
+                      color: JweTheme.textWhite,
+                      height: 1.4,
+                      fontSize: 12,
+                      fontFamily: "RobotoMono"
                     ),
-                  )),
-                ],
-
-                const SizedBox(height: 16),
-
-                // METRICS
-                if (metrics != null)
-                  StartupWellbeingMetrics(metrics: metrics),
-
-                const SizedBox(height: 20),
-                
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon:  Icon(MdiIcons.brain, size: 14),
-                    label: Text("INITIATE NORA LINK", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: JweTheme.accentCyan,
-                      side: const BorderSide(color: JweTheme.accentCyan),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: const BeveledRectangleBorder(),
-                    ),
-                    onPressed: () => _startWithNora(context),
                   ),
-                ),
-              ],
+
+                  if (directives.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text("DIRECTIVES", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                    const SizedBox(height: 6),
+                    ...directives.map((d) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("> ", style: TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 12)),
+                          Expanded(child: Text(d, style: const TextStyle(color: JweTheme.textWhite, fontSize: 12, height: 1.3))),
+                        ],
+                      ),
+                    )),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // METRICS
+                  if (metrics != null)
+                    StartupWellbeingMetrics(metrics: metrics),
+
+                  const SizedBox(height: 20),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon:  Icon(MdiIcons.brain, size: 14),
+                      label: Text("INITIATE NORA LINK", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: JweTheme.accentCyan,
+                        side: const BorderSide(color: JweTheme.accentCyan),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: const BeveledRectangleBorder(),
+                      ),
+                      onPressed: () => _startWithNora(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.1, end: 0);
@@ -22991,6 +22783,85 @@ class ColorSelectorDialog extends StatelessWidget {
   }
 }
 --- END OF FILE lib/src/widgets/dialogs/color_selector_dialog.dart ---
+
+--- START OF FILE lib/src/widgets/dialogs/downgrade_to_mission_dialog.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+class DowngradeToMissionDialog extends StatelessWidget {
+  final String projectName;
+
+  const DowngradeToMissionDialog({super.key, required this.projectName});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: JweTheme.panel,
+      shape: const BeveledRectangleBorder(side: BorderSide(color: Color(0xFF8A2BE2), width: 2)), // Purple
+      title: Row(
+        children: [
+          Icon(MdiIcons.arrowCollapseDown, color: const Color(0xFF8A2BE2)),
+          const SizedBox(width: 12),
+          Text(
+            "INITIATE DOWNGRADE", 
+            style: GoogleFonts.rajdhani(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2.0)
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "You are about to transform Project '$projectName' back into a single Mission Protocol.",
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          _buildFeatureItem(MdiIcons.history, "Total invested time will be consolidated into a single session log."),
+          _buildFeatureItem(MdiIcons.fileTree, "Project steps will be converted to nested checkpoints."),
+          _buildFeatureItem(MdiIcons.linkOff, "Existing step-links to other missions will be severed."),
+          const SizedBox(height: 16),
+          const Text(
+            "This operation cannot be reversed.",
+            style: TextStyle(color: JweTheme.accentRed, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("ABORT", style: TextStyle(color: JweTheme.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8A2BE2), 
+            foregroundColor: Colors.white,
+            shape: const BeveledRectangleBorder()
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("EXECUTE DOWNGRADE", style: TextStyle(fontWeight: FontWeight.bold)),
+        )
+      ],
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: JweTheme.textMuted),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(color: JweTheme.textMuted, fontSize: 12))),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/dialogs/downgrade_to_mission_dialog.dart ---
 
 --- START OF FILE lib/src/widgets/dialogs/edit_log_dialog.dart ---
 // lib/src/widgets/dialogs/edit_log_dialog.dart
@@ -28672,8 +28543,10 @@ class DayPlanDashboardWidget extends StatelessWidget {
 
       final mainId = parts[0];
       final subId = parts[1];
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId);
+      
+      // Filter out soft-deleted tasks
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId && !t.isDeleted);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subId && !s.isDeleted);
 
       if (task == null || sub == null) continue;
 
@@ -31133,7 +31006,8 @@ class _ChangeAgentSheetState extends State<ChangeAgentSheet> {
               ValorantDropdown<String>(
                 label: "DESTINATION AGENT",
                 value: _selectedAgentId,
-                items: provider.mainTasks.map((t) {
+                // Filter out deleted tasks
+                items: provider.mainTasks.where((t) => !t.isDeleted).map((t) {
                   return DropdownMenuItem(
                     value: t.id,
                     child: Text(t.name.toUpperCase()),
@@ -31192,6 +31066,7 @@ import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:arcane/src/widgets/valorant/valorant_dropdown.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:collection/collection.dart';
 import 'dart:io';
 
 class CreateProjectSheet extends StatefulWidget {
@@ -31213,7 +31088,7 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+    _selectedMainTaskId = provider.selectedTaskId ?? provider.mainTasks.where((t) => !t.isDeleted).firstOrNull?.id;
   }
 
   @override
@@ -31283,7 +31158,7 @@ class _CreateProjectSheetState extends State<CreateProjectSheet> {
                 ValorantDropdown<String>(
                   label: "LINK TO MISSION",
                   value: _selectedMainTaskId,
-                  items: provider.mainTasks.map((task) {
+                  items: provider.mainTasks.where((t) => !t.isDeleted).map((task) {
                     return DropdownMenuItem(
                       value: task.id,
                       child: Text(task.name.toUpperCase()),
@@ -31523,8 +31398,8 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
 
     final MainTask? targetTask = provider.mainTasks.firstWhereOrNull((t) => t.id == _selectedTargetMainTaskId);
 
-    // Filter available SubTasks (only incomplete)
-    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed).toList() ?? [];
+    // Filter available SubTasks (only incomplete and non-deleted)
+    final List<SubTask> availableSubTasks = targetTask?.subTasks.where((s) => !s.completed && !s.isDeleted).toList() ?? [];
 
     List<SubSubTask> availableCheckpoints = [];
     if (_selectedTargetSubTaskId != null) {
@@ -31557,7 +31432,7 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                         ValorantDropdown<String>(
                           label: "SOURCE MISSION",
                           value: _selectedMainTaskId,
-                          items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                          items: provider.mainTasks.where((t) => !t.isDeleted).map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
                           onChanged: (val) => setState(() { _selectedMainTaskId = val; _selectedProjectId = null; _selectedStepId = null; }),
                         ),
                         const SizedBox(height: 16),
@@ -31635,7 +31510,7 @@ class _LinkSubmissionSheetState extends State<LinkSubmissionSheet> {
                       ValorantDropdown<String>(
                         label: "TARGET MISSION",
                         value: _selectedTargetMainTaskId,
-                        items: provider.mainTasks.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
+                        items: provider.mainTasks.where((t) => !t.isDeleted).map((t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase()))).toList(),
                         onChanged: (val) => setState(() {
                           _selectedTargetMainTaskId = val;
                           _selectedTargetSubTaskId = null;
@@ -31827,6 +31702,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/sheets/change_agent_sheet.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/downgrade_to_mission_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -31918,6 +31794,23 @@ class ProjectOptionsSheet extends StatelessWidget {
               onTap: () {
                 provider.projectActions.toggleProjectStatus(currentMainTaskId, project.id, !project.isActive);
                 Navigator.pop(context);
+              },
+            ),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.arrowCollapseDown,
+              label: "DOWNGRADE TO MISSION",
+              color: AppTheme.fhAccentPurple,
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => DowngradeToMissionDialog(projectName: project.title),
+                );
+                if (confirm == true) {
+                  provider.projectActions.downgradeProjectToSubtask(currentMainTaskId, project);
+                }
               },
             ),
 
@@ -33286,7 +33179,7 @@ class JweBottomNavBar extends StatelessWidget {
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.targetAccount, size: 22)), label: 'MISSIONS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.calendarClock, size: 22)), label: 'SCHEDULE'),
-          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.rocketLaunchOutline, size: 22)), label: 'PROJECTS'),
+          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.heartPulse, size: 22)), label: 'BIOMETRICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.notebookOutline, size: 22)), label: 'ANALYTICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.walletOutline, size: 22)), label: 'WALLET'),
         ],
@@ -35567,6 +35460,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
   @override
   Widget build(BuildContext context) {
     final availableParents = _getAvailableParents();
+    final filteredMissions = widget.availableMissions.where((t) => !t.isDeleted).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -35633,7 +35527,7 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
                 fillColor: AppTheme.fhBgMedium,
                 border: const OutlineInputBorder(),
               ),
-              items: widget.availableMissions.map((m) {
+              items: filteredMissions.map((m) {
                 return DropdownMenuItem(
                   value: m.id,
                   child: Text(m.name,
@@ -36443,6 +36337,7 @@ import 'package:arcane/src/widgets/ui/saved_prompts_list.dart';
 import 'package:arcane/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:collection/collection.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -36483,7 +36378,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
     _selectedMainTaskId =
-        provider.selectedTaskId ?? provider.mainTasks.firstOrNull?.id;
+        provider.selectedTaskId ?? provider.mainTasks.where((t) => !t.isDeleted).firstOrNull?.id;
   }
 
   void _saveCurrentPrompt(AppProvider provider) {
@@ -36578,7 +36473,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                 border: OutlineInputBorder(
                     borderSide: BorderSide(color: AppTheme.fhBorderColor)),
               ),
-              items: provider.mainTasks
+              items: provider.mainTasks.where((t) => !t.isDeleted)
                   .map(
                       (t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase())))
                   .toList(),
@@ -37372,6 +37267,95 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 }
 --- END OF FILE lib/src/widgets/views/daily_summary_view.dart ---
 
+--- START OF FILE lib/src/widgets/views/health_dashboard_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:arcane/src/widgets/health/health_combined_chart.dart';
+import 'package:arcane/src/widgets/health/sleep_panel.dart';
+import 'package:arcane/src/widgets/health/activity_panel.dart';
+import 'package:arcane/src/widgets/health/nutrition_panel.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class HealthDashboardView extends StatefulWidget {
+  const HealthDashboardView({super.key});
+
+  @override
+  State<HealthDashboardView> createState() => _HealthDashboardViewState();
+}
+
+class _HealthDashboardViewState extends State<HealthDashboardView> {
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final log = provider.getDailyHealthLog(dateStr);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children:[
+          // Date Selector
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:[
+              IconButton(icon: const Icon(Icons.chevron_left, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)))),
+              Text(DateFormat('MMM dd, yyyy').format(_selectedDate).toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+              IconButton(icon: const Icon(Icons.chevron_right, color: JweTheme.textMuted), onPressed: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Chart
+          JwePanel(
+            title: "TREND ANALYSIS (7-DAY)",
+            accentColor: JweTheme.accentAmber,
+            child: SizedBox(
+              height: 200,
+              child: HealthCombinedChart(provider: provider),
+            ),
+          ),
+
+          // Hydration
+          JwePanel(
+            title: "HYDRATION",
+            accentColor: JweTheme.accentCyan,
+            child: Column(
+              children:[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children:[
+                    IconButton(icon: const Icon(Icons.remove, color: JweTheme.textMuted), onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99))),
+                    Text("${log.waterGlasses}", style: GoogleFonts.rajdhani(fontSize: 28, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
+                    IconButton(icon: const Icon(Icons.add, color: JweTheme.accentCyan), onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1)),
+                  ],
+                ),
+                const Text("GLASSES", style: TextStyle(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+
+          // Sleep
+          SleepPanel(dateStr: dateStr),
+
+          // Activity
+          ActivityPanel(dateStr: dateStr),
+
+          // Nutrition
+          NutritionPanel(dateStr: dateStr),
+        ],
+      ),
+    );
+  }
+}
+--- END OF FILE lib/src/widgets/views/health_dashboard_view.dart ---
+
 --- START OF FILE lib/src/widgets/views/projects_view.dart ---
 import 'package:flutter/material.dart';
 import 'package:arcane/src/providers/app_provider.dart';
@@ -37419,6 +37403,7 @@ class _ProjectsViewState extends State<ProjectsView> {
     final List<_ProjectViewItem> allProjects = [];
     
     for (var task in provider.mainTasks) {
+      if (task.isDeleted) continue; // Skip deleted tasks
       for (var project in task.projects) {
         allProjects.add(_ProjectViewItem(
           project: project,
@@ -37753,6 +37738,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     // 1. Process standard recorded sessions
+    // We explicitly DON'T filter deleted tasks here because we want historical records to remain intact!
     for (var task in provider.mainTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
@@ -37826,7 +37812,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       builder: (ctx) => FractionallySizedBox(
         heightFactor: 0.85,
         child: ProtocolControlPanel(
-          protocols: provider.mainTasks,
+          protocols: provider.mainTasks.where((t) => !t.isDeleted).toList(),
           selectedProtocolId: provider.selectedTaskId,
           onSelect: (id) => provider.setSelectedTaskId(id),
           onAdd: () => _showAddProtocolDialog(context, provider),
@@ -37894,6 +37880,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     showDialog(
       context: context,
       builder: (ctx) {
+        final validTasks = provider.mainTasks.where((t) => !t.isDeleted).toList();
         return AlertDialog(
           backgroundColor: AppTheme.fhBgMedium,
           title: const Text("SELECT MISSION"),
@@ -37901,10 +37888,10 @@ class _ScheduleViewState extends State<ScheduleView> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: provider.mainTasks.length,
+              itemCount: validTasks.length,
               itemBuilder: (context, index) {
-                final task = provider.mainTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed).toList();
+                final task = validTasks[index];
+                final activeSubtasks = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
                 if (activeSubtasks.isEmpty) return const SizedBox.shrink();
 
                 return ExpansionTile(
@@ -38017,8 +38004,8 @@ class _ScheduleViewState extends State<ScheduleView> {
     for (String idPair in plan) {
       final parts = idPair.split('|');
       if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
         
         if (sTask != null && !sTask.completed) {
           if (parts.length == 3) {
@@ -38896,18 +38883,18 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final task = appProvider.getSelectedTask();
         final theme = Theme.of(context);
 
-        if (task == null) {
+        if (task == null || task.isDeleted) {
           return const Center(child: Text('NO PROTOCOL SELECTED'));
         }
 
         final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(task);
         final int yesterdayTime = appProvider.getYesterdaysTimeForTask(task.id);
 
-        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive).toList();
-        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive).toList();
+        final activeSubtasks = task.subTasks.where((st) => !st.completed && st.isActive && !st.isDeleted).toList();
+        final inactiveSubtasks = task.subTasks.where((st) => !st.completed && !st.isActive && !st.isDeleted).toList();
         
-        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring).toList();
-        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring).toList();
+        final completedRecurring = task.subTasks.where((st) => st.completed && st.isRecurring && !st.isDeleted).toList();
+        final completedArchived = task.subTasks.where((st) => st.completed && !st.isRecurring && !st.isDeleted).toList();
 
         return RefreshIndicator(
           color: AppTheme.fhAccentTeal,

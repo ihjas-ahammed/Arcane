@@ -7,7 +7,7 @@ import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
+import 'package:arcane/src/widgets/views/health_dashboard_view.dart';
 import 'package:arcane/src/widgets/views/schedule_view.dart';
 import 'package:arcane/src/screens/logbook_screen.dart';
 import 'package:arcane/src/screens/more_screen.dart'; 
@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'SCHEDULE',
-    'PROJECTS',
+    'BIOMETRICS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -87,8 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: const HealthDashboardView(),
         ),
       ),
       const LogbookScreen(), 
