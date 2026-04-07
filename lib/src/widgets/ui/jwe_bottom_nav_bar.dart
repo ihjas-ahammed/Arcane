@@ -52,7 +52,7 @@ class JweBottomNavBar extends StatelessWidget {
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.targetAccount, size: 22)), label: 'MISSIONS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.calendarClock, size: 22)), label: 'SCHEDULE'),
-          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.rocketLaunchOutline, size: 22)), label: 'PROJECTS'),
+          BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.heartPulse, size: 22)), label: 'BIOMETRICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.notebookOutline, size: 22)), label: 'ANALYTICS'),
           BottomNavigationBarItem(icon: Padding(padding: const EdgeInsets.only(bottom: 2), child: Icon(MdiIcons.walletOutline, size: 22)), label: 'WALLET'),
         ],

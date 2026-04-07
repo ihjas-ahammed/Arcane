@@ -4,6 +4,7 @@ import 'package:arcane/src/providers/app_provider.dart';
 import 'package:arcane/src/theme/app_theme.dart';
 import 'package:arcane/src/widgets/sheets/change_agent_sheet.dart';
 import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
+import 'package:arcane/src/widgets/dialogs/downgrade_to_mission_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -95,6 +96,23 @@ class ProjectOptionsSheet extends StatelessWidget {
               onTap: () {
                 provider.projectActions.toggleProjectStatus(currentMainTaskId, project.id, !project.isActive);
                 Navigator.pop(context);
+              },
+            ),
+
+            _buildOption(
+              context,
+              icon: MdiIcons.arrowCollapseDown,
+              label: "DOWNGRADE TO MISSION",
+              color: AppTheme.fhAccentPurple,
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => DowngradeToMissionDialog(projectName: project.title),
+                );
+                if (confirm == true) {
+                  provider.projectActions.downgradeProjectToSubtask(currentMainTaskId, project);
+                }
               },
             ),
 
