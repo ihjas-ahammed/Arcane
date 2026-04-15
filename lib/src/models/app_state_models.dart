@@ -43,6 +43,7 @@ class AppSettings {
   List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
+  String? customBriefingPrompt;
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
@@ -58,6 +59,9 @@ class AppSettings {
   
   // Someday / Maybe List
   List<SomedayItem> somedayList;
+
+  // Bus Schedules
+  Map<String, Map<String, List<String>>>? customBusSchedules;
 
   // Onboarding
   bool hasCompletedTour;
@@ -81,6 +85,7 @@ class AppSettings {
     this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
+    this.customBriefingPrompt,
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
@@ -91,6 +96,7 @@ class AppSettings {
     this.habitRules = const [],
     this.somedayList = const [],
     this.hasCompletedTour = false,
+    this.customBusSchedules,
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -121,6 +127,7 @@ class AppSettings {
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      customBriefingPrompt: json['customBriefingPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -138,6 +145,13 @@ class AppSettings {
               ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
       hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
+      customBusSchedules: json['customBusSchedules'] != null 
+          ? (json['customBusSchedules'] as Map<String, dynamic>).map(
+              (k, v) => MapEntry(k, (v as Map<String, dynamic>).map(
+                (k2, v2) => MapEntry(k2, (v2 as List<dynamic>).map((e) => e.toString()).toList())
+              ))
+            )
+          : null,
     );
   }
   
@@ -153,6 +167,7 @@ class AppSettings {
       'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
+      'customBriefingPrompt': customBriefingPrompt,
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
@@ -163,6 +178,7 @@ class AppSettings {
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
       'somedayList': somedayList.map((e) => e.toJson()).toList(),
       'hasCompletedTour': hasCompletedTour,
+      'customBusSchedules': customBusSchedules,
     };
   }
 }

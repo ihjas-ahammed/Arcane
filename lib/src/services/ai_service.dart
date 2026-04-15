@@ -497,6 +497,7 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? customInstruction,
   }) async {
     final prompt = """
     Generate a Tactical Briefing based on today's reflections.
@@ -505,7 +506,7 @@ class AIService {
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     
     Tone: Empathetic, psychologically wise, therapist.
-    
+    ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
     Task:
     1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
     2. Identify specific ability improvements or growth by comparing with previous context.

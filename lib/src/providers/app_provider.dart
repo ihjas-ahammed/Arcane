@@ -494,7 +494,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
-      onLog: (m) => debugPrint(m)
+      onLog: (m) => debugPrint(m),
+      customInstruction: settings.customBriefingPrompt
     );
 
     if (result['grateful_assets'] != null) {
