@@ -14,7 +14,6 @@ import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
-import 'package:arcane/src/screens/health/health_dashboard_screen.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:arcane/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:arcane/src/widgets/analytics/jwe_reflection_progress.dart';
@@ -399,7 +398,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
               onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
               onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
-              onBiometrics: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
             ),
               
             const SizedBox(height: 60),

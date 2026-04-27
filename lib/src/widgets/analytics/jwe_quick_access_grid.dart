@@ -7,14 +7,12 @@ class JweQuickAccessGrid extends StatelessWidget {
   final VoidCallback onArchive;
   final VoidCallback onNora;
   final VoidCallback onAdvanced;
-  final VoidCallback onBiometrics;
 
   const JweQuickAccessGrid({
     super.key,
     required this.onArchive,
     required this.onNora,
     required this.onAdvanced,
-    required this.onBiometrics,
   });
 
   @override
@@ -62,15 +60,6 @@ class JweQuickAccessGrid extends StatelessWidget {
                 icon: MdiIcons.hexagonMultipleOutline,
                 color: const Color(0xFF8A2BE2), // Purple
                 onTap: onAdvanced,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildGridButton(
-                title: "BIOMETRICS",
-                icon: MdiIcons.heartPulse,
-                color: JweTheme.accentCyan,
-                onTap: onBiometrics,
               ),
             ),
           ],

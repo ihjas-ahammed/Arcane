@@ -27,10 +27,30 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      final snap = await _rtdb.ref('users/$userId/data').get();
+      final baseRef = _rtdb.ref('users/$userId/data');
       
-      if (snap.exists && snap.value != null) {
-        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
+      // Fetch each chunk separately to prevent OutOfMemoryError when parsing massive snapshot
+      final settingsSnap = await baseRef.child(_docSettings).get();
+      final tasksSnap = await baseRef.child(_docTasks).get();
+      final financeSnap = await baseRef.child(_docFinance).get();
+      final healthSnap = await baseRef.child(_docHealth).get();
+      
+      // Limit history to the last 365 days to prevent excessive memory usage
+      // (saveHistory uses .update(), so older days are not overwritten/lost)
+      final historySnap = await baseRef.child('history').orderByKey().limitToLast(365).get();
+      final reflectionsSnap = await baseRef.child('reflections').get();
+      
+      Map<dynamic, dynamic> rawData = {};
+      
+      if (settingsSnap.exists) rawData[_docSettings] = settingsSnap.value;
+      if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
+      if (financeSnap.exists) rawData[_docFinance] = financeSnap.value;
+      if (healthSnap.exists) rawData[_docHealth] = healthSnap.value;
+      if (historySnap.exists) rawData['history'] = historySnap.value;
+      if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
+      
+      if (rawData.isNotEmpty) {
+        return _parseRtdbData(rawData);
       } else {
         return null;
       }
