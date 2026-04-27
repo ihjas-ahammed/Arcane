@@ -115,7 +115,7 @@ macos/Flutter/ephemeral_dir_path
 macos/Flutter/ephemeral.app
 macos/Flutter/Flutter- আরো একবার.h
 lib/src/config/api_keys.dart
-
+lib/firebase_options.dart
 --- END OF FILE .gitignore ---
 
 --- START OF FILE .metadata ---
@@ -2440,43 +2440,43 @@ const String geminiModelName = 'gemini-2.0-flash';
 --- END OF FILE targets.md ---
 
 --- START OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
-version.json,1773848921910,ed608252690fe2e4d570793f076ec835cb399f409bc84bfc99f9ecb38c33505b
-manifest.json,1773848925136,92824ff17269d17368d9a0b9709e313dcae9136423d210eccf4b3968a147e27c
-main.dart.js,1773848921875,a50a93015036c70f01b51847dc85a222b97cba9b9739653021956cfeb97f9e20
-favicon.png,1773848925136,89d30aa752917b7383e1ccc971caa7ec1be57be2818abc6bc8d7ad379abc9195
-icons/Icon-maskable-512.png,1773848925137,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
-icons/Icon-maskable-192.png,1773848925137,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
-icons/Icon-512.png,1773848925136,6ffac317dcd8fc83e7d27a52d3c10d7bf54de622f9efe8aef4d6f84c66014d91
-icons/Icon-192.png,1773848925137,f965d65080e0a6f4261f20226c1c81403617e58daf9f130e143c87d5462987ae
-assets/NOTICES,1773848922112,e05ace101f0cba8113452e5bea32e7656b2a87c08b6296bcd26f5198554c9cc4
-assets/FontManifest.json,1773848922111,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
-assets/AssetManifest.bin.json,1773848922111,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
-assets/AssetManifest.bin,1773848922111,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
-assets/shaders/stretch_effect.frag,1773848922367,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
-assets/shaders/ink_sparkle.frag,1773848922361,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
-assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1773848925116,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
-assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1773848925120,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
-assets/fonts/MaterialIcons-Regular.otf,1773848925124,293058293fbe4f6e0e8101f02ac6ef108eed5b522e5bc3b47e446eb2cf68eeaf
-assets/assets/fonts/RobotoCondensed-Regular.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/RobotoCondensed-Bold.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-SemiBold.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-assets/assets/fonts/OpenSans-Regular.ttf,1773848925081,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
-index.html,1773890204480,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
-flutter_service_worker.js,1773890433459,574bfb115266d96efdd85af6a3292efa8d299dc72b75d2c93114213706303b45
-flutter.js,1773890202939,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
-flutter_bootstrap.js,1773890204470,1d9da15ab5ab37ec30209313c395f17fdc0c32dc705d5a923b8679c36368d365
-canvaskit/skwasm_heavy.js,1773890202826,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
-canvaskit/skwasm.js,1773890202759,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
-canvaskit/canvaskit.js,1773890202797,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
-canvaskit/chromium/canvaskit.js,1773890202917,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
-canvaskit/chromium/canvaskit.js.symbols,1773890202926,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
-canvaskit/canvaskit.js.symbols,1773890202807,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
-canvaskit/skwasm.js.symbols,1773890202674,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
-canvaskit/skwasm_heavy.js.symbols,1773890202770,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
-canvaskit/skwasm.wasm,1773890202702,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
-canvaskit/chromium/canvaskit.wasm,1773890202848,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
-canvaskit/skwasm_heavy.wasm,1773890202594,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
-canvaskit/canvaskit.wasm,1773890202498,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
+version.json,1774875595506,9a8b188fea4f732beec38e11f13c8138316c33bb35c0d409aa0efa6aaa90877b
+manifest.json,1774875598787,1b0520a3373d02226ee728de6aea57a5742535fe5d5764ba404bbb0810a108e5
+index.html,1774875348379,3cec052ee35dd689fdd9aa4d2a0aa95bde755dc4b8d469ffb5c177ce3633b9c6
+flutter_bootstrap.js,1774875348321,358f5dbdff0c3e2b87784aee6ba634a675491ac364a1360c4e24e911a579377d
+flutter_service_worker.js,1774875599617,aa41199bf7506ed75a4a6be3a3899e73df9ca85914ba3364358c893e27e43653
+favicon.png,1774875598787,ffb0a3abb98f71da2b8c08e5313a66d0e2a69fa4411780c643865cbe63c9bf73
+flutter.js,1774875348171,33ed4a6b52f177dd6f64da22164d520bd71ca9a117748eb55871b2983aac65a6
+assets/FontManifest.json,1774875595759,7eecf67e60aa717b694d7c723b7c01e960b8fefdf683d6f1e38a41e7189b570d
+assets/AssetManifest.bin.json,1774875595759,7169ce79ef7443eacfbdbed2061f75c272a97a9d8ecd7d9e6977c910086ff1d4
+assets/AssetManifest.bin,1774875595759,90444d55ff10cf35bae86dff0dc05cceb02ffe659b55f07b7244e6e379b81bcb
+assets/shaders/stretch_effect.frag,1774875595987,cb21d9b587c211f7214f7c3cfc8e90289591405f8c33ecc5d78de1252965e51c
+assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,1774875598768,10aa1f084fa7612decf021fb5a8aefa4a7d2f427d7a02fa778962dd20b814c29
+assets/shaders/ink_sparkle.frag,1774875596011,2388003b1d3a03fd5c7281c82ef20645cd6e3c6bb00d493e2351b93ba2ec94c6
+assets/fonts/MaterialIcons-Regular.otf,1774875598770,34f6ae1d5e213c6bc2ce299f52d4810fbe363d5a8fcf0dfdc6b4e2a2b049e6cb
+assets/assets/fonts/RobotoCondensed-Regular.ttf,1774875598728,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-Regular.ttf,1774875598721,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/OpenSans-SemiBold.ttf,1774875598721,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+assets/assets/fonts/RobotoCondensed-Bold.ttf,1774875598722,5c87fa9381578a54c6f76be27cfd5151c4c3875ba49d1fcfc3fa36957f9f3356
+icons/Icon-maskable-192.png,1774875598788,728c22dbff92fa54faa8089c07c7267c4caa2a630793d63e3637ed27a8271609
+icons/Icon-192.png,1774875598789,728c22dbff92fa54faa8089c07c7267c4caa2a630793d63e3637ed27a8271609
+canvaskit/skwasm_heavy.js,1774875347797,99d383b913e2e0a13bd47c7ae5f1dec4d7a741cfdfe99ee2e7f61eaabf1e070b
+canvaskit/skwasm.js,1774875347918,fe13c246393fdec5eac93016a11b0c4b3c36d4de5cf2243d8558bf99eead8a20
+canvaskit/chromium/canvaskit.js,1774875347814,f5f9ef1dc6bd45c61bca23bfbaf8d2c7d3c989f4a8c431da5f1bd50ac14b4adf
+canvaskit/canvaskit.js,1774875347794,ffda577809d361e736dfd7f13a5a6c72bfd7e9edd047bafab416d65a6fdf0ce4
+icons/Icon-maskable-512.png,1774875598789,b261f485e3954efe9db3a644109ac0d69546a35c1d3f797efde9bd1d04633143
+icons/Icon-512.png,1774875598788,b261f485e3954efe9db3a644109ac0d69546a35c1d3f797efde9bd1d04633143
+assets/NOTICES,1774875595761,3857f5a6c55842972fc3774b211704b90833fc352ea27309a890fba7a66dbd8d
+canvaskit/chromium/canvaskit.js.symbols,1774875347892,42c612f77ec02674f6a113f07037422b8f7aaacf8597cc8f6bb39a4333011011
+canvaskit/canvaskit.js.symbols,1774875348152,9195ca07a8076e3e639d9799af76976464fe1e98333892331f874fb95843efde
+canvaskit/skwasm.js.symbols,1774875347906,926e67e708bc6869376d49be81fd3dd79a7f02398cdfe207ac0d44b68d788fc2
+canvaskit/skwasm_heavy.js.symbols,1774875347802,24c98cf5795a945e15902bf0095f6b89fcc63a76f7da30161bd3a12b05a5ddd4
+assets/packages/material_design_icons_flutter/lib/fonts/materialdesignicons-webfont.ttf,1774875598765,bbd25e18b85f54aada1f0b39a7db410285bf275a7f9cb0fb650e3c2cb049e56a
+canvaskit/skwasm.wasm,1774875347932,f10a1e7bed7af3c3af7c662c1deea502f60e8521d6a21e1b8197ddb3f7d2c8cb
+main.dart.js,1774875595463,80a23498d02c99f4338f4b6cb53374f691a8100ab89979e5277f83859a42855f
+canvaskit/chromium/canvaskit.wasm,1774875347828,139a7f77dbc2b4d034c7e5265b393b55fbaaa1c79ac27b24aeec5fa085be6a90
+canvaskit/skwasm_heavy.wasm,1774875347990,a4c00272c65e86d451620535ab7a801b49481f434ad2cce64f12d832e8584b99
+canvaskit/canvaskit.wasm,1774875348069,34568088f42473989933c4fb2a20ec8ab2098b1b9df0e9462aeba6c7d7050a92
 
 --- END OF FILE .firebase/hosting.YnVpbGQvd2Vi.cache ---
 
@@ -2646,9 +2646,270 @@ android.useAndroidX=true
 
 --- END OF FILE android/gradle.properties ---
 
+--- START OF FILE android/gradlew ---
+#!/usr/bin/env bash
+
+##############################################################################
+##
+##  Gradle start up script for UN*X
+##
+##############################################################################
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS=""
+
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD="maximum"
+
+warn ( ) {
+    echo "$*"
+}
+
+die ( ) {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+case "`uname`" in
+  CYGWIN* )
+    cygwin=true
+    ;;
+  Darwin* )
+    darwin=true
+    ;;
+  MINGW* )
+    msys=true
+    ;;
+esac
+
+# Attempt to set APP_HOME
+# Resolve links: $0 may be a link
+PRG="$0"
+# Need this for relative symlinks.
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+SAVED="`pwd`"
+cd "`dirname \"$PRG\"`/" >/dev/null
+APP_HOME="`pwd -P`"
+cd "$SAVED" >/dev/null
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+# Determine the Java command to use to start the JVM.
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+        JAVACMD="$JAVA_HOME/bin/java"
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD="java"
+    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+fi
+
+# Increase the maximum file descriptors if we can.
+if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
+    MAX_FD_LIMIT=`ulimit -H -n`
+    if [ $? -eq 0 ] ; then
+        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
+            MAX_FD="$MAX_FD_LIMIT"
+        fi
+        ulimit -n $MAX_FD
+        if [ $? -ne 0 ] ; then
+            warn "Could not set maximum file descriptor limit: $MAX_FD"
+        fi
+    else
+        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
+    fi
+fi
+
+# For Darwin, add options to specify how the application appears in the dock
+if $darwin; then
+    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+fi
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin ; then
+    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
+    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
+    JAVACMD=`cygpath --unix "$JAVACMD"`
+
+    # We build the pattern for arguments to be converted via cygpath
+    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
+    SEP=""
+    for dir in $ROOTDIRSRAW ; do
+        ROOTDIRS="$ROOTDIRS$SEP$dir"
+        SEP="|"
+    done
+    OURCYGPATTERN="(^($ROOTDIRS))"
+    # Add a user-defined pattern to the cygpath arguments
+    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
+        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
+    fi
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    i=0
+    for arg in "$@" ; do
+        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
+        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
+
+        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
+            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
+        else
+            eval `echo args$i`="\"$arg\""
+        fi
+        i=$((i+1))
+    done
+    case $i in
+        (0) set -- ;;
+        (1) set -- "$args0" ;;
+        (2) set -- "$args0" "$args1" ;;
+        (3) set -- "$args0" "$args1" "$args2" ;;
+        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
+        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
+        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
+        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
+        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
+        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
+    esac
+fi
+
+# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
+function splitJvmOpts() {
+    JVM_OPTS=("$@")
+}
+eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
+JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
+
+exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+
+--- END OF FILE android/gradlew ---
+
+--- START OF FILE android/gradlew.bat ---
+@if "%DEBUG%" == "" @echo off
+@rem ##########################################################################
+@rem
+@rem  Gradle startup script for Windows
+@rem
+@rem ##########################################################################
+
+@rem Set local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" setlocal
+
+@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+set DEFAULT_JVM_OPTS=
+
+set DIRNAME=%~dp0
+if "%DIRNAME%" == "" set DIRNAME=.
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+
+@rem Find java.exe
+if defined JAVA_HOME goto findJavaFromJavaHome
+
+set JAVA_EXE=java.exe
+%JAVA_EXE% -version >NUL 2>&1
+if "%ERRORLEVEL%" == "0" goto init
+
+echo.
+echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:findJavaFromJavaHome
+set JAVA_HOME=%JAVA_HOME:"=%
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+
+if exist "%JAVA_EXE%" goto init
+
+echo.
+echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
+echo.
+echo Please set the JAVA_HOME variable in your environment to match the
+echo location of your Java installation.
+
+goto fail
+
+:init
+@rem Get command-line arguments, handling Windowz variants
+
+if not "%OS%" == "Windows_NT" goto win9xME_args
+if "%@eval[2+2]" == "4" goto 4NT_args
+
+:win9xME_args
+@rem Slurp the command line arguments.
+set CMD_LINE_ARGS=
+set _SKIP=2
+
+:win9xME_args_slurp
+if "x%~1" == "x" goto execute
+
+set CMD_LINE_ARGS=%*
+goto execute
+
+:4NT_args
+@rem Get arguments from the 4NT Shell from JP Software
+set CMD_LINE_ARGS=%$
+
+:execute
+@rem Setup the command line
+
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+
+@rem Execute Gradle
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
+
+:end
+@rem End local scope for the variables with windows NT shell
+if "%ERRORLEVEL%"=="0" goto mainEnd
+
+:fail
+rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
+rem the _cmd.exe /c_ return code!
+if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
+exit /b 1
+
+:mainEnd
+if "%OS%"=="Windows_NT" endlocal
+
+:omega
+
+--- END OF FILE android/gradlew.bat ---
+
 --- START OF FILE android/local.properties ---
-sdk.dir=C:\\Users\\ihjas\\AppData\\Local\\Android\\sdk
-flutter.sdk=C:\\Users\\ihjas\\Documents\\flutter
+sdk.dir=C:\\Users\\unrea\\AppData\\Local\\Android\\sdk
+flutter.sdk=C:\\Users\\unrea\\Downloads\\flutter
+flutter.buildMode=debug
+flutter.versionName=2026.3.27
+flutter.versionCode=2076
 --- END OF FILE android/local.properties ---
 
 --- START OF FILE android/settings.gradle.kts ---
@@ -2684,13 +2945,19 @@ include(":app")
 
 --- END OF FILE android/settings.gradle.kts ---
 
---- START OF FILE android/.kotlin/sessions/kotlin-compiler-14123676837969612425.salive ---
+--- START OF FILE android/.gradle/8.14/gc.properties ---
 
---- END OF FILE android/.kotlin/sessions/kotlin-compiler-14123676837969612425.salive ---
+--- END OF FILE android/.gradle/8.14/gc.properties ---
 
---- START OF FILE android/.kotlin/sessions/kotlin-compiler-15636895198897932625.salive ---
+--- START OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+#Sun Apr 19 19:08:07 IST 2026
+gradle.version=8.14
 
---- END OF FILE android/.kotlin/sessions/kotlin-compiler-15636895198897932625.salive ---
+--- END OF FILE android/.gradle/buildOutputCleanup/cache.properties ---
+
+--- START OF FILE android/.gradle/vcs-1/gc.properties ---
+
+--- END OF FILE android/.gradle/vcs-1/gc.properties ---
 
 --- START OF FILE android/app/build.gradle.kts ---
 plugins {
@@ -2728,10 +2995,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("../../debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -3134,100 +3411,6 @@ zipStorePath=wrapper/dists
 distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-all.zip
 
 --- END OF FILE android/gradle/wrapper/gradle-wrapper.properties ---
-
---- START OF FILE lib/firebase_options.dart ---
-// File generated by FlutterFire CLI.
-// ignore_for_file: type=lint
-import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
-
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
-class DefaultFirebaseOptions {
-  static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return android;
-      case TargetPlatform.iOS:
-        return ios;
-      case TargetPlatform.macOS:
-        return macos;
-      case TargetPlatform.windows:
-        return windows;
-      case TargetPlatform.linux:
-        return windows;
-      default:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions are not supported for this platform.',
-        );
-    }
-  }
-
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC1VzXpHEKVCNfXZAHQ1eWJQo1ruzO1-oY',
-    appId: '1:1059901273076:web:86c0ab680c91dc5f843fa1',
-    messagingSenderId: '1059901273076',
-    projectId: 'task-dominion',
-    authDomain: 'task-dominion.firebaseapp.com',
-    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'task-dominion.firebasestorage.app',
-    measurementId: 'G-TZTWWCQMCY',
-  );
-
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg',
-    appId: '1:1059901273076:android:092a770ad41f5234843fa1',
-    messagingSenderId: '1059901273076',
-    projectId: 'task-dominion',
-    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'task-dominion.firebasestorage.app',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC1VzXpHEKVCNfXZAHQ1eWJQo1ruzO1-oY',
-    appId: '1:1059901273076:web:fc82a312504729c1843fa1',
-    messagingSenderId: '1059901273076',
-    projectId: 'task-dominion',
-    authDomain: 'task-dominion.firebaseapp.com',
-    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'task-dominion.firebasestorage.app',
-    measurementId: 'G-E4Z8MZKKCS',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
-    appId: '1:1059901273076:ios:681581fd0db8a039843fa1',
-    messagingSenderId: '1059901273076',
-    projectId: 'task-dominion',
-    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'task-dominion.firebasestorage.app',
-    iosBundleId: 'me.ihjas.myapp',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
-    appId: '1:1059901273076:ios:0e00d77480cd44e6843fa1',
-    messagingSenderId: '1059901273076',
-    projectId: 'task-dominion',
-    databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'task-dominion.firebasestorage.app',
-    iosBundleId: 'me.ihjas.arcane',
-  );
-
-}
---- END OF FILE lib/firebase_options.dart ---
 
 --- START OF FILE lib/main.dart ---
 import 'package:flutter/material.dart';
@@ -3771,6 +3954,7 @@ class AppSettings {
   List<String> customApiKeys; 
   String? customChatbotPrompt;
   String? customReflectionPrompt;
+  String? customBriefingPrompt;
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
@@ -3786,6 +3970,9 @@ class AppSettings {
   
   // Someday / Maybe List
   List<SomedayItem> somedayList;
+
+  // Bus Schedules
+  Map<String, Map<String, List<String>>>? customBusSchedules;
 
   // Onboarding
   bool hasCompletedTour;
@@ -3809,6 +3996,7 @@ class AppSettings {
     this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
+    this.customBriefingPrompt,
     this.savedPrompts = const [],
     this.startOfWeek = 1,
     this.dataVersion = 0,
@@ -3819,6 +4007,7 @@ class AppSettings {
     this.habitRules = const [],
     this.somedayList = const [],
     this.hasCompletedTour = false,
+    this.customBusSchedules,
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -3849,6 +4038,7 @@ class AppSettings {
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
+      customBriefingPrompt: json['customBriefingPrompt'] as String?,
       savedPrompts: (json['savedPrompts'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -3866,6 +4056,13 @@ class AppSettings {
               ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
       hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
+      customBusSchedules: json['customBusSchedules'] != null 
+          ? (json['customBusSchedules'] as Map<String, dynamic>).map(
+              (k, v) => MapEntry(k, (v as Map<String, dynamic>).map(
+                (k2, v2) => MapEntry(k2, (v2 as List<dynamic>).map((e) => e.toString()).toList())
+              ))
+            )
+          : null,
     );
   }
   
@@ -3881,6 +4078,7 @@ class AppSettings {
       'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,
+      'customBriefingPrompt': customBriefingPrompt,
       'savedPrompts': savedPrompts,
       'startOfWeek': startOfWeek,
       'dataVersion': dataVersion,
@@ -3891,6 +4089,7 @@ class AppSettings {
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
       'somedayList': somedayList.map((e) => e.toJson()).toList(),
       'hasCompletedTour': hasCompletedTour,
+      'customBusSchedules': customBusSchedules,
     };
   }
 }
@@ -6075,7 +6274,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
-      onLog: (m) => debugPrint(m)
+      onLog: (m) => debugPrint(m),
+      customInstruction: settings.customBriefingPrompt
     );
 
     if (result['grateful_assets'] != null) {
@@ -9890,7 +10090,9 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:arcane/src/providers/app_provider.dart';
+import 'package:arcane/src/models/app_state_models.dart';
 import 'package:arcane/src/widgets/bus/bus_schedule_grid.dart';
 
 class BusScheduleScreen extends StatefulWidget {
@@ -9968,16 +10170,11 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
   Future<void> _loadSchedules() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedStr = prefs.getString('custom_bus_schedules');
-      if (savedStr != null) {
-        final decoded = jsonDecode(savedStr) as Map<String, dynamic>;
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      if (provider.settings.customBusSchedules != null) {
         Map<String, Map<String, List<String>>> loaded = {};
-        decoded.forEach((k1, v1) {
-          Map<String, List<String>> innerMap = {};
-          (v1 as Map<String, dynamic>).forEach((k2, v2) {
-             innerMap[k2] = (v2 as List<dynamic>).map((e) => e.toString()).toList();
-          });
+        provider.settings.customBusSchedules!.forEach((k1, v1) {
+          Map<String, List<String>> innerMap = Map<String, List<String>>.from(v1);
           loaded[k1] = innerMap;
           if (!_locations.contains(k1)) _locations.add(k1);
         });
@@ -9993,8 +10190,11 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
   Future<void> _saveSchedules() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('custom_bus_schedules', jsonEncode(_schedules));
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final newSettings = AppSettings.fromJson(provider.settings.toJson());
+      newSettings.customBusSchedules = _schedules;
+      provider.setSettings(newSettings);
+      
       _calculateDerivedRoutes();
       setState(() {});
     } catch (e) {
@@ -15645,6 +15845,7 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? customInstruction,
   }) async {
     final prompt = """
     Generate a Tactical Briefing based on today's reflections.
@@ -15653,7 +15854,7 @@ class AIService {
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     
     Tone: Empathetic, psychologically wise, therapist.
-    
+    ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
     Task:
     1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
     2. Identify specific ability improvements or growth by comparing with previous context.
@@ -16327,10 +16528,30 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      final snap = await _rtdb.ref('users/$userId/data').get();
+      final baseRef = _rtdb.ref('users/$userId/data');
       
-      if (snap.exists && snap.value != null) {
-        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
+      // Fetch each chunk separately to prevent OutOfMemoryError when parsing massive snapshot
+      final settingsSnap = await baseRef.child(_docSettings).get();
+      final tasksSnap = await baseRef.child(_docTasks).get();
+      final financeSnap = await baseRef.child(_docFinance).get();
+      final healthSnap = await baseRef.child(_docHealth).get();
+      
+      // Limit history to the last 365 days to prevent excessive memory usage
+      // (saveHistory uses .update(), so older days are not overwritten/lost)
+      final historySnap = await baseRef.child('history').orderByKey().limitToLast(365).get();
+      final reflectionsSnap = await baseRef.child('reflections').get();
+      
+      Map<dynamic, dynamic> rawData = {};
+      
+      if (settingsSnap.exists) rawData[_docSettings] = settingsSnap.value;
+      if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
+      if (financeSnap.exists) rawData[_docFinance] = financeSnap.value;
+      if (healthSnap.exists) rawData[_docHealth] = healthSnap.value;
+      if (historySnap.exists) rawData['history'] = historySnap.value;
+      if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
+      
+      if (rawData.isNotEmpty) {
+        return _parseRtdbData(rawData);
       } else {
         return null;
       }
@@ -18531,14 +18752,12 @@ class JweQuickAccessGrid extends StatelessWidget {
   final VoidCallback onArchive;
   final VoidCallback onNora;
   final VoidCallback onAdvanced;
-  final VoidCallback onBiometrics;
 
   const JweQuickAccessGrid({
     super.key,
     required this.onArchive,
     required this.onNora,
     required this.onAdvanced,
-    required this.onBiometrics,
   });
 
   @override
@@ -18586,15 +18805,6 @@ class JweQuickAccessGrid extends StatelessWidget {
                 icon: MdiIcons.hexagonMultipleOutline,
                 color: const Color(0xFF8A2BE2), // Purple
                 onTap: onAdvanced,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildGridButton(
-                title: "BIOMETRICS",
-                icon: MdiIcons.heartPulse,
-                color: JweTheme.accentCyan,
-                onTap: onBiometrics,
               ),
             ),
           ],
@@ -36870,7 +37080,6 @@ import 'package:arcane/src/screens/nora_ai_screen.dart';
 import 'package:arcane/src/screens/reflections_archive_screen.dart';
 import 'package:arcane/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:arcane/src/screens/journaling/archived_reports_screen.dart';
-import 'package:arcane/src/screens/health/health_dashboard_screen.dart';
 import 'package:arcane/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:arcane/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:arcane/src/widgets/analytics/jwe_reflection_progress.dart';
@@ -37255,7 +37464,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
               onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
               onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
-              onBiometrics: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthDashboardScreen())),
             ),
               
             const SizedBox(height: 60),
@@ -38218,6 +38426,7 @@ class _SettingsViewState extends State<SettingsView> {
   final _confirmPasswordController = TextEditingController();
   final _customChatbotPromptController = TextEditingController();
   final _customReflectionPromptController = TextEditingController();
+  final _customBriefingPromptController = TextEditingController();
 
   bool _passwordChangeLoading = false;
   String _passwordChangeError = '';
@@ -38240,6 +38449,8 @@ class _SettingsViewState extends State<SettingsView> {
         appProvider.settings.customChatbotPrompt ?? '';
     _customReflectionPromptController.text =
         appProvider.settings.customReflectionPrompt ?? '';
+    _customBriefingPromptController.text =
+        appProvider.settings.customBriefingPrompt ?? '';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchModels(appProvider);
@@ -38252,6 +38463,7 @@ class _SettingsViewState extends State<SettingsView> {
     _confirmPasswordController.dispose();
     _customChatbotPromptController.dispose();
     _customReflectionPromptController.dispose();
+    _customBriefingPromptController.dispose();
     super.dispose();
   }
 
@@ -38538,6 +38750,21 @@ class _SettingsViewState extends State<SettingsView> {
                   onChanged: (val) {
                     appProvider.setSettings(
                         appProvider.settings..customReflectionPrompt = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _customBriefingPromptController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Daily Briefing Prompt Extension',
+                    hintText:
+                        'Add specific instructions for generating the daily tactical briefing.',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (val) {
+                    appProvider.setSettings(
+                        appProvider.settings..customBriefingPrompt = val);
                   },
                 ),
                 const SizedBox(height: 8),
