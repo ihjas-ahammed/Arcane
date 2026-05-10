@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/sheets/change_agent_sheet.dart';
-import 'package:arcane/src/widgets/dialogs/project_dialogs.dart';
-import 'package:arcane/src/widgets/dialogs/downgrade_to_mission_dialog.dart';
+import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/sheets/change_agent_sheet.dart';
+import 'package:missions/src/widgets/dialogs/project_dialogs.dart';
+import 'package:missions/src/widgets/dialogs/downgrade_to_mission_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 

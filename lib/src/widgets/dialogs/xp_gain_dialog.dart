@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';

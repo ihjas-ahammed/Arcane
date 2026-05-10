@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/habit_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/models/habit_models.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 
 mixin UserMixin on ChangeNotifier {
   // Auth
@@ -84,17 +84,17 @@ mixin UserMixin on ChangeNotifier {
 
   List<Skill> getBaseWellbeingSkills() {
     return [
-      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in one’s daily life.'),
-      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in one’s daily life.'),
-      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of one’s life overall.'),
+      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in oneâ€™s daily life.'),
+      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in oneâ€™s daily life.'),
+      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of oneâ€™s life overall.'),
       Skill(id: 'vit', name: 'Vitality', description: 'Vitality: a positive subjective sense of physical health and energy.'),
-      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit one’s needs and desires.'),
+      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit oneâ€™s needs and desires.'),
       Skill(id: 'rel', name: 'Relationships', description: 'Positive relationships: feeling loved, supported, and valued by others.'),
       Skill(id: 'acc', name: 'Self-Acceptance', description: 'Self-acceptance: positive attitudes toward self; a sense of self-worth.'),
       Skill(id: 'mas', name: 'Mastery', description: 'Mastery: feelings of competence in accomplishing challenging tasks.'),
-      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make one’s own choices in life.'),
+      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make oneâ€™s own choices in life.'),
       Skill(id: 'gro', name: 'Growth', description: 'Personal growth: continually seeking development and improvement.'),
-      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in one’s daily activities.'),
+      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in oneâ€™s daily activities.'),
       Skill(id: 'mea', name: 'Meaning', description: 'Meaning: feeling that life has purpose and direction.'),
     ];
   }

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/widgets/cards/submission_card.dart';
-import 'package:arcane/src/widgets/cards/task_header_card.dart';
-import 'package:arcane/src/widgets/ui/completed_submissions_section.dart';
-import 'package:arcane/src/widgets/ui/recurring_completed_section.dart';
-import 'package:arcane/src/widgets/ui/inactive_submissions_section.dart';
-import 'package:arcane/src/widgets/dialogs/initialize_action_plan_dialog.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/widgets/cards/submission_card.dart';
+import 'package:missions/src/widgets/cards/task_header_card.dart';
+import 'package:missions/src/widgets/ui/completed_submissions_section.dart';
+import 'package:missions/src/widgets/ui/recurring_completed_section.dart';
+import 'package:missions/src/widgets/ui/inactive_submissions_section.dart';
+import 'package:missions/src/widgets/dialogs/initialize_action_plan_dialog.dart';
+import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 

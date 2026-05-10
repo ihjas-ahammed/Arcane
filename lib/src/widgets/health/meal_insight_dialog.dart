@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/health_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/health_models.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -87,7 +87,7 @@ class _MealInsightDialogState extends State<MealInsightDialog> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("• ", style: TextStyle(color: JweTheme.accentCyan)),
+                          const Text("â€¢ ", style: TextStyle(color: JweTheme.accentCyan)),
                           Expanded(child: Text(b.toString(), style: const TextStyle(color: JweTheme.textWhite, fontSize: 12))),
                         ],
                       ),

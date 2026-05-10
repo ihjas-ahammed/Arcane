@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
+import 'package:missions/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/utils/json_utils.dart';
+import 'package:missions/src/utils/json_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
@@ -508,7 +508,7 @@ class AIService {
     Tone: Empathetic, psychologically wise, therapist.
     ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
     Task:
-    1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
+    1. Create a concise summary. Adopt an inherently optimistic perspectiveâ€”if something bad happened, actively help find the good or the lesson in it. Focus on the present.
     2. Identify specific ability improvements or growth by comparing with previous context.
     3. Extract people to be grateful for based on today's logs (You MAY use their real names).
     4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
@@ -609,7 +609,7 @@ class AIService {
     
     Task:
     1. Analyze the user's momentum.
-    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimistically—help them find the good in recent bad events. Focus on the present day actionability.
+    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimisticallyâ€”help them find the good in recent bad events. Focus on the present day actionability.
     3. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
     
     Output JSON ONLY:

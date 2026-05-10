@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/services/firebase_service.dart' as fb_service;
-import 'package:arcane/src/services/local_storage_service.dart';
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/data_export_service.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; 
-import 'package:arcane/src/utils/constants.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/finance_models.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/services/firebase_service.dart' as fb_service;
+import 'package:missions/src/services/local_storage_service.dart';
+import 'package:missions/src/services/storage_service.dart';
+import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/history_helper.dart'; 
+import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/models/finance_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -22,21 +22,21 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 
 // Import Mixins
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
-import 'package:arcane/src/providers/mixins/task_mixin.dart';
-import 'package:arcane/src/providers/mixins/finance_mixin.dart';
-import 'package:arcane/src/providers/mixins/user_mixin.dart';
-import 'package:arcane/src/providers/mixins/health_mixin.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/providers/mixins/task_mixin.dart';
+import 'package:missions/src/providers/mixins/finance_mixin.dart';
+import 'package:missions/src/providers/mixins/user_mixin.dart';
+import 'package:missions/src/providers/mixins/health_mixin.dart';
 
 // Import Actions
-import 'package:arcane/src/providers/actions/task_actions.dart';
-import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
-import 'package:arcane/src/providers/actions/timer_actions.dart';
-import 'package:arcane/src/providers/actions/project_actions.dart';
-import 'package:arcane/src/providers/actions/report_actions.dart';
-import 'package:arcane/src/providers/actions/schedule_actions.dart';
-import 'package:arcane/src/providers/actions/finance_actions.dart';
-import 'package:arcane/src/providers/actions/journaling_actions.dart';
+import 'package:missions/src/providers/actions/task_actions.dart';
+import 'package:missions/src/providers/actions/ai_generation_actions.dart';
+import 'package:missions/src/providers/actions/timer_actions.dart';
+import 'package:missions/src/providers/actions/project_actions.dart';
+import 'package:missions/src/providers/actions/report_actions.dart';
+import 'package:missions/src/providers/actions/schedule_actions.dart';
+import 'package:missions/src/providers/actions/finance_actions.dart';
+import 'package:missions/src/providers/actions/journaling_actions.dart';
 
 class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
@@ -601,26 +601,28 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
           if (st.isRecurring) {
-             bool shouldReset = false;
-             if (st.completed && st.lastCompletedDate != null) {
-                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
-             } else if (st.completed) {
-                shouldReset = true;
-             }
-             if (shouldReset) {
-               changed = true;
-               return SubTask(
-                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
-                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
-                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
-                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
-                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
-               );
-             }
+            bool shouldReset = false;
+            if (st.completed && st.lastCompletedDate != null) {
+              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+            } else if (st.completed) {
+              shouldReset = true;
+            }
+            if (shouldReset) {
+              changed = true;
+              // Stable reset: only flip completion + counters. Preserve every
+              // other field (subSubTasks, substeps, sessions, why/what/etc.)
+              // via copyWith. Recurring resets must NEVER drop checkpoints.
+              return st.copyWith(
+                completed: false,
+                currentCount: 0,
+                subSubTasks: st.subSubTasks.map(_resetCheckpoint).toList(),
+                updatedAt: DateTime.now(),
+              );
+            }
           }
           return st;
         }).toList();
-        
+
         if (task.dailyTimeSpent > 0) {
           changed = true;
           return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
@@ -631,6 +633,24 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
     }
+  }
+
+  /// Recursively flip a checkpoint (and any nested substeps) back to
+  /// incomplete while preserving structure, names, and configuration.
+  SubSubTask _resetCheckpoint(SubSubTask cp) {
+    return SubSubTask(
+      id: cp.id,
+      name: cp.name,
+      completed: false,
+      isCountable: cp.isCountable,
+      targetCount: cp.targetCount,
+      currentCount: 0,
+      completionTimestamp: null,
+      type: cp.type,
+      substeps: cp.substeps.map(_resetCheckpoint).toList(),
+      why: cp.why,
+      what: cp.what,
+    );
   }
 
   List<bool> getCompletionStatusForCurrentWeek(MainTask task) {

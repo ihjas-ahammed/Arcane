@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/services/storage_service.dart';
+import 'package:missions/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 mixin SyncMixin on ChangeNotifier {

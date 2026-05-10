@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/widgets/ui/reflection_log_card.dart';
+import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';

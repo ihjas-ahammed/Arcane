@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-import 'package:arcane/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/ui/linked_task_indicator.dart';
+import 'package:missions/src/widgets/ui/rhombus_checkbox.dart';
+import 'package:missions/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 

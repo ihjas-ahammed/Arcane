@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
 
-import 'package:arcane/src/widgets/cards/project_dashboard_card.dart';
+import 'package:missions/src/widgets/cards/project_dashboard_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/screens/project_detail_screen.dart';
+import 'package:missions/src/screens/project_detail_screen.dart';
 
 class CompletedProjectsSection extends StatelessWidget {
   final List<Map<String, dynamic>> completedProjects;

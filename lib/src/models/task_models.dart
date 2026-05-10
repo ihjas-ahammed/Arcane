@@ -1,7 +1,7 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/models/project_models.dart';
 
 class TaskSession {
   String id;

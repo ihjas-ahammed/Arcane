@@ -1,6 +1,6 @@
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:collection/collection.dart';
 
 class TimerActions {

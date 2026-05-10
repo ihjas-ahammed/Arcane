@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/utils/math_utils.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/utils/math_utils.dart';
 import 'dart:math';
 import 'package:collection/collection.dart';
 

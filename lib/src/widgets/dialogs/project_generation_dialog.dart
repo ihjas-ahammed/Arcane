@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 class ProjectGenerationDialog extends StatefulWidget {

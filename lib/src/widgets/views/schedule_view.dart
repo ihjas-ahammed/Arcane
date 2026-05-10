@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/schedule/schedule_timeline.dart';
-import 'package:arcane/src/widgets/schedule/protocol_control_panel.dart';
-import 'package:arcane/src/widgets/schedule/schedule_hero_widget.dart';
-import 'package:arcane/src/widgets/schedule/day_plan_dashboard_widget.dart';
-import 'package:arcane/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:arcane/src/screens/schedule/day_plan_screen.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
+import 'package:missions/src/widgets/schedule/protocol_control_panel.dart';
+import 'package:missions/src/widgets/schedule/schedule_hero_widget.dart';
+import 'package:missions/src/widgets/schedule/day_plan_dashboard_widget.dart';
+import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:missions/src/screens/schedule/day_plan_screen.dart';
+import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
+import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:missions/src/models/timeline_models.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -383,10 +386,12 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
-    final isRunning = nextSubTask != null && provider.activeTimers[nextSubTask.id]?.isRunning == true;
-    final totalTodaySeconds = nextSubTask != null 
-        ? TaskCalculations.getTodaySeconds(nextSubTask, provider.activeTimers[nextSubTask.id]) 
+    final activeTimer = nextSubTask == null ? null : provider.activeTimers[nextSubTask.id];
+    final isRunning = activeTimer?.isRunning == true;
+    final accumulatedTodaySeconds = nextSubTask != null
+        ? TaskCalculations.getHistoricalTodaySeconds(nextSubTask)
         : 0.0;
+    final sessionStart = isRunning ? activeTimer?.startTime : null;
 
     return Column(
       children: [
@@ -396,7 +401,8 @@ class _ScheduleViewState extends State<ScheduleView> {
           subTask: nextSubTask,
           checkpoint: nextCheckpoint,
           isRunning: isRunning,
-          totalTodaySeconds: totalTodaySeconds,
+          accumulatedTodaySeconds: accumulatedTodaySeconds,
+          sessionStart: sessionStart,
           onOpenPlan: () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
           },
@@ -445,73 +451,92 @@ class _ScheduleViewState extends State<ScheduleView> {
         if (isToday)
           const DayPlanDashboardWidget(),
 
-        // CONTROLS
+        // CONTROLS — tactical date strip
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTheme.fhBgDark,
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          decoration: const BoxDecoration(
+            color: JweTheme.bgCanvas,
+            border: Border(
+              top: BorderSide(color: JweTheme.lineSoft, width: 1),
+              bottom: BorderSide(color: JweTheme.lineSoft, width: 1),
+            ),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(-1),
-                  ),
-                  InkWell(
-                    onTap: () => _pickDate(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isToday ? "TODAY" : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhAccentTeal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM dd').format(_selectedDate).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontFamily: AppTheme.fontDisplay,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, color: AppTheme.fhTextSecondary),
-                    onPressed: () => _shiftDate(1),
-                  ),
-                ],
+              _ScheduleControlIcon(
+                icon: Icons.chevron_left,
+                onTap: () => _shiftDate(-1),
               ),
-              Row(
-                children: [
-                  if (isToday)
-                    IconButton(
-                      icon: _isPredicting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
-                        : Icon(MdiIcons.crystalBall, color: AppTheme.fhAccentPurple),
-                      tooltip: "PREDICT SCHEDULE",
-                      onPressed: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+              const SizedBox(width: 6),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _pickDate(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: isToday ? JweTheme.lineAmber : JweTheme.lineSoft),
+                      color: isToday ? JweTheme.amberSoft : Colors.transparent,
                     ),
-                  IconButton(
-                    icon: Icon(MdiIcons.console, color: AppTheme.fhAccentRed),
-                    tooltip: "PROTOCOL CONTROL",
-                    onPressed: () => _openProtocolControl(context, provider),
+                    child: Row(children: [
+                      Container(
+                        width: 3,
+                        height: 22,
+                        color: isToday ? JweTheme.accentAmber : JweTheme.accentCyan,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isToday ? 'TODAY · LIVE' : DateFormat('EEEE').format(_selectedDate).toUpperCase(),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isToday ? JweTheme.accentAmber : JweTheme.accentCyan,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.6,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            DateFormat('dd MMM yyyy').format(_selectedDate).toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.0,
+                              height: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Icon(MdiIcons.calendarBlank, size: 14, color: JweTheme.textMuted),
+                    ]),
                   ),
-                ],
-              )
+                ),
+              ),
+              const SizedBox(width: 6),
+              _ScheduleControlIcon(
+                icon: Icons.chevron_right,
+                onTap: () => _shiftDate(1),
+              ),
+              const SizedBox(width: 8),
+              if (isToday)
+                _ScheduleControlIcon(
+                  icon: _isPredicting ? null : MdiIcons.crystalBall,
+                  loading: _isPredicting,
+                  accent: JweTheme.accentCyan,
+                  tooltip: 'PREDICT',
+                  onTap: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                ),
+              if (isToday) const SizedBox(width: 6),
+              _ScheduleControlIcon(
+                icon: MdiIcons.console,
+                accent: JweTheme.accentAmber,
+                tooltip: 'PROTOCOLS',
+                onTap: () => _openProtocolControl(context, provider),
+              ),
             ],
           ),
         ),
@@ -526,13 +551,33 @@ class _ScheduleViewState extends State<ScheduleView> {
                 initialScrollOffset: 0,
               ),
               Positioned(
-                right: 20,
-                bottom: 20,
-                child: FloatingActionButton(
-                  backgroundColor: AppTheme.fhAccentRed,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                  onPressed: () => _handleAddSession(context, provider),
+                right: 18,
+                bottom: 22,
+                child: InkWell(
+                  onTap: () => _handleAddSession(context, provider),
+                  child: ClipPath(
+                    clipper: HudCutClipper(clip: HudClip.both, cut: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentAmber,
+                        boxShadow: [
+                          BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.55), blurRadius: 14),
+                        ],
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(MdiIcons.plus, color: JweTheme.bgDeep, size: 16),
+                        const SizedBox(width: 6),
+                        Text('LOG SESSION',
+                            style: GoogleFonts.saira(
+                              color: JweTheme.bgDeep,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.6,
+                            )),
+                      ]),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -540,5 +585,48 @@ class _ScheduleViewState extends State<ScheduleView> {
         ),
       ],
     );
+  }
+}
+
+class _ScheduleControlIcon extends StatelessWidget {
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final Color accent;
+  final String? tooltip;
+  final bool loading;
+
+  const _ScheduleControlIcon({
+    this.icon,
+    this.onTap,
+    this.accent = JweTheme.accentCyan,
+    this.tooltip,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    Widget child = Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: disabled ? JweTheme.lineSoft : accent.withValues(alpha: 0.40),
+          width: 1,
+        ),
+      ),
+      child: loading
+          ? SizedBox(
+              width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.6, valueColor: AlwaysStoppedAnimation<Color>(accent)),
+            )
+          : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : accent),
+    );
+    if (onTap != null) {
+      child = InkWell(onTap: onTap, child: child);
+    }
+    if (tooltip != null) child = Tooltip(message: tooltip!, child: child);
+    return child;
   }
 }

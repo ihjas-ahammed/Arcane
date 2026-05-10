@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/dialogs/nora_control_panel.dart';
-import 'package:arcane/src/widgets/ui/nora_message_bubble.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/dialogs/nora_control_panel.dart';
+import 'package:missions/src/widgets/ui/nora_message_bubble.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/widgets/valorant/valorant_button.dart';
 
 class NoraAiScreen extends StatefulWidget {
   const NoraAiScreen({super.key});
@@ -233,7 +233,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     selected: isSelected,
                     selectedTileColor: AppTheme.fhAccentPurple.withOpacity(0.1),
                     title: Text(session.title, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
-                    subtitle: Text("${session.tone} • ${DateFormat('MM/dd').format(session.startDate)}", style: const TextStyle(fontSize: 10)),
+                    subtitle: Text("${session.tone} â€¢ ${DateFormat('MM/dd').format(session.startDate)}", style: const TextStyle(fontSize: 10)),
                     onTap: () {
                       appProvider.switchNoraSession(session.id);
                       Navigator.pop(context);

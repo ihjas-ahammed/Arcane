@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/dialogs/add_category_dialog.dart';
-import 'package:arcane/src/models/finance_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/widgets/dialogs/add_category_dialog.dart';
+import 'package:missions/src/models/finance_models.dart';
 import 'package:provider/provider.dart';
 
 class AddTransactionDialog extends StatefulWidget {
@@ -42,7 +42,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontSize: 24),
-              decoration: const InputDecoration(prefixText: "₹ ", hintText: "0.00", hintStyle: TextStyle(color: JweTheme.textMuted)),
+              decoration: const InputDecoration(prefixText: "â‚¹ ", hintText: "0.00", hintStyle: TextStyle(color: JweTheme.textMuted)),
               autofocus: true,
             ),
             const SizedBox(height: 16),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/models/project_models.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:missions/src/widgets/ui/jwe_progress_bar.dart';
 
 class OverallProjectProgressCard extends StatelessWidget {
   final List<Project> activeProjects;

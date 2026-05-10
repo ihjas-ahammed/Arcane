@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/finance/finance_tracker_view.dart';
-import 'package:arcane/src/widgets/finance/savings_goals_view.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/finance/finance_tracker_view.dart';
+import 'package:missions/src/widgets/finance/savings_goals_view.dart';
 
+/// Operator HUD wallet dashboard. Two surfaces: live cashflow + savings.
 class FinanceDashboardScreen extends StatelessWidget {
   const FinanceDashboardScreen({super.key});
 
@@ -15,17 +16,25 @@ class FinanceDashboardScreen extends StatelessWidget {
         children: [
           Container(
             decoration: const BoxDecoration(
-              color: JweTheme.panel,
-              border: Border(bottom: BorderSide(color: JweTheme.border)),
+              color: JweTheme.bgCanvas,
+              border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
             ),
             child: TabBar(
-              indicatorColor: JweTheme.accentCyan,
-              labelColor: JweTheme.accentCyan,
+              indicator: const UnderlineTabIndicator(
+                borderSide: BorderSide(color: JweTheme.accentAmber, width: 2),
+                insets: EdgeInsets.symmetric(horizontal: 24),
+              ),
+              labelColor: JweTheme.accentAmber,
               unselectedLabelColor: JweTheme.textMuted,
-              labelStyle: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 14),
+              labelStyle: GoogleFonts.jetBrainsMono(
+                fontWeight: FontWeight.w700, letterSpacing: 1.6, fontSize: 11,
+              ),
+              unselectedLabelStyle: GoogleFonts.jetBrainsMono(
+                fontWeight: FontWeight.w600, letterSpacing: 1.6, fontSize: 11,
+              ),
               tabs: const [
-                Tab(text: "CASHFLOW"),
-                Tab(text: "SAVINGS"),
+                Tab(text: 'CASHFLOW'),
+                Tab(text: 'SAVINGS'),
               ],
             ),
           ),

@@ -1,6 +1,6 @@
 import 'package:uuid/uuid.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
 
 class FinanceActions {
   final AppProvider _provider;

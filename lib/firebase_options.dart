@@ -50,7 +50,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg',
-    appId: '1:1059901273076:android:092a770ad41f5234843fa1',
+    appId: '1:1059901273076:android:827b5776e17ef3d1843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -58,34 +58,34 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC1VzXpHEKVCNfXZAHQ1eWJQo1ruzO1-oY',
-    appId: '1:1059901273076:web:fc82a312504729c1843fa1',
+    apiKey: 'AIzaSyDcVfR8s8BoLYP_xS32CY9JWGDYC1Okhh0',
+    appId: '1:1059901273076:web:70a683aa039f825c843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     authDomain: 'task-dominion.firebaseapp.com',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'task-dominion.firebasestorage.app',
-    measurementId: 'G-E4Z8MZKKCS',
+    measurementId: 'G-0EDMDMRYVT',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
-    appId: '1:1059901273076:ios:681581fd0db8a039843fa1',
+    appId: '1:1059901273076:ios:418e33b5c673176f843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'task-dominion.firebasestorage.app',
-    iosBundleId: 'me.ihjas.myapp',
+    iosBundleId: 'me.ihjas.missions',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBJdGWxFIVjodqOna6Ub4wtpIpx3-mG0Lw',
-    appId: '1:1059901273076:ios:0e00d77480cd44e6843fa1',
+    appId: '1:1059901273076:ios:418e33b5c673176f843fa1',
     messagingSenderId: '1059901273076',
     projectId: 'task-dominion',
     databaseURL: 'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'task-dominion.firebasestorage.app',
-    iosBundleId: 'me.ihjas.arcane',
+    iosBundleId: 'me.ihjas.missions',
   );
 
 }

@@ -1,5 +1,5 @@
 import 'package:intl/intl.dart';
-import 'package:arcane/src/models/task_models.dart';
+import 'package:missions/src/models/task_models.dart';
 
 class HistoryHelper {
   /// Generates a formatted string of session logs from the last [days] days.

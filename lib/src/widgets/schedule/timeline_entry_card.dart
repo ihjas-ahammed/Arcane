@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/timeline_models.dart';
+import 'package:missions/src/models/timeline_models.dart';
 import 'package:intl/intl.dart';
 
 class TimelineEntryCard extends StatelessWidget {

@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
-import 'package:arcane/src/widgets/journaling/person_info_header.dart';
-import 'package:arcane/src/widgets/journaling/person_core_stats.dart';
-import 'package:arcane/src/widgets/journaling/person_dossier_section.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/widgets/journaling/person_info_header.dart';
+import 'package:missions/src/widgets/journaling/person_core_stats.dart';
+import 'package:missions/src/widgets/journaling/person_dossier_section.dart';
 import 'package:intl/intl.dart';
 
 class PersonDetailScreen extends StatelessWidget {

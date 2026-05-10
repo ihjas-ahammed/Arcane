@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/id_generator.dart';
+import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:image_picker/image_picker.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/utils/helpers.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/utils/helpers.dart';
 import 'package:intl/intl.dart';
 
 class ReportActions {

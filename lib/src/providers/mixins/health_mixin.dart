@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/health_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/models/health_models.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:uuid/uuid.dart';
 
 mixin HealthMixin on ChangeNotifier {

@@ -37,7 +37,7 @@ class DataExportService {
       // Use Share Plus to export
       await Share.shareXFiles(
         [XFile(file.path)],
-        subject: 'Arcane Database Export',
+        subject: 'Missions Database Export',
         text: 'Backup created on $timestamp',
       );
     }

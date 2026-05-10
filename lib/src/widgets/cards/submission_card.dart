@@ -1,37 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/ui/linked_task_indicator.dart';
-import 'package:arcane/src/widgets/ui/hextech_components.dart';
-import 'package:arcane/src/widgets/atoms/valorant_timer_text.dart';
-import 'package:arcane/src/widgets/ui/jwe_progress_bar.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
+import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/linked_task_indicator.dart';
+import 'package:provider/provider.dart';
 
+/// Operator HUD QueueRow — ported submission card. Preserves
+/// Dismissible (delete/complete), timer engage, linked indicator,
+/// recurring marker, hierarchical bar.
 class SubmissionCard extends StatelessWidget {
   final MainTask parentTask;
   final SubTask subTask;
 
-  const SubmissionCard({
-    super.key,
-    required this.parentTask,
-    required this.subTask,
-  });
+  const SubmissionCard({super.key, required this.parentTask, required this.subTask});
 
   void _openDetailScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SubmissionDetailScreen(
-          parentTask: parentTask,
-          subTask: subTask,
-        ),
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => SubmissionDetailScreen(parentTask: parentTask, subTask: subTask),
+    ));
+  }
+
+  HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed) return HudTone.red;
+    return HudTone.amber;
+  }
+
+  String _shortCode(String id) {
+    final h = id.hashCode.abs() % 9000 + 1000;
+    return 'M-$h';
   }
 
   @override
@@ -39,291 +45,221 @@ class SubmissionCard extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
-    SubTask currentSubTask = subTask;
+    SubTask current = subTask;
     try {
       final liveParent = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
-      currentSubTask = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
+      current = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (_) {}
 
-    final linkedInfo = provider.findLinkedProjectStepInfo(currentSubTask.id);
+    final linkedInfo = provider.findLinkedProjectStepInfo(current.id);
     final isRunning = timerState?.isRunning ?? false;
-    final bool isCompleted = currentSubTask.completed;
+    final isCompleted = current.completed;
 
-    final double displayBaseTime = isRunning 
-        ? TaskCalculations.getHistoricalTodaySeconds(currentSubTask)
-        : TaskCalculations.getTodaySeconds(currentSubTask, timerState);
+    final displayBaseTime = isRunning
+        ? TaskCalculations.getHistoricalTodaySeconds(current)
+        : TaskCalculations.getTodaySeconds(current, timerState);
 
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    double total7Days = 0;
-
-    for (var session in currentSubTask.sessions) {
-      if (session.startTime.isAfter(sevenDaysAgo)) {
-        total7Days += session.durationSeconds;
-      }
+    var total7Days = 0.0;
+    for (var s in current.sessions) {
+      if (s.startTime.isAfter(sevenDaysAgo)) total7Days += s.durationSeconds;
     }
-    
-    double avgSeconds = total7Days / 7.0;
-    if (avgSeconds < 300) avgSeconds = 300; 
-    
-    final fullTotalToday = TaskCalculations.getTodaySeconds(currentSubTask, timerState);
-    double usageProgress = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
+    var avgSeconds = total7Days / 7.0;
+    if (avgSeconds < 300) avgSeconds = 300;
 
-    final Color activeAccent = parentTask.taskColor;
-    final bool isActive = isRunning; 
-    
-    final Color titleColor = isCompleted ? AppTheme.fhTextDisabled : AppTheme.fhTextPrimary;
-    final Color statusColor = isCompleted ? AppTheme.fhTextDisabled : (isActive ? activeAccent : AppTheme.fhTextSecondary);
+    final fullTotalToday = TaskCalculations.getTodaySeconds(current, timerState);
+    final usagePct = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
+    final hierarchical = current.calculateProgress();
 
-    final hierarchicalProgress = currentSubTask.calculateProgress();
+    final accent = parentTask.taskColor;
+    final tone = _toneFor(accent);
+
+    final code = _shortCode(current.id);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Dismissible(
-        key: ValueKey("subtask_${currentSubTask.id}"),
+        key: ValueKey('subtask_${current.id}'),
         direction: DismissDirection.horizontal,
-        background: _buildSwipeAction(
+        background: _swipeAction(
           alignment: Alignment.centerLeft,
           color: AppTheme.fhAccentRed,
           icon: Icons.delete_forever,
-          label: "DELETE",
+          label: 'DELETE',
         ),
-        secondaryBackground: _buildSwipeAction(
+        secondaryBackground: _swipeAction(
           alignment: Alignment.centerRight,
-          color: isCompleted ? AppTheme.fhTextSecondary : AppTheme.fhAccentGreen,
+          color: isCompleted ? JweTheme.textMuted : JweTheme.accentTeal,
           icon: isCompleted ? MdiIcons.restore : MdiIcons.archiveArrowDownOutline,
-          label: isCompleted ? "RESTORE" : "COMPLETE",
+          label: isCompleted ? 'RESTORE' : 'COMPLETE',
         ),
         confirmDismiss: (direction) async {
           if (direction == DismissDirection.startToEnd) {
-             // Slide right -> Delete
-             return await _showDeleteConfirm(context);
+            return await _showDeleteConfirm(context);
           } else if (direction == DismissDirection.endToStart) {
-             // Slide left -> Complete / Restore
-             if (isCompleted) {
-               provider.taskActions.uncompleteSubtask(parentTask.id, currentSubTask.id);
-             } else {
-               provider.taskActions.completeSubtask(parentTask.id, currentSubTask.id);
-             }
-             return false; // bounce back
+            if (isCompleted) {
+              provider.taskActions.uncompleteSubtask(parentTask.id, current.id);
+            } else {
+              provider.taskActions.completeSubtask(parentTask.id, current.id);
+            }
+            return false;
           }
           return false;
         },
         onDismissed: (direction) {
           if (direction == DismissDirection.startToEnd) {
-             provider.taskActions.deleteSubtask(parentTask.id, currentSubTask.id);
+            provider.taskActions.deleteSubtask(parentTask.id, current.id);
           }
         },
         child: GestureDetector(
           onTap: () => _openDetailScreen(context),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isActive 
-                  ? [activeAccent.withOpacity(0.2), AppTheme.fhBgDark.withOpacity(0.95)]
-                  : [AppTheme.fhBgDark.withOpacity(0.9), AppTheme.fhBgDeepDark.withOpacity(0.95)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              border: Border.all(
-                color: isActive ? activeAccent : AppTheme.fhBorderColor.withOpacity(0.3),
-                width: isActive ? 1.5 : 1
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                bottomRight: Radius.circular(16)
-              ),
-              boxShadow: isActive ? [BoxShadow(color: activeAccent.withOpacity(0.15), blurRadius: 12)] : null,
-            ),
-            child: Stack(
-              children: [
-                if (isActive || usageProgress > 0)
-                  Positioned.fill(
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: usageProgress,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [activeAccent.withOpacity(0.1), Colors.transparent],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight
-                          )
-                        ),
-                      ),
-                    ).animate().fadeIn(),
-                  ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 50, height: 50,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                if (!isCompleted)
-                                  HexProgressRing(
-                                    progress: usageProgress, 
-                                    color: activeAccent,
-                                    size: 48,
-                                  ).animate().fade(duration: 500.ms),
-                                Icon(
-                                  isCompleted ? MdiIcons.checkAll : (isActive ? MdiIcons.fire : MdiIcons.swordCross), 
-                                  color: isCompleted ? AppTheme.fhTextDisabled : (isActive ? Colors.white : AppTheme.fhTextSecondary),
-                                  size: 22,
-                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 10)] : null,
-                                ).animate(target: isActive ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.1,1.1), duration: 1.seconds, curve: Curves.easeInOut).then().scale(begin: const Offset(1.1,1.1), end: const Offset(1,1)),
-                              ],
-                            ),
-                          ),
-                          
-                          const SizedBox(width: 16),
-
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    currentSubTask.name.toUpperCase(),
-                                    style: GoogleFonts.chakraPetch(
-                                      color: titleColor,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.8,
-                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      color: statusColor.withOpacity(0.1),
-                                      child: Text(
-                                        isCompleted ? "ARCHIVED" : (isActive ? "ENGAGED" : "PENDING"),
-                                        style: TextStyle(
-                                          color: statusColor,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.0,
-                                        ),
-                                      ),
-                                    ),
-                                    if (currentSubTask.isRecurring)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 6.0),
-                                        child: Icon(MdiIcons.syncIcon, size: 12, color: statusColor),
-                                      ),
-                                  ],
-                                ),
-                                if (linkedInfo != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6.0),
-                                    child: LinkedTaskIndicator(
-                                      label: "${linkedInfo['projectTitle']} - ${linkedInfo['stepTitle']}",
-                                      onUnlink: () => provider.projectActions.unlinkStep(
-                                          linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId']
-                                        ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              ValorantTimerText(
-                                isRunning: isRunning,
-                                startTime: timerState?.startTime,
-                                accumulatedTime: displayBaseTime,
-                                style: TextStyle(
-                                  fontFamily: "RobotoMono",
-                                  color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  shadows: isActive ? [Shadow(color: activeAccent, blurRadius: 8)] : null
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              if (!isCompleted)
-                                GestureDetector(
-                                  onTap: () {
-                                    if (isRunning) {
-                                      provider.timerActions.pauseTimer(subTask.id); 
-                                      provider.timerActions.logTimerAndReset(subTask.id); 
-                                    } else {
-                                      provider.timerActions.startTimer(subTask.id, 'subtask', parentTask.id);
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: isActive ? activeAccent : AppTheme.fhBorderColor),
-                                      color: isActive ? activeAccent.withOpacity(0.1) : Colors.transparent,
-                                    ),
-                                    child: Text(
-                                      isActive ? "HALT" : "EXECUTE",
-                                      style: TextStyle(
-                                        color: isActive ? activeAccent : AppTheme.fhTextSecondary,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                            ],
-                          )
+          child: HudPanel(
+            clip: HudClip.br,
+            accent: accent,
+            padding: EdgeInsets.zero,
+            allBrackets: isRunning,
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                // ── Left color bar ───────────────────
+                Container(width: 4, color: accent),
+                // ── Content ──────────────────────────
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      // header row
+                      Row(children: [
+                        Text(code,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4, fontWeight: FontWeight.w600,
+                            )),
+                        const SizedBox(width: 6),
+                        Text('· ${parentTask.name.toUpperCase()}',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10, color: accent, letterSpacing: 1.4, fontWeight: FontWeight.w600,
+                            )),
+                        const Spacer(),
+                        if (current.isRecurring) ...[
+                          Icon(MdiIcons.syncIcon, size: 11, color: JweTheme.textMuted),
+                          const SizedBox(width: 6),
                         ],
+                        if (isRunning)
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            HudDot(tone: tone),
+                            const SizedBox(width: 4),
+                            Text('RUN',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 9, color: accent, fontWeight: FontWeight.w700, letterSpacing: 1.4,
+                                )),
+                          ])
+                        else if (isCompleted)
+                          HudChip(label: 'ARCH', tone: HudTone.neutral)
+                        else
+                          HudChip(label: 'PEND', tone: HudTone.neutral),
+                      ]),
+                      const SizedBox(height: 6),
+                      // title
+                      Text(
+                        current.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isCompleted ? JweTheme.textMuted : JweTheme.textWhite,
+                          height: 1.3,
+                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        ),
                       ),
-                      
-                      // Hierarchical Progress Bar if it has checkable sub-tasks
-                      if (currentSubTask.hasCheckableSubsteps && !isCompleted)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12.0),
-                          child: JweProgressBar(
-                            progress: hierarchicalProgress,
-                            color: activeAccent,
-                            label: "SUB-ROUTINES [ ${(hierarchicalProgress * 100).toInt()}% ]"
+                      if (linkedInfo != null) ...[
+                        const SizedBox(height: 6),
+                        LinkedTaskIndicator(
+                          label: '${linkedInfo['projectTitle']} · ${linkedInfo['stepTitle']}',
+                          onUnlink: () => provider.projectActions.unlinkStep(
+                            linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId'],
                           ),
                         ),
-                    ],
+                      ],
+                      const SizedBox(height: 10),
+                      // bar + telemetry row
+                      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                        Expanded(
+                          child: HudBar(
+                            value: (current.hasCheckableSubsteps ? hierarchical : usagePct) * 100,
+                            tone: tone,
+                            height: 4,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        if (current.hasCheckableSubsteps)
+                          Text(
+                            '${(hierarchical * 100).round()}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.0,
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        ValorantTimerText(
+                          isRunning: isRunning,
+                          startTime: timerState?.startTime,
+                          accumulatedTime: displayBaseTime,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isRunning ? accent : JweTheme.textMid,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ]),
+                    ]),
                   ),
                 ),
-                
+                // ── Engage button ────────────────────
                 if (!isCompleted)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeOutExpo,
-                        height: 2,
-                        width: MediaQuery.of(context).size.width * 0.9 * usageProgress, 
-                        decoration: BoxDecoration(
-                          color: activeAccent,
-                          boxShadow: [BoxShadow(color: activeAccent, blurRadius: 6)]
-                        ),
+                  GestureDetector(
+                    onTap: () {
+                      if (isRunning) {
+                        provider.timerActions.pauseTimer(subTask.id);
+                        provider.timerActions.logTimerAndReset(subTask.id);
+                      } else {
+                        provider.timerActions.startTimer(subTask.id, 'subtask', parentTask.id);
+                      }
+                    },
+                    child: Container(
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: isRunning ? accent.withOpacity(0.18) : Colors.transparent,
+                        border: Border(left: BorderSide(color: JweTheme.lineSoft)),
                       ),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(
+                          isRunning ? MdiIcons.pause : MdiIcons.play,
+                          size: 20,
+                          color: isRunning ? accent : JweTheme.textMid,
+                        ).animate(target: isRunning ? 1 : 0).scale(
+                              begin: const Offset(1, 1),
+                              end: const Offset(1.15, 1.15),
+                              duration: 800.ms,
+                              curve: Curves.easeInOut,
+                            ).then().scale(
+                              begin: const Offset(1.15, 1.15),
+                              end: const Offset(1, 1),
+                            ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isRunning ? 'HALT' : 'ENGAGE',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 8.5,
+                            color: isRunning ? accent : JweTheme.textMid,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ]),
                     ),
-                  )
-              ],
+                  ),
+              ]),
             ),
           ),
         ),
@@ -331,36 +267,37 @@ class SubmissionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSwipeAction({required Alignment alignment, required Color color, required IconData icon, required String label}) {
+  Widget _swipeAction({required Alignment alignment, required Color color, required IconData icon, required String label}) {
     return Container(
       color: color,
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: alignment == Alignment.centerLeft 
-          ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
-          : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
+        children: alignment == Alignment.centerLeft
+            ? [Icon(icon, color: Colors.white), const SizedBox(width: 8), Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]
+            : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
       ),
     );
   }
 
   Future<bool> _showDeleteConfirm(BuildContext context) async {
     return await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.fhBgDark,
-        title: const Text("DELETE MISSION?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-        content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("DELETE")
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppTheme.fhBgDark,
+            title: const Text('DELETE MISSION?', style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+            content: const Text('This action cannot be undone.', style: TextStyle(color: AppTheme.fhTextSecondary)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('DELETE'),
+              ),
+            ],
           ),
-        ],
-      )
-    ) ?? false;
+        ) ??
+        false;
   }
 }

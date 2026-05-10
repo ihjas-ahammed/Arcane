@@ -103,6 +103,25 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:1059901273076:android:827b5776e17ef3d1843fa1",
+        "android_client_info": {
+          "package_name": "me.ihjas.missions"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeZsAoZiV38vUrdzbZP4wBGbOCBGluAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:1059901273076:android:bdeb039da1e16ab1843fa1",
         "android_client_info": {
           "package_name": "me.ihjas.myapp_flutter"

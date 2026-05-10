@@ -1,17 +1,17 @@
 // lib/src/widgets/views/settings_view.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/screens/settings/data_recovery_screen.dart';
-import 'package:arcane/src/widgets/settings/api_key_manager.dart';
-import 'package:arcane/src/widgets/settings/model_configuration_widget.dart';
-import 'package:arcane/src/widgets/dialogs/pin_dialog.dart';
-import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
+import 'package:missions/src/screens/settings/data_recovery_screen.dart';
+import 'package:missions/src/widgets/settings/api_key_manager.dart';
+import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
+import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
+import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});

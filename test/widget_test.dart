@@ -7,9 +7,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:arcane/src/app.dart'; // Changed import
+import 'package:missions/src/app.dart'; // Changed import
 import 'package:provider/provider.dart'; // Added for AppProvider
-import 'package:arcane/src/providers/app_provider.dart'; // Added for AppProvider
+import 'package:missions/src/providers/app_provider.dart'; // Added for AppProvider
 import 'package:firebase_core/firebase_core.dart'; // Added for Firebase
 import './mock.dart'; // For Firebase mock
 

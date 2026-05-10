@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PersonDossierSection extends StatelessWidget {

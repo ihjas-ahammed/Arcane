@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -29,7 +29,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
           children: [
             TextField(controller: _nameController, style: const TextStyle(color: JweTheme.textWhite), decoration: const InputDecoration(labelText: "Goal Name", labelStyle: TextStyle(color: JweTheme.textMuted))),
             const SizedBox(height: 16),
-            TextField(controller: _amountController, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Target Amount", prefixText: "₹ ", labelStyle: TextStyle(color: JweTheme.textMuted))),
+            TextField(controller: _amountController, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Target Amount", prefixText: "â‚¹ ", labelStyle: TextStyle(color: JweTheme.textMuted))),
             const SizedBox(height: 16),
             const Text("TARGET DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),

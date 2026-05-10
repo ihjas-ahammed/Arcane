@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
+/// Operator HUD progress bar — segmented HUD-style with caption.
 class JweProgressBar extends StatelessWidget {
-  final double progress;
+  final double progress; // 0.0–1.0
   final Color color;
   final String? label;
+  final int segments;
+  final double height;
 
   const JweProgressBar({
     super.key,
     required this.progress,
     required this.color,
     this.label,
+    this.segments = 22,
+    this.height = 6,
   });
 
   @override
@@ -22,42 +28,46 @@ class JweProgressBar extends StatelessWidget {
       children: [
         if (label != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4.0),
-            child: Text(
-              label!,
-              style: GoogleFonts.rajdhani(
-                color: color.withOpacity(0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-              ),
-            ),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(label!.toUpperCase(),
+                style: GoogleFonts.jetBrainsMono(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.6,
+                )),
           ),
-        Container(
-          height: 6,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            border: Border.all(color: color.withOpacity(0.3), width: 1),
-            borderRadius: BorderRadius.zero,
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: progress.clamp(0.0, 1.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.5),
-                    blurRadius: 4,
-                  )
-                ]
-              ),
-            ),
+        SizedBox(
+          height: height,
+          child: Row(
+            children: List.generate(segments, (i) {
+              final on = i < (progress.clamp(0.0, 1.0) * segments).round();
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: i == segments - 1 ? 0 : 2),
+                  decoration: BoxDecoration(
+                    color: on ? color : const Color(0x1AA8B3C7),
+                    boxShadow: on ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 3)] : null,
+                  ),
+                ),
+              );
+            }),
           ),
         ),
       ],
     );
+  }
+
+  // Allow callers that previously relied on `HudProgressBar` look-alike.
+  @visibleForTesting
+  static Widget hud({required double value, required Color color}) {
+    final tone = color == JweTheme.accentCyan
+        ? HudTone.cyan
+        : color == JweTheme.accentTeal
+            ? HudTone.teal
+            : color == JweTheme.accentRed
+                ? HudTone.red
+                : HudTone.amber;
+    return HudProgressBar(value: value, tone: tone);
   }
 }

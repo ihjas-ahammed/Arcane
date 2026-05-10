@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/screens/finance/savings_detail_screen.dart';
-import 'package:arcane/src/widgets/dialogs/add_savings_goal_dialog.dart';
-import 'package:arcane/src/utils/finance_helpers.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/screens/finance/savings_detail_screen.dart';
+import 'package:missions/src/widgets/dialogs/add_savings_goal_dialog.dart';
+import 'package:missions/src/utils/finance_helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -56,7 +56,7 @@ class SavingsGoalsView extends StatelessWidget {
                           Expanded(
                             child: Text(g.name.toUpperCase(), style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
                           ),
-                          Text("₹${g.currentAmount.toStringAsFixed(0)} / ₹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: JweTheme.textMuted, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                          Text("â‚¹${g.currentAmount.toStringAsFixed(0)} / â‚¹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: JweTheme.textMuted, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 12),

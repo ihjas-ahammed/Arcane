@@ -1,4 +1,4 @@
-package com.example.arcane
+package me.ihjas.missions
 
 import io.flutter.embedding.android.FlutterActivity
 

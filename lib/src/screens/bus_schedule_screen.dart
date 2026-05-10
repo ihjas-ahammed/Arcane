@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/widgets/bus/bus_schedule_grid.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/widgets/bus/bus_schedule_grid.dart';
 
 class BusScheduleScreen extends StatefulWidget {
   const BusScheduleScreen({super.key});

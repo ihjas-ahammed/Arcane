@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
+import 'package:missions/src/widgets/ui/jwe_panel.dart';
 
 class FinanceCharts extends StatelessWidget {
   final List<FinanceTransaction> transactions;
@@ -118,7 +118,7 @@ class FinanceCharts extends StatelessWidget {
           return PieChartSectionData(
             color: Color(int.parse("0xFF${cat.colorHex}")),
             value: e.value,
-            title: '₹${e.value.toInt()}',
+            title: 'â‚¹${e.value.toInt()}',
             radius: 20,
             titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
           );

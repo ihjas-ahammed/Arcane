@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/screens/home_screen.dart';
-import 'package:arcane/src/screens/login_screen.dart';
-import 'package:arcane/src/screens/onboarding/app_tour_screen.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/screens/home_screen.dart';
+import 'package:missions/src/screens/login_screen.dart';
+import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {

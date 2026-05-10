@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/screens/bus_schedule_screen.dart';
-import 'package:arcane/src/screens/database_editor_screen.dart';
-import 'package:arcane/src/screens/journaling/quick_therapy_screen.dart';
-import 'package:arcane/src/screens/journaling/gratitude_list_screen.dart';
-import 'package:arcane/src/screens/journaling/someday_list_screen.dart';
-import 'package:arcane/src/screens/settings/habit_control_screen.dart';
-import 'package:arcane/src/screens/projects_screen.dart';
-import 'package:arcane/src/widgets/views/settings_view.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/screens/bus_schedule_screen.dart';
+import 'package:missions/src/screens/database_editor_screen.dart';
+import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
+import 'package:missions/src/screens/journaling/gratitude_list_screen.dart';
+import 'package:missions/src/screens/journaling/someday_list_screen.dart';
+import 'package:missions/src/screens/settings/habit_control_screen.dart';
+import 'package:missions/src/screens/projects_screen.dart';
+import 'package:missions/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 

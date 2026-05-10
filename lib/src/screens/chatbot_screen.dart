@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/widgets/views/chatbot_view.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/views/chatbot_view.dart';
+import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/providers/app_provider.dart';
 
 class ChatbotScreen extends StatelessWidget {
   const ChatbotScreen({super.key});

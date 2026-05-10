@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/widgets/views/settings_view.dart';
+import 'package:missions/src/widgets/views/settings_view.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});

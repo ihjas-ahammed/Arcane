@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
+/// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
   final VoidCallback onArchive;
   final VoidCallback onNora;
@@ -17,89 +19,122 @@ class JweQuickAccessGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "CLASSIFIED ACCESS",
-          style: TextStyle(
-            color: JweTheme.textMuted,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.bold,
-            fontSize: 12
-          )
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildGridButton(
-                title: "ARCHIVE",
-                icon: MdiIcons.lockOutline,
-                color: JweTheme.accentCyan,
-                onTap: onArchive,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildGridButton(
-                title: "NORA AI",
-                icon: MdiIcons.brain,
-                color: const Color(0xFF8A2BE2), // Purple
-                onTap: onNora,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildGridButton(
-                title: "ADVANCED",
-                icon: MdiIcons.hexagonMultipleOutline,
-                color: const Color(0xFF8A2BE2), // Purple
-                onTap: onAdvanced,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const HudSectionHead(
+        label: 'CLASSIFIED ACCESS',
+        code: 'PIN-LOCKED',
+        accent: HudTone.amber,
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 10),
+      ),
+      _Tile(
+        title: 'REFLECTION ARCHIVE',
+        sub: 'Filter, multi-select, export',
+        icon: MdiIcons.archiveOutline,
+        accent: JweTheme.accentCyan,
+        tone: HudTone.cyan,
+        code: 'A-01',
+        onTap: onArchive,
+      ),
+      const SizedBox(height: 6),
+      _Tile(
+        title: 'NORA AI',
+        sub: 'Persona switch · controls',
+        icon: MdiIcons.brain,
+        accent: JweTheme.accentAmber,
+        tone: HudTone.amber,
+        code: 'N-04',
+        onTap: onNora,
+      ),
+      const SizedBox(height: 6),
+      _Tile(
+        title: 'ADVANCED TOOLS',
+        sub: 'Therapy · simulate · prompts',
+        icon: MdiIcons.hexagonMultipleOutline,
+        accent: JweTheme.accentTeal,
+        tone: HudTone.teal,
+        code: 'A-02',
+        onTap: onAdvanced,
+      ),
+    ]);
   }
+}
 
-  Widget _buildGridButton({required String title, required IconData icon, required Color color, required VoidCallback onTap}) {
+class _Tile extends StatelessWidget {
+  final String title;
+  final String sub;
+  final IconData icon;
+  final Color accent;
+  final HudTone tone;
+  final String code;
+  final VoidCallback onTap;
+
+  const _Tile({
+    required this.title,
+    required this.sub,
+    required this.icon,
+    required this.accent,
+    required this.tone,
+    required this.code,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-        decoration: BoxDecoration(
-          color: JweTheme.panel,
-          border: Border.all(color: color.withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.05),
-              blurRadius: 10,
-            )
-          ]
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.rajdhani(
-                color: JweTheme.textWhite,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                letterSpacing: 1.0,
-              ),
-              textAlign: TextAlign.center,
+      child: HudPanel(
+        clip: HudClip.br,
+        accent: accent,
+        brackets: false,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              border: Border.all(color: accent.withValues(alpha: 0.40), width: 1),
             ),
-          ],
-        ),
+            child: Icon(icon, size: 18, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                Text(
+                  code,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: accent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(width: 4, height: 1, color: accent.withValues(alpha: 0.40)),
+              ]),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: GoogleFonts.saira(
+                  color: JweTheme.textWhite,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMuted,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ]),
+          ),
+          Icon(MdiIcons.chevronRight, size: 18, color: accent.withValues(alpha: 0.60)),
+        ]),
       ),
     );
   }

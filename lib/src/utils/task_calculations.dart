@@ -1,5 +1,5 @@
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/models/app_state_models.dart';
 
 class TaskCalculations {
   /// Calculates the total time spent on a subtask for the current day (local time).

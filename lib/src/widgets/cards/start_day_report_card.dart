@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
-import 'package:arcane/src/screens/nora_ai_screen.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';

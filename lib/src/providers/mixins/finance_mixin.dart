@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 
 mixin FinanceMixin on ChangeNotifier {
   List<FinanceTransaction> _transactions = [];

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/widgets/screens/submission_detail_screen.dart';
-import 'package:arcane/src/widgets/screens/checkpoint_detail_screen.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
+import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:google_fonts/google_fonts.dart';

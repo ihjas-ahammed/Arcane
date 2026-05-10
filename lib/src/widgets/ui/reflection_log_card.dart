@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 

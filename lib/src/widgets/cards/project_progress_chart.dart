@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/models/project_models.dart';
 
 class ProjectProgressChart extends StatelessWidget {
   final Project project;

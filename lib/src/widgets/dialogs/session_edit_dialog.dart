@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
+import 'package:missions/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/widgets/valorant/valorant_button.dart';
 
 class SessionEditDialog extends StatefulWidget {
   final DateTime initialStart;
