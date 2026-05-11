@@ -101,4 +101,17 @@ mixin HealthMixin on ChangeNotifier {
     hLog.waterGlasses = glasses;
     sync.markDirty('health');
   }
+
+  void addEnergyLog(String dateStr, EnergyLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.energyLogs.add(log);
+    hLog.energyLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    sync.markDirty('health');
+  }
+
+  void deleteEnergyLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.energyLogs.removeWhere((e) => e.id == logId);
+    sync.markDirty('health');
+  }
 }
