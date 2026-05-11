@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/health_models.dart';
-import 'package:missions/src/widgets/ui/jwe_panel.dart';
+import 'package:missions/src/widgets/health/spidey_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,30 +19,61 @@ class ActivityPanel extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text("LOG PHYSICAL ACTIVITY", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children:[
-            TextField(decoration: const InputDecoration(labelText: "WALK DISTANCE (KM)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (v) => d = double.tryParse(v) ?? d, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
-            const SizedBox(height: 16),
-            TextField(decoration: const InputDecoration(labelText: "WORKOUT DURATION (MIN)", labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12)), keyboardType: TextInputType.number, onChanged: (v) => m = int.tryParse(v) ?? m, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono')),
+        backgroundColor: SpideyTheme.bgPanel,
+        shape: BeveledRectangleBorder(
+          side: BorderSide(color: SpideyTheme.spideyRed.withOpacity(0.6)),
+          borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(6), bottomRight: Radius.circular(6)),
+        ),
+        title: Row(
+          children: [
+            Container(width: 3, height: 16, color: SpideyTheme.spideyRed),
+            const SizedBox(width: 8),
+            Text("LOG PHYSICAL ACTIVITY",
+                style: GoogleFonts.rajdhani(
+                    color: SpideyTheme.textWhite, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           ],
         ),
-        actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                decoration: const InputDecoration(
+                    labelText: "WALK DISTANCE (KM)",
+                    labelStyle: TextStyle(color: SpideyTheme.textMuted, fontSize: 12)),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (v) => d = double.tryParse(v) ?? d,
+                style: const TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
+            const SizedBox(height: 16),
+            TextField(
+                decoration: const InputDecoration(
+                    labelText: "WORKOUT DURATION (MIN)",
+                    labelStyle: TextStyle(color: SpideyTheme.textMuted, fontSize: 12)),
+                keyboardType: TextInputType.number,
+                onChanged: (v) => m = int.tryParse(v) ?? m,
+                style: const TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted))),
           ElevatedButton(
-            onPressed: () {
-              if (d > 0 || m > 0) {
-                 provider.addActivityLog(dateStr, ActivityLog(id: const Uuid().v4(), walkDistanceKm: d, workoutMinutes: m, timestamp: DateTime.now()));
-              }
-              Navigator.pop(ctx);
-            }, 
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black), 
-            child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold))
-          ),
+              onPressed: () {
+                if (d > 0 || m > 0) {
+                  provider.addActivityLog(
+                      dateStr, ActivityLog(id: const Uuid().v4(), walkDistanceKm: d, workoutMinutes: m, timestamp: DateTime.now()));
+                }
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: SpideyTheme.spideyRed,
+                foregroundColor: Colors.white,
+                shape: const BeveledRectangleBorder(
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(6), bottomRight: Radius.circular(6)),
+                ),
+              ),
+              child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2))),
         ],
-      )
+      ),
     );
   }
 
@@ -50,13 +81,13 @@ class ActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final log = provider.getDailyHealthLog(dateStr);
-    
+
     final totalKm = log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
     final totalMin = log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
 
-    return JwePanel(
+    return SpideyPanel(
       title: "PHYSICAL ACTIVITY",
-      accentColor: JweTheme.accentAmber,
+      accentColor: SpideyTheme.spideyRed,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -66,23 +97,31 @@ class ActivityPanel extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("DISTANCE", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text("${totalKm.toStringAsFixed(1)} KM", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentAmber)),
+                  Text("DISTANCE",
+                      style: GoogleFonts.rajdhani(
+                          color: SpideyTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  Text("${totalKm.toStringAsFixed(1)} KM",
+                      style: GoogleFonts.rajdhani(
+                          fontSize: 24, fontWeight: FontWeight.bold, color: SpideyTheme.spideyRed)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text("WORKOUT", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text("${totalMin} MIN", style: GoogleFonts.rajdhani(fontSize: 24, fontWeight: FontWeight.bold, color: JweTheme.accentAmber)),
+                  Text("WORKOUT",
+                      style: GoogleFonts.rajdhani(
+                          color: SpideyTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  Text("$totalMin MIN",
+                      style: GoogleFonts.rajdhani(
+                          fontSize: 24, fontWeight: FontWeight.bold, color: SpideyTheme.spideyRed)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
           if (log.activityLogs.isEmpty)
-             const Text("No activity data recorded for this cycle.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
+            const Text("No activity data recorded for this cycle.",
+                style: TextStyle(color: SpideyTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
           else
             ListView.builder(
               shrinkWrap: true,
@@ -93,13 +132,17 @@ class ActivityPanel extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
-                    children:[
-                      Icon(MdiIcons.run, color: JweTheme.textMuted, size: 16),
+                    children: [
+                      Icon(MdiIcons.run, color: SpideyTheme.textGrey, size: 16),
                       const SizedBox(width: 8),
-                      Expanded(child: Text("${aLog.walkDistanceKm > 0 ? '${aLog.walkDistanceKm.toStringAsFixed(1)} KM' : ''}${aLog.walkDistanceKm > 0 && aLog.workoutMinutes > 0 ? ' | ' : ''}${aLog.workoutMinutes > 0 ? '${aLog.workoutMinutes} MIN' : ''}", style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold))),
-                      Text(DateFormat('HH:mm').format(aLog.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
+                      Expanded(
+                          child: Text(
+                              "${aLog.walkDistanceKm > 0 ? '${aLog.walkDistanceKm.toStringAsFixed(1)} KM' : ''}${aLog.walkDistanceKm > 0 && aLog.workoutMinutes > 0 ? ' | ' : ''}${aLog.workoutMinutes > 0 ? '${aLog.workoutMinutes} MIN' : ''}",
+                              style: const TextStyle(color: SpideyTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold))),
+                      Text(DateFormat('HH:mm').format(aLog.timestamp),
+                          style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
                       IconButton(
-                        icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 16),
+                        icon: const Icon(Icons.close, color: SpideyTheme.spideyRed, size: 16),
                         onPressed: () => provider.deleteActivityLog(dateStr, aLog.id),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -107,17 +150,19 @@ class ActivityPanel extends StatelessWidget {
                     ],
                   ),
                 );
-              }
+              },
             ),
-
           const SizedBox(height: 12),
           OutlinedButton.icon(
             icon: const Icon(Icons.add, size: 16),
-            label: Text("LOG ACTIVITY", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            label: Text("LOG ACTIVITY",
+                style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: JweTheme.accentAmber,
-              side: const BorderSide(color: JweTheme.accentAmber),
-              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+              foregroundColor: SpideyTheme.spideyRed,
+              side: const BorderSide(color: SpideyTheme.spideyRed),
+              shape: const BeveledRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(6), bottomRight: Radius.circular(6))),
             ),
             onPressed: () => _showAddDialog(context, provider),
           ),

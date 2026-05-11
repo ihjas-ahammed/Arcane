@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/widgets/views/health_dashboard_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,17 +9,37 @@ class HealthDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: JweTheme.bgBase,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text("BIOMETRICS & NUTRITION", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 4, height: 22, color: SpideyTheme.spideyRed),
+            const SizedBox(width: 10),
+            Text(
+              "BIOMETRICS",
+              style: GoogleFonts.rajdhani(
+                color: SpideyTheme.textWhite,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 3.0,
+                fontSize: 22,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: SpideyTheme.spideyCyan),
       ),
-      body:  SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 800),
-            child: HealthDashboardView(),
+      body: Container(
+        decoration: const BoxDecoration(gradient: SpideyTheme.backdropGradient),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: const HealthDashboardView(),
+            ),
           ),
         ),
       ),
