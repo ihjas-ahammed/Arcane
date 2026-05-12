@@ -447,13 +447,20 @@ class HudRing extends StatelessWidget {
         if (label != null || sub != null)
           Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             if (label != null)
-              Text(label!,
-                  style: GoogleFonts.saira(
-                    fontSize: size * 0.26,
-                    fontWeight: FontWeight.w700,
-                    color: c,
-                    height: 1,
-                  )),
+              SizedBox(
+                width: size - stroke * 4,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: Text(label!,
+                      style: GoogleFonts.saira(
+                        fontSize: size * 0.26,
+                        fontWeight: FontWeight.w700,
+                        color: c,
+                        height: 1,
+                      )),
+                ),
+              ),
             if (sub != null) ...[
               const SizedBox(height: 2),
               Text(sub!.toUpperCase(),

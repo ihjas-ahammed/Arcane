@@ -227,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'ARCANE',
+          'MISSIONS',
           style: GoogleFonts.saira(
             color: JweTheme.textWhite,
             fontSize: 52,

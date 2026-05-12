@@ -69,10 +69,46 @@ class _ProjectsViewState extends State<ProjectsView> {
             header: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("PROJECT PROTOCOLS",
-                    style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 28, letterSpacing: 1.5)),
-                const Text("ACTIVE OPERATIONS", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, letterSpacing: 2.0, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                  decoration: BoxDecoration(
+                    color: JweTheme.panel.withValues(alpha: 0.3),
+                    border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text("PROJECT PROTOCOLS",
+                                  style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 28, letterSpacing: 1.5)),
+                            ),
+                            const Text("ACTIVE OPERATIONS",
+                                style: TextStyle(color: JweTheme.textMuted, fontSize: 11, letterSpacing: 2.0, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.5)),
+                          color: JweTheme.accentCyan.withValues(alpha: 0.08),
+                        ),
+                        child: Text(
+                          "${activeOngoing.length}",
+                          style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 22),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 OverallProjectProgressCard(activeProjects: activeOngoing.map((e) => e.project).toList()),
                 const SizedBox(height: 32),
