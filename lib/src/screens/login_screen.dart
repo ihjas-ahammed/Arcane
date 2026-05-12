@@ -1,7 +1,7 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/theme/spidey_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -63,178 +63,203 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: SpideyTheme.backdropGradient),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(painter: _WebGridPainter()),
-              ),
+      backgroundColor: JweTheme.bgBase,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _TacticalGridPainter()),
             ),
-            Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
+          ),
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 32),
+                    HudPanel(
+                      clip: HudClip.both,
+                      accent: JweTheme.accentAmber,
+                      allBrackets: true,
+                      background: JweTheme.panel,
+                      padding: const EdgeInsets.all(24),
+                      child: Form(
+                        key: _formKey,
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                color: SpideyTheme.spideyRed,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: SpideyTheme.spideyRed.withOpacity(0.6),
-                                    blurRadius: 24,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(Icons.shield_moon, size: 40, color: Colors.black),
+                            _hudField(
+                              controller: _emailController,
+                              label: 'EMAIL IDENTIFIER',
+                              icon: MdiIcons.emailOutline,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) => (v == null || !v.contains('@')) ? 'INVALID FORMAT' : null,
+                              onSaved: (v) => _email = v!,
                             ),
                             const SizedBox(height: 18),
-                            Text(
-                              'ARCANE',
-                              style: GoogleFonts.rajdhani(
-                                color: SpideyTheme.textWhite,
-                                fontSize: 52,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 6.0,
-                                height: 0.9,
+                            _hudField(
+                              controller: _passwordController,
+                              label: 'PASSCODE',
+                              icon: MdiIcons.lockOutline,
+                              obscureText: _obscurePassword,
+                              suffix: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? MdiIcons.eyeOutline : MdiIcons.eyeOffOutline,
+                                  color: JweTheme.textMuted,
+                                  size: 18,
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
+                              validator: (v) => (v == null || v.length < 6) ? 'MIN 6 CHARS' : null,
+                              onSaved: (v) => _password = v!,
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(width: 24, height: 2, color: SpideyTheme.spideyRed),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'SYSTEM ACCESS',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: SpideyTheme.spideyCyan,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 3.0,
+                            if (_error.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 18.0),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: JweTheme.accentRed.withOpacity(0.08),
+                                    border: const Border(
+                                      left: BorderSide(color: JweTheme.accentRed, width: 3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _error.toUpperCase(),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.accentRed,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.2,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Container(width: 24, height: 2, color: SpideyTheme.spideyRed),
-                              ],
+                              ),
+                            const SizedBox(height: 28),
+                            if (_isLoading)
+                              const Center(
+                                child: CircularProgressIndicator(
+                                  color: JweTheme.accentAmber,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else
+                              _hudPrimaryButton(
+                                _isLogin ? 'AUTHENTICATE' : 'INITIATE',
+                                _submit,
+                              ),
+                            const SizedBox(height: 14),
+                            Center(
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _isLogin = !_isLogin;
+                                    _error = '';
+                                    _formKey.currentState?.reset();
+                                    _emailController.clear();
+                                    _passwordController.clear();
+                                  });
+                                },
+                                child: Text(
+                                  _isLogin ? 'REQUEST ACCESS ID' : 'RETURN TO LOGIN',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.accentCyan,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1.5,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      ClipPath(
-                        clipper: _LoginPanelClipper(),
-                        child: Container(
-                          padding: const EdgeInsets.all(24.0),
-                          decoration: BoxDecoration(
-                            color: SpideyTheme.bgPanel,
-                            border: Border.all(color: SpideyTheme.border),
-                          ),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _spideyField(
-                                  controller: _emailController,
-                                  label: 'EMAIL IDENTIFIER',
-                                  icon: MdiIcons.emailOutline,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (v) => (v == null || !v.contains('@')) ? 'INVALID FORMAT' : null,
-                                  onSaved: (v) => _email = v!,
-                                ),
-                                const SizedBox(height: 18),
-                                _spideyField(
-                                  controller: _passwordController,
-                                  label: 'PASSCODE',
-                                  icon: MdiIcons.lockOutline,
-                                  obscureText: _obscurePassword,
-                                  suffix: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword ? MdiIcons.eyeOutline : MdiIcons.eyeOffOutline,
-                                      color: SpideyTheme.textGrey,
-                                    ),
-                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                  ),
-                                  validator: (v) => (v == null || v.length < 6) ? 'MIN 6 CHARS' : null,
-                                  onSaved: (v) => _password = v!,
-                                ),
-                                if (_error.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 18.0),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: SpideyTheme.spideyRed.withOpacity(0.1),
-                                        border: const Border(
-                                            left: BorderSide(color: SpideyTheme.spideyRed, width: 3)),
-                                      ),
-                                      child: Text(
-                                        _error.toUpperCase(),
-                                        style: const TextStyle(
-                                            color: SpideyTheme.spideyRed,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'RobotoMono'),
-                                      ),
-                                    ),
-                                  ),
-                                const SizedBox(height: 28),
-                                if (_isLoading)
-                                  const Center(child: CircularProgressIndicator(color: SpideyTheme.spideyRed))
-                                else
-                                  _spideyPrimaryButton(_isLogin ? 'AUTHENTICATE' : 'INITIATE', _submit),
-                                const SizedBox(height: 14),
-                                Center(
-                                  child: TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _isLogin = !_isLogin;
-                                        _error = '';
-                                        _formKey.currentState?.reset();
-                                        _emailController.clear();
-                                        _passwordController.clear();
-                                      });
-                                    },
-                                    child: Text(
-                                      _isLogin ? 'REQUEST ACCESS ID' : 'RETURN TO LOGIN',
-                                      style: GoogleFonts.rajdhani(
-                                        color: SpideyTheme.spideyCyan,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.5,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        HudDot(tone: HudTone.amber, size: 5),
+                        const SizedBox(width: 8),
+                        Text(
+                          'SECURE CHANNEL ESTABLISHED',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 10,
+                            letterSpacing: 1.8,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _spideyField({
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            HudReticle(size: 64, color: JweTheme.accentAmber),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: JweTheme.amberSoft,
+                shape: BoxShape.circle,
+                border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6), width: 1),
+              ),
+              child: const Icon(Icons.shield_moon, size: 18, color: JweTheme.accentAmber),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'ARCANE',
+          style: GoogleFonts.saira(
+            color: JweTheme.textWhite,
+            fontSize: 52,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 8.0,
+            height: 0.9,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(width: 24, height: 1, color: JweTheme.lineAmber),
+            const SizedBox(width: 10),
+            Text(
+              'OPERATOR SYSTEM',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.accentAmber,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 3.0,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(width: 24, height: 1, color: JweTheme.lineAmber),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _hudField({
     required TextEditingController controller,
     required String label,
     IconData? icon,
@@ -249,15 +274,15 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Row(
           children: [
-            Container(width: 3, height: 12, color: SpideyTheme.spideyRed),
+            Container(width: 3, height: 10, color: JweTheme.accentAmber),
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.rajdhani(
-                color: SpideyTheme.spideyCyan,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-                fontSize: 11,
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.accentCyan,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.8,
+                fontSize: 10,
               ),
             ),
           ],
@@ -269,32 +294,37 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: keyboardType,
           validator: validator,
           onSaved: onSaved,
-          style: const TextStyle(color: SpideyTheme.textWhite, fontSize: 14),
+          style: GoogleFonts.inter(color: JweTheme.textWhite, fontSize: 14),
           decoration: InputDecoration(
             filled: true,
-            fillColor: SpideyTheme.bgElevated,
+            fillColor: JweTheme.elev,
             contentPadding: const EdgeInsets.all(14),
-            prefixIcon: icon != null ? Icon(icon, color: SpideyTheme.textGrey, size: 18) : null,
+            prefixIcon: icon != null ? Icon(icon, color: JweTheme.textMuted, size: 18) : null,
             suffixIcon: suffix,
-            border: const OutlineInputBorder(
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: SpideyTheme.border),
+              borderSide: BorderSide(color: JweTheme.line),
             ),
-            enabledBorder: const OutlineInputBorder(
+            enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: SpideyTheme.border),
+              borderSide: BorderSide(color: JweTheme.line),
             ),
             focusedBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: SpideyTheme.spideyRed, width: 1.5),
+              borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5),
             ),
             errorBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: SpideyTheme.spideyRed),
+              borderSide: BorderSide(color: JweTheme.accentRed),
             ),
-            errorStyle: const TextStyle(
-              color: SpideyTheme.spideyRed,
-              fontSize: 11,
+            focusedErrorBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.zero,
+              borderSide: BorderSide(color: JweTheme.accentRed, width: 1.5),
+            ),
+            errorStyle: GoogleFonts.jetBrainsMono(
+              color: JweTheme.accentRed,
+              fontSize: 10,
+              letterSpacing: 1.2,
             ),
           ),
         ),
@@ -302,70 +332,69 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _spideyPrimaryButton(String label, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: SpideyTheme.spideyRed,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        elevation: 0,
-        shape: const BeveledRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(10),
-            bottomRight: Radius.circular(10),
-          ),
+  Widget _hudPrimaryButton(String label, VoidCallback onPressed) {
+    return ClipPath(
+      clipper: HudCutClipper(clip: HudClip.both, cut: 10),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: JweTheme.accentAmber,
+          foregroundColor: JweTheme.bgBase,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          elevation: 0,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         ),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: GoogleFonts.rajdhani(
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2.0,
-          fontSize: 16,
+        child: Text(
+          label.toUpperCase(),
+          style: GoogleFonts.saira(
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2.5,
+            fontSize: 15,
+            color: JweTheme.bgBase,
+          ),
         ),
       ),
     );
   }
 }
 
-class _LoginPanelClipper extends CustomClipper<Path> {
-  static const double _cut = 14.0;
-  @override
-  Path getClip(Size size) {
-    return Path()
-      ..moveTo(_cut, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height - _cut)
-      ..lineTo(size.width - _cut, size.height)
-      ..lineTo(0, size.height)
-      ..lineTo(0, _cut)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _WebGridPainter extends CustomPainter {
+class _TacticalGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = SpideyTheme.spideyRed.withOpacity(0.05)
+    final gridPaint = Paint()
+      ..color = JweTheme.accentAmber.withOpacity(0.03)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    final center = Offset(size.width / 2, size.height * 0.25);
-    for (double r = 40; r < size.width * 1.2; r += 60) {
-      canvas.drawCircle(center, r, paint);
+    const spacing = 40.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
-    const segments = 12;
-    final maxR = size.width * 1.4;
-    for (int i = 0; i < segments; i++) {
-      final angle = (i * 2 * math.pi) / segments;
-      final dx = center.dx + maxR * math.cos(angle);
-      final dy = center.dy + maxR * math.sin(angle);
-      canvas.drawLine(center, Offset(dx, dy), paint);
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final scanPaint = Paint()
+      ..color = JweTheme.accentCyan.withOpacity(0.04)
+      ..strokeWidth = 1;
+    for (double y = 0; y < size.height; y += spacing * 4) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), scanPaint);
+    }
+
+    final cornerPaint = Paint()
+      ..color = JweTheme.accentAmber.withOpacity(0.18)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    const cs = 20.0;
+    const mg = 32.0;
+    for (final pos in [
+      const Offset(mg, mg),
+      Offset(size.width - mg, mg),
+      Offset(mg, size.height - mg),
+      Offset(size.width - mg, size.height - mg),
+    ]) {
+      canvas.drawLine(Offset(pos.dx - cs / 2, pos.dy), Offset(pos.dx + cs / 2, pos.dy), cornerPaint);
+      canvas.drawLine(Offset(pos.dx, pos.dy - cs / 2), Offset(pos.dx, pos.dy + cs / 2), cornerPaint);
     }
   }
 
