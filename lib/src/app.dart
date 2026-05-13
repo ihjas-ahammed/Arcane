@@ -4,6 +4,7 @@ import 'package:missions/src/screens/login_screen.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/common/insight_watcher.dart';
 import 'package:provider/provider.dart';
 
 class MyApp extends StatefulWidget {
@@ -59,7 +60,7 @@ class _MyAppState extends State<MyApp> {
 
           return Theme(
             data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-            child: const HomeScreen(),
+            child: const InsightWatcher(child: HomeScreen()),
           );
         },
       ),

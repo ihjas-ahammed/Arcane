@@ -288,45 +288,6 @@ class AIService {
     }
   }
 
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    List<XFile>? images,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps:[{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    
-    List<genai.Part> parts =[genai.TextPart(promptStr)];
-    if (images != null) {
-      for (var img in images) {
-        final bytes = await img.readAsBytes();
-        final mime = lookupMimeType(img.name) ?? 'image/jpeg';
-        parts.add(genai.DataPart(mime, bytes));
-      }
-    }
-
-    return await makeAICall(parts: parts, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
-  }
-
   Future<List<Map<String, dynamic>>> generateSubstepsForStep({
     required String parentStepTitle,
     required String parentStepDescription,

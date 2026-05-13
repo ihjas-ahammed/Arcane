@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/widgets/ui/saved_prompts_list.dart';
-import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:collection/collection.dart';
 
 class AiPromptsView extends StatefulWidget {
   const AiPromptsView({super.key});
@@ -16,7 +14,6 @@ class AiPromptsView extends StatefulWidget {
 
 class _AiPromptsViewState extends State<AiPromptsView> {
   final TextEditingController _promptController = TextEditingController();
-  String? _selectedMainTaskId;
 
   final List<Map<String, String>> _templates = [
     {
@@ -40,14 +37,6 @@ class _AiPromptsViewState extends State<AiPromptsView> {
           "Generate a step-by-step plan to declutter and organize a home office, broken down by zone (desk, files, shelves)."
     }
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    _selectedMainTaskId =
-        provider.selectedTaskId ?? provider.mainTasks.where((t) => !t.isDeleted).firstOrNull?.id;
-  }
 
   void _saveCurrentPrompt(AppProvider provider) {
     if (_promptController.text.trim().isEmpty) return;
@@ -125,57 +114,6 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                     ),
                   )
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Task Selector
-            DropdownButtonFormField<String>(
-              initialValue: _selectedMainTaskId,
-              dropdownColor: AppTheme.fhBgDark,
-              decoration: InputDecoration(
-                labelText: "ASSIGN TO PROTOCOL",
-                fillColor: AppTheme.fhBgDark,
-                filled: true,
-                border: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-              ),
-              items: provider.mainTasks.where((t) => !t.isDeleted)
-                  .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name.toUpperCase())))
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedMainTaskId = val),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Generate Button
-            SizedBox(
-              width: double.infinity,
-              child: ValorantButton(
-                label: provider.isGeneratingSubquests ? "PROCESSING..." : "EXECUTE GENERATION",
-                isPrimary: true,
-                onPressed: provider.isGeneratingSubquests
-                    ? null
-                    : () async {
-                        if (_promptController.text.isNotEmpty &&
-                            _selectedMainTaskId != null) {
-                          try {
-                            await provider.projectActions
-                                .generateProjectStructure(_selectedMainTaskId!,
-                                    _promptController.text);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          "PROJECT STRUCTURE GENERATED. CHECK PROJECTS TAB.")));
-                            }
-                          } finally {
-                            //
-                          }
-                        }
-                      },
               ),
             ),
 

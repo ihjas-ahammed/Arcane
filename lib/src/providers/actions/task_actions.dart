@@ -212,18 +212,12 @@ class TaskActions {
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-    }
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': false, 'completionTimestamp': null};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
-    }
   }
 
   void moveCheckpointRelative(String mainTaskId, String subTaskId, String draggedId, String targetId, String position) {
@@ -458,10 +452,6 @@ class TaskActions {
 
     _provider.setProviderState(mainTasks: newMainTasks);
 
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
-    }
-
     logToDailySummary('subtaskCompleted', {
       'parentTaskId': mainTask.id,
       'name': subTask.name,
@@ -488,10 +478,6 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
-    }
   }
 
   // FIX: Perform soft deletion to preserve session logs for schedule history

@@ -1,7 +1,6 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/models/project_models.dart';
 
 class TaskSession {
   String id;
@@ -46,7 +45,6 @@ class MainTask {
   bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
-  List<Project> projects;
 
   MainTask({
     required this.id,
@@ -60,10 +58,8 @@ class MainTask {
     this.isDeleted = false,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects,
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
-        subTasks = subTasks ?? [],
-        projects = projects ?? [];
+        subTasks = subTasks ?? [];
 
   MainTask copyWith({
     String? id,
@@ -77,7 +73,6 @@ class MainTask {
     bool? isDeleted,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects,
   }) {
     return MainTask(
       id: id ?? this.id,
@@ -92,7 +87,6 @@ class MainTask {
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
-      projects: projects ?? this.projects,
     );
   }
 
@@ -128,10 +122,6 @@ class MainTask {
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
               .toList() ??
           [],
-      projects: (json['projects'] as List<dynamic>?)
-              ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
     );
   }
 
@@ -148,7 +138,6 @@ class MainTask {
       'isDeleted': isDeleted,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
-      'projects': projects.map((p) => p.toJson()).toList(),
     };
   }
 

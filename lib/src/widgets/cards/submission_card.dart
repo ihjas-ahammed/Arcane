@@ -10,7 +10,6 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
-import 'package:missions/src/widgets/ui/linked_task_indicator.dart';
 import 'package:provider/provider.dart';
 
 /// Operator HUD QueueRow — ported submission card. Preserves
@@ -51,7 +50,6 @@ class SubmissionCard extends StatelessWidget {
       current = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (_) {}
 
-    final linkedInfo = provider.findLinkedProjectStepInfo(current.id);
     final isRunning = timerState?.isRunning ?? false;
     final isCompleted = current.completed;
 
@@ -172,15 +170,6 @@ class SubmissionCard extends StatelessWidget {
                           decoration: isCompleted ? TextDecoration.lineThrough : null,
                         ),
                       ),
-                      if (linkedInfo != null) ...[
-                        const SizedBox(height: 6),
-                        LinkedTaskIndicator(
-                          label: '${linkedInfo['projectTitle']} · ${linkedInfo['stepTitle']}',
-                          onUnlink: () => provider.projectActions.unlinkStep(
-                            linkedInfo['mainTaskId'], linkedInfo['projectId'], linkedInfo['stepId'],
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 10),
                       // bar + telemetry row
                       Row(crossAxisAlignment: CrossAxisAlignment.center, children: [

@@ -5,12 +5,12 @@ import 'package:missions/src/services/firebase_service.dart' as fb_service;
 import 'package:missions/src/services/local_storage_service.dart';
 import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/history_helper.dart'; 
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/task_models.dart';
-import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/finance_models.dart';
@@ -18,6 +18,7 @@ import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -32,7 +33,6 @@ import 'package:missions/src/providers/mixins/health_mixin.dart';
 import 'package:missions/src/providers/actions/task_actions.dart';
 import 'package:missions/src/providers/actions/ai_generation_actions.dart';
 import 'package:missions/src/providers/actions/timer_actions.dart';
-import 'package:missions/src/providers/actions/project_actions.dart';
 import 'package:missions/src/providers/actions/report_actions.dart';
 import 'package:missions/src/providers/actions/schedule_actions.dart';
 import 'package:missions/src/providers/actions/finance_actions.dart';
@@ -47,6 +47,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   AIService get aiService => _aiService;
 
+  /// Fires whenever a reflection's AI analysis completes successfully.
+  /// Carries the payload needed to render the "INSIGHT ACQUIRED" dialog.
+  final ValueNotifier<InsightReadyEvent?> insightReady =
+      ValueNotifier<InsightReadyEvent?>(null);
+
+  /// Set of reflection log ids currently being analyzed in the background.
+  final Set<String> _processingReflections = {};
+  Set<String> get processingReflections => Set.unmodifiable(_processingReflections);
+  bool isReflectionProcessing(String logId) => _processingReflections.contains(logId);
+
   // UI State
   String? _loadingTaskName;
   String? get loadingTaskName => _loadingTaskName;
@@ -59,7 +69,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
-  late final ProjectActions _projectActions;
   late final ReportActions _reportActions;
   late final ScheduleActions _scheduleActions;
   late final FinanceActions _financeActions;
@@ -68,7 +77,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
   TimerActions get timerActions => _timerActions;
-  ProjectActions get projectActions => _projectActions;
   ReportActions get reportActions => _reportActions;
   ScheduleActions get scheduleActions => _scheduleActions;
   FinanceActions get financeActions => _financeActions;
@@ -78,7 +86,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
-    _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
     _scheduleActions = ScheduleActions(this);
     _financeActions = FinanceActions(this);
@@ -685,27 +692,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return 0;
   }
 
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
-    for (var mainTask in mainTasks) {
-      for (var project in mainTask.projects) {
-        final step = _findStepByTargetId(project.steps, targetId);
-        if (step != null) {
-          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
-        }
-      }
-    }
-    return null;
-  }
-  
-  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
-    for (var step in steps) {
-      if (step.linkedTaskId == targetId) return step;
-      final found = _findStepByTargetId(step.substeps, targetId);
-      if (found != null) return found;
-    }
-    return null;
-  }
-
   int get7DayWellbeingMomentum(String skillName) {
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
     int total = 0;
@@ -772,37 +758,113 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
-    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
-    
+  /// Synchronously persists a stub reflection log, then runs AI analysis in
+  /// the background. When the analysis completes, [insightReady] is fired and
+  /// a system notification is posted via [NotificationService].
+  ///
+  /// Returns the new log's id so callers can correlate completion if needed.
+  String startReflectionAnalysis({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    DateTime? timestamp,
+  }) {
     final logId = const Uuid().v4();
     final log = ReflectionLog(
-      id: logId, timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: "Pending AI analysis...", xpGained: {}
+      id: logId,
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      aiFeedback: 'Pending AI analysis...',
+      xpGained: {},
     );
-    // Setting logs triggers the 7-day recalculation in mixin natively
     setReflectionLogs([...reflectionLogs, log]);
+    _processingReflections.add(logId);
+    notifyListeners();
 
+    // Fire-and-forget; the future is intentionally not awaited.
+    // ignore: discarded_futures
+    _runReflectionAnalysis(logId, trigger, emotion, reason, action);
+    return logId;
+  }
+
+  Future<void> _runReflectionAnalysis(
+    String logId,
+    String trigger,
+    String emotion,
+    String reason,
+    String action,
+  ) async {
     try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentContext = reflectionLogs
+          .where((l) => l.timestamp.isAfter(sevenDaysAgo) && l.id != logId)
+          .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+          .join("\n");
+
       final eval = await _aiService.evaluateReflection(
         trigger: trigger, emotion: emotion, reason: reason, action: action,
-        modelCandidates: settings.liteModels, 
+        modelCandidates: settings.liteModels,
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
         systemInstruction: settings.customReflectionPrompt,
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
-      
-      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
-      
-      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+      final feedback = (eval['feedback'] as String?) ?? '';
+      updateReflectionLog(logId, aiFeedback: feedback, xpGained: xpGained);
+
+      insightReady.value = InsightReadyEvent(
+        logId: logId,
+        feedback: feedback,
+        xpGained: xpGained,
+        timestamp: DateTime.now(),
+      );
+
+      final preview = feedback.length > 120 ? '${feedback.substring(0, 117)}…' : feedback;
+      // ignore: discarded_futures
+      NotificationService.instance.showInsightReady(
+        title: 'TACTICAL INSIGHT ACQUIRED',
+        body: preview.isEmpty ? 'Reflection analysis complete.' : preview,
+        payload: logId,
+      );
     } catch (e) {
-      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
-      rethrow;
+      updateReflectionLog(logId, aiFeedback: 'AI Analysis failed or offline.', xpGained: {});
+    } finally {
+      _processingReflections.remove(logId);
+      notifyListeners();
     }
+  }
+
+  /// Legacy synchronous path retained for any caller that still needs to
+  /// await the AI result inline (returns log + xp once analysis completes).
+  Future<Map<String, dynamic>> processReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    DateTime? timestamp,
+  }) async {
+    final logId = startReflectionAnalysis(
+      trigger: trigger, emotion: emotion, reason: reason, action: action, timestamp: timestamp,
+    );
+    final completer = Completer<Map<String, dynamic>>();
+    void listener() {
+      if (_processingReflections.contains(logId)) return;
+      removeListener(listener);
+      final log = reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log == null) {
+        if (!completer.isCompleted) completer.completeError(StateError('Log $logId vanished'));
+        return;
+      }
+      if (!completer.isCompleted) {
+        completer.complete({'log': log, 'xpGained': log.xpGained});
+      }
+    }
+    addListener(listener);
+    return completer.future;
   }
 
   void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
@@ -999,4 +1061,18 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void setJournalPin(String pin) {
     setSettings(settings..journalPin = pin);
   }
+}
+
+class InsightReadyEvent {
+  final String logId;
+  final String feedback;
+  final Map<String, int> xpGained;
+  final DateTime timestamp;
+
+  const InsightReadyEvent({
+    required this.logId,
+    required this.feedback,
+    required this.xpGained,
+    required this.timestamp,
+  });
 }

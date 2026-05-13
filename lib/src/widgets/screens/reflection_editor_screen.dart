@@ -5,7 +5,6 @@ import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/health_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:missions/src/widgets/dialogs/xp_gain_dialog.dart';
 import 'package:missions/src/widgets/common/growing_text_field.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
@@ -32,7 +31,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   late TextEditingController _actionController;
   late DateTime _selectedDateTime;
   double _energyLevel = 5;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -142,50 +140,36 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    _logEnergy(appProvider);
 
-    try {
-      _logEnergy(appProvider);
-      final result = await appProvider.processReflection(
+    if (!analyze) {
+      appProvider.startReflectionAnalysis(
         trigger: _triggerController.text.trim(),
         emotion: _emotionController.text.trim(),
         reason: _reasonController.text.trim(),
         action: _actionController.text.trim(),
         timestamp: _selectedDateTime,
       );
-
-      if (!analyze) {
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved locally.")));
-        }
-        return;
-      }
-
-      final xpGained = result['xpGained'] as Map<String, int>;
-      final log = result['log'] as ReflectionLog?;
-      final feedback = log?.aiFeedback ?? "";
-
-      if (mounted) {
-        Navigator.pop(context);
-
-        await showDialog(
-          context: context,
-          barrierColor: Colors.black.withValues(alpha: 0.85),
-          builder: (ctx) => XpGainDialog(
-            xpGained: xpGained,
-            insightText: feedback,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Saved locally. AI Analysis failed: $e")));
-        Navigator.pop(context);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved locally.")));
+      return;
     }
+
+    // Fire-and-forget: kick off AI in the background; the root-level
+    // InsightWatcher will show the dialog when analysis completes.
+    appProvider.startReflectionAnalysis(
+      trigger: _triggerController.text.trim(),
+      emotion: _emotionController.text.trim(),
+      reason: _reasonController.text.trim(),
+      action: _actionController.text.trim(),
+      timestamp: _selectedDateTime,
+    );
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Reflection logged. Analyzing in background…"),
+      duration: Duration(seconds: 2),
+    ));
   }
 
   void _deleteLog() {
@@ -328,9 +312,9 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
                     if (widget.initialLog == null) ...[
                       _SpideyActionButton(
-                        label: _isLoading ? "ANALYZING..." : "ANALYZE & SAVE",
+                        label: "ANALYZE & SAVE",
                         primary: true,
-                        onPressed: _isLoading ? null : () => _saveReflection(analyze: true),
+                        onPressed: () => _saveReflection(analyze: true),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -345,7 +329,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextButton(
-                              onPressed: _isLoading ? null : () => _saveReflection(analyze: false),
+                              onPressed: () => _saveReflection(analyze: false),
                               style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                               child: const Text("QUICK SAVE (NO AI)",
                                   style: TextStyle(color: SpideyTheme.textGrey, fontWeight: FontWeight.bold, fontSize: 12)),

@@ -7,7 +7,6 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/dialogs/subtask_config_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:missions/src/widgets/dialogs/upgrade_to_project_dialog.dart';
 import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
 import 'package:missions/src/widgets/ui/active_session_timer_display.dart';
 import 'package:missions/src/widgets/action_plan/action_plan_why_card.dart';
@@ -617,44 +616,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 10),
-
-                          GestureDetector(
-                            onTap: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) =>
-                                    UpgradeToProjectDialog(missionName: liveSubTask!.name),
-                              );
-                              if (confirm == true) {
-                                provider.projectActions.upgradeSubtaskToProject(
-                                    widget.parentTask.id, liveSubTask!);
-                                if (mounted) Navigator.pop(context);
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: const Color(0xFF8A6FE2).withValues(alpha: 0.6)),
-                                color: const Color(0xFF8A6FE2).withValues(alpha: 0.06),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(MdiIcons.rocketLaunchOutline,
-                                      color: const Color(0xFF8A6FE2), size: 16),
-                                  const SizedBox(width: 8),
-                                  Text("UPGRADE TO PROJECT",
-                                      style: GoogleFonts.rajdhani(
-                                          color: const Color(0xFF8A6FE2),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          letterSpacing: 1.5)),
-                                ],
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
