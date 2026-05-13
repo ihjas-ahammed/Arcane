@@ -61,52 +61,53 @@ class TimerActions {
   void pauseTimer(String id) {
     final timer = _provider.activeTimers[id];
     if (timer != null && timer.isRunning) {
-      _commitSessionAndPause(id, timer);
-
+      // Optimistic: flip to paused immediately so UI responds without waiting for I/O
       final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
       final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
-      
       newActiveTimers[id] = ActiveTimerInfo(
-        startTime: DateTime.now(), 
+        startTime: timer.startTime,
         accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
         isRunning: false,
         type: timer.type,
         mainTaskId: timer.mainTaskId,
       );
-      
       _provider.setProviderState(activeTimers: newActiveTimers);
 
-      // Requirement: Remove from day plan when stopped manually
       if (timer.type == 'subtask') {
-         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
+        _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
       }
 
-      if (_provider.settings.autoSaveEnabled) {
-        _provider.manuallySaveToCloud();
-      }
+      // Defer session commit + cloud save off the hot path
+      Future.microtask(() {
+        _commitSessionAndPause(id, timer);
+        if (_provider.settings.autoSaveEnabled) {
+          _provider.manuallySaveToCloud();
+        }
+      });
     }
   }
 
   void logTimerAndReset(String id) {
     final timer = _provider.activeTimers[id];
     if (timer != null) {
-      if (timer.isRunning) {
-        _commitSessionAndPause(id, timer);
-      }
-
+      // Optimistic: remove timer immediately so UI responds without waiting for I/O
       final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers.remove(id);
-      
       _provider.setProviderState(activeTimers: newActiveTimers);
 
-      // Requirement: Remove from day plan when stopped manually
       if (timer.type == 'subtask') {
-         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
+        _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
       }
 
-      if (_provider.settings.autoSaveEnabled) {
-        _provider.manuallySaveToCloud();
-      }
+      // Defer session commit + cloud save off the hot path
+      Future.microtask(() {
+        if (timer.isRunning) {
+          _commitSessionAndPause(id, timer);
+        }
+        if (_provider.settings.autoSaveEnabled) {
+          _provider.manuallySaveToCloud();
+        }
+      });
     }
   }
 

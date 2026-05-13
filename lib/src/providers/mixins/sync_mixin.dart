@@ -14,9 +14,11 @@ mixin SyncMixin on ChangeNotifier {
   
   bool _isSyncing = false;
   bool get isSyncing => _isSyncing;
-  
+
   bool _isManuallyLoading = false;
   bool get isManuallyLoading => _isManuallyLoading;
+
+  Timer? _saveDebounce;
   
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
@@ -37,6 +39,7 @@ mixin SyncMixin on ChangeNotifier {
 
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     super.dispose();
   }
 
@@ -44,8 +47,13 @@ mixin SyncMixin on ChangeNotifier {
     settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); 
+    _scheduleSave();
     notifyListeners();
+  }
+
+  void _scheduleSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 600), _saveLocalSnapshot);
   }
 
   void scheduleRealtimeSync() {

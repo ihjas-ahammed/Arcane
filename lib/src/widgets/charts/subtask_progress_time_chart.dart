@@ -19,26 +19,55 @@ class SubtaskProgressTimeChart extends StatelessWidget {
     required this.accentColor,
   });
 
+  /// Recursive progress for a single SubSubTask node at timestamp [t].
+  /// Mirrors SubSubTask.calculateProgress() but scoped to completed-at-or-before-t.
+  double _sstProgressAt(SubSubTask sst, DateTime t) {
+    final checkables = sst.substeps.where((s) => s.type != 'info').toList();
+    if (checkables.isEmpty) {
+      if (!sst.completed) return 0.0;
+      if (sst.completionTimestamp == null) return 0.0;
+      final ts = DateTime.tryParse(sst.completionTimestamp!);
+      return (ts != null && !ts.isAfter(t)) ? 1.0 : 0.0;
+    }
+    double total = 0;
+    for (final sub in checkables) {
+      total += _sstProgressAt(sub, t);
+    }
+    return total / checkables.length;
+  }
+
+  /// Overall nested progress at timestamp [t] across all top-level checkables.
+  double _progressAt(List<SubSubTask> checkables, DateTime t) {
+    if (checkables.isEmpty) return subTask.completed ? 1.0 : 0.0;
+    double total = 0;
+    for (final sst in checkables) {
+      total += _sstProgressAt(sst, t);
+    }
+    return total / checkables.length;
+  }
+
+  /// Recursively collects all completion timestamps from a SubSubTask and its substeps.
+  void _collectTimestamps(SubSubTask sst, List<DateTime> out) {
+    if (sst.type == 'info') return;
+    if (sst.completed && sst.completionTimestamp != null) {
+      final ts = DateTime.tryParse(sst.completionTimestamp!);
+      if (ts != null) out.add(ts);
+    }
+    for (final sub in sst.substeps) {
+      _collectTimestamps(sub, out);
+    }
+  }
+
   /// Builds an ordered list of (cumulativeMinutes, progressFraction) points.
   List<_Point> _buildPoints() {
     final checkables = subTask.subSubTasks.where((s) => s.type != 'info').toList();
-    final totalSteps = checkables.length;
 
-    // Collect session spans sorted chronologically
     final sessions = List<TaskSession>.from(subTask.sessions)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     if (sessions.isEmpty) return [];
 
-    // Map of timestamp -> cumulative minutes up to that moment
-    // Walk sessions in order, accumulating time
-    // For progress: at each moment T, count steps completed with timestamp <= T
-
-    // Build a merged event list
-    // Event types: 'session_end' (adds time) or 'step' (may shift progress)
     final events = <_Event>[];
-
-    double cumMins = 0;
     for (final s in sessions) {
       events.add(_Event(
         time: s.endTime,
@@ -47,60 +76,33 @@ class SubtaskProgressTimeChart extends StatelessWidget {
       ));
     }
 
-    // Step completion events (no time added, just mark progress)
-    for (final step in checkables) {
-      if (step.completed && step.completionTimestamp != null) {
-        final ts = DateTime.tryParse(step.completionTimestamp!);
-        if (ts != null) {
-          events.add(_Event(time: ts, durationMins: 0, type: _EventType.step));
-        }
-      }
+    // Collect completion timestamps from all nesting levels
+    final completionTimes = <DateTime>[];
+    for (final sst in checkables) {
+      _collectTimestamps(sst, completionTimes);
+    }
+    for (final ts in completionTimes) {
+      events.add(_Event(time: ts, durationMins: 0, type: _EventType.step));
     }
 
     events.sort((a, b) => a.time.compareTo(b.time));
 
-    // Walk events, build points
-    final points = <_Point>[const _Point(0, 0)]; // origin
-    cumMins = 0;
+    final points = <_Point>[const _Point(0, 0)];
+    double cumMins = 0;
 
     for (final e in events) {
       cumMins += e.durationMins;
-
-      // Current progress: steps completed at or before e.time
-      double prog = 0;
-      if (totalSteps > 0) {
-        int done = 0;
-        for (final step in checkables) {
-          if (step.completed) {
-            if (step.completionTimestamp != null) {
-              final ts = DateTime.tryParse(step.completionTimestamp!);
-              if (ts != null && !ts.isAfter(e.time)) done++;
-            }
-          }
-        }
-        prog = done / totalSteps;
-      } else {
-        prog = subTask.completed ? 1.0 : 0.0;
-      }
-
-      // Only add if different from last point (avoid duplicate x with same y)
+      final prog = _progressAt(checkables, e.time);
       final last = points.last;
       if (cumMins != last.x || prog != last.y) {
         points.add(_Point(cumMins, prog));
       }
     }
 
-    // If completed steps had no timestamps, approximate: put them at last session
-    if (totalSteps > 0 && points.last.y < 1.0) {
-      final noTimestampDone = checkables.where(
-        (s) => s.completed && s.completionTimestamp == null,
-      ).length;
-      if (noTimestampDone > 0) {
-        final approxProg = checkables.where((s) => s.completed).length / totalSteps;
-        if (approxProg > points.last.y) {
-          points.add(_Point(cumMins, approxProg));
-        }
-      }
+    // Fallback: any completed items without timestamps (use full nested progress as truth)
+    final finalProg = subTask.calculateProgress();
+    if (finalProg > points.last.y) {
+      points.add(_Point(cumMins, finalProg));
     }
 
     return points;

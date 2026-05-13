@@ -32,6 +32,9 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
     final callsign = (appProvider.currentUser?.displayName ?? '').trim().isEmpty
         ? 'OPERATIVE'
         : appProvider.currentUser!.displayName!.trim().toUpperCase();
+    final maxLevel = appProvider.skills.isEmpty
+        ? 1
+        : appProvider.skills.map((s) => s.level).reduce((a, b) => a > b ? a : b);
 
     return AppBar(
       backgroundColor: JweTheme.bgCanvas,
@@ -117,7 +120,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             const SizedBox(width: 6),
             Container(width: 2, height: 2, color: JweTheme.lineSoft),
             const SizedBox(width: 6),
-            Text('LVL 14',
+            Text('LVL $maxLevel',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 9.5, color: JweTheme.accentCyan, letterSpacing: 1.2, fontWeight: FontWeight.w600,
                 )),

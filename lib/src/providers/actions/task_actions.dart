@@ -608,8 +608,10 @@ class TaskActions {
     }).toList();
     
     _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
-    return true; 
+    // Defer recalibration — currentTimeSpent is already correct above;
+    // history rebuild runs after UI paints to avoid blocking the frame
+    Future.microtask(() => recalibrateTimeLogs(silent: true));
+    return true;
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
