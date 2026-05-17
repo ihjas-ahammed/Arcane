@@ -745,6 +745,29 @@ class TaskActions {
     if (!silent) _provider.setLoadingTask(null);
   }
 
+  void saveProgressDataPoint(String mainTaskId, String subTaskId) {
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (task == null) return;
+    final sub = task.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
+    if (sub == null) return;
+
+    final progress = sub.calculateProgress();
+    final point = ProgressDataPoint(timestamp: DateTime.now(), progress: progress);
+
+    final newMainTasks = _provider.mainTasks.map((t) {
+      if (t.id == mainTaskId) {
+        return t.copyWith(subTasks: t.subTasks.map((s) {
+          if (s.id == subTaskId) {
+            return s.copyWith(progressDataPoints: [...s.progressDataPoints, point]);
+          }
+          return s;
+        }).toList());
+      }
+      return t;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) {
     final newTask = MainTask(
       id: IdGenerator.generateMainTaskId(),

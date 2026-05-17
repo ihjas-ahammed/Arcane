@@ -227,43 +227,75 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                          color: isRunning
-                              ? JweTheme.accentRed.withValues(alpha: 0.6)
-                              : JweTheme.border),
-                      color: isRunning
-                          ? JweTheme.accentRed.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isRunning ? JweTheme.accentRed : JweTheme.textMuted,
+                  if (liveSubTask.completed)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.6)),
+                        color: JweTheme.accentTeal.withValues(alpha: 0.08),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'DONE',
+                            style: TextStyle(
+                                color: JweTheme.accentTeal,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5),
                           ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          isRunning ? "ACTIVE" : "STANDBY",
-                          style: TextStyle(
+                          if (liveSubTask.lastCompletedDate != null)
+                            Text(
+                              DateFormat('MMM d · HH:mm').format(liveSubTask.lastCompletedDate!),
+                              style: TextStyle(
+                                  color: JweTheme.accentTeal.withValues(alpha: 0.7),
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8),
+                            ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: isRunning
+                                ? JweTheme.accentRed.withValues(alpha: 0.6)
+                                : JweTheme.border),
+                        color: isRunning
+                            ? JweTheme.accentRed.withValues(alpha: 0.1)
+                            : Colors.transparent,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
                               color: isRunning ? JweTheme.accentRed : JweTheme.textMuted,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.5),
-                        ),
-                      ],
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isRunning ? "ACTIVE" : "STANDBY",
+                            style: TextStyle(
+                                color: isRunning ? JweTheme.accentRed : JweTheme.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(width: 10),
                   GestureDetector(
-                    onTap: () => _handleEditSubtask(context, provider, liveSubTask!),
+                    onTap: () => _handleEditSubtask(context, provider, liveSubTask),
                     child: Icon(MdiIcons.pencilOutline, color: JweTheme.textMid, size: 20),
                   ),
                 ],
@@ -418,7 +450,14 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SubtaskProgressTimeChart(subTask: liveSubTask, accentColor: activeAccent),
+                      child: SubtaskProgressTimeChart(
+                        subTask: liveSubTask,
+                        accentColor: activeAccent,
+                        isRunning: isRunning,
+                        timerStartTime: timerState?.startTime,
+                        onSaveDataPoint: () => provider.saveProgressDataPoint(
+                            widget.parentTask.id, liveSubTask.id),
+                      ),
                     ),
 
                     const SizedBox(height: 24),
@@ -433,7 +472,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => SubmissionSessionsScreen(
-                                parentTask: widget.parentTask, subTask: liveSubTask!),
+                                parentTask: widget.parentTask, subTask: liveSubTask),
                           ),
                         ),
                         child: Row(
@@ -557,7 +596,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 child: GestureDetector(
                                   onTap: () {
                                     provider.taskActions.completeSubtask(
-                                        widget.parentTask.id, liveSubTask!.id);
+                                        widget.parentTask.id, liveSubTask.id);
                                     Navigator.pop(context);
                                   },
                                   child: Container(
@@ -588,7 +627,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 child: GestureDetector(
                                   onTap: () {
                                     provider.taskActions.deleteSubtask(
-                                        widget.parentTask.id, liveSubTask!.id);
+                                        widget.parentTask.id, liveSubTask.id);
                                     Navigator.pop(context);
                                   },
                                   child: Container(

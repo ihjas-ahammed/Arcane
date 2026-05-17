@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,21 +7,70 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
-/// Progress % vs cumulative time chart.
-/// X = total minutes worked so far, Y = completion % at that moment.
-/// Each data point is plotted after a session ends or a step is completed.
-class SubtaskProgressTimeChart extends StatelessWidget {
+/// Progress % vs real wall-clock time chart.
+/// X = elapsed minutes since the first recorded event.
+/// Y = completion % at that moment.
+/// When a timer is actively running the chart ticks every 5 s so the
+/// live session always appears as the rightmost point on the curve.
+class SubtaskProgressTimeChart extends StatefulWidget {
   final SubTask subTask;
   final Color accentColor;
+  final VoidCallback? onSaveDataPoint;
+  final bool isRunning;
+  final DateTime? timerStartTime;
 
   const SubtaskProgressTimeChart({
     super.key,
     required this.subTask,
     required this.accentColor,
+    this.onSaveDataPoint,
+    this.isRunning = false,
+    this.timerStartTime,
   });
 
-  /// Recursive progress for a single SubSubTask node at timestamp [t].
-  /// Mirrors SubSubTask.calculateProgress() but scoped to completed-at-or-before-t.
+  @override
+  State<SubtaskProgressTimeChart> createState() => _SubtaskProgressTimeChartState();
+}
+
+class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
+  Timer? _liveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isRunning) _startTick();
+  }
+
+  @override
+  void didUpdateWidget(SubtaskProgressTimeChart old) {
+    super.didUpdateWidget(old);
+    if (widget.isRunning && !old.isRunning) {
+      _startTick();
+    } else if (!widget.isRunning && old.isRunning) {
+      _stopTick();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopTick();
+    super.dispose();
+  }
+
+  void _startTick() {
+    _stopTick();
+    _liveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _stopTick() {
+    _liveTimer?.cancel();
+    _liveTimer = null;
+  }
+
+  // ── Data helpers ─────────────────────────────────────────────
+
   double _sstProgressAt(SubSubTask sst, DateTime t) {
     final checkables = sst.substeps.where((s) => s.type != 'info').toList();
     if (checkables.isEmpty) {
@@ -36,9 +86,8 @@ class SubtaskProgressTimeChart extends StatelessWidget {
     return total / checkables.length;
   }
 
-  /// Overall nested progress at timestamp [t] across all top-level checkables.
   double _progressAt(List<SubSubTask> checkables, DateTime t) {
-    if (checkables.isEmpty) return subTask.completed ? 1.0 : 0.0;
+    if (checkables.isEmpty) return widget.subTask.completed ? 1.0 : 0.0;
     double total = 0;
     for (final sst in checkables) {
       total += _sstProgressAt(sst, t);
@@ -46,7 +95,6 @@ class SubtaskProgressTimeChart extends StatelessWidget {
     return total / checkables.length;
   }
 
-  /// Recursively collects all completion timestamps from a SubSubTask and its substeps.
   void _collectTimestamps(SubSubTask sst, List<DateTime> out) {
     if (sst.type == 'info') return;
     if (sst.completed && sst.completionTimestamp != null) {
@@ -58,70 +106,79 @@ class SubtaskProgressTimeChart extends StatelessWidget {
     }
   }
 
-  /// Builds an ordered list of (cumulativeMinutes, progressFraction) points.
   List<_Point> _buildPoints() {
-    final checkables = subTask.subSubTasks.where((s) => s.type != 'info').toList();
-
-    final sessions = List<TaskSession>.from(subTask.sessions)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    if (sessions.isEmpty) return [];
+    final sub = widget.subTask;
+    final checkables = sub.subSubTasks.where((s) => s.type != 'info').toList();
 
     final events = <_Event>[];
-    for (final s in sessions) {
-      events.add(_Event(
-        time: s.endTime,
-        durationMins: s.durationSeconds / 60.0,
-        type: _EventType.session,
-      ));
+
+    for (final s in sub.sessions) {
+      events.add(_Event(time: s.startTime, type: _EventType.step));
+      events.add(_Event(time: s.endTime, type: _EventType.session));
     }
 
-    // Collect completion timestamps from all nesting levels
     final completionTimes = <DateTime>[];
     for (final sst in checkables) {
       _collectTimestamps(sst, completionTimes);
     }
+    if (sub.completed && sub.lastCompletedDate != null) {
+      completionTimes.add(sub.lastCompletedDate!);
+    }
     for (final ts in completionTimes) {
-      events.add(_Event(time: ts, durationMins: 0, type: _EventType.step));
+      events.add(_Event(time: ts, type: _EventType.step));
     }
 
+    for (final dp in sub.progressDataPoints) {
+      events.add(_Event(time: dp.timestamp, type: _EventType.snapshot));
+    }
+
+    // Live point — extend X to current moment while timer is running
+    if (widget.isRunning && widget.timerStartTime != null) {
+      events.add(_Event(time: DateTime.now(), type: _EventType.live));
+    }
+
+    if (events.isEmpty) return [];
+
     events.sort((a, b) => a.time.compareTo(b.time));
+    final origin = events.first.time;
 
     final points = <_Point>[const _Point(0, 0)];
-    double cumMins = 0;
 
     for (final e in events) {
-      cumMins += e.durationMins;
+      final elapsedMins = e.time.difference(origin).inSeconds / 60.0;
       final prog = _progressAt(checkables, e.time);
       final last = points.last;
-      if (cumMins != last.x || prog != last.y) {
-        points.add(_Point(cumMins, prog));
+      if (elapsedMins != last.x || prog != last.y) {
+        points.add(_Point(elapsedMins, prog));
       }
     }
 
-    // Fallback: any completed items without timestamps (use full nested progress as truth)
-    final finalProg = subTask.calculateProgress();
+    final finalProg = sub.calculateProgress();
     if (finalProg > points.last.y) {
-      points.add(_Point(cumMins, finalProg));
+      points.add(_Point(points.last.x, finalProg));
     }
 
     return points;
   }
+
+  double get _totalSessionMins =>
+      widget.subTask.sessions.fold(0.0, (s, sess) => s + sess.durationSeconds / 60.0);
 
   @override
   Widget build(BuildContext context) {
     final points = _buildPoints();
     final hasData = points.length > 1;
 
-    final totalMins = hasData ? points.last.x : 0.0;
+    final totalElapsedMins = hasData ? points.last.x : 0.0;
     final currentProg = hasData ? points.last.y : 0.0;
-    final totalHours = totalMins / 60.0;
+    final sessionMins = _totalSessionMins;
+    final sessionHours = sessionMins / 60.0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: HudPanel(
         clip: HudClip.br,
-        accent: accentColor,
+        accent: widget.accentColor,
         padding: EdgeInsets.zero,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // ── Header ──────────────────────────────────────
@@ -129,22 +186,53 @@ class SubtaskProgressTimeChart extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             decoration: BoxDecoration(
               border: Border(
-                  bottom: BorderSide(color: accentColor.withValues(alpha: 0.20))),
+                  bottom: BorderSide(color: widget.accentColor.withValues(alpha: 0.20))),
             ),
             child: Row(children: [
-              Container(width: 4, height: 12, color: accentColor),
+              Container(width: 4, height: 12, color: widget.accentColor),
               const SizedBox(width: 10),
-              Text('// PROGRESS vs TIME INVESTED',
+              Text('// PROGRESS TIMELINE',
                   style: GoogleFonts.jetBrainsMono(
-                    color: accentColor,
+                    color: widget.accentColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.8,
                   )),
               const Spacer(),
+              if (widget.isRunning)
+                Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: JweTheme.accentRed,
+                    boxShadow: [BoxShadow(color: JweTheme.accentRed.withValues(alpha: 0.5), blurRadius: 4)],
+                  ),
+                ),
+              if (widget.onSaveDataPoint != null)
+                GestureDetector(
+                  onTap: widget.onSaveDataPoint,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: widget.accentColor.withValues(alpha: 0.40)),
+                      color: widget.accentColor.withValues(alpha: 0.08),
+                    ),
+                    child: Text('◉ MARK',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: widget.accentColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.4,
+                        )),
+                  ),
+                ),
               if (hasData)
                 Text(
-                  '${(currentProg * 100).round()}% · ${totalHours >= 1 ? '${totalHours.toStringAsFixed(1)}h' : '${totalMins.round()}m'}',
+                  '${(currentProg * 100).round()}%'
+                  '${sessionMins > 0 ? ' · ${sessionHours >= 1 ? '${sessionHours.toStringAsFixed(1)}h' : '${sessionMins.round()}m'}' : ''}',
                   style: GoogleFonts.jetBrainsMono(
                     color: JweTheme.textMuted,
                     fontSize: 10,
@@ -164,42 +252,44 @@ class SubtaskProgressTimeChart extends StatelessWidget {
                       height: 130,
                       child: _ProgressLinePainterWidget(
                         points: points,
-                        accent: accentColor,
+                        accent: widget.accentColor,
+                        isLive: widget.isRunning,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // X-axis time labels
-                    _XAxisLabels(points: points, totalMins: totalMins),
+                    _XAxisLabels(totalElapsedMins: totalElapsedMins),
                     const SizedBox(height: 10),
-                    // Chips
                     Row(children: [
                       _TelChip(
                         label: 'PROGRESS',
                         value: '${(currentProg * 100).round()}%',
                         color: JweTheme.accentCyan,
                       ),
-                      const SizedBox(width: 6),
-                      _TelChip(
-                        label: 'TIME IN',
-                        value: totalHours >= 1
-                            ? '${totalHours.toStringAsFixed(1)}h'
-                            : '${totalMins.round()}m',
-                        color: accentColor,
-                      ),
-                      const SizedBox(width: 6),
-                      if (totalMins > 0 && currentProg > 0)
+                      if (sessionMins > 0) ...[
+                        const SizedBox(width: 6),
                         _TelChip(
-                          label: 'RATE',
-                          value: '${(currentProg * 100 / totalMins).toStringAsFixed(1)}%/m',
-                          color: JweTheme.accentAmber,
+                          label: 'TIME IN',
+                          value: sessionHours >= 1
+                              ? '${sessionHours.toStringAsFixed(1)}h'
+                              : '${sessionMins.round()}m',
+                          color: widget.accentColor,
                         ),
+                        if (currentProg > 0) ...[
+                          const SizedBox(width: 6),
+                          _TelChip(
+                            label: 'RATE',
+                            value: '${(currentProg * 100 / sessionMins).toStringAsFixed(1)}%/m',
+                            color: JweTheme.accentAmber,
+                          ),
+                        ],
+                      ],
                     ]),
                   ])
                 : SizedBox(
                     height: 80,
                     child: Center(
                       child: Text(
-                        'NO SESSION DATA YET',
+                        'NO PROGRESS DATA YET',
                         style: GoogleFonts.jetBrainsMono(
                           color: JweTheme.textMuted,
                           fontSize: 10,
@@ -220,50 +310,52 @@ class SubtaskProgressTimeChart extends StatelessWidget {
 // Data types
 // ─────────────────────────────────────────────────
 class _Point {
-  final double x; // cumulative minutes
-  final double y; // progress 0.0–1.0
+  final double x;
+  final double y;
   const _Point(this.x, this.y);
 }
 
-enum _EventType { session, step }
+enum _EventType { session, step, snapshot, live }
 
 class _Event {
   final DateTime time;
-  final double durationMins;
   final _EventType type;
-  const _Event({required this.time, required this.durationMins, required this.type});
+  const _Event({required this.time, required this.type});
 }
 
 // ─────────────────────────────────────────────────
 // X-axis labels widget
 // ─────────────────────────────────────────────────
 class _XAxisLabels extends StatelessWidget {
-  final List<_Point> points;
-  final double totalMins;
+  final double totalElapsedMins;
 
-  const _XAxisLabels({required this.points, required this.totalMins});
+  const _XAxisLabels({required this.totalElapsedMins});
 
   String _fmt(double m) {
     if (m == 0) return '0';
     if (m < 60) return '${m.round()}m';
-    final h = (m / 60).floor();
-    final rem = (m % 60).round();
-    return rem == 0 ? '${h}h' : '${h}h${rem}m';
+    if (m < 60 * 24) {
+      final h = (m / 60).floor();
+      final rem = (m % 60).round();
+      return rem == 0 ? '${h}h' : '${h}h${rem}m';
+    }
+    final d = (m / (60 * 24)).floor();
+    final remH = ((m % (60 * 24)) / 60).round();
+    return remH == 0 ? '${d}d' : '${d}d${remH}h';
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show up to 5 evenly spaced time labels
     const count = 5;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(count, (i) {
-        final t = totalMins * i / (count - 1);
+        final t = totalElapsedMins * i / (count - 1);
         return Text(
           _fmt(t),
           style: GoogleFonts.jetBrainsMono(
             fontSize: 9,
-            color: i == count - 1 ? accentColorFor(points) : JweTheme.textMuted,
+            color: JweTheme.textMuted,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
@@ -271,8 +363,6 @@ class _XAxisLabels extends StatelessWidget {
       }),
     );
   }
-
-  Color accentColorFor(List<_Point> _) => JweTheme.textMuted;
 }
 
 // ─────────────────────────────────────────────────
@@ -281,26 +371,32 @@ class _XAxisLabels extends StatelessWidget {
 class _ProgressLinePainterWidget extends StatelessWidget {
   final List<_Point> points;
   final Color accent;
+  final bool isLive;
 
-  const _ProgressLinePainterWidget({required this.points, required this.accent});
+  const _ProgressLinePainterWidget({
+    required this.points,
+    required this.accent,
+    required this.isLive,
+  });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ProgressLinePainter(points: points, accent: accent),
+      painter: _ProgressLinePainter(points: points, accent: accent, isLive: isLive),
       child: const SizedBox.expand(),
     );
   }
 }
 
 // ─────────────────────────────────────────────────
-// Custom painter: progress line only
+// Custom painter — smooth cubic bezier curve
 // ─────────────────────────────────────────────────
 class _ProgressLinePainter extends CustomPainter {
   final List<_Point> points;
   final Color accent;
+  final bool isLive;
 
-  _ProgressLinePainter({required this.points, required this.accent});
+  _ProgressLinePainter({required this.points, required this.accent, required this.isLive});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -309,7 +405,7 @@ class _ProgressLinePainter extends CustomPainter {
     final maxX = points.last.x;
     if (maxX <= 0) return;
 
-    // ── Y-axis grid lines at 25 / 50 / 75 / 100% ──────
+    // ── Y-axis grid lines ──────────────────────────
     final gridPaint = Paint()
       ..color = JweTheme.accentCyan.withValues(alpha: 0.07)
       ..strokeWidth = 1;
@@ -330,27 +426,35 @@ class _ProgressLinePainter extends CustomPainter {
       tp.paint(canvas, Offset(2, y - tp.height - 1));
     }
 
-    // ── Map point to canvas coordinates ───────────────
+    // ── Canvas mapping ─────────────────────────────
     Offset toCanvas(_Point p) => Offset(
           (p.x / maxX) * size.width,
           size.height - p.y * size.height,
         );
 
-    // ── Filled area under line ─────────────────────────
-    final fillPath = Path();
-    fillPath.moveTo(0, size.height); // bottom-left origin
-    for (var i = 0; i < points.length; i++) {
-      final o = toCanvas(points[i]);
-      if (i == 0) {
-        fillPath.lineTo(o.dx, o.dy);
-      } else {
+    // ── Build smooth cubic bezier path ─────────────
+    // Uses horizontal tension S-curve: leaves each point horizontally,
+    // arrives at next point horizontally. Monotone — never overshoots.
+    Path buildCurve() {
+      final path = Path();
+      final o0 = toCanvas(points[0]);
+      path.moveTo(o0.dx, o0.dy);
+      for (var i = 1; i < points.length; i++) {
         final prev = toCanvas(points[i - 1]);
-        final ctrlX = (prev.dx + o.dx) / 2;
-        fillPath.cubicTo(ctrlX, prev.dy, ctrlX, o.dy, o.dx, o.dy);
+        final curr = toCanvas(points[i]);
+        final midX = (prev.dx + curr.dx) / 2;
+        path.cubicTo(midX, prev.dy, midX, curr.dy, curr.dx, curr.dy);
       }
+      return path;
     }
+
+    final curvePath = buildCurve();
+
+    // ── Filled area under curve ────────────────────
+    final fillPath = Path.from(curvePath);
     final last = toCanvas(points.last);
     fillPath.lineTo(last.dx, size.height);
+    fillPath.lineTo(0, size.height);
     fillPath.close();
 
     canvas.drawPath(
@@ -360,88 +464,100 @@ class _ProgressLinePainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            JweTheme.accentCyan.withValues(alpha: 0.18),
-            JweTheme.accentCyan.withValues(alpha: 0.01),
+            accent.withValues(alpha: 0.22),
+            accent.withValues(alpha: 0.01),
           ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
-    // ── Glow pass ──────────────────────────────────────
-    final glowPath = Path();
-    for (var i = 0; i < points.length; i++) {
-      final o = toCanvas(points[i]);
-      if (i == 0) {
-        glowPath.moveTo(o.dx, o.dy);
-      } else {
-        final prev = toCanvas(points[i - 1]);
-        final ctrlX = (prev.dx + o.dx) / 2;
-        glowPath.cubicTo(ctrlX, prev.dy, ctrlX, o.dy, o.dx, o.dy);
-      }
-    }
+    // ── Glow pass ──────────────────────────────────
     canvas.drawPath(
-      glowPath,
+      curvePath,
       Paint()
-        ..color = JweTheme.accentCyan.withValues(alpha: 0.28)
-        ..strokeWidth = 5
+        ..color = accent.withValues(alpha: 0.30)
+        ..strokeWidth = 6
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
-    // ── Main line ──────────────────────────────────────
-    final linePath = Path();
-    for (var i = 0; i < points.length; i++) {
-      final o = toCanvas(points[i]);
-      if (i == 0) {
-        linePath.moveTo(o.dx, o.dy);
-      } else {
-        final prev = toCanvas(points[i - 1]);
-        final ctrlX = (prev.dx + o.dx) / 2;
-        linePath.cubicTo(ctrlX, prev.dy, ctrlX, o.dy, o.dx, o.dy);
-      }
-    }
+    // ── Main curve ─────────────────────────────────
     canvas.drawPath(
-      linePath,
+      curvePath,
       Paint()
-        ..color = JweTheme.accentCyan
+        ..color = accent
         ..strokeWidth = 2.0
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round,
     );
 
-    // ── Dots at significant points ─────────────────────
+    // ── Live trailing dashed extension ─────────────
+    if (isLive && points.length >= 2) {
+      final secondLast = toCanvas(points[points.length - 2]);
+      final lastPt = toCanvas(points.last);
+      const dashLen = 4.0;
+      const gapLen = 3.0;
+      final dx = lastPt.dx - secondLast.dx;
+      final dy = lastPt.dy - secondLast.dy;
+      final len = math.sqrt(dx * dx + dy * dy);
+      if (len > 0) {
+        final ux = dx / len;
+        final uy = dy / len;
+        var traveled = 0.0;
+        var drawing = true;
+        var cx = secondLast.dx;
+        var cy = secondLast.dy;
+        final dashPaint = Paint()
+          ..color = accent.withValues(alpha: 0.45)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke;
+        while (traveled < len) {
+          final segLen = math.min(drawing ? dashLen : gapLen, len - traveled);
+          if (drawing) {
+            canvas.drawLine(
+              Offset(cx, cy),
+              Offset(cx + ux * segLen, cy + uy * segLen),
+              dashPaint,
+            );
+          }
+          cx += ux * segLen;
+          cy += uy * segLen;
+          traveled += segLen;
+          drawing = !drawing;
+        }
+      }
+    }
+
+    // ── Dots at significant points ─────────────────
     for (var i = 1; i < points.length; i++) {
       final p = points[i];
       final prev = points[i - 1];
       final isLast = i == points.length - 1;
-      final progressJump = p.y - prev.y > 0.01; // step was completed here
+      final progressJump = p.y - prev.y > 0.01;
 
       if (!isLast && !progressJump) continue;
 
       final o = toCanvas(p);
       final r = isLast ? 4.5 : 3.0;
+      final dotColor = isLast && isLive ? JweTheme.accentRed : accent;
 
-      // Glow
       canvas.drawCircle(
-        o, r + 2,
+        o, r + 2.5,
         Paint()
-          ..color = JweTheme.accentCyan.withValues(alpha: 0.25)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+          ..color = dotColor.withValues(alpha: 0.28)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
       );
-      // Fill
-      canvas.drawCircle(o, r, Paint()..color = JweTheme.accentCyan);
-      // Inner white
+      canvas.drawCircle(o, r, Paint()..color = dotColor);
       canvas.drawCircle(o, r * 0.4, Paint()..color = Colors.white.withValues(alpha: 0.85));
 
-      // Label: progress % above dot, time below (for last point only)
       if (progressJump || isLast) {
-        final progStr = '${(p.y * 100).round()}%';
+        final label = isLast && isLive ? 'LIVE' : '${(p.y * 100).round()}%';
         final tp = TextPainter(
           text: TextSpan(
-            text: progStr,
+            text: label,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 8.5,
-              color: JweTheme.accentCyan,
+              color: dotColor,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
             ),
@@ -457,7 +573,10 @@ class _ProgressLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ProgressLinePainter old) =>
-      old.points != points || old.accent != accent;
+      old.points.length != points.length ||
+      old.isLive != isLive ||
+      old.accent != accent ||
+      (points.isNotEmpty && old.points.isNotEmpty && points.last.x != old.points.last.x);
 }
 
 // ─────────────────────────────────────────────────

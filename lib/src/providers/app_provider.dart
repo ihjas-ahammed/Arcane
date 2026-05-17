@@ -193,6 +193,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setTransactions([]);
     setCategories([]);
     setSavingsGoals([]);
+    setAccounts([]);
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
@@ -254,6 +255,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       List<FinanceTransaction>? transactions,
       List<FinanceCategory>? categories,
       List<SavingsGoal>? savingsGoals,
+      List<FinanceAccount>? accounts,
       bool doNotify = true,
       bool doPersist = true
   }) {
@@ -265,7 +267,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     if (transactions != null) setTransactions(transactions);
     if (categories != null) setCategories(categories);
     if (savingsGoals != null) setSavingsGoals(savingsGoals);
-    
+    if (accounts != null) setAccounts(accounts);
+
     if (doNotify) notifyListeners();
   }
 
@@ -289,7 +292,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent);
+  void saveProgressDataPoint(String mainTaskId, String subTaskId) => _taskActions.saveProgressDataPoint(mainTaskId, subTaskId);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);

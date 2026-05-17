@@ -8,6 +8,9 @@ class FinanceActions {
   FinanceActions(this._provider);
 
   double get currentBalance {
+    if (_provider.accounts.isNotEmpty) {
+      return _provider.accounts.fold(0.0, (sum, a) => sum + a.balance);
+    }
     double totalIncome = 0;
     double totalExpense = 0;
     for (var t in _provider.transactions) {
@@ -20,7 +23,54 @@ class FinanceActions {
     return totalIncome - totalExpense;
   }
 
+  // --- Accounts ---
+
+  void addAccount(String name, String type, double balance, String iconName, String colorHex) {
+    final newAccount = FinanceAccount(
+      id: const Uuid().v4(),
+      name: name,
+      type: type,
+      balance: balance,
+      iconName: iconName,
+      colorHex: colorHex,
+    );
+    _provider.setProviderState(
+      accounts: [..._provider.accounts, newAccount],
+    );
+  }
+
+  void updateAccount(String id, {String? name, String? type, String? iconName, String? colorHex}) {
+    final newAccounts = _provider.accounts.map((a) {
+      if (a.id == id) {
+        a.name = name ?? a.name;
+        a.type = type ?? a.type;
+        a.iconName = iconName ?? a.iconName;
+        a.colorHex = colorHex ?? a.colorHex;
+      }
+      return a;
+    }).toList();
+    _provider.setProviderState(accounts: newAccounts);
+  }
+
+  void changeAccountBalance(String id, double newBalance) {
+    final newAccounts = _provider.accounts.map((a) {
+      if (a.id == id) a.balance = newBalance;
+      return a;
+    }).toList();
+    _provider.setProviderState(accounts: newAccounts);
+  }
+
+  void deleteAccount(String id) {
+    _provider.setProviderState(
+      accounts: _provider.accounts.where((a) => a.id != id).toList(),
+    );
+  }
+
   // --- Transactions ---
+
+  void resetTransactions() {
+    _provider.setProviderState(transactions: []);
+  }
 
   void addTransaction(double amount, bool isIncome, String categoryId, String note, DateTime date) {
     final newTx = FinanceTransaction(

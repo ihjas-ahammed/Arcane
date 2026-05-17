@@ -8,12 +8,11 @@ import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/finance_helpers.dart';
+import 'package:missions/src/widgets/dialogs/add_edit_account_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
 
-/// Operator HUD wallet — balance hero, 30-day expenditure sparkline,
-/// category breakdown, transaction ledger.
 class FinanceTrackerView extends StatefulWidget {
   const FinanceTrackerView({super.key});
 
@@ -22,16 +21,136 @@ class FinanceTrackerView extends StatefulWidget {
 }
 
 class _FinanceTrackerViewState extends State<FinanceTrackerView> {
-  static const String _currency = '₹'; // ₹
+  static const String _currency = '₹';
 
   void _showAddTransactionDialog(BuildContext context, bool isIncome) {
     showDialog(context: context, builder: (_) => AddTransactionDialog(isIncome: isIncome));
+  }
+
+  void _showAddAccountDialog(BuildContext context, {FinanceAccount? existing}) {
+    showDialog(
+      context: context,
+      builder: (_) => AddEditAccountDialog(existing: existing),
+    );
+  }
+
+  void _showChangeBalanceDialog(BuildContext context, FinanceAccount account) {
+    final ctrl = TextEditingController(text: account.balance.toStringAsFixed(2));
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentAmber),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text(
+            'CHANGE BALANCE',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentAmber,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              fontSize: 13,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(account.name.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 22),
+                decoration: const InputDecoration(
+                  prefixText: '₹ ',
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: JweTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentAmber,
+                foregroundColor: Colors.black,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                final val = double.tryParse(ctrl.text);
+                if (val != null) {
+                  provider.financeActions.changeAccountBalance(account.id, val);
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('CONFIRM', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmReset(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentRed),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text('RESET LEDGER',
+              style: GoogleFonts.saira(
+                  color: JweTheme.accentRed,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                  fontSize: 13)),
+          content: Text(
+            'This will permanently delete all transaction records. Account balances are not affected.',
+            style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentRed,
+                foregroundColor: Colors.white,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                provider.financeActions.resetTransactions();
+                Navigator.pop(ctx);
+              },
+              child: const Text('RESET', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final balance = provider.financeActions.currentBalance;
+    final hasAccounts = provider.accounts.isNotEmpty;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -62,10 +181,9 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
     }
 
     final avg30d = expense30d / 30.0;
-    final monthBudget = avg30d * 30; // soft "cap" = 30d trailing avg
+    final monthBudget = avg30d * 30;
     final monthPct = monthBudget > 0 ? (monthSpend / monthBudget) * 100 : 0.0;
 
-    // Category MTD breakdown (expenses only)
     final catTotals = <String, double>{};
     for (var t in provider.transactions) {
       if (t.isIncome) continue;
@@ -82,25 +200,10 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
 
-    // Savings goal pick (first non-empty target)
-    final goals = provider.savingsGoals;
-    final hasGoal = goals.isNotEmpty;
-    final goal = hasGoal ? goals.first : null;
-    double savePct = 0;
-    int monthsToTarget = 0;
-    double velocity = 0;
-    if (goal != null && goal.targetAmount > 0) {
-      savePct = (goal.currentAmount / goal.targetAmount) * 100;
-      // velocity from logs over total elapsed months
-      final months = math.max(1, now.difference(goal.createdAt).inDays / 30.0);
-      velocity = goal.currentAmount / months;
-      final remaining = math.max(0.0, goal.targetAmount - goal.currentAmount);
-      monthsToTarget = velocity > 0 ? (remaining / velocity).ceil() : 0;
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 80),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+
         // ── Balance hero ────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -138,20 +241,21 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        income30d > expense30d
-                            ? '+${(((income30d - expense30d) / math.max(1.0, income30d)) * 100).round()}%'
-                            : '−${(((expense30d - income30d) / math.max(1.0, expense30d)) * 100).round()}%',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: income30d > expense30d ? JweTheme.accentTeal : JweTheme.accentRed,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
+                    if (!hasAccounts)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          income30d > expense30d
+                              ? '+${(((income30d - expense30d) / math.max(1.0, income30d)) * 100).round()}%'
+                              : '−${(((expense30d - income30d) / math.max(1.0, expense30d)) * 100).round()}%',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: income30d > expense30d ? JweTheme.accentTeal : JweTheme.accentRed,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
                         ),
                       ),
-                    ),
                   ]),
                   const SizedBox(height: 12),
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -212,6 +316,106 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 icon: MdiIcons.minus,
                 accent: JweTheme.accentRed,
                 onTap: () => _showAddTransactionDialog(context, false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _ResetBtn(onTap: () => _confirmReset(context)),
+          ]),
+        ),
+
+        // ── Accounts ────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+          child: HudSectionHead(
+            label: 'ACCOUNTS',
+            code: hasAccounts ? '${provider.accounts.length} LINKED' : 'NONE',
+            accent: HudTone.cyan,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Column(children: [
+            ...provider.accounts.map((acc) {
+              final color = Color(int.parse('0xFF${acc.colorHex}'));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: HudPanel(
+                  clip: HudClip.br,
+                  accent: color,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                      ),
+                      child: Icon(FinanceHelpers.getIconData(acc.iconName), color: color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(acc.name.toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                            )),
+                        Text(acc.type.toUpperCase(),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.2,
+                            )),
+                      ]),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$_currency${_compactMoney(acc.balance)}',
+                          style: GoogleFonts.saira(
+                            color: color, fontSize: 18, fontWeight: FontWeight.w700,
+                          )),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        GestureDetector(
+                          onTap: () => _showChangeBalanceDialog(context, acc),
+                          child: Text('BALANCE',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentAmber, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showAddAccountDialog(context, existing: acc),
+                          child: Text('EDIT',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => provider.financeActions.deleteAccount(acc.id),
+                          child: Text('DEL',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentRed, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                      ]),
+                    ]),
+                  ]),
+                ),
+              );
+            }),
+            GestureDetector(
+              onTap: () => _showAddAccountDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: JweTheme.lineSoft),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.add, color: JweTheme.accentCyan, size: 14),
+                  const SizedBox(width: 6),
+                  Text('ADD ACCOUNT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.4,
+                      )),
+                ]),
               ),
             ),
           ]),
@@ -290,60 +494,6 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                   })),
           ),
         ),
-
-        // ── Savings protocol ───────────────────────
-        if (hasGoal) ...[
-          const HudSectionHead(label: 'SAVINGS PROTOCOL', code: 'LONG-RANGE', accent: HudTone.cyan),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: HudPanel(
-              clip: HudClip.both,
-              accent: JweTheme.accentCyan,
-              allBrackets: true,
-              padding: const EdgeInsets.all(14),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                HudRing(
-                  value: savePct.clamp(0, 100),
-                  size: 78,
-                  stroke: 6,
-                  tone: HudTone.cyan,
-                  label: '${savePct.round()}',
-                  sub: '%',
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(goal!.name.toUpperCase(),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.saira(
-                          color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.6,
-                        )),
-                    const SizedBox(height: 4),
-                    HudDataRow(
-                      label: 'Current',
-                      value: '$_currency${_compactMoney(goal.currentAmount)}',
-                      tone: HudTone.cyan,
-                    ),
-                    HudDataRow(
-                      label: 'Target',
-                      value: '$_currency${_compactMoney(goal.targetAmount)}',
-                    ),
-                    HudDataRow(
-                      label: 'Velocity',
-                      value: '$_currency${_compactMoney(velocity)}/m',
-                      accent: true,
-                    ),
-                    HudDataRow(
-                      label: 'ETA',
-                      value: monthsToTarget > 0 ? '+$monthsToTarget MO' : '—',
-                      tone: HudTone.cyan,
-                    ),
-                  ]),
-                ),
-              ]),
-            ),
-          ),
-        ],
 
         // ── Transaction ledger ─────────────────────
         const HudSectionHead(label: 'TRANSACTION LEDGER', code: 'LIVE'),
@@ -523,6 +673,25 @@ class _LedgerActionBtn extends StatelessWidget {
                 )),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+class _ResetBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ResetBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: JweTheme.accentRed.withValues(alpha: 0.45)),
+        ),
+        child: Icon(MdiIcons.refresh, size: 16, color: JweTheme.accentRed),
       ),
     );
   }

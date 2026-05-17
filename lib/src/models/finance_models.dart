@@ -1,5 +1,45 @@
 import 'package:uuid/uuid.dart';
 
+class FinanceAccount {
+  String id;
+  String name;
+  String type; // cash, wallet, gpay, bank, credit, other
+  double balance;
+  String iconName;
+  String colorHex;
+
+  FinanceAccount({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.balance,
+    required this.iconName,
+    required this.colorHex,
+  });
+
+  factory FinanceAccount.fromJson(Map<String, dynamic> json) {
+    return FinanceAccount(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? 'Account',
+      type: json['type'] as String? ?? 'wallet',
+      balance: (json['balance'] as num? ?? 0.0).toDouble(),
+      iconName: json['iconName'] as String? ?? 'wallet',
+      colorHex: json['colorHex'] as String? ?? 'F1C40F',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type,
+      'balance': balance,
+      'iconName': iconName,
+      'colorHex': colorHex,
+    };
+  }
+}
+
 class FinanceCategory {
   String id;
   String name;

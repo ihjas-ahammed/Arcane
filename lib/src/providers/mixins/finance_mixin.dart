@@ -6,10 +6,12 @@ mixin FinanceMixin on ChangeNotifier {
   List<FinanceTransaction> _transactions = [];
   List<FinanceCategory> _categories = [];
   List<SavingsGoal> _savingsGoals = [];
+  List<FinanceAccount> _accounts = [];
 
   List<FinanceTransaction> get transactions => _transactions;
   List<FinanceCategory> get categories => _categories;
   List<SavingsGoal> get savingsGoals => _savingsGoals;
+  List<FinanceAccount> get accounts => _accounts;
 
   // --- Requirements ---
   SyncMixin get sync => this as SyncMixin;
@@ -26,6 +28,11 @@ mixin FinanceMixin on ChangeNotifier {
 
   void setSavingsGoals(List<SavingsGoal> list) {
     _savingsGoals = List.from(list);
+    sync.markDirty('finance');
+  }
+
+  void setAccounts(List<FinanceAccount> list) {
+    _accounts = List.from(list);
     sync.markDirty('finance');
   }
 
@@ -53,6 +60,9 @@ mixin FinanceMixin on ChangeNotifier {
     if (data['savingsGoals'] != null) {
       _savingsGoals = (data['savingsGoals'] as List).map((e) => SavingsGoal.fromJson(e)).toList();
     }
+    if (data['accounts'] != null) {
+      _accounts = (data['accounts'] as List).map((e) => FinanceAccount.fromJson(e)).toList();
+    }
   }
 
   Map<String, dynamic> getFinanceStateMap() {
@@ -60,6 +70,7 @@ mixin FinanceMixin on ChangeNotifier {
       'transactions': _transactions.map((e) => e.toJson()).toList(),
       'categories': _categories.map((e) => e.toJson()).toList(),
       'savingsGoals': _savingsGoals.map((e) => e.toJson()).toList(),
+      'accounts': _accounts.map((e) => e.toJson()).toList(),
     };
   }
 }
