@@ -105,6 +105,118 @@ class TaskActions {
     }
   }
 
+  Map<String, int> getDayPlanEstimates(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return {};
+    final raw = dayData['dailyPlanEstimates'];
+    if (raw is! Map) return {};
+    final out = <String, int>{};
+    raw.forEach((k, v) {
+      if (k is String && v is num) out[k] = v.toInt();
+    });
+    return out;
+  }
+
+  void setDayPlanEstimate(String dateStr, String compoundId, int minutes) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    final current = Map<String, dynamic>.from(
+      (newHistory[dateStr]['dailyPlanEstimates'] as Map?) ?? {},
+    );
+    if (minutes <= 0) {
+      current.remove(compoundId);
+    } else {
+      current[compoundId] = minutes;
+    }
+    newHistory[dateStr]['dailyPlanEstimates'] = current;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// True if there are remaining (uncompleted, still-valid) items in [fromDate]'s plan.
+  bool hasUnfinishedPlan(String fromDate) {
+    final plan = getDayPlan(fromDate);
+    if (plan.isEmpty) return false;
+    for (final id in plan) {
+      if (_isPlanItemActionable(id)) return true;
+    }
+    return false;
+  }
+
+  bool _isPlanItemActionable(String compoundId) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return false;
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+    if (task == null) return false;
+    final sub = task.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+    if (sub == null) return false;
+    if (parts.length == 3) {
+      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      return cp != null && !cp.completed;
+    }
+    return !sub.completed;
+  }
+
+  /// Moves all actionable unfinished items from [fromDate] into [toDate]'s plan
+  /// (appended, de-duplicated, preserving order). Estimates ride along.
+  /// Marks [toDate] as carryover-handled so the banner doesn't reappear.
+  void carryOverUnfinished(String fromDate, String toDate) {
+    final src = getDayPlan(fromDate);
+    final actionable = src.where(_isPlanItemActionable).toList();
+    final dst = getDayPlan(toDate);
+    final merged = [...dst];
+    for (final id in actionable) {
+      if (!merged.contains(id)) merged.add(id);
+    }
+
+    final srcEstimates = getDayPlanEstimates(fromDate);
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(toDate)) {
+      newHistory[toDate] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[toDate]['dailyPlan'] = merged;
+    final mergedEstimates = Map<String, dynamic>.from(
+      (newHistory[toDate]['dailyPlanEstimates'] as Map?) ?? {},
+    );
+    for (final id in actionable) {
+      if (srcEstimates.containsKey(id) && !mergedEstimates.containsKey(id)) {
+        mergedEstimates[id] = srcEstimates[id];
+      }
+    }
+    newHistory[toDate]['dailyPlanEstimates'] = mergedEstimates;
+    newHistory[toDate]['carryoverHandled'] = true;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// Marks [dateStr] as carryover-handled without moving anything.
+  void dismissCarryover(String dateStr) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[dateStr]['carryoverHandled'] = true;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  bool wasCarryoverHandled(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return false;
+    return dayData['carryoverHandled'] == true;
+  }
+
   // --- SubSubTask Actions ---
 
   String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) {

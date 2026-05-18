@@ -7,7 +7,10 @@
       "Bash(Head -50)",
       "Bash(xargs grep -l \"income\\\\|expense\")",
       "Bash(xargs grep -l \"account.*selection\\\\|select.*account\" -i)",
-      "Bash(xargs grep -l \"progress.*time\\\\|time.*progress\" -i)"
+      "Bash(xargs grep -l \"progress.*time\\\\|time.*progress\" -i)",
+      "Bash(powershell -NoProfile -Command \"\\(Get-Content 'c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\widgets\\\\views\\\\schedule_view.dart' | Measure-Object -Line\\).Lines\")",
+      "Bash(del \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\screens\\\\schedule\\\\day_plan_screen.dart\")",
+      "Bash(del \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\widgets\\\\schedule\\\\day_plan_dashboard_widget.dart\")"
     ]
   }
 }

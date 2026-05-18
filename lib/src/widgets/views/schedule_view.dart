@@ -7,10 +7,9 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
 import 'package:missions/src/widgets/schedule/protocol_control_panel.dart';
 import 'package:missions/src/widgets/schedule/schedule_hero_widget.dart';
-import 'package:missions/src/widgets/schedule/day_plan_dashboard_widget.dart';
 import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
 import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:missions/src/screens/schedule/day_plan_screen.dart';
+import 'package:missions/src/screens/schedule/today_planner_screen.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:missions/src/models/timeline_models.dart';
@@ -395,6 +394,8 @@ class _ScheduleViewState extends State<ScheduleView> {
 
     return Column(
       children: [
+        if (isToday) _CarryoverBanner(provider: provider),
+
         // HERO SECTION
         ScheduleHeroWidget(
           mainTask: nextMainTask,
@@ -404,7 +405,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           accumulatedTodaySeconds: accumulatedTodaySeconds,
           sessionStart: sessionStart,
           onOpenPlan: () {
-             Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlanScreen()));
+             Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayPlannerScreen()));
           },
           onPlayPause: () {
             if (nextSubTask == null || nextMainTask == null) return;
@@ -447,10 +448,6 @@ class _ScheduleViewState extends State<ScheduleView> {
           },
         ),
         
-        // --- NEW QUEUE DASHBOARD ---
-        if (isToday)
-          const DayPlanDashboardWidget(),
-
         // CONTROLS — tactical date strip
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
@@ -584,6 +581,95 @@ class _ScheduleViewState extends State<ScheduleView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CarryoverBanner extends StatelessWidget {
+  final AppProvider provider;
+
+  const _CarryoverBanner({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final today = helper.getTodayDateString();
+    if (provider.taskActions.wasCarryoverHandled(today)) {
+      return const SizedBox.shrink();
+    }
+    final yesterday =
+        DateFormat('yyyy-MM-dd').format(DateTime.now().subtract(const Duration(days: 1)));
+    if (!provider.taskActions.hasUnfinishedPlan(yesterday)) {
+      return const SizedBox.shrink();
+    }
+
+    final unfinishedCount = provider.taskActions
+        .getDayPlan(yesterday)
+        .where((id) {
+      final parts = id.split('|');
+      if (parts.length < 2) return false;
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+      if (task == null || sub == null) return false;
+      if (parts.length == 3) {
+        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+        return cp != null && !cp.completed;
+      }
+      return !sub.completed;
+    }).length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppTheme.fhAccentTeal.withOpacity(0.08),
+        border: Border(
+          left: BorderSide(color: AppTheme.fhAccentTeal, width: 3),
+          bottom: BorderSide(color: AppTheme.fhBorderColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(MdiIcons.arrowRightBoldOutline,
+              size: 16, color: AppTheme.fhAccentTeal),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$unfinishedCount unfinished from yesterday',
+              style: const TextStyle(
+                  color: AppTheme.fhTextPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => provider.taskActions.dismissCarryover(today),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: const Text('DISMISS',
+                style: TextStyle(
+                    color: AppTheme.fhTextSecondary,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () =>
+                provider.taskActions.carryOverUnfinished(yesterday, today),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: const Text('CARRY OVER',
+                style: TextStyle(
+                    color: AppTheme.fhAccentTeal,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }
