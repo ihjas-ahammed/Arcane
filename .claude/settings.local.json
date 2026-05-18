@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\" -Recurse -Include \"*.tsx\", \"*.ts\", \"*.jsx\", \"*.js\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Head -50)",
+      "Bash(xargs grep -l \"income\\\\|expense\")",
+      "Bash(xargs grep -l \"account.*selection\\\\|select.*account\" -i)",
+      "Bash(xargs grep -l \"progress.*time\\\\|time.*progress\" -i)"
     ]
   }
 }

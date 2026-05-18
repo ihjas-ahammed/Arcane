@@ -83,6 +83,7 @@ class FinanceTransaction {
   String categoryId;
   DateTime timestamp;
   String note;
+  String? accountId;
 
   FinanceTransaction({
     required this.id,
@@ -91,6 +92,7 @@ class FinanceTransaction {
     required this.categoryId,
     required this.timestamp,
     this.note = '',
+    this.accountId,
   });
 
   factory FinanceTransaction.fromJson(Map<String, dynamic> json) {
@@ -99,10 +101,11 @@ class FinanceTransaction {
       amount: (json['amount'] as num? ?? 0.0).toDouble(),
       isIncome: json['isIncome'] as bool? ?? false,
       categoryId: json['categoryId'] as String? ?? '',
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
           : DateTime.now(),
       note: json['note'] as String? ?? '',
+      accountId: json['accountId'] as String?,
     );
   }
 
@@ -114,6 +117,7 @@ class FinanceTransaction {
       'categoryId': categoryId,
       'timestamp': timestamp.toIso8601String(),
       'note': note,
+      if (accountId != null) 'accountId': accountId,
     };
   }
 }

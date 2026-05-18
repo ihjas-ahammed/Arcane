@@ -446,6 +446,14 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       child: SubtaskWeeklyChart(subTask: liveSubTask, accentColor: activeAccent),
                     ),
 
+                    const SizedBox(height: 24),
+
+                    // ── Progress · Time chart ────────────────────────
+                    _SectionLabel(
+                      label: "PROGRESS · TIME",
+                      accentColor: activeAccent,
+                      icon: MdiIcons.chartLine,
+                    ),
                     const SizedBox(height: 12),
 
                     Padding(
@@ -453,10 +461,14 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       child: SubtaskProgressTimeChart(
                         subTask: liveSubTask,
                         accentColor: activeAccent,
-                        isRunning: isRunning,
-                        timerStartTime: timerState?.startTime,
-                        onSaveDataPoint: () => provider.saveProgressDataPoint(
-                            widget.parentTask.id, liveSubTask.id),
+                        currentSpentSeconds: liveSubTask.sessions.fold(0, (s, sess) => s + sess.durationSeconds) +
+                            (isRunning && timerState?.startTime != null
+                                ? DateTime.now().difference(timerState!.startTime).inSeconds
+                                : 0),
+                        onAddEntry: (progress, spentSeconds) => provider.saveProgressDataPoint(
+                            widget.parentTask.id, liveSubTask.id, progress, spentSeconds),
+                        onDeleteEntry: (index) => provider.deleteProgressDataPoint(
+                            widget.parentTask.id, liveSubTask.id, index),
                       ),
                     ),
 

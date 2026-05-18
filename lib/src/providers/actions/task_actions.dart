@@ -745,20 +745,37 @@ class TaskActions {
     if (!silent) _provider.setLoadingTask(null);
   }
 
-  void saveProgressDataPoint(String mainTaskId, String subTaskId) {
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (task == null) return;
-    final sub = task.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
-    if (sub == null) return;
-
-    final progress = sub.calculateProgress();
-    final point = ProgressDataPoint(timestamp: DateTime.now(), progress: progress);
+  void saveProgressDataPoint(String mainTaskId, String subTaskId, double progress, int spentSeconds) {
+    final point = ProgressDataPoint(
+      timestamp: DateTime.now(),
+      progress: progress.clamp(0.0, 1.0),
+      spentSeconds: spentSeconds,
+    );
 
     final newMainTasks = _provider.mainTasks.map((t) {
       if (t.id == mainTaskId) {
         return t.copyWith(subTasks: t.subTasks.map((s) {
           if (s.id == subTaskId) {
-            return s.copyWith(progressDataPoints: [...s.progressDataPoints, point]);
+            final updated = [...s.progressDataPoints, point]
+              ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
+            return s.copyWith(progressDataPoints: updated);
+          }
+          return s;
+        }).toList());
+      }
+      return t;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void deleteProgressDataPoint(String mainTaskId, String subTaskId, int index) {
+    final newMainTasks = _provider.mainTasks.map((t) {
+      if (t.id == mainTaskId) {
+        return t.copyWith(subTasks: t.subTasks.map((s) {
+          if (s.id == subTaskId) {
+            final updated = List<ProgressDataPoint>.from(s.progressDataPoints);
+            if (index >= 0 && index < updated.length) updated.removeAt(index);
+            return s.copyWith(progressDataPoints: updated);
           }
           return s;
         }).toList());

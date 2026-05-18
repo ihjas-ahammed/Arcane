@@ -72,7 +72,7 @@ class FinanceActions {
     _provider.setProviderState(transactions: []);
   }
 
-  void addTransaction(double amount, bool isIncome, String categoryId, String note, DateTime date) {
+  void addTransaction(double amount, bool isIncome, String categoryId, String note, DateTime date, {String? accountId}) {
     final newTx = FinanceTransaction(
       id: const Uuid().v4(),
       amount: amount,
@@ -80,11 +80,23 @@ class FinanceActions {
       categoryId: categoryId,
       timestamp: date,
       note: note,
+      accountId: accountId,
     );
 
-    _provider.setProviderState(
-      transactions: [..._provider.transactions, newTx]..sort((a, b) => b.timestamp.compareTo(a.timestamp)),
-    );
+    final newTransactions = [..._provider.transactions, newTx]
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    if (accountId != null) {
+      final newAccounts = _provider.accounts.map((a) {
+        if (a.id == accountId) {
+          a.balance += isIncome ? amount : -amount;
+        }
+        return a;
+      }).toList();
+      _provider.setProviderState(transactions: newTransactions, accounts: newAccounts);
+    } else {
+      _provider.setProviderState(transactions: newTransactions);
+    }
   }
 
   void deleteTransaction(String id) {

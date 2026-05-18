@@ -293,7 +293,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
   Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent);
-  void saveProgressDataPoint(String mainTaskId, String subTaskId) => _taskActions.saveProgressDataPoint(mainTaskId, subTaskId);
+  void saveProgressDataPoint(String mainTaskId, String subTaskId, double progress, int spentSeconds) => _taskActions.saveProgressDataPoint(mainTaskId, subTaskId, progress, spentSeconds);
+  void deleteProgressDataPoint(String mainTaskId, String subTaskId, int index) => _taskActions.deleteProgressDataPoint(mainTaskId, subTaskId, index);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);

@@ -152,18 +152,25 @@ class MainTask {
 
 class ProgressDataPoint {
   final DateTime timestamp;
-  final double progress;
+  final double progress; // 0.0 – 1.0
+  final int spentSeconds; // cumulative session seconds at time of entry
 
-  const ProgressDataPoint({required this.timestamp, required this.progress});
+  const ProgressDataPoint({
+    required this.timestamp,
+    required this.progress,
+    this.spentSeconds = 0,
+  });
 
   factory ProgressDataPoint.fromJson(Map<String, dynamic> json) => ProgressDataPoint(
         timestamp: DateTime.parse(json['timestamp'] as String),
         progress: (json['progress'] as num).toDouble(),
+        spentSeconds: json['spentSeconds'] as int? ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
         'timestamp': timestamp.toIso8601String(),
         'progress': progress,
+        'spentSeconds': spentSeconds,
       };
 }
 

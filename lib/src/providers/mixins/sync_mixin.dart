@@ -144,7 +144,8 @@ mixin SyncMixin on ChangeNotifier {
       final financeData = {
         'transactions': appData['transactions'],
         'categories': appData['categories'],
-        'savingsGoals': appData['savingsGoals']
+        'savingsGoals': appData['savingsGoals'],
+        'accounts': appData['accounts'],
       };
       
       final healthData = {
