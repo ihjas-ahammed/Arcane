@@ -36,7 +36,11 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
   bool _showList = false;
 
   void _showAddEntryDialog() {
-    final ctrl = TextEditingController();
+    // Pre-populate with hierarchical progress from nested tasks
+    final calcPct = widget.subTask.calculateProgress() * 100;
+    final initialText = calcPct > 0 ? calcPct.round().toString() : '';
+    final ctrl = TextEditingController(text: initialText);
+    ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
     final totalSecs = widget.currentSpentSeconds;
 
     showDialog(
@@ -83,6 +87,17 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
                 letterSpacing: 1.4,
               ),
             ),
+            if (calcPct > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                'pre-filled from task steps',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 8,
+                  color: widget.accentColor.withValues(alpha: 0.6),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             TextField(
               controller: ctrl,
@@ -130,12 +145,46 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
     return sorted.map((p) => _Point(p.spentSeconds.toDouble(), p.progress)).toList();
   }
 
+  /// Linear regression over (spentSeconds, progress) points.
+  /// Returns null if forecast is not possible (slope ≤ 0, too few points, already at 100%).
+  _LinearForecast? _computeForecast(List<_Point> points) {
+    if (points.length < 2) return null;
+
+    final n = points.length.toDouble();
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (final p in points) {
+      sumX += p.x;
+      sumY += p.y;
+      sumXY += p.x * p.y;
+      sumX2 += p.x * p.x;
+    }
+    final denom = n * sumX2 - sumX * sumX;
+    if (denom.abs() < 1e-10) return null;
+
+    final slope = (n * sumXY - sumX * sumY) / denom;
+    final intercept = (sumY - slope * sumX) / n;
+
+    if (slope <= 0) return null;
+
+    final xAt100 = (1.0 - intercept) / slope;
+    if (xAt100 <= points.last.x) return null;
+
+    return _LinearForecast(slope: slope, intercept: intercept, xAt100: xAt100);
+  }
+
   @override
   Widget build(BuildContext context) {
     final points = _buildPoints();
     final hasData = points.length >= 2;
     final dataPoints = [...widget.subTask.progressDataPoints]
       ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
+
+    final forecast = hasData ? _computeForecast(points) : null;
+
+    // Extend chart x-axis to show forecast, capped at 4× current span to avoid extreme squish
+    final double chartMaxX = (hasData && forecast != null)
+        ? math.min(forecast.xAt100, points.last.x * 4.0)
+        : (hasData ? points.last.x : 0);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -232,33 +281,44 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
                             child: _ProgressLinePainterWidget(
                               points: points,
                               accent: widget.accentColor,
+                              chartMaxX: chartMaxX,
+                              forecast: forecast,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          _XAxisLabels(maxSeconds: points.last.x),
+                          _XAxisLabels(maxSeconds: chartMaxX),
                           const SizedBox(height: 10),
-                          Row(children: [
-                            _TelChip(
-                              label: 'PROGRESS',
-                              value: '${(points.last.y * 100).round()}%',
-                              color: JweTheme.accentCyan,
-                            ),
-                            const SizedBox(width: 6),
-                            _TelChip(
-                              label: 'TIME IN',
-                              value: _fmtSeconds(widget.currentSpentSeconds),
-                              color: widget.accentColor,
-                            ),
-                            if (points.last.x > 0 && points.last.y > 0) ...[
-                              const SizedBox(width: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
                               _TelChip(
-                                label: 'RATE',
-                                value:
-                                    '${(points.last.y * 100 / (points.last.x / 60)).toStringAsFixed(1)}%/h',
-                                color: JweTheme.accentAmber,
+                                label: 'PROGRESS',
+                                value: '${(points.last.y * 100).round()}%',
+                                color: JweTheme.accentCyan,
                               ),
+                              _TelChip(
+                                label: 'TIME IN',
+                                value: _fmtSeconds(widget.currentSpentSeconds),
+                                color: widget.accentColor,
+                              ),
+                              if (points.last.x > 0 && points.last.y > 0)
+                                _TelChip(
+                                  label: 'RATE',
+                                  value:
+                                      '${(points.last.y * 100 / (points.last.x / 3600)).toStringAsFixed(1)}%/h',
+                                  color: JweTheme.accentAmber,
+                                ),
+                              if (forecast != null)
+                                _TelChip(
+                                  label: 'ETA 100%',
+                                  value: _fmtSeconds(
+                                    (forecast.xAt100 - widget.currentSpentSeconds).round().clamp(0, 999999999),
+                                  ),
+                                  color: JweTheme.accentTeal,
+                                ),
                             ],
-                          ]),
+                          ),
                         ],
                       )
                     : SizedBox(
@@ -407,13 +467,25 @@ class _XAxisLabels extends StatelessWidget {
 class _ProgressLinePainterWidget extends StatelessWidget {
   final List<_Point> points;
   final Color accent;
+  final double chartMaxX;
+  final _LinearForecast? forecast;
 
-  const _ProgressLinePainterWidget({required this.points, required this.accent});
+  const _ProgressLinePainterWidget({
+    required this.points,
+    required this.accent,
+    required this.chartMaxX,
+    this.forecast,
+  });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ProgressLinePainter(points: points, accent: accent),
+      painter: _ProgressLinePainter(
+        points: points,
+        accent: accent,
+        chartMaxX: chartMaxX,
+        forecast: forecast,
+      ),
       child: const SizedBox.expand(),
     );
   }
@@ -423,15 +495,20 @@ class _ProgressLinePainterWidget extends StatelessWidget {
 class _ProgressLinePainter extends CustomPainter {
   final List<_Point> points;
   final Color accent;
+  final double chartMaxX;
+  final _LinearForecast? forecast;
 
-  _ProgressLinePainter({required this.points, required this.accent});
+  _ProgressLinePainter({
+    required this.points,
+    required this.accent,
+    required this.chartMaxX,
+    this.forecast,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
-
-    final maxX = points.last.x;
-    if (maxX <= 0) return;
+    if (chartMaxX <= 0) return;
 
     // Y-axis grid lines
     final gridPaint = Paint()
@@ -455,7 +532,7 @@ class _ProgressLinePainter extends CustomPainter {
     }
 
     Offset toCanvas(_Point p) => Offset(
-          (p.x / maxX) * size.width,
+          (p.x / chartMaxX) * size.width,
           size.height - p.y * size.height,
         );
 
@@ -512,7 +589,74 @@ class _ProgressLinePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round,
     );
 
-    // Dots at each data point
+    // ── Forecast dashed line ─────────────────────────────────────────
+    if (forecast != null) {
+      final forecastEndX = forecast!.xAt100.clamp(0.0, chartMaxX * 1.0);
+      final forecastEnd = Offset(
+        (forecastEndX / chartMaxX) * size.width,
+        size.height - 1.0 * size.height, // y = 100%
+      );
+      final lastOffset = toCanvas(points.last);
+
+      // Draw dashed line from last data point to 100% forecast
+      _drawDashed(
+        canvas,
+        lastOffset,
+        forecastEnd,
+        Paint()
+          ..color = JweTheme.accentTeal.withValues(alpha: 0.70)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke,
+        dashLength: 5,
+        gapLength: 4,
+      );
+
+      // Forecast end marker (if within chart bounds)
+      if (forecastEndX <= chartMaxX) {
+        canvas.drawCircle(
+          forecastEnd,
+          5.0,
+          Paint()
+            ..color = JweTheme.accentTeal.withValues(alpha: 0.25)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+        canvas.drawCircle(forecastEnd, 3.5, Paint()..color = JweTheme.accentTeal);
+        canvas.drawCircle(
+          forecastEnd,
+          1.5,
+          Paint()..color = Colors.white.withValues(alpha: 0.85),
+        );
+
+        // "100%" label at forecast point
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '100%',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 8,
+              color: JweTheme.accentTeal,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        final lx = (forecastEnd.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
+        final ly = math.max(0.0, forecastEnd.dy + 5.0);
+        tp.paint(canvas, Offset(lx, ly));
+      } else {
+        // Arrow hint at right edge
+        final edgeY = (1.0 - (forecast!.slope * chartMaxX + forecast!.intercept))
+            .clamp(0.0, 1.0);
+        final edgeOffset = Offset(size.width - 4, size.height - edgeY * size.height);
+        canvas.drawCircle(
+          edgeOffset,
+          3.0,
+          Paint()..color = JweTheme.accentTeal.withValues(alpha: 0.6),
+        );
+      }
+    }
+
+    // Dots at each data point (drawn on top of forecast line)
     for (var i = 0; i < points.length; i++) {
       final p = points[i];
       final isLast = i == points.length - 1;
@@ -548,9 +692,56 @@ class _ProgressLinePainter extends CustomPainter {
     }
   }
 
+  void _drawDashed(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Paint paint, {
+    double dashLength = 6,
+    double gapLength = 4,
+  }) {
+    final dx = end.dx - start.dx;
+    final dy = end.dy - start.dy;
+    final dist = math.sqrt(dx * dx + dy * dy);
+    if (dist == 0) return;
+    final ux = dx / dist;
+    final uy = dy / dist;
+    double traveled = 0;
+    bool drawing = true;
+    while (traveled < dist) {
+      final segLen = drawing ? dashLength : gapLength;
+      final segEnd = math.min(traveled + segLen, dist);
+      if (drawing) {
+        canvas.drawLine(
+          Offset(start.dx + ux * traveled, start.dy + uy * traveled),
+          Offset(start.dx + ux * segEnd, start.dy + uy * segEnd),
+          paint,
+        );
+      }
+      traveled = segEnd;
+      drawing = !drawing;
+    }
+  }
+
   @override
   bool shouldRepaint(covariant _ProgressLinePainter old) =>
-      old.points.length != points.length || old.accent != accent;
+      old.points.length != points.length ||
+      old.accent != accent ||
+      old.chartMaxX != chartMaxX ||
+      old.forecast?.xAt100 != forecast?.xAt100;
+}
+
+// ── Linear forecast result ────────────────────────────────────────────────────
+class _LinearForecast {
+  final double slope;
+  final double intercept;
+  final double xAt100; // seconds at which linear trend reaches 100%
+
+  const _LinearForecast({
+    required this.slope,
+    required this.intercept,
+    required this.xAt100,
+  });
 }
 
 // ── Internal point ────────────────────────────────────────────────────────────
