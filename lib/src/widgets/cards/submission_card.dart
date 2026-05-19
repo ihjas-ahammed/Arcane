@@ -175,19 +175,18 @@ class SubmissionCard extends StatelessWidget {
                       Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                         Expanded(
                           child: HudBar(
-                            value: (current.hasCheckableSubsteps ? hierarchical : usagePct) * 100,
+                            value: _resolveProgress(current, hierarchical, usagePct) * 100,
                             tone: tone,
                             height: 4,
                           ),
                         ),
                         const SizedBox(width: 10),
-                        if (current.hasCheckableSubsteps)
-                          Text(
-                            '${(hierarchical * 100).round()}%',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.0,
-                            ),
+                        Text(
+                          _progressLabel(current, hierarchical, usagePct),
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.0,
                           ),
+                        ),
                         const SizedBox(width: 8),
                         ValorantTimerText(
                           isRunning: isRunning,
@@ -268,6 +267,23 @@ class SubmissionCard extends StatelessWidget {
             : [Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(width: 8), Icon(icon, color: Colors.white)],
       ),
     );
+  }
+
+  double _resolveProgress(SubTask task, double hierarchical, double usagePct) {
+    switch (task.progressMode) {
+      case 'subtask': return hierarchical;
+      case 'time': return usagePct;
+      case 'auto':
+      default:
+        return task.hasCheckableSubsteps ? hierarchical : usagePct;
+    }
+  }
+
+  String _progressLabel(SubTask task, double hierarchical, double usagePct) {
+    final useSteps = task.progressMode == 'subtask' ||
+        (task.progressMode == 'auto' && task.hasCheckableSubsteps);
+    final pct = useSteps ? hierarchical : usagePct;
+    return '${(pct * 100).round()}%';
   }
 
   Future<bool> _showDeleteConfirm(BuildContext context) async {

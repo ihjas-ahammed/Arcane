@@ -490,6 +490,7 @@ class TaskActions {
     if (updates.containsKey('name')) subtaskToUpdate.name = updates['name'] as String;
     if (updates.containsKey('description')) subtaskToUpdate.description = updates['description'] as String;
     if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    if (updates.containsKey('progressMode')) subtaskToUpdate.progressMode = updates['progressMode'] as String;
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
     if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 

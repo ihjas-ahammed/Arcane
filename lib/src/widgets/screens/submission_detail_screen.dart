@@ -56,6 +56,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         initialDescription: liveSubTask.description,
         isRecurring: liveSubTask.isRecurring,
         isActive: liveSubTask.isActive,
+        initialProgressMode: liveSubTask.progressMode,
       ),
     );
     if (result != null) {
@@ -461,10 +462,12 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       child: SubtaskProgressTimeChart(
                         subTask: liveSubTask,
                         accentColor: activeAccent,
-                        currentSpentSeconds: liveSubTask.sessions.fold(0, (s, sess) => s + sess.durationSeconds) +
-                            (isRunning && timerState?.startTime != null
-                                ? DateTime.now().difference(timerState!.startTime).inSeconds
-                                : 0),
+                        currentSpentSeconds: liveSubTask.isRecurring
+                            ? TaskCalculations.getTodaySeconds(liveSubTask, timerState).toInt()
+                            : liveSubTask.sessions.fold(0, (s, sess) => s + sess.durationSeconds) +
+                                (isRunning && timerState?.startTime != null
+                                    ? DateTime.now().difference(timerState!.startTime).inSeconds
+                                    : 0),
                         onAddEntry: (progress, spentSeconds) => provider.saveProgressDataPoint(
                             widget.parentTask.id, liveSubTask.id, progress, spentSeconds),
                         onDeleteEntry: (index) => provider.deleteProgressDataPoint(

@@ -192,6 +192,10 @@ class SubTask {
   String what;
   String resources;
 
+  /// 'auto' | 'time' | 'subtask'
+  /// 'auto' = subtask mode when checkable steps exist, else time mode.
+  String progressMode;
+
   bool isRecurring;
   DateTime? lastCompletedDate;
   DateTime createdAt;
@@ -215,6 +219,7 @@ class SubTask {
     this.why = '',
     this.what = '',
     this.resources = '',
+    this.progressMode = 'auto',
     this.isRecurring = false,
     this.lastCompletedDate,
     DateTime? createdAt,
@@ -243,6 +248,7 @@ class SubTask {
     String? why,
     String? what,
     String? resources,
+    String? progressMode,
     bool? isRecurring,
     DateTime? lastCompletedDate,
     DateTime? createdAt,
@@ -266,6 +272,7 @@ class SubTask {
       why: why ?? this.why,
       what: what ?? this.what,
       resources: resources ?? this.resources,
+      progressMode: progressMode ?? this.progressMode,
       isRecurring: isRecurring ?? this.isRecurring,
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       createdAt: createdAt ?? this.createdAt,
@@ -288,7 +295,8 @@ class SubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
-      resources: json['resources'] as String? ?? '', 
+      resources: json['resources'] as String? ?? '',
+      progressMode: json['progressMode'] as String? ?? 'auto',
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -332,6 +340,7 @@ class SubTask {
       'why': why,
       'what': what,
       'resources': resources,
+      'progressMode': progressMode,
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),

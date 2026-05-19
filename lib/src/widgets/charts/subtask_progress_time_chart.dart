@@ -149,6 +149,8 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
   /// Returns null if forecast is not possible (slope ≤ 0, too few points, already at 100%).
   _LinearForecast? _computeForecast(List<_Point> points) {
     if (points.length < 2) return null;
+    // Already at or past 100% — no estimate needed
+    if (points.last.y >= 1.0) return null;
 
     final n = points.length.toDouble();
     double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
@@ -309,11 +311,11 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
                                       '${(points.last.y * 100 / (points.last.x / 3600)).toStringAsFixed(1)}%/h',
                                   color: JweTheme.accentAmber,
                                 ),
-                              if (forecast != null)
+                              if (forecast != null && points.last.y < 1.0)
                                 _TelChip(
                                   label: 'ETA 100%',
                                   value: _fmtSeconds(
-                                    (forecast.xAt100 - widget.currentSpentSeconds).round().clamp(0, 999999999),
+                                    (forecast.xAt100 - widget.currentSpentSeconds).clamp(0, 999999999.0).round(),
                                   ),
                                   color: JweTheme.accentTeal,
                                 ),
@@ -536,16 +538,14 @@ class _ProgressLinePainter extends CustomPainter {
           size.height - p.y * size.height,
         );
 
-    // Smooth cubic bezier path
+    // Straight-line path between data points
     Path buildCurve() {
       final path = Path();
       final o0 = toCanvas(points[0]);
       path.moveTo(o0.dx, o0.dy);
       for (var i = 1; i < points.length; i++) {
-        final prev = toCanvas(points[i - 1]);
         final curr = toCanvas(points[i]);
-        final midX = (prev.dx + curr.dx) / 2;
-        path.cubicTo(midX, prev.dy, midX, curr.dy, curr.dx, curr.dy);
+        path.lineTo(curr.dx, curr.dy);
       }
       return path;
     }
