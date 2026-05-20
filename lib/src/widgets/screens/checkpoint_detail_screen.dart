@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/utils/step_expansion.dart';
 import 'package:missions/src/widgets/items/checkpoint_item.dart';
 import 'package:missions/src/widgets/items/draggable_checkpoint_wrapper.dart';
 import 'package:missions/src/widgets/action_plan/action_plan_why_card.dart';
@@ -31,6 +32,8 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
   final TextEditingController _titleController = TextEditingController();
   String _newStepType = 'check';
   bool _isHeaderHovered = false;
+  bool _aiMode = false;
+  bool _aiLoading = false;
 
   SubSubTask? _getLiveCheckpoint(AppProvider provider) {
     try {
@@ -72,19 +75,56 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
     }
   }
 
-  void _addSubstep(AppProvider provider, SubSubTask parentCp) {
-    if (_stepController.text.trim().isEmpty) return;
-    
+  void _addOne(AppProvider provider, SubSubTask parentCp, String name) {
     provider.taskActions.addSubSubtask(
-      widget.mainTaskId, 
-      widget.parentSubTaskId, 
+      widget.mainTaskId,
+      widget.parentSubTaskId,
       {
-        'name': _stepController.text.trim(),
+        'name': name,
         'type': _newStepType,
         'isCountable': false,
       },
-      parentCheckpointId: parentCp.id
+      parentCheckpointId: parentCp.id,
     );
+  }
+
+  Future<void> _handleAdd(AppProvider provider, SubSubTask parentCp) async {
+    final raw = _stepController.text.trim();
+    if (raw.isEmpty) return;
+
+    if (_aiMode) {
+      setState(() => _aiLoading = true);
+      try {
+        final names = await provider.aiGenerationActions
+            .generateStepsFromDescription(
+                taskName: parentCp.name, description: raw);
+        if (names.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("AI returned no steps.")),
+            );
+          }
+          return;
+        }
+        for (final name in names) {
+          _addOne(provider, parentCp, name);
+        }
+        _stepController.clear();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("AI generation failed: $e")),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _aiLoading = false);
+      }
+      return;
+    }
+
+    for (final name in expandStepInput(raw)) {
+      _addOne(provider, parentCp, name);
+    }
     _stepController.clear();
   }
 
@@ -256,35 +296,66 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                         border: Border.all(color: AppTheme.fhBorderColor),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children:[
-                          PopupMenuButton<String>(
-                            icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
-                            onSelected: (val) => setState(() => _newStepType = val),
-                            color: AppTheme.fhBgDark,
-                            itemBuilder: (context) =>[
-                              const PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                              const PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                            ],
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: PopupMenuButton<String>(
+                              icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 20),
+                              onSelected: (val) => setState(() => _newStepType = val),
+                              color: AppTheme.fhBgDark,
+                              itemBuilder: (context) =>[
+                                const PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                                const PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                              ],
+                            ),
                           ),
                           Expanded(
                             child: TextField(
                               controller: _stepController,
                               style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: "ADD NESTED STEP...",
-                                hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+                              minLines: 1,
+                              maxLines: _aiMode ? 6 : 1,
+                              textInputAction: _aiMode ? TextInputAction.newline : TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: _aiMode
+                                    ? "DESCRIBE NESTED STEPS FOR AI..."
+                                    : "ADD NESTED STEP...   (try  Rep*8  or  Set %d * 4)",
+                                hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
                                 filled: false,
                               ),
-                              onSubmitted: (_) => _addSubstep(provider, liveCheckpoint),
+                              onSubmitted: _aiMode ? null : (_) => _handleAdd(provider, liveCheckpoint),
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.add, color: agentColor),
-                            onPressed: () => _addSubstep(provider, liveCheckpoint),
-                          )
+                            tooltip: _aiMode ? "AI mode on" : "Turn on AI mode",
+                            icon: Icon(
+                              MdiIcons.autoFix,
+                              color: _aiMode ? agentColor : AppTheme.fhTextSecondary,
+                            ),
+                            onPressed: _aiLoading
+                                ? null
+                                : () => setState(() => _aiMode = !_aiMode),
+                          ),
+                          _aiLoading
+                              ? Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(agentColor),
+                                    ),
+                                  ),
+                                )
+                              : IconButton(
+                                  icon: Icon(Icons.add, color: agentColor),
+                                  onPressed: () => _handleAdd(provider, liveCheckpoint),
+                                ),
                         ],
                       ),
                     ),

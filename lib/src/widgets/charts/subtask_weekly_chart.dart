@@ -7,6 +7,14 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
+String _fmtMins(double v) {
+  final m = v.round();
+  if (m < 60) return '${m}m';
+  final h = m ~/ 60;
+  final rem = m % 60;
+  return rem == 0 ? '${h}h' : '${h}h${rem}m';
+}
+
 /// Operator HUD 7-day activity panel — vertical bar telemetry with
 /// peak glow, mean dotted line, JetBrainsMono telemetry caption.
 class SubtaskWeeklyChart extends StatelessWidget {
@@ -67,7 +75,7 @@ class SubtaskWeeklyChart extends StatelessWidget {
                   )),
               const Spacer(),
               if (hasData)
-                Text('μ ${avg.round()}m/d',
+                Text('μ ${_fmtMins(avg)}/d',
                     style: GoogleFonts.jetBrainsMono(
                       color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 1.0,
                     )),
@@ -106,12 +114,12 @@ class SubtaskWeeklyChart extends StatelessWidget {
                     })),
                     const SizedBox(height: 6),
                     Row(children: [
-                      _TelemetryChip(label: 'PEAK', value: '${maxV.round()}m', tone: _toneFor(accentColor)),
+                      _TelemetryChip(label: 'PEAK', value: _fmtMins(maxV), tone: _toneFor(accentColor)),
                       const SizedBox(width: 6),
-                      _TelemetryChip(label: 'TODAY', value: '${mins.last.round()}m', tone: HudTone.cyan),
+                      _TelemetryChip(label: 'TODAY', value: _fmtMins(mins.last), tone: HudTone.cyan),
                       const Spacer(),
                       Text(
-                        'TOTAL ${mins.reduce((a, b) => a + b).round()}m',
+                        'TOTAL ${_fmtMins(mins.reduce((a, b) => a + b))}',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 10,
                           color: JweTheme.textMuted,
@@ -186,7 +194,7 @@ class _BarsPainter extends CustomPainter {
     // Avg label
     final avgPainter = TextPainter(
       text: TextSpan(
-        text: 'μ ${avg.round()}m',
+        text: 'μ ${_fmtMins(avg)}',
         style: GoogleFonts.jetBrainsMono(
           fontSize: 8,
           color: accent.withValues(alpha: 0.60),
@@ -236,7 +244,7 @@ class _BarsPainter extends CustomPainter {
 
       // Value label above bar
       if (v > 0) {
-        final valStr = v >= 60 ? '${(v / 60).toStringAsFixed(1)}h' : '${v.round()}m';
+        final valStr = _fmtMins(v);
         final p = TextPainter(
           text: TextSpan(
             text: valStr,

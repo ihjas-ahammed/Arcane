@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late AppProvider _appProvider;
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ValueNotifier<int> _scheduleOpenTick = ValueNotifier<int>(0);
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
@@ -40,6 +41,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 1) {
+      _scheduleOpenTick.value++;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scheduleOpenTick.dispose();
+    super.dispose();
   }
 
   @override
@@ -83,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const TaskDetailsView(),
         ),
       ),
-      const ScheduleView(),
+      ScheduleView(openTick: _scheduleOpenTick),
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

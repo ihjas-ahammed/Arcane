@@ -183,9 +183,9 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
 
     final forecast = hasData ? _computeForecast(points) : null;
 
-    // Extend chart x-axis to show forecast, capped at 4× current span to avoid extreme squish
+    // Extend chart x-axis to the full forecast so the visible distance matches the ETA chip
     final double chartMaxX = (hasData && forecast != null)
-        ? math.min(forecast.xAt100, points.last.x * 4.0)
+        ? forecast.xAt100
         : (hasData ? points.last.x : 0);
 
     return Padding(
@@ -466,7 +466,7 @@ class _XAxisLabels extends StatelessWidget {
 }
 
 // ── Painter widget wrapper ────────────────────────────────────────────────────
-class _ProgressLinePainterWidget extends StatelessWidget {
+class _ProgressLinePainterWidget extends StatefulWidget {
   final List<_Point> points;
   final Color accent;
   final double chartMaxX;
@@ -480,16 +480,75 @@ class _ProgressLinePainterWidget extends StatelessWidget {
   });
 
   @override
+  State<_ProgressLinePainterWidget> createState() => _ProgressLinePainterWidgetState();
+}
+
+class _ProgressLinePainterWidgetState extends State<_ProgressLinePainterWidget> {
+  int? _selectedIndex;
+  bool _forecastSelected = false;
+
+  void _handleTap(Offset localPosition, Size size) {
+    if (widget.chartMaxX <= 0 || widget.points.isEmpty) return;
+    int? bestIdx;
+    double bestDist = double.infinity;
+    for (var i = 0; i < widget.points.length; i++) {
+      final p = widget.points[i];
+      final o = Offset(
+        (p.x / widget.chartMaxX) * size.width,
+        size.height - p.y * size.height,
+      );
+      final d = (localPosition - o).distance;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    bool forecastBest = false;
+    if (widget.forecast != null) {
+      final fo = Offset(
+        (widget.forecast!.xAt100 / widget.chartMaxX) * size.width,
+        0, // y = 100% → top of chart
+      );
+      final df = (localPosition - fo).distance;
+      if (df < bestDist) {
+        bestDist = df;
+        forecastBest = true;
+      }
+    }
+    setState(() {
+      if (bestDist > 24) {
+        _selectedIndex = null;
+        _forecastSelected = false;
+      } else if (forecastBest) {
+        _selectedIndex = null;
+        _forecastSelected = true;
+      } else {
+        _selectedIndex = bestIdx;
+        _forecastSelected = false;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _ProgressLinePainter(
-        points: points,
-        accent: accent,
-        chartMaxX: chartMaxX,
-        forecast: forecast,
-      ),
-      child: const SizedBox.expand(),
-    );
+    return LayoutBuilder(builder: (ctx, constraints) {
+      final size = Size(constraints.maxWidth, constraints.maxHeight);
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (d) => _handleTap(d.localPosition, size),
+        child: CustomPaint(
+          painter: _ProgressLinePainter(
+            points: widget.points,
+            accent: widget.accent,
+            chartMaxX: widget.chartMaxX,
+            forecast: widget.forecast,
+            selectedIndex: _selectedIndex,
+            showForecastLabel: _forecastSelected,
+          ),
+          child: const SizedBox.expand(),
+        ),
+      );
+    });
   }
 }
 
@@ -499,12 +558,16 @@ class _ProgressLinePainter extends CustomPainter {
   final Color accent;
   final double chartMaxX;
   final _LinearForecast? forecast;
+  final int? selectedIndex;
+  final bool showForecastLabel;
 
   _ProgressLinePainter({
     required this.points,
     required this.accent,
     required this.chartMaxX,
     this.forecast,
+    this.selectedIndex,
+    this.showForecastLabel = false,
   });
 
   @override
@@ -627,22 +690,24 @@ class _ProgressLinePainter extends CustomPainter {
           Paint()..color = Colors.white.withValues(alpha: 0.85),
         );
 
-        // "100%" label at forecast point
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '100%',
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 8,
-              color: JweTheme.accentTeal,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
+        // "100%" label at forecast point — only when tapped
+        if (showForecastLabel) {
+          final tp = TextPainter(
+            text: TextSpan(
+              text: '100%',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 8,
+                color: JweTheme.accentTeal,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
             ),
-          ),
-          textDirection: ui.TextDirection.ltr,
-        )..layout();
-        final lx = (forecastEnd.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
-        final ly = math.max(0.0, forecastEnd.dy + 5.0);
-        tp.paint(canvas, Offset(lx, ly));
+            textDirection: ui.TextDirection.ltr,
+          )..layout();
+          final lx = (forecastEnd.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
+          final ly = math.max(0.0, forecastEnd.dy + 5.0);
+          tp.paint(canvas, Offset(lx, ly));
+        }
       } else {
         // Arrow hint at right edge
         final edgeY = (1.0 - (forecast!.slope * chartMaxX + forecast!.intercept))
@@ -672,23 +737,25 @@ class _ProgressLinePainter extends CustomPainter {
       canvas.drawCircle(o, r, Paint()..color = accent);
       canvas.drawCircle(o, r * 0.4, Paint()..color = Colors.white.withValues(alpha: 0.85));
 
-      // Label
-      final label = '${(p.y * 100).round()}%';
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 8.5,
-            color: accent,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
+      // Label — only when this dot is tapped
+      if (selectedIndex == i) {
+        final label = '${(p.y * 100).round()}%';
+        final tp = TextPainter(
+          text: TextSpan(
+            text: label,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 8.5,
+              color: accent,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
           ),
-        ),
-        textDirection: ui.TextDirection.ltr,
-      )..layout();
-      final lx = (o.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
-      final ly = math.max(0.0, o.dy - r - tp.height - 3);
-      tp.paint(canvas, Offset(lx, ly));
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        final lx = (o.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
+        final ly = math.max(0.0, o.dy - r - tp.height - 3);
+        tp.paint(canvas, Offset(lx, ly));
+      }
     }
   }
 
@@ -728,7 +795,9 @@ class _ProgressLinePainter extends CustomPainter {
       old.points.length != points.length ||
       old.accent != accent ||
       old.chartMaxX != chartMaxX ||
-      old.forecast?.xAt100 != forecast?.xAt100;
+      old.forecast?.xAt100 != forecast?.xAt100 ||
+      old.selectedIndex != selectedIndex ||
+      old.showForecastLabel != showForecastLabel;
 }
 
 // ── Linear forecast result ────────────────────────────────────────────────────

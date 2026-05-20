@@ -6,6 +6,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:missions/src/theme/jwe_theme.dart';
 
+String _fmtValue(double v, String unit) {
+  if (unit != 'm') return '${v.round()}$unit';
+  final m = v.round();
+  if (m < 60) return '${m}m';
+  final h = m ~/ 60;
+  final rem = m % 60;
+  return rem == 0 ? '${h}h' : '${h}h${rem}m';
+}
+
 /// Operator HUD weekly bar chart. Replaces fl_chart line chart.
 /// Vertical bars for last 7 days, dotted mean line, peak/today glow,
 /// JetBrainsMono telemetry labels.
@@ -70,7 +79,7 @@ class WeeklyActivityLineChart extends StatelessWidget {
           const Spacer(),
           if (hasData)
             Text(
-              'μ ${avg.round()}$unit/d',
+              'μ ${_fmtValue(avg, unit)}/d',
               style: GoogleFonts.jetBrainsMono(
                 color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 1.0,
               ),
@@ -122,12 +131,12 @@ class WeeklyActivityLineChart extends StatelessWidget {
         if (hasData) ...[
           const SizedBox(height: 8),
           Row(children: [
-            _TelemetryChip(label: 'PEAK', value: '${maxV.round()}$unit', color: overallDominant),
+            _TelemetryChip(label: 'PEAK', value: _fmtValue(maxV, unit), color: overallDominant),
             const SizedBox(width: 6),
-            _TelemetryChip(label: 'TODAY', value: '${values.last.round()}$unit', color: JweTheme.accentCyan),
+            _TelemetryChip(label: 'TODAY', value: _fmtValue(values.last, unit), color: JweTheme.accentCyan),
             const Spacer(),
             Text(
-              'Σ ${values.reduce((a, b) => a + b).round()}$unit',
+              'Σ ${_fmtValue(values.reduce((a, b) => a + b), unit)}',
               style: GoogleFonts.jetBrainsMono(
                 color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2,
               ),
@@ -201,7 +210,7 @@ class _HudBarsPainter extends CustomPainter {
     // Avg label
     final avgPainter = TextPainter(
       text: TextSpan(
-        text: 'μ ${avg.round()}$unit',
+        text: 'μ ${_fmtValue(avg, unit)}',
         style: GoogleFonts.jetBrainsMono(
           fontSize: 8,
           color: accent.withValues(alpha: 0.60),
@@ -250,7 +259,7 @@ class _HudBarsPainter extends CustomPainter {
 
       // Value above bar
       if (v > 0) {
-        final valStr = (unit == 'm' && v >= 60) ? '${(v / 60).toStringAsFixed(1)}h' : '${v.round()}$unit';
+        final valStr = _fmtValue(v, unit);
         final p = TextPainter(
           text: TextSpan(
             text: valStr,

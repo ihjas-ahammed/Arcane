@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,8 @@ class ScheduleTimeline extends StatefulWidget {
   final VoidCallback onAddSession;
   final Function(TimelineEntry) onEditEntry;
   final double initialScrollOffset;
+  final bool scrollToNow;
+  final ValueListenable<int>? scrollToNowTick;
 
   const ScheduleTimeline({
     super.key,
@@ -17,6 +20,8 @@ class ScheduleTimeline extends StatefulWidget {
     required this.onAddSession,
     required this.onEditEntry,
     this.initialScrollOffset = 0,
+    this.scrollToNow = false,
+    this.scrollToNowTick,
   });
 
   @override
@@ -31,31 +36,61 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   void initState() {
     super.initState();
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    widget.scrollToNowTick?.addListener(_handleScrollToNowTick);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.entries.isNotEmpty) {
-        double earliestHour = 24;
+      double targetHour;
+      if (widget.scrollToNow) {
+        final now = DateTime.now();
+        targetHour = now.hour + (now.minute / 60.0);
+      } else if (widget.entries.isNotEmpty) {
+        targetHour = 24;
         for (var e in widget.entries) {
           final h = e.startTime.hour + (e.startTime.minute / 60.0);
-          if (h < earliestHour) earliestHour = h;
-        }
-        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
+          if (h < targetHour) targetHour = h;
         }
       } else {
-        final offset = 8 * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
-        }
+        targetHour = 8;
+      }
+      // Keep target near the top of the viewport, with ~1.5h of lookback for context.
+      final offset = (targetHour - 1.5).clamp(0, 24) * _basePixelsPerHour;
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        _scrollController.jumpTo(offset.clamp(0.0, maxScroll));
       }
     });
   }
 
   @override
+  void didUpdateWidget(ScheduleTimeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToNowTick != widget.scrollToNowTick) {
+      oldWidget.scrollToNowTick?.removeListener(_handleScrollToNowTick);
+      widget.scrollToNowTick?.addListener(_handleScrollToNowTick);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.scrollToNowTick?.removeListener(_handleScrollToNowTick);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleScrollToNowTick() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final now = DateTime.now();
+      final targetHour = now.hour + (now.minute / 60.0);
+      final offset = (targetHour - 1.5).clamp(0, 24) * _basePixelsPerHour;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      _scrollController.animateTo(
+        offset.clamp(0.0, maxScroll),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {

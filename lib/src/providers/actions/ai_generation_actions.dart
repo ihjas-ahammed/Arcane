@@ -175,6 +175,24 @@ class AIGenerationActions {
     }
   }
 
+  /// Calls the lite AI to expand a short user description into a list of step
+  /// names. Caller is responsible for adding them as sub-sub-tasks. Throws
+  /// on failure so the caller can surface the error.
+  Future<List<String>> generateStepsFromDescription({
+    required String taskName,
+    required String description,
+  }) async {
+    return await _aiService.generateStepsFromDescription(
+      taskName: taskName,
+      description: description,
+      modelCandidates: _provider.settings.liteModels,
+      currentApiKeyIndex: _provider.apiKeyIndex,
+      customApiKeys: _provider.settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+      onLog: _logToApp,
+    );
+  }
+
   Future<void> autoAssignAssets(String mainTaskId, String subTaskId) async {
     _provider.setLoadingTask("Scanning Assets...");
     try {

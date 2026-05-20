@@ -624,10 +624,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
               // Stable reset: only flip completion + counters. Preserve every
               // other field (subSubTasks, substeps, sessions, why/what/etc.)
               // via copyWith. Recurring resets must NEVER drop checkpoints.
+              // Progress-vs-time data points are scoped to the current cycle,
+              // so they get cleared along with the reset.
               return st.copyWith(
                 completed: false,
                 currentCount: 0,
                 subSubTasks: st.subSubTasks.map(_resetCheckpoint).toList(),
+                progressDataPoints: [],
                 updatedAt: DateTime.now(),
               );
             }

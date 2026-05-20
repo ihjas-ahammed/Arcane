@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -22,7 +23,8 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:collection/collection.dart';
 
 class ScheduleView extends StatefulWidget {
-  const ScheduleView({super.key});
+  final ValueListenable<int>? openTick;
+  const ScheduleView({super.key, this.openTick});
 
   @override
   State<ScheduleView> createState() => _ScheduleViewState();
@@ -546,6 +548,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                 onAddSession: () => _handleAddSession(context, provider),
                 onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
                 initialScrollOffset: 0,
+                scrollToNow: isToday,
+                scrollToNowTick: widget.openTick,
               ),
               Positioned(
                 right: 18,

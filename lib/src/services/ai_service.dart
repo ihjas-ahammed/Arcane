@@ -222,6 +222,46 @@ class AIService {
         onLog: onLog);
   }
 
+  Future<List<String>> generateStepsFromDescription({
+    required String taskName,
+    required String description,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate concrete, actionable sub-step names for a parent task based on a short user description.
+
+    PARENT TASK: $taskName
+    USER DESCRIPTION: $description
+
+    Rules:
+    1. Return between 1 and 12 step names. Honor any count implied by the user.
+    2. Each name must be short (under 60 chars), imperative, and self-contained.
+    3. Do NOT prefix with numbering ("1.", "Step 1:"). The name itself only.
+    4. Preserve any explicit numbering the user asked for (e.g. "Round 1", "Round 2").
+
+    Output JSON ONLY:
+    {"steps": ["First step", "Second step"]}
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return ((result['steps'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
