@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/widgets/ui/linked_task_indicator.dart';
 import 'package:missions/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:missions/src/widgets/ui/jwe_progress_bar.dart';
+import 'package:missions/src/widgets/ui/step_bars_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -20,8 +22,10 @@ class CheckpointItem extends StatefulWidget {
   final VoidCallback? onTap; 
   final VoidCallback? onPlay; 
   final bool isRunning;
-  final bool hasCheckableSubsteps; 
-  final double progress; 
+  final bool hasCheckableSubsteps;
+  final double progress;
+  final List<SubSubTask>? substeps;
+  final void Function(SubSubTask step)? onToggleSubstep;
 
   const CheckpointItem({
     super.key,
@@ -40,6 +44,8 @@ class CheckpointItem extends StatefulWidget {
     this.isRunning = false,
     this.hasCheckableSubsteps = false,
     this.progress = 0.0,
+    this.substeps,
+    this.onToggleSubstep,
   });
 
   @override
@@ -222,16 +228,30 @@ class _CheckpointItemState extends State<CheckpointItem> {
                 ],
               ),
               
-              // JWE Progress Bar if it has checkable sub-steps
-              if (widget.hasCheckableSubsteps && !_localCompleted)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: JweProgressBar(
-                    progress: widget.progress,
-                    color: color,
-                    label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
+              // Quick-toggle bars for nested substeps — when the caller wires
+              // [onToggleSubstep], let users power through them without
+              // opening the detail view. Falls back to a plain progress bar
+              // (read-only) when no callback is wired so older call-sites
+              // keep their visual.
+              if (widget.hasCheckableSubsteps && !_localCompleted) ...[
+                if (widget.substeps != null &&
+                    widget.substeps!.isNotEmpty &&
+                    widget.onToggleSubstep != null)
+                  StepBarsRow(
+                    steps: widget.substeps!,
+                    accent: color,
+                    onToggle: widget.onToggleSubstep!,
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: JweProgressBar(
+                      progress: widget.progress,
+                      color: color,
+                      label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
+                    ),
                   ),
-                ),
+              ],
             ],
           ),
         ),

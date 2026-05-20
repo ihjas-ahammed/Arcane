@@ -264,7 +264,15 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                               type: child.type,
                               accentColor: agentColor,
                               hasCheckableSubsteps: child.hasCheckableSubsteps,
-                              progress: child.calculateProgress(), 
+                              progress: child.calculateProgress(),
+                              substeps: child.substeps,
+                              onToggleSubstep: (grand) {
+                                if (grand.completed) {
+                                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
+                                } else {
+                                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
+                                }
+                              },
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
                                   mainTaskId: widget.mainTaskId,

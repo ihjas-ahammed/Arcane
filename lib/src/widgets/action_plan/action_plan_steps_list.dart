@@ -176,8 +176,16 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                   isCompleted: step.completed,
                   type: step.type,
                   hasCheckableSubsteps: step.hasCheckableSubsteps,
-                  progress: step.calculateProgress(), 
+                  progress: step.calculateProgress(),
                   accentColor: widget.accentColor,
+                  substeps: step.substeps,
+                  onToggleSubstep: (sub) {
+                    if (sub.completed) {
+                      provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
+                    } else {
+                      provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
+                    }
+                  },
                   onTap: () => _navigateToStepDetail(context, step),
                   onPlay: null,
                   isRunning: false,

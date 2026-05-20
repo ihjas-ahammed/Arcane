@@ -358,30 +358,61 @@ class _ScheduleViewState extends State<ScheduleView> {
     SubSubTask? nextCheckpoint;
 
     final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
-    
-    for (String idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length >= 2) {
-        final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
-        
-        if (sTask != null && !sTask.completed) {
+
+    // PRIORITY 1 — a live, running session always claims the hero spot.
+    final runningEntry = provider.activeTimers.entries
+        .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
+    if (runningEntry != null) {
+      final m = provider.mainTasks.firstWhereOrNull(
+          (t) => t.id == runningEntry.value.mainTaskId && !t.isDeleted);
+      final s = m?.subTasks
+          .firstWhereOrNull((st) => st.id == runningEntry.key && !st.isDeleted);
+      if (m != null && s != null && !s.completed) {
+        nextMainTask = m;
+        nextSubTask = s;
+        // If this task is in today's plan, retain its queue id so the
+        // "FINISH" button still drops it from the plan.
+        final inPlan = plan.firstWhereOrNull((p) {
+          final parts = p.split('|');
+          return parts.length >= 2 && parts[0] == m.id && parts[1] == s.id;
+        });
+        if (inPlan != null) {
+          nextQueueId = inPlan;
+          final parts = inPlan.split('|');
           if (parts.length == 3) {
-            // It's a checkpoint
-            final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
-            if (cp != null && !cp.completed) {
+            nextCheckpoint =
+                s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+          }
+        }
+      }
+    }
+
+    // PRIORITY 2 — fall back to the next uncompleted entry in the day plan.
+    if (nextSubTask == null) {
+      for (String idPair in plan) {
+        final parts = idPair.split('|');
+        if (parts.length >= 2) {
+          final mTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+          final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+
+          if (sTask != null && !sTask.completed) {
+            if (parts.length == 3) {
+              // It's a checkpoint
+              final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+              if (cp != null && !cp.completed) {
+                nextQueueId = idPair;
+                nextMainTask = mTask;
+                nextSubTask = sTask;
+                nextCheckpoint = cp;
+                break;
+              }
+            } else {
+              // It's a subtask
               nextQueueId = idPair;
               nextMainTask = mTask;
               nextSubTask = sTask;
-              nextCheckpoint = cp;
               break;
             }
-          } else {
-            // It's a subtask
-            nextQueueId = idPair;
-            nextMainTask = mTask;
-            nextSubTask = sTask;
-            break;
           }
         }
       }

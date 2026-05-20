@@ -10,6 +10,7 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/step_bars_row.dart';
 import 'package:provider/provider.dart';
 
 /// Operator HUD QueueRow — ported submission card. Preserves
@@ -200,6 +201,20 @@ class SubmissionCard extends StatelessWidget {
                           ),
                         ),
                       ]),
+                      if (!isCompleted && current.subSubTasks.isNotEmpty)
+                        StepBarsRow(
+                          steps: current.subSubTasks,
+                          accent: accent,
+                          onToggle: (step) {
+                            if (step.completed) {
+                              provider.taskActions.uncompleteSubSubtask(
+                                  parentTask.id, current.id, step.id);
+                            } else {
+                              provider.taskActions.completeSubSubtask(
+                                  parentTask.id, current.id, step.id);
+                            }
+                          },
+                        ),
                     ]),
                   ),
                 ),
