@@ -32,6 +32,16 @@ jobs:
       - name: Get Flutter Dependencies
         run: flutter pub get
 
+      - name: Create api_keys.dart from secret
+        env:
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+        run: |
+          cat > lib/src/config/api_keys.dart << EOF
+          // ignore_for_file: constant_identifier_names
+          const List<String> geminiApiKeys = ['${GEMINI_API_KEYS}'];
+          const String geminiModelName = 'gemini-flash-latest';
+          EOF
+
       # The signing config in android/app/build.gradle.kts points at
       # ../../debug.keystore (i.e. the repo root). It's committed, so the
       # checkout step already places it where Gradle expects.
