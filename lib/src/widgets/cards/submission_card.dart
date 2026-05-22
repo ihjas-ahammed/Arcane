@@ -140,7 +140,7 @@ class SubmissionCard extends StatelessWidget {
                             )),
                         const Spacer(),
                         if (current.isRecurring) ...[
-                          Icon(MdiIcons.syncIcon, size: 11, color: JweTheme.textMuted),
+                          Icon(MdiIcons.sync, size: 11, color: JweTheme.textMuted),
                           const SizedBox(width: 6),
                         ],
                         if (isRunning)

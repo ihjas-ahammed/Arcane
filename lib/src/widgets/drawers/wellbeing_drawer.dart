@@ -104,7 +104,7 @@ class WellbeingDrawer extends StatelessWidget {
             child: ElevatedButton.icon(
               icon: appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..."
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                : Icon(MdiIcons.syncIcon, size: 18, color: Colors.black),
+                : Icon(MdiIcons.sync, size: 18, color: Colors.black),
               label: Text(
                 appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
                 style: GoogleFonts.rajdhani(

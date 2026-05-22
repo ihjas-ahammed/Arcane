@@ -154,21 +154,24 @@ class _StepBarsRowState extends State<StepBarsRow> {
 
   Widget _buildBar() {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 8),
       child: SizedBox(
         height: 24,
         child: Row(
           children: [
             for (var i = 0; i < widget.steps.length; i++) ...[
-              Expanded(
-                child: _Segment(
-                  step: widget.steps[i],
-                  accent: widget.accent,
-                  barHeight: widget.barHeight,
-                  onTap: () => widget.onToggle(widget.steps[i]),
-                ),
+              _Segment(
+                step: widget.steps[i],
+                accent: widget.accent,
+                onTap: () => widget.onToggle(widget.steps[i]),
               ),
-              if (i != widget.steps.length - 1) const SizedBox(width: 3),
+              if (i != widget.steps.length - 1)
+                Expanded(
+                  child: _ConnectorLine(
+                    isActive: widget.steps[i].type != 'info' && widget.steps[i].completed,
+                    accent: widget.accent,
+                  ),
+                ),
             ],
           ],
         ),
@@ -177,16 +180,43 @@ class _StepBarsRowState extends State<StepBarsRow> {
   }
 }
 
+class _ConnectorLine extends StatelessWidget {
+  final bool isActive;
+  final Color accent;
+
+  const _ConnectorLine({required this.isActive, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? accent.withValues(alpha: 0.8) : accent.withValues(alpha: 0.2);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: color,
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+    );
+  }
+}
+
 class _Segment extends StatelessWidget {
   final SubSubTask step;
   final Color accent;
-  final double barHeight;
   final VoidCallback onTap;
 
   const _Segment({
     required this.step,
     required this.accent,
-    required this.barHeight,
     required this.onTap,
   });
 
@@ -198,44 +228,66 @@ class _Segment extends StatelessWidget {
     final Color fill;
     final Color borderColor;
     if (isInfo) {
-      fill = JweTheme.textMuted.withValues(alpha: 0.18);
-      borderColor = JweTheme.textMuted.withValues(alpha: 0.32);
+      fill = JweTheme.textMuted.withValues(alpha: 0.15);
+      borderColor = JweTheme.textMuted.withValues(alpha: 0.3);
     } else if (isDone) {
       fill = accent;
-      borderColor = accent;
+      borderColor = accent.withValues(alpha: 0.8);
     } else {
-      fill = Colors.transparent;
-      borderColor = accent.withValues(alpha: 0.45);
+      fill = accent.withValues(alpha: 0.1);
+      borderColor = accent.withValues(alpha: 0.4);
     }
 
-    final bar = Container(
-      height: barHeight,
+    final double dotSize = 18.0;
+
+    final dot = AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      width: dotSize,
+      height: dotSize,
       decoration: BoxDecoration(
         color: fill,
-        border: Border.all(color: borderColor, width: 1),
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: isDone
             ? [
                 BoxShadow(
-                  color: accent.withValues(alpha: 0.55),
+                  color: accent.withValues(alpha: 0.4),
                   blurRadius: 6,
-                  spreadRadius: 0,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 1),
+                ),
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 2),
                 ),
               ]
             : null,
       ),
+      child: isDone
+          ? Center(
+              child: Icon(
+                MdiIcons.check,
+                size: dotSize * 0.65,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            )
+          : null,
     );
 
     final body = Tooltip(
       message: step.name,
       waitDuration: const Duration(milliseconds: 350),
-      child: Center(child: bar),
+      child: Center(child: dot),
     );
 
     if (isInfo) return body;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.zero,
+      customBorder: const CircleBorder(),
       child: body,
     );
   }

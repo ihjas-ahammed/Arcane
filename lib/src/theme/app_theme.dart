@@ -38,7 +38,7 @@ class AppTheme {
       // Smooth transitions
       pageTransitionsTheme: const PageTransitionsTheme(builders: {
         TargetPlatform.android: ZoomPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
         TargetPlatform.windows: ZoomPageTransitionsBuilder(),
       }),
 

@@ -88,3 +88,7 @@ flutter:
         - asset: assets/fonts/OpenSans-Regular.ttf
         - asset: assets/fonts/OpenSans-SemiBold.ttf
           weight: 600
+
+dependency_overrides:
+  material_design_icons_flutter:
+    path: ./packages/material_design_icons_flutter
