@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/header_widget.dart';
-import 'package:arcane/src/widgets/task_navigation_drawer.dart';
-import 'package:arcane/src/widgets/drawers/wellbeing_drawer.dart';
-import 'package:arcane/src/widgets/ui/jwe_bottom_nav_bar.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/views/task_details_view.dart';
-import 'package:arcane/src/widgets/views/projects_view.dart';
-import 'package:arcane/src/widgets/views/schedule_view.dart';
-import 'package:arcane/src/screens/logbook_screen.dart';
-import 'package:arcane/src/screens/more_screen.dart'; 
-import 'package:arcane/src/screens/finance/finance_dashboard_screen.dart'; 
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/widgets/header_widget.dart';
+import 'package:missions/src/widgets/task_navigation_drawer.dart';
+import 'package:missions/src/widgets/drawers/wellbeing_drawer.dart';
+import 'package:missions/src/widgets/ui/jwe_bottom_nav_bar.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/views/task_details_view.dart';
+import 'package:missions/src/widgets/views/health_dashboard_view.dart';
+import 'package:missions/src/widgets/views/schedule_view.dart';
+import 'package:missions/src/screens/logbook_screen.dart';
+import 'package:missions/src/screens/more_screen.dart'; 
+import 'package:missions/src/screens/finance/finance_dashboard_screen.dart'; 
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
@@ -27,11 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   late AppProvider _appProvider;
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ValueNotifier<int> _scheduleOpenTick = ValueNotifier<int>(0);
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'SCHEDULE',
-    'PROJECTS',
+    'BIOMETRICS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -40,6 +41,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 1) {
+      _scheduleOpenTick.value++;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scheduleOpenTick.dispose();
+    super.dispose();
   }
 
   @override
@@ -83,12 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const TaskDetailsView(),
         ),
       ),
-      const ScheduleView(),
+      ScheduleView(openTick: _scheduleOpenTick),
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: const ProjectsView(),
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: const HealthDashboardView(),
         ),
       ),
       const LogbookScreen(), 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class BusScheduleGrid extends StatelessWidget {
   final List<String> scheduleList;

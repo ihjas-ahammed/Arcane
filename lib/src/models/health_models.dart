@@ -158,12 +158,47 @@ class ActivityLog {
   }
 }
 
+class EnergyLog {
+  String id;
+  int level; // 1-10
+  DateTime timestamp;
+  String? note;
+
+  EnergyLog({
+    required this.id,
+    required this.level,
+    required this.timestamp,
+    this.note,
+  });
+
+  factory EnergyLog.fromJson(Map<String, dynamic> json) {
+    return EnergyLog(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      level: (json['level'] as num? ?? 5).toInt().clamp(1, 10),
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
+          : DateTime.now(),
+      note: json['note'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'level': level,
+      'timestamp': timestamp.toIso8601String(),
+      if (note != null) 'note': note,
+    };
+  }
+}
+
 class DailyHealthLog {
   String dateStr;
   int waterGlasses;
   List<MealLog> meals;
   List<SleepLog> sleepLogs;
   List<ActivityLog> activityLogs;
+  List<EnergyLog> energyLogs;
 
   DailyHealthLog({
     required this.dateStr,
@@ -171,9 +206,11 @@ class DailyHealthLog {
     List<MealLog>? meals,
     List<SleepLog>? sleepLogs,
     List<ActivityLog>? activityLogs,
+    List<EnergyLog>? energyLogs,
   }) : meals = meals ?? [],
        sleepLogs = sleepLogs ?? [],
-       activityLogs = activityLogs ?? [];
+       activityLogs = activityLogs ?? [],
+       energyLogs = energyLogs ?? [];
 
   factory DailyHealthLog.fromJson(Map<String, dynamic> json) {
     // Migration logic for old singular fields
@@ -206,6 +243,9 @@ class DailyHealthLog {
               .toList() ?? [],
       sleepLogs: parsedSleep,
       activityLogs: parsedActivity,
+      energyLogs: (json['energyLogs'] as List<dynamic>?)
+              ?.map((e) => EnergyLog.fromJson(e as Map<String, dynamic>))
+              .toList() ?? [],
     );
   }
 
@@ -216,6 +256,7 @@ class DailyHealthLog {
       'meals': meals.map((m) => m.toJson()).toList(),
       'sleepLogs': sleepLogs.map((s) => s.toJson()).toList(),
       'activityLogs': activityLogs.map((a) => a.toJson()).toList(),
+      'energyLogs': energyLogs.map((e) => e.toJson()).toList(),
     };
   }
 }

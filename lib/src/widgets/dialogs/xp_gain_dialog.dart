@@ -1,361 +1,404 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import 'dart:ui';
-import 'dart:math';
-
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
 
-class XpGainDialog extends StatefulWidget {
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
+import 'package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+
+/// "INSIGHT ACQUIRED" alert shown after a reflection's AI analysis completes.
+/// Rendered as a compact modal floating over the underlying screen, styled to
+/// match the logbook screen's HUD panels.
+class XpGainDialog extends StatelessWidget {
   final Map<String, int> xpGained;
   final String? insightText;
 
   const XpGainDialog({super.key, required this.xpGained, this.insightText});
 
   @override
-  State<XpGainDialog> createState() => _XpGainDialogState();
-}
-
-class _XpGainDialogState extends State<XpGainDialog>
-    with TickerProviderStateMixin {
-  late AnimationController _mainController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-
-  late AnimationController _counterController;
-  late Animation<int> _xpCounterAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _mainController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _scaleAnimation = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-    );
-
-    final totalXp = widget.xpGained.values.fold(0, (a, b) => a + b);
-
-    _counterController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500));
-
-    _xpCounterAnimation = IntTween(begin: 0, end: totalXp).animate(
-      CurvedAnimation(parent: _counterController, curve: Curves.easeOutExpo),
-    );
-
-    _mainController.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _counterController.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _mainController.dispose();
-    _counterController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final entries = widget.xpGained.entries.where((e) => e.value > 0).toList();
+    final entries = xpGained.entries.where((e) => e.value > 0).toList();
+    final totalXp = entries.fold<int>(0, (a, b) => a + b.value);
 
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: EdgeInsets.zero, 
-      child: Stack(
-        children: [
-          // 1. Full Screen Backdrop Blur
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                color: Colors.black.withValues(alpha: 0),
-              ),
-            ),
-          ),
-
-          // 2. Dismiss tap handler
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-
-          // 3. Main Dialog Card
-          Center(
-            child: GestureDetector(
-              onTap: () {}, 
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.85,
-                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 500),
-                    padding: const EdgeInsets.all(1.5),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(0),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppTheme.fhAccentTeal,
-                          AppTheme.fhBgDeepDark,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.fhAccentTeal.withValues(alpha: 0.15),
-                          blurRadius: 50,
-                          spreadRadius: 1,
-                        ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: HudPanel(
+          clip: HudClip.both,
+          accent: JweTheme.accentAmber,
+          allBrackets: true,
+          background: JweTheme.panel,
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Header(totalXp: totalXp),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (entries.isNotEmpty) ...[
+                        _SkillsBlock(entries: entries),
+                        const SizedBox(height: 14),
                       ],
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F1720),
-                        borderRadius: BorderRadius.circular(0),
-                        gradient: RadialGradient(
-                          center: Alignment.topCenter,
-                          radius: 1.2,
-                          colors: [
-                            const Color(0xFF1A2634),
-                            const Color(0xFF0F1720),
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // --- HEADER ---
-                          Padding(
-                            padding: const EdgeInsets.only(top: 20, bottom: 20),
-                            child: Column(
-                              children: [
-                                Text(
-                                  "INSIGHT ACQUIRED",
-                                  style: TextStyle(
-                                    color: AppTheme.fhAccentTeal,
-                                    fontFamily: AppTheme.fontDisplay,
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2.0,
-                                    shadows: [
-                                      Shadow(
-                                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.3),
-                                        blurRadius: 10
-                                      )
-                                    ]
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // --- SCROLLABLE CONTENT ---
-                          Flexible(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
-                              child: Column(
-                                children: [
-                                  // Skills List
-                                  if (entries.isNotEmpty) ...[
-                                    Container(
-                                      height: 1, 
-                                      width: double.infinity,
-                                      color: Colors.white.withValues(alpha: 0.1),
-                                      margin: const EdgeInsets.only(bottom: 16),
-                                    ),
-                                    GridView.count(
-                                      crossAxisCount: 4,
-                                      shrinkWrap: true,
-                                      childAspectRatio: 1.6,
-                                      mainAxisSpacing: 8,
-                                      crossAxisSpacing: 8,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      children: List.generate(entries.length, (index) {
-                                      final entry = entries[index];
-                                      return _buildCompactSkillRow(context, entry.key, entry.value)
-                                            .animate(delay: (100 * index).ms)
-                                            .fadeIn()
-                                            .slideX(begin: -0.1, end: 0);
-                                      }),
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-
-                                  // Insight / Log Analysis Text
-                                  if (widget.insightText != null && widget.insightText!.isNotEmpty) ...[
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        border: Border(
-                                          left: BorderSide(color: AppTheme.fhAccentTeal, width: 3)
-                                        ),
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          bottomRight: Radius.circular(8)
-                                        )
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(MdiIcons.consoleLine, size: 14, color: AppTheme.fhAccentTeal),
-                                              const SizedBox(width: 8),
-                                              const Text(
-                                                "LOG ANALYSIS", 
-                                                style: TextStyle(
-                                                  color: AppTheme.fhAccentTeal, 
-                                                  fontSize: 10, 
-                                                  fontWeight: FontWeight.bold, 
-                                                  letterSpacing: 1.5
-                                                )
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            widget.insightText!,
-                                            style: const TextStyle(
-                                              color: AppTheme.fhTextSecondary,
-                                              fontSize: 13,
-                                              height: 1.5,
-                                              fontFamily: "RobotoCondensed"
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ).animate(delay: 400.ms).fadeIn(),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // --- FOOTER BUTTON ---
-                          Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.fhAccentTeal,
-                                  foregroundColor: const Color(0xFF0F1720),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: const BeveledRectangleBorder(
-                                      borderRadius: BorderRadius.all(Radius.circular(4))),
-                                ),
-                                child: const Text(
-                                  "CONTINUE",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontFamily: AppTheme.fontDisplay,
-                                      fontSize: 18,
-                                      letterSpacing: 1.5),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                      if (insightText != null && insightText!.isNotEmpty)
+                        _TransmissionBlock(text: insightText!),
+                    ],
                   ),
                 ),
               ),
+              _Footer(onClose: () => Navigator.of(context).maybePop()),
+            ],
+          ),
+        ).animate().fadeIn(duration: 180.ms).scale(
+              begin: const Offset(0.94, 0.94),
+              end: const Offset(1, 1),
+              duration: 240.ms,
+              curve: Curves.easeOutCubic,
+            ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  final int totalXp;
+  const _Header({required this.totalXp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: JweTheme.lineSoft)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const HudReticle(size: 22, color: JweTheme.accentAmber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '// SIGNAL DECODED',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'INSIGHT ACQUIRED',
+                  style: GoogleFonts.saira(
+                    color: JweTheme.textWhite,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ),
+          _XpBadge(total: totalXp),
         ],
       ),
     );
   }
+}
 
- Widget _buildCompactSkillRow(BuildContext context, String skillName, int xp) {
-  Color color = WellbeingTheme.getColor(skillName);
+class _XpBadge extends StatelessWidget {
+  final int total;
+  const _XpBadge({required this.total});
 
-  return GestureDetector(
-    onTap: () {
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      try {
-        final skill = provider.skills.firstWhere((s) => s.name == skillName);
-        final xpToday = provider.get7DayWellbeingMomentum(skill.name) ~/ 7; 
-        
-        Map<int, double> weeklyXp = {};
-        for (int i = 6; i >= 0; i--) {
-          final date = DateTime.now().subtract(Duration(days: i));
-          double dayXp = 0;
-          for (var log in provider.reflectionLogs) {
-            if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
-              dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
-            }
-          }
-          weeklyXp[6 - i] = dayXp;
-        }
-
-        showDialog(
-          context: context,
-          builder: (_) => WellbeingDetailDialog(
-            skill: skill,
-            xpGainedToday: xpToday,
-            weeklyXp: weeklyXp,
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 900),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, __) {
+        final n = (total * t).round();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: JweTheme.amberSoft,
+            border: Border.all(color: JweTheme.accentAmber.withOpacity(0.55)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'TOTAL XP',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.accentAmber,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              Text(
+                '+$n',
+                style: GoogleFonts.saira(
+                  color: JweTheme.accentAmber,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
         );
-      } catch (e) {
-        // Ignored
-      }
-    },
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgMedium.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      },
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final Color color;
+  final String? trailing;
+  const _SectionLabel({required this.label, required this.color, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+      child: Row(
         children: [
-          Icon(
-            WellbeingTheme.getIcon(skillName),
-            color: color,
-            size: 16,
-          ),
-          const SizedBox(height: 2),
+          Container(width: 3, height: 11, color: color),
+          const SizedBox(width: 8),
           Text(
-            "+$xp",
-            style: TextStyle(
+            label,
+            style: GoogleFonts.jetBrainsMono(
               color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
             ),
           ),
+          const SizedBox(width: 6),
+          Expanded(child: Container(height: 1, color: color.withOpacity(0.20))),
+          if (trailing != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              trailing!,
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted,
+                fontSize: 9,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
         ],
       ),
-    ),
-  );
- }
+    );
+  }
+}
+
+class _SkillsBlock extends StatelessWidget {
+  final List<MapEntry<String, int>> entries;
+  const _SkillsBlock({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel(
+          label: 'ALLOCATIONS',
+          color: JweTheme.accentCyan,
+          trailing: '${entries.length} CH',
+        ),
+        GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          childAspectRatio: 1.1,
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          physics: const NeverScrollableScrollPhysics(),
+          children: List.generate(entries.length, (i) {
+            final e = entries[i];
+            return _SkillChip(name: e.key, xp: e.value)
+                .animate(delay: (60 * i).ms)
+                .fadeIn(duration: 260.ms)
+                .slideY(begin: 0.2, end: 0);
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkillChip extends StatelessWidget {
+  final String name;
+  final int xp;
+  const _SkillChip({required this.name, required this.xp});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = WellbeingTheme.getColor(name);
+    return InkWell(
+      onTap: () {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        try {
+          final skill = provider.skills.firstWhere((s) => s.name == name);
+          final xpToday = provider.get7DayWellbeingMomentum(skill.name) ~/ 7;
+          final Map<int, double> weeklyXp = {};
+          for (int i = 6; i >= 0; i--) {
+            final date = DateTime.now().subtract(Duration(days: i));
+            double dayXp = 0;
+            for (var log in provider.reflectionLogs) {
+              if (log.timestamp.year == date.year &&
+                  log.timestamp.month == date.month &&
+                  log.timestamp.day == date.day) {
+                dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+              }
+            }
+            weeklyXp[6 - i] = dayXp;
+          }
+          showDialog(
+            context: context,
+            builder: (_) => WellbeingDetailDialog(
+              skill: skill,
+              xpGainedToday: xpToday,
+              weeklyXp: weeklyXp,
+            ),
+          );
+        } catch (_) {}
+      },
+      child: ClipPath(
+        clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            border: Border.all(color: color.withOpacity(0.45)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(WellbeingTheme.getIcon(name), color: color, size: 18),
+              const SizedBox(height: 4),
+              Text(
+                '+$xp',
+                style: GoogleFonts.saira(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'XP',
+                style: GoogleFonts.jetBrainsMono(
+                  color: color.withOpacity(0.7),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TransmissionBlock extends StatelessWidget {
+  final String text;
+  const _TransmissionBlock({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel(label: 'TRANSMISSION', color: JweTheme.accentAmber),
+        ClipPath(
+          clipper: HudCutClipper(clip: HudClip.both, cut: 10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            decoration: BoxDecoration(
+              color: JweTheme.bgBase.withOpacity(0.85),
+              border: const Border(
+                left: BorderSide(color: JweTheme.accentAmber, width: 2),
+              ),
+            ),
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                color: JweTheme.textWhite,
+                fontSize: 13,
+                height: 1.5,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ).animate(delay: 160.ms).fadeIn(duration: 320.ms);
+  }
+}
+
+class _Footer extends StatelessWidget {
+  final VoidCallback onClose;
+  const _Footer({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: JweTheme.lineSoft)),
+      ),
+      child: InkWell(
+        onTap: onClose,
+        child: ClipPath(
+          clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: JweTheme.amberSoft,
+              border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(MdiIcons.checkCircleOutline, size: 14, color: JweTheme.accentAmber),
+                const SizedBox(width: 8),
+                Text(
+                  'ACKNOWLEDGE',
+                  style: GoogleFonts.saira(
+                    color: JweTheme.accentAmber,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

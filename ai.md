@@ -1,10 +1,8 @@
 Make the following changes:
 
-    - Fix: the shown error which made the app stuck often
-    - Fix deletion:
-        - It looks like when I delete a subtask or a protocol, their session data is also gone, this cant happen,so save their session logs when I click delete and so still show them in schedule no matter how past it was
-    - Make the system startup overview expandable for privacy
-    
+    - Update archive screen: 
+        - Add an option in which I can select and copy reflection logs into clipboard: like we do with whatsapp messages, in a format, date, time, why, what, how 
+        this will help me copy a lot of them together and manually analyse myself
 
 
 

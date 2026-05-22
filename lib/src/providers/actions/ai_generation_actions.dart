@@ -1,6 +1,6 @@
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/models/task_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
@@ -173,6 +173,24 @@ class AIGenerationActions {
       _provider.setProviderAISubquestLoading(false);
       _provider.setLoadingTask(null);
     }
+  }
+
+  /// Calls the lite AI to expand a short user description into a list of step
+  /// names. Caller is responsible for adding them as sub-sub-tasks. Throws
+  /// on failure so the caller can surface the error.
+  Future<List<String>> generateStepsFromDescription({
+    required String taskName,
+    required String description,
+  }) async {
+    return await _aiService.generateStepsFromDescription(
+      taskName: taskName,
+      description: description,
+      modelCandidates: _provider.settings.liteModels,
+      currentApiKeyIndex: _provider.apiKeyIndex,
+      customApiKeys: _provider.settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+      onLog: _logToApp,
+    );
   }
 
   Future<void> autoAssignAssets(String mainTaskId, String subTaskId) async {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:gap/gap.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:arcane/theme/valorant_theme.dart';
-import 'package:arcane/widgets/valorant_container.dart';
+import 'package:missions/theme/valorant_theme.dart';
+import 'package:missions/widgets/valorant_container.dart';
 
 class LogbookScreen extends StatelessWidget {
   const LogbookScreen({super.key});
@@ -234,7 +234,7 @@ class LogbookScreen extends StatelessWidget {
                       Text(i == 0 ? "VICTORY" : "DEFEAT",
                           style: ValorantTextStyles.subHeader
                               .copyWith(fontSize: 16)),
-                      Text("Icebox • 13-9", style: ValorantTextStyles.label),
+                      Text("Icebox â€¢ 13-9", style: ValorantTextStyles.label),
                     ],
                   ),
                   const Spacer(),

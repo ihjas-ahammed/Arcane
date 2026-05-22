@@ -1,7 +1,6 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/project_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
 
 class TaskSession {
   String id;
@@ -46,7 +45,6 @@ class MainTask {
   bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
-  List<Project> projects;
 
   MainTask({
     required this.id,
@@ -60,10 +58,8 @@ class MainTask {
     this.isDeleted = false,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects,
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
-        subTasks = subTasks ?? [],
-        projects = projects ?? [];
+        subTasks = subTasks ?? [];
 
   MainTask copyWith({
     String? id,
@@ -77,7 +73,6 @@ class MainTask {
     bool? isDeleted,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
-    List<Project>? projects,
   }) {
     return MainTask(
       id: id ?? this.id,
@@ -92,7 +87,6 @@ class MainTask {
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
-      projects: projects ?? this.projects,
     );
   }
 
@@ -128,10 +122,6 @@ class MainTask {
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
               .toList() ??
           [],
-      projects: (json['projects'] as List<dynamic>?)
-              ?.map((e) => Project.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
     );
   }
 
@@ -148,7 +138,6 @@ class MainTask {
       'isDeleted': isDeleted,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
-      'projects': projects.map((p) => p.toJson()).toList(),
     };
   }
 
@@ -159,6 +148,30 @@ class MainTask {
       return AppTheme.fhAccentTealFixed;
     }
   }
+}
+
+class ProgressDataPoint {
+  final DateTime timestamp;
+  final double progress; // 0.0 – 1.0
+  final int spentSeconds; // cumulative session seconds at time of entry
+
+  const ProgressDataPoint({
+    required this.timestamp,
+    required this.progress,
+    this.spentSeconds = 0,
+  });
+
+  factory ProgressDataPoint.fromJson(Map<String, dynamic> json) => ProgressDataPoint(
+        timestamp: DateTime.parse(json['timestamp'] as String),
+        progress: (json['progress'] as num).toDouble(),
+        spentSeconds: json['spentSeconds'] as int? ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'timestamp': timestamp.toIso8601String(),
+        'progress': progress,
+        'spentSeconds': spentSeconds,
+      };
 }
 
 class SubTask {
@@ -173,17 +186,22 @@ class SubTask {
   int currentCount;
   List<SubSubTask> subSubTasks;
   List<TaskSession> sessions;
-  
-  String why; 
+  List<ProgressDataPoint> progressDataPoints;
+
+  String why;
   String what;
-  String resources; 
+  String resources;
+
+  /// 'auto' | 'time' | 'subtask'
+  /// 'auto' = subtask mode when checkable steps exist, else time mode.
+  String progressMode;
 
   bool isRecurring;
-  DateTime? lastCompletedDate; 
+  DateTime? lastCompletedDate;
   DateTime createdAt;
   DateTime updatedAt;
-  bool isActive; 
-  bool isDeleted; // Added soft delete
+  bool isActive;
+  bool isDeleted;
 
   SubTask({
     required this.id,
@@ -197,9 +215,11 @@ class SubTask {
     this.currentCount = 0,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
+    List<ProgressDataPoint>? progressDataPoints,
     this.why = '',
     this.what = '',
     this.resources = '',
+    this.progressMode = 'auto',
     this.isRecurring = false,
     this.lastCompletedDate,
     DateTime? createdAt,
@@ -208,6 +228,7 @@ class SubTask {
     this.isDeleted = false,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
+        progressDataPoints = progressDataPoints ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -223,9 +244,11 @@ class SubTask {
     int? currentCount,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
+    List<ProgressDataPoint>? progressDataPoints,
     String? why,
     String? what,
     String? resources,
+    String? progressMode,
     bool? isRecurring,
     DateTime? lastCompletedDate,
     DateTime? createdAt,
@@ -245,9 +268,11 @@ class SubTask {
       currentCount: currentCount ?? this.currentCount,
       subSubTasks: subSubTasks ?? this.subSubTasks,
       sessions: sessions ?? this.sessions,
+      progressDataPoints: progressDataPoints ?? this.progressDataPoints,
       why: why ?? this.why,
       what: what ?? this.what,
       resources: resources ?? this.resources,
+      progressMode: progressMode ?? this.progressMode,
       isRecurring: isRecurring ?? this.isRecurring,
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       createdAt: createdAt ?? this.createdAt,
@@ -270,7 +295,8 @@ class SubTask {
       currentCount: json['currentCount'] as int? ?? 0,
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
-      resources: json['resources'] as String? ?? '', 
+      resources: json['resources'] as String? ?? '',
+      progressMode: json['progressMode'] as String? ?? 'auto',
       isRecurring: json['isRecurring'] as bool? ?? false,
       lastCompletedDate: json['lastCompletedDate'] != null 
           ? DateTime.parse(json['lastCompletedDate'] as String) 
@@ -293,6 +319,10 @@ class SubTask {
                   TaskSession.fromJson(sJson as Map<String, dynamic>))
               .toList() ??
           [],
+      progressDataPoints: (json['progressDataPoints'] as List<dynamic>?)
+              ?.map((p) => ProgressDataPoint.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -309,7 +339,8 @@ class SubTask {
       'currentCount': currentCount,
       'why': why,
       'what': what,
-      'resources': resources, 
+      'resources': resources,
+      'progressMode': progressMode,
       'isRecurring': isRecurring,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
@@ -318,6 +349,7 @@ class SubTask {
       'isDeleted': isDeleted,
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
+      'progressDataPoints': progressDataPoints.map((p) => p.toJson()).toList(),
     };
   }
 

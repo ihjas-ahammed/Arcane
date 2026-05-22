@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/valorant/valorant_card.dart';
-import 'package:arcane/src/screens/journaling/people_info_screen.dart';
-import 'package:arcane/src/screens/journaling/simulate_event_screen.dart';
-import 'package:arcane/src/screens/journaling/simulate_talk_screen.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/widgets/valorant/valorant_card.dart';
+import 'package:missions/src/screens/journaling/people_info_screen.dart';
+import 'package:missions/src/screens/journaling/simulate_event_screen.dart';
+import 'package:missions/src/screens/journaling/simulate_talk_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AdvancedToolsScreen extends StatelessWidget {

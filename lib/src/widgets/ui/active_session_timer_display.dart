@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
 
 /// A self-contained timer widget that ticks independently of the main app state rebuilds.
 class ActiveSessionTimerDisplay extends StatefulWidget {

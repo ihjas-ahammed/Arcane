@@ -1,42 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/services/ai_service.dart';
-import 'package:arcane/src/services/firebase_service.dart' as fb_service;
-import 'package:arcane/src/services/local_storage_service.dart';
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/data_export_service.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
-import 'package:arcane/src/utils/history_helper.dart'; 
-import 'package:arcane/src/utils/constants.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/project_models.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
-import 'package:arcane/src/models/finance_models.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/services/firebase_service.dart' as fb_service;
+import 'package:missions/src/services/local_storage_service.dart';
+import 'package:missions/src/services/storage_service.dart';
+import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/services/notification_service.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/history_helper.dart'; 
+import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/models/finance_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 
 // Import Mixins
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
-import 'package:arcane/src/providers/mixins/task_mixin.dart';
-import 'package:arcane/src/providers/mixins/finance_mixin.dart';
-import 'package:arcane/src/providers/mixins/user_mixin.dart';
-import 'package:arcane/src/providers/mixins/health_mixin.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/providers/mixins/task_mixin.dart';
+import 'package:missions/src/providers/mixins/finance_mixin.dart';
+import 'package:missions/src/providers/mixins/user_mixin.dart';
+import 'package:missions/src/providers/mixins/health_mixin.dart';
 
 // Import Actions
-import 'package:arcane/src/providers/actions/task_actions.dart';
-import 'package:arcane/src/providers/actions/ai_generation_actions.dart';
-import 'package:arcane/src/providers/actions/timer_actions.dart';
-import 'package:arcane/src/providers/actions/project_actions.dart';
-import 'package:arcane/src/providers/actions/report_actions.dart';
-import 'package:arcane/src/providers/actions/schedule_actions.dart';
-import 'package:arcane/src/providers/actions/finance_actions.dart';
-import 'package:arcane/src/providers/actions/journaling_actions.dart';
+import 'package:missions/src/providers/actions/task_actions.dart';
+import 'package:missions/src/providers/actions/ai_generation_actions.dart';
+import 'package:missions/src/providers/actions/timer_actions.dart';
+import 'package:missions/src/providers/actions/report_actions.dart';
+import 'package:missions/src/providers/actions/schedule_actions.dart';
+import 'package:missions/src/providers/actions/finance_actions.dart';
+import 'package:missions/src/providers/actions/journaling_actions.dart';
 
 class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
@@ -46,6 +46,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   final LocalStorageService _localStorage = LocalStorageService();
 
   AIService get aiService => _aiService;
+
+  /// Fires whenever a reflection's AI analysis completes successfully.
+  /// Carries the payload needed to render the "INSIGHT ACQUIRED" dialog.
+  final ValueNotifier<InsightReadyEvent?> insightReady =
+      ValueNotifier<InsightReadyEvent?>(null);
+
+  /// Set of reflection log ids currently being analyzed in the background.
+  final Set<String> _processingReflections = {};
+  Set<String> get processingReflections => Set.unmodifiable(_processingReflections);
+  bool isReflectionProcessing(String logId) => _processingReflections.contains(logId);
 
   // UI State
   String? _loadingTaskName;
@@ -59,7 +69,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   late final TaskActions _taskActions;
   late final AIGenerationActions _aiGenerationActions;
   late final TimerActions _timerActions;
-  late final ProjectActions _projectActions;
   late final ReportActions _reportActions;
   late final ScheduleActions _scheduleActions;
   late final FinanceActions _financeActions;
@@ -68,7 +77,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
   TimerActions get timerActions => _timerActions;
-  ProjectActions get projectActions => _projectActions;
   ReportActions get reportActions => _reportActions;
   ScheduleActions get scheduleActions => _scheduleActions;
   FinanceActions get financeActions => _financeActions;
@@ -78,7 +86,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _taskActions = TaskActions(this);
     _aiGenerationActions = AIGenerationActions(this);
     _timerActions = TimerActions(this);
-    _projectActions = ProjectActions(this);
     _reportActions = ReportActions(this);
     _scheduleActions = ScheduleActions(this);
     _financeActions = FinanceActions(this);
@@ -186,6 +193,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setTransactions([]);
     setCategories([]);
     setSavingsGoals([]);
+    setAccounts([]);
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
@@ -247,6 +255,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       List<FinanceTransaction>? transactions,
       List<FinanceCategory>? categories,
       List<SavingsGoal>? savingsGoals,
+      List<FinanceAccount>? accounts,
       bool doNotify = true,
       bool doPersist = true
   }) {
@@ -258,7 +267,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     if (transactions != null) setTransactions(transactions);
     if (categories != null) setCategories(categories);
     if (savingsGoals != null) setSavingsGoals(savingsGoals);
-    
+    if (accounts != null) setAccounts(accounts);
+
     if (doNotify) notifyListeners();
   }
 
@@ -282,7 +292,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) => _taskActions.deleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId);
   void reorderSubtasks(String mainTaskId, int oldIndex, int newIndex) => _taskActions.reorderSubtasks(mainTaskId, oldIndex, newIndex);
-  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent); 
+  Future<void> recalibrateTimeLogs({bool silent = false}) => _taskActions.recalibrateTimeLogs(silent: silent);
+  void saveProgressDataPoint(String mainTaskId, String subTaskId, double progress, int spentSeconds) => _taskActions.saveProgressDataPoint(mainTaskId, subTaskId, progress, spentSeconds);
+  void deleteProgressDataPoint(String mainTaskId, String subTaskId, int index) => _taskActions.deleteProgressDataPoint(mainTaskId, subTaskId, index);
   void startTimer(String id, String type, String mainTaskId) => _timerActions.startTimer(id, type, mainTaskId);
   void pauseTimer(String id) => _timerActions.pauseTimer(id);
   void logTimerAndReset(String id) => _timerActions.logTimerAndReset(id);
@@ -494,7 +506,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
-      onLog: (m) => debugPrint(m)
+      onLog: (m) => debugPrint(m),
+      customInstruction: settings.customBriefingPrompt
     );
 
     if (result['grateful_assets'] != null) {
@@ -600,26 +613,31 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
           if (st.isRecurring) {
-             bool shouldReset = false;
-             if (st.completed && st.lastCompletedDate != null) {
-                if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
-             } else if (st.completed) {
-                shouldReset = true;
-             }
-             if (shouldReset) {
-               changed = true;
-               return SubTask(
-                 id: st.id, name: st.name, description: st.description, completed: false, currentTimeSpent: st.currentTimeSpent,
-                 isCountable: st.isCountable, targetCount: st.targetCount, currentCount: 0,
-                 subSubTasks: st.subSubTasks.map((s)=> SubSubTask(id: s.id, name: s.name, completed: false, isCountable: s.isCountable, targetCount: s.targetCount)).toList(),
-                 sessions: st.sessions, isRecurring: true, lastCompletedDate: st.lastCompletedDate,
-                 createdAt: st.createdAt, updatedAt: DateTime.now(), why: st.why, what: st.what, resources: st.resources,
-               );
-             }
+            bool shouldReset = false;
+            if (st.completed && st.lastCompletedDate != null) {
+              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
+            } else if (st.completed) {
+              shouldReset = true;
+            }
+            if (shouldReset) {
+              changed = true;
+              // Stable reset: only flip completion + counters. Preserve every
+              // other field (subSubTasks, substeps, sessions, why/what/etc.)
+              // via copyWith. Recurring resets must NEVER drop checkpoints.
+              // Progress-vs-time data points are scoped to the current cycle,
+              // so they get cleared along with the reset.
+              return st.copyWith(
+                completed: false,
+                currentCount: 0,
+                subSubTasks: st.subSubTasks.map(_resetCheckpoint).toList(),
+                progressDataPoints: [],
+                updatedAt: DateTime.now(),
+              );
+            }
           }
           return st;
         }).toList();
-        
+
         if (task.dailyTimeSpent > 0) {
           changed = true;
           return task.copyWith(subTasks: updatedSubtasks, dailyTimeSpent: 0);
@@ -630,6 +648,24 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
     }
+  }
+
+  /// Recursively flip a checkpoint (and any nested substeps) back to
+  /// incomplete while preserving structure, names, and configuration.
+  SubSubTask _resetCheckpoint(SubSubTask cp) {
+    return SubSubTask(
+      id: cp.id,
+      name: cp.name,
+      completed: false,
+      isCountable: cp.isCountable,
+      targetCount: cp.targetCount,
+      currentCount: 0,
+      completionTimestamp: null,
+      type: cp.type,
+      substeps: cp.substeps.map(_resetCheckpoint).toList(),
+      why: cp.why,
+      what: cp.what,
+    );
   }
 
   List<bool> getCompletionStatusForCurrentWeek(MainTask task) {
@@ -662,27 +698,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       return (dayData['taskTimes'] as Map<String, dynamic>)[taskId] as int? ?? 0;
     }
     return 0;
-  }
-
-  Map<String, dynamic>? findLinkedProjectStepInfo(String targetId) {
-    for (var mainTask in mainTasks) {
-      for (var project in mainTask.projects) {
-        final step = _findStepByTargetId(project.steps, targetId);
-        if (step != null) {
-          return {'mainTaskId': mainTask.id, 'projectId': project.id, 'projectTitle': project.title, 'stepId': step.id, 'stepTitle': step.title};
-        }
-      }
-    }
-    return null;
-  }
-  
-  ProjectStep? _findStepByTargetId(List<ProjectStep> steps, String targetId) {
-    for (var step in steps) {
-      if (step.linkedTaskId == targetId) return step;
-      final found = _findStepByTargetId(step.substeps, targetId);
-      if (found != null) return found;
-    }
-    return null;
   }
 
   int get7DayWellbeingMomentum(String skillName) {
@@ -751,37 +766,113 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
-  Future<Map<String, dynamic>> processReflection({required String trigger, required String emotion, required String reason, required String action, DateTime? timestamp}) async {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
-    final recentContext = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
-    
+  /// Synchronously persists a stub reflection log, then runs AI analysis in
+  /// the background. When the analysis completes, [insightReady] is fired and
+  /// a system notification is posted via [NotificationService].
+  ///
+  /// Returns the new log's id so callers can correlate completion if needed.
+  String startReflectionAnalysis({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    DateTime? timestamp,
+  }) {
     final logId = const Uuid().v4();
     final log = ReflectionLog(
-      id: logId, timestamp: timestamp ?? DateTime.now(),
-      trigger: trigger, emotion: emotion, reason: reason, action: action,
-      aiFeedback: "Pending AI analysis...", xpGained: {}
+      id: logId,
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      aiFeedback: 'Pending AI analysis...',
+      xpGained: {},
     );
-    // Setting logs triggers the 7-day recalculation in mixin natively
     setReflectionLogs([...reflectionLogs, log]);
+    _processingReflections.add(logId);
+    notifyListeners();
 
+    // Fire-and-forget; the future is intentionally not awaited.
+    // ignore: discarded_futures
+    _runReflectionAnalysis(logId, trigger, emotion, reason, action);
+    return logId;
+  }
+
+  Future<void> _runReflectionAnalysis(
+    String logId,
+    String trigger,
+    String emotion,
+    String reason,
+    String action,
+  ) async {
     try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final recentContext = reflectionLogs
+          .where((l) => l.timestamp.isAfter(sevenDaysAgo) && l.id != logId)
+          .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
+          .join("\n");
+
       final eval = await _aiService.evaluateReflection(
         trigger: trigger, emotion: emotion, reason: reason, action: action,
-        modelCandidates: settings.liteModels, 
+        modelCandidates: settings.liteModels,
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
         systemInstruction: settings.customReflectionPrompt,
       );
       final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
-      
-      updateReflectionLog(logId, aiFeedback: eval['feedback'] ?? '', xpGained: xpGained);
-      
-      return {'log': reflectionLogs.firstWhere((l) => l.id == logId), 'xpGained': xpGained};
+      final feedback = (eval['feedback'] as String?) ?? '';
+      updateReflectionLog(logId, aiFeedback: feedback, xpGained: xpGained);
+
+      insightReady.value = InsightReadyEvent(
+        logId: logId,
+        feedback: feedback,
+        xpGained: xpGained,
+        timestamp: DateTime.now(),
+      );
+
+      final preview = feedback.length > 120 ? '${feedback.substring(0, 117)}…' : feedback;
+      // ignore: discarded_futures
+      NotificationService.instance.showInsightReady(
+        title: 'TACTICAL INSIGHT ACQUIRED',
+        body: preview.isEmpty ? 'Reflection analysis complete.' : preview,
+        payload: logId,
+      );
     } catch (e) {
-      updateReflectionLog(logId, aiFeedback: "AI Analysis failed or offline.", xpGained: {});
-      rethrow;
+      updateReflectionLog(logId, aiFeedback: 'AI Analysis failed or offline.', xpGained: {});
+    } finally {
+      _processingReflections.remove(logId);
+      notifyListeners();
     }
+  }
+
+  /// Legacy synchronous path retained for any caller that still needs to
+  /// await the AI result inline (returns log + xp once analysis completes).
+  Future<Map<String, dynamic>> processReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    DateTime? timestamp,
+  }) async {
+    final logId = startReflectionAnalysis(
+      trigger: trigger, emotion: emotion, reason: reason, action: action, timestamp: timestamp,
+    );
+    final completer = Completer<Map<String, dynamic>>();
+    void listener() {
+      if (_processingReflections.contains(logId)) return;
+      removeListener(listener);
+      final log = reflectionLogs.firstWhereOrNull((l) => l.id == logId);
+      if (log == null) {
+        if (!completer.isCompleted) completer.completeError(StateError('Log $logId vanished'));
+        return;
+      }
+      if (!completer.isCompleted) {
+        completer.complete({'log': log, 'xpGained': log.xpGained});
+      }
+    }
+    addListener(listener);
+    return completer.future;
   }
 
   void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
@@ -978,4 +1069,18 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void setJournalPin(String pin) {
     setSettings(settings..journalPin = pin);
   }
+}
+
+class InsightReadyEvent {
+  final String logId;
+  final String feedback;
+  final Map<String, int> xpGained;
+  final DateTime timestamp;
+
+  const InsightReadyEvent({
+    required this.logId,
+    required this.feedback,
+    required this.xpGained,
+    required this.timestamp,
+  });
 }

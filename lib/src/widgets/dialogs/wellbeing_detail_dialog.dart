@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
-import 'package:arcane/src/widgets/charts/wellbeing_trend_chart.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
+import 'package:missions/src/widgets/ui/spidey_progress_bar.dart';
+import 'package:missions/src/widgets/charts/wellbeing_trend_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:arcane/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/widgets/valorant/valorant_button.dart';
 
 class WellbeingDetailDialog extends StatelessWidget {
   final Skill skill;

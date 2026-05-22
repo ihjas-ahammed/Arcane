@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/health_models.dart';
+import 'package:missions/src/theme/spidey_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/health_models.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,10 +33,10 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: JweTheme.panel,
+      backgroundColor: SpideyTheme.bgPanel,
       title: Text(
         "LOG SLEEP RECORD", 
-        style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+        style: GoogleFonts.rajdhani(color: SpideyTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 1.5)
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -57,13 +57,13 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                   
                   return Row(
                     children: [
-                      const Icon(Icons.info_outline, color: JweTheme.textMuted, size: 14),
+                      const Icon(Icons.info_outline, color: SpideyTheme.textMuted, size: 14),
                       const SizedBox(width: 8),
                       Text(
                         end.day != start.day 
                           ? "Crosses midnight (${diff.inHours}h ${diff.inMinutes % 60}m)" 
                           : "Same day (${diff.inHours}h ${diff.inMinutes % 60}m)", 
-                        style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)
+                        style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 12)
                       )
                     ],
                   );
@@ -75,10 +75,10 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+          child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black),
+          style: ElevatedButton.styleFrom(backgroundColor: SpideyTheme.spideyCyan, foregroundColor: Colors.black),
           onPressed: (_startTime != null && _endTime != null)
               ? () {
                   final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
@@ -107,14 +107,14 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
   Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
     return Container(
       decoration: BoxDecoration(
-        color: JweTheme.bgBase,
-        border: Border.all(color: JweTheme.border),
+        color: SpideyTheme.bgElevated,
+        border: Border.all(color: SpideyTheme.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style: const TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showDatePicker(
@@ -125,9 +125,9 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
                     colorScheme: const ColorScheme.dark(
-                      primary: JweTheme.accentCyan,
+                      primary: SpideyTheme.spideyCyan,
                       onPrimary: Colors.black,
-                      surface: JweTheme.panel,
+                      surface: SpideyTheme.bgPanel,
                       onSurface: Colors.white,
                     ),
                   ),
@@ -142,7 +142,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 14,
-                color: JweTheme.accentCyan
+                color: SpideyTheme.spideyCyan
               ),
             ),
           ),
@@ -154,14 +154,14 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
   Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
     return Container(
       decoration: BoxDecoration(
-        color: JweTheme.bgBase,
-        border: Border.all(color: JweTheme.border),
+        color: SpideyTheme.bgElevated,
+        border: Border.all(color: SpideyTheme.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style: const TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showTimePicker(
@@ -170,9 +170,9 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
                     colorScheme: const ColorScheme.dark(
-                      primary: JweTheme.accentCyan,
+                      primary: SpideyTheme.spideyCyan,
                       onPrimary: Colors.black,
-                      surface: JweTheme.panel,
+                      surface: SpideyTheme.bgPanel,
                       onSurface: Colors.white,
                     ),
                   ),
@@ -187,7 +187,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 16,
-                color: JweTheme.accentCyan
+                color: SpideyTheme.spideyCyan
               ),
             ),
           ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/models/chatbot_models.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/models/chatbot_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 

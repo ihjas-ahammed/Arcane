@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/models/task_models.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/models/task_models.dart';
 
 class TaskGenerationRow extends StatefulWidget {
   final Map<String, dynamic> taskData;

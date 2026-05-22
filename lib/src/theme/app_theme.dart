@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Valorant-inspired color palette
-  static const Color fhBgDeepDark = Color(0xFF0F1923); // Main background
-  static const Color fhBgDark = Color(0xFF1F2731); // Secondary panels
-  static const Color fhBgMedium = Color(0xFF2C3540); // Inputs / Cards
-  static const Color fhBorderColor = Color(0xFF485260); // Borders
+  // Operator HUD palette — amber-on-midnight tactical
+  static const Color fhBgDeepDark = Color(0xFF04060E); // Deep background
+  static const Color fhBgDark = Color(0xFF0D1426); // Panel
+  static const Color fhBgMedium = Color(0xFF101A30); // Elevated
+  static const Color fhBorderColor = Color(0xFF1B2A38);
 
-  static const Color fhTextPrimary = Color(0xFFECE8E1); // Off-white text
-  static const Color fhTextSecondary = Color(0xFF768079); // Muted text
-  static const Color fhTextDisabled = Color(0xFF4C525A);
+  static const Color fhTextPrimary = Color(0xFFEAECF3);
+  static const Color fhTextSecondary = Color(0xFFA8B3C7);
+  static const Color fhTextDisabled = Color(0xFF5E6C87);
 
   // Accents
-  static const Color fhAccentRed = Color(0xFFFF4655); // "Valorant Red"
-  static const Color fhAccentTeal = Color(0xFF00F59B); // Valorant Teal
-  static const Color fhAccentTealFixed = Color(0xFF00F59B);
-  static const Color fhAccentGold = Color(0xFFD4AF37); // Rare accents
-  static const Color fhAccentPurple = Color(0xFF8A2BE2); // Omen/Reyna vibes
-  static const Color fhAccentGreen = Color(0xFF4CAF50); // Viper vibes
-  static const Color fhAccentOrange = Color(0xFFFF7043); // Raze vibes
+  static const Color fhAccentRed = Color(0xFFFF5470); // Alert
+  static const Color fhAccentTeal = Color(0xFF5FE1D8); // Cyan secondary
+  static const Color fhAccentTealFixed = Color(0xFF5FE1D8);
+  static const Color fhAccentGold = Color(0xFFFFB547); // Amber primary
+  static const Color fhAccentPurple = Color(0xFF8A6FE2);
+  static const Color fhAccentGreen = Color(0xFF4AF3C2);
+  static const Color fhAccentOrange = Color(0xFFFFB547);
 
-  static const String fontDisplay = 'RobotoCondensed'; // Close to Tungsten
+  static const String fontDisplay = 'RobotoCondensed';
   static const String fontBody = 'OpenSans';
 
   // Method to generate ThemeData with a dynamic primary accent color
@@ -38,7 +38,7 @@ class AppTheme {
       // Smooth transitions
       pageTransitionsTheme: const PageTransitionsTheme(builders: {
         TargetPlatform.android: ZoomPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
         TargetPlatform.windows: ZoomPageTransitionsBuilder(),
       }),
 

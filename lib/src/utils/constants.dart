@@ -1,5 +1,5 @@
 // lib/src/utils/constants.dart
-import 'package:arcane/src/models/task_models.dart';
+import 'package:missions/src/models/task_models.dart';
 
 List<MainTaskTemplate> initialMainTaskTemplates = [
   MainTaskTemplate(

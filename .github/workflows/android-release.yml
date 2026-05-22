@@ -1,55 +1,60 @@
-name: Flutter Android Release Build & Upload
+name: Flutter Android Build & Release
 
 on:
   push:
     branches:
-      - main # Triggers the workflow on pushes to the 'main' branch.
-            # You can list other branches here, e.g., ['main', 'develop']
-            # Or remove 'branches' entirely to run on all pushes to any branch.
+      - '**'
+  pull_request:
 
 permissions:
-  contents: write # Required to create/edit GitHub Releases and upload assets
+  contents: write
 
 jobs:
-  build_apk_and_upload:
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+  build_apk:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4 # Checks out your repository code
+        uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4 # Sets up Java Development Kit (JDK)
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin' # Recommended distribution for Java
-          java-version: '17'      # Flutter typically requires Java 17 or newer
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Set up Flutter SDK
-        uses: subosito/flutter-action@v2 # Action to set up Flutter SDK
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32' # Specify the Flutter version.
-                                  # Note: Verify if '3.32' is a valid Flutter release version.
-                                  # Flutter versions usually follow major.minor.patch (e.g., 3.19.6, 3.22.0).
-                                  # If not found, this step might fail or use a different version.
-          channel: 'stable'       # Use the stable Flutter channel
+          flutter-version: '3.32'
+          channel: 'stable'
 
       - name: Get Flutter Dependencies
-        run: flutter pub get # Fetches all the dependencies listed in pubspec.yaml
+        run: flutter pub get
 
+      # The signing config in android/app/build.gradle.kts points at
+      # ../../debug.keystore (i.e. the repo root). It's committed, so the
+      # checkout step already places it where Gradle expects.
       - name: Build Android Release APK
-        run: flutter build apk --release # Builds the Android application in release mode
-        # The output APK will typically be found at build/app/outputs/apk/release/app-release.apk
+        run: flutter build apk --release
 
-      - name: Upload APK to GitHub Release
-        uses: softprops/action-gh-release@v1 # Action to create or update a GitHub Release
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: build/app/outputs/apk/release/app-release.apk # Path to the generated APK file
-          tag_name: ${{ github.ref_name }} # Uses the branch name or tag name that triggered the workflow
-          name: Build ${{ github.ref_name }} - ${{ github.run_number }} # Sets the name of the GitHub Release
+          name: app-release-${{ github.run_number }}
+          path: build/app/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/apk/release/app-release.apk
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
           body: |
-            Automated build for branch `${{ github.ref_name }}`.
-            This release includes the Android APK.
-            Triggered by commit: ${{ github.sha }}
-          draft: false # Set to true if you want to create a draft release first
-          prerelease: false # Set to true if this is a pre-release version
-          token: ${{ secrets.GITHUB_TOKEN }} # GitHub automatically provides this token for authentication
+            Automated release from `main`.
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}

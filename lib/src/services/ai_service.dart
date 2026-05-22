@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
-import 'package:arcane/src/config/api_keys.dart';
+import 'package:missions/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/utils/json_utils.dart';
+import 'package:missions/src/utils/json_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
@@ -222,6 +222,46 @@ class AIService {
         onLog: onLog);
   }
 
+  Future<List<String>> generateStepsFromDescription({
+    required String taskName,
+    required String description,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate concrete, actionable sub-step names for a parent task based on a short user description.
+
+    PARENT TASK: $taskName
+    USER DESCRIPTION: $description
+
+    Rules:
+    1. Return between 1 and 12 step names. Honor any count implied by the user.
+    2. Each name must be short (under 60 chars), imperative, and self-contained.
+    3. Do NOT prefix with numbering ("1.", "Step 1:"). The name itself only.
+    4. Preserve any explicit numbering the user asked for (e.g. "Round 1", "Round 2").
+
+    Output JSON ONLY:
+    {"steps": ["First step", "Second step"]}
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return ((result['steps'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
@@ -286,45 +326,6 @@ class AIService {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
       rethrow;
     }
-  }
-
-  Future<Map<String, dynamic>> generateProjectFromPrompt({
-    required List<String> modelCandidates,
-    required String userPrompt,
-    List<XFile>? images,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final promptStr = "Generate project JSON for: $userPrompt. Structure: {title, description, steps:[{title, description, substeps: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    
-    List<genai.Part> parts =[genai.TextPart(promptStr)];
-    if (images != null) {
-      for (var img in images) {
-        final bytes = await img.readAsBytes();
-        final mime = lookupMimeType(img.name) ?? 'image/jpeg';
-        parts.add(genai.DataPart(mime, bytes));
-      }
-    }
-
-    return await makeAICall(parts: parts, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-  }
-
-  Future<List<Map<String, dynamic>>> generateStepsForProject({
-    required String projectTitle,
-    required String projectDescription,
-    required List<String> existingSteps,
-    required String userPrompt,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = "Generate steps JSON for Project '$projectTitle' ('$projectDescription'). Existing: $existingSteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
-    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
-    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
   }
 
   Future<List<Map<String, dynamic>>> generateSubstepsForStep({
@@ -497,26 +498,36 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? customInstruction,
   }) async {
     final prompt = """
-    Generate a Tactical Briefing based on today's reflections.
+    Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
+
     Current Logs: ${jsonEncode(reflections)}
-    Entire Reflection History (Context): $fullContext
+    Reflection History (Context): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
-    
-    Tone: Empathetic, psychologically wise, therapist.
-    
+
+    Apply the following frameworks - do NOT name them in your output, just use them:
+    - Cognitive Behavioral Therapy (Beck; Burns, "Feeling Good"): when reflections show distorted thinking, name the distortion in the user's situation (all-or-nothing, mind-reading, catastrophizing, "should" statements, emotional reasoning, personalization, mental filter, overgeneralization). Offer a balanced thought - not a positive one.
+    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett, "How Emotions Are Made"): name specific emotions ("resentful", "deflated", "anxious about X"), not generic "bad" or "stressed".
+    - Self-compassion (Kristin Neff, "Self-Compassion"): when self-criticism appears, apply common humanity without dismissing the issue.
+    - Deliberate practice (Ericsson, "Peak"): treat improvements as concrete capabilities the user is building, specific enough to act on.
+    - Stoic dichotomy of control (Epictetus; Pigliucci, "How to Be a Stoic"): when the user is upset about external events, distinguish what was vs was not in their control.
+    - Gratitude with specificity (Emmons and McCullough): name specific people and concrete reasons; avoid generic thankfulness.
+
+    Tone: An honest, psychologically literate friend. Not a therapist, not a cheerleader. NEVER force a silver lining onto a hard event. Acknowledge difficulty in plain language. Insight is more useful than comfort. The user is a capable adult, not a patient.
+    ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
     Task:
-    1. Create a concise summary. Adopt an inherently optimistic perspective—if something bad happened, actively help find the good or the lesson in it. Focus on the present.
-    2. Identify specific ability improvements or growth by comparing with previous context.
-    3. Extract people to be grateful for based on today's logs (You MAY use their real names).
-    4. Extract assets (resources, skills, objects) to be grateful for based on today's logs.
-    
+    1. "summary" (max 120 words): An honest read of today. Use 1-2 granular emotion words drawn from the logs. If a cognitive distortion is visible, name it in the user's own situation and offer a balanced reframe (balanced is not the same as positive). If the day was hard, say so plainly. Close with one observation about what was in vs not in their control today.
+    2. "improvements": 1-3 specific capabilities the user is building or could build (e.g. "tolerating uncertainty without seeking reassurance", not vague traits like "patience"). Each "insight" must be specific enough to act on tomorrow.
+    3. "grateful_people": specific people mentioned (use names). "reason" must reference a concrete thing they did or said.
+    4. "grateful_assets": specific resources, skills, objects, or routines the user actually relied on today. "why" = strategic value; "what" = concrete yield.
+
     Output JSON: {
       "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
-      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string (Strategic value)", "what": "string (Expected yield)"} ]
+      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string", "what": "string"} ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -599,18 +610,26 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Generate a 'System Start-Up Sequence' for the user based on their recent history.
+    Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
+
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
-    
-    Tone: A supportive, insightful human friend having a morning coffee with the user. Friendly, warm, but highly practical and focused on their growth.
-    
+
+    Apply the following frameworks - do NOT name them in your output, just use them:
+    - Behavioral activation (Martell; Burns, "Feeling Good"): action precedes motivation. When momentum is low, prescribe a small concrete behavior, not a feeling-shift.
+    - Implementation intentions (Gollwitzer): the format "When [specific cue or time], I will [specific observable action]" raises follow-through dramatically. Use it for every directive.
+    - Mental contrasting / WOOP (Gabriele Oettingen, "Rethinking Positive Thinking"): pair the desired outcome with the most likely obstacle, then plan around it. Positive fantasy alone reduces follow-through.
+    - Identity-based habits (James Clear, "Atomic Habits"): frame at least one action as a vote for the kind of person the user is becoming.
+    - Self-Determination Theory (Deci and Ryan; Pink, "Drive"): when relevant, connect a task to autonomy, competence, or relatedness rather than external pressure.
+    - Anti-perfectionism (Stoeber; Burns): include at least one minimum-viable version of a goal so a bad day still produces a win.
+
+    Tone: Warm, honest, specific. NEVER force optimism or "find the good" in recent bad events - acknowledge difficulty plainly, then pivot to one concrete next action. The user is a capable adult, not a patient.
+
     Task:
-    1. Analyze the user's momentum.
-    2. Provide a 'Forecast' message (a friendly morning greeting + specific advice on how they can be better today). Look at things optimistically—help them find the good in recent bad events. Focus on the present day actionability.
-    3. Suggest 3 specific 'Tactical Directives' (short tasks) for today.
-    
+    1. "forecast" (60-100 words): Read the user's recent momentum honestly. Name one obstacle visible in the data (mental contrasting). If the last few days have been hard, say so directly, then prescribe one small behavioral start that breaks inertia today. Do not reframe a bad week as good; pivot to action.
+    2. "directives" (exactly 3): each must be a specific implementation intention in the form "When [specific cue or time], I will [specific observable action]." Avoid vague verbs like "focus", "be productive", "stay positive". At least one directive should be a minimum-viable version (anti-perfectionism) so the bar is reachable even on a bad day. At least one directive should connect to the user's identity or values when context allows.
+
     Output JSON ONLY:
     {
       "forecast": "string",

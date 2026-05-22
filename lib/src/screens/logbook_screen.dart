@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/widgets/views/daily_summary_view.dart';
+import 'package:missions/src/widgets/views/daily_summary_view.dart';
 
 class LogbookScreen extends StatelessWidget {
   const LogbookScreen({super.key});

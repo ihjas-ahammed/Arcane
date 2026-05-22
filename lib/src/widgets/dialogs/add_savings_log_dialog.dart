@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 
 class AddSavingsLogDialog extends StatefulWidget {
@@ -26,13 +26,13 @@ class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Available Balance: ₹${bal.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+          Text("Available Balance: â‚¹${bal.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
           const SizedBox(height: 16),
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(color: JweTheme.textWhite, fontSize: 24, fontFamily: 'RobotoMono'),
-            decoration: const InputDecoration(prefixText: "₹ ", hintStyle: TextStyle(color: JweTheme.textMuted)),
+            decoration: const InputDecoration(prefixText: "â‚¹ ", hintStyle: TextStyle(color: JweTheme.textMuted)),
             autofocus: true,
           ),
         ],

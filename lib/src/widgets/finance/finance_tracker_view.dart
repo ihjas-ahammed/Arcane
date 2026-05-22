@@ -1,14 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/jwe_panel.dart';
-import 'package:arcane/src/widgets/finance/finance_charts.dart';
-import 'package:arcane/src/widgets/dialogs/add_transaction_dialog.dart';
-import 'package:arcane/src/utils/finance_helpers.dart';
-import 'package:arcane/src/models/finance_models.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/finance_helpers.dart';
+import 'package:missions/src/widgets/dialogs/add_edit_account_dialog.dart';
+import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:provider/provider.dart';
 
 class FinanceTrackerView extends StatefulWidget {
   const FinanceTrackerView({super.key});
@@ -18,12 +21,128 @@ class FinanceTrackerView extends StatefulWidget {
 }
 
 class _FinanceTrackerViewState extends State<FinanceTrackerView> {
-  DateTime _selectedDate = DateTime.now();
+  static const String _currency = '₹';
 
   void _showAddTransactionDialog(BuildContext context, bool isIncome) {
+    showDialog(context: context, builder: (_) => AddTransactionDialog(isIncome: isIncome));
+  }
+
+  void _showAddAccountDialog(BuildContext context, {FinanceAccount? existing}) {
     showDialog(
       context: context,
-      builder: (ctx) => AddTransactionDialog(isIncome: isIncome),
+      builder: (_) => AddEditAccountDialog(existing: existing),
+    );
+  }
+
+  void _showChangeBalanceDialog(BuildContext context, FinanceAccount account) {
+    final ctrl = TextEditingController(text: account.balance.toStringAsFixed(2));
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentAmber),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text(
+            'CHANGE BALANCE',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentAmber,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              fontSize: 13,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(account.name.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 22),
+                decoration: const InputDecoration(
+                  prefixText: '₹ ',
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: JweTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentAmber,
+                foregroundColor: Colors.black,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                final val = double.tryParse(ctrl.text);
+                if (val != null) {
+                  provider.financeActions.changeAccountBalance(account.id, val);
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('CONFIRM', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmReset(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentRed),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text('RESET LEDGER',
+              style: GoogleFonts.saira(
+                  color: JweTheme.accentRed,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                  fontSize: 13)),
+          content: Text(
+            'This will permanently delete all transaction records. Account balances are not affected.',
+            style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentRed,
+                foregroundColor: Colors.white,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                provider.financeActions.resetTransactions();
+                Navigator.pop(ctx);
+              },
+              child: const Text('RESET', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -31,94 +150,378 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final balance = provider.financeActions.currentBalance;
-    
-    // Calculate 30d totals
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    double income30d = 0;
-    double expense30d = 0;
+    final hasAccounts = provider.accounts.isNotEmpty;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final monthStart = DateTime(now.year, now.month, 1);
+    final thirtyAgo = today.subtract(const Duration(days: 29));
+
+    var todaySpend = 0.0;
+    var monthSpend = 0.0;
+    var income30d = 0.0;
+    var expense30d = 0.0;
+
+    final dailyExp = List<double>.filled(30, 0);
+
     for (var t in provider.transactions) {
-      if (t.timestamp.isAfter(thirtyDaysAgo)) {
-        if (t.isIncome) {
-          income30d += t.amount;
-        } else {
+      final ts = t.timestamp;
+      if (!t.isIncome) {
+        if (_sameDay(ts, today)) todaySpend += t.amount;
+        if (!ts.isBefore(monthStart)) monthSpend += t.amount;
+        if (!ts.isBefore(thirtyAgo)) {
           expense30d += t.amount;
+          final dayIdx = today.difference(DateTime(ts.year, ts.month, ts.day)).inDays;
+          final i = 29 - dayIdx;
+          if (i >= 0 && i < 30) dailyExp[i] += t.amount;
         }
+      } else {
+        if (!ts.isBefore(thirtyAgo)) income30d += t.amount;
       }
     }
 
+    final avg30d = expense30d / 30.0;
+    final monthBudget = avg30d * 30;
+    final monthPct = monthBudget > 0 ? (monthSpend / monthBudget) * 100 : 0.0;
+
+    final catTotals = <String, double>{};
+    for (var t in provider.transactions) {
+      if (t.isIncome) continue;
+      if (t.timestamp.isBefore(monthStart)) continue;
+      catTotals[t.categoryId] = (catTotals[t.categoryId] ?? 0) + t.amount;
+    }
+    final cats = provider.categories
+        .where((c) => !c.isIncomeCategory && (catTotals[c.id] ?? 0) > 0)
+        .map((c) {
+          final amt = catTotals[c.id] ?? 0;
+          final pct = monthSpend > 0 ? (amt / monthSpend) * 100 : 0;
+          return _CatRow(c, amt, pct.toDouble());
+        })
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Balance Card
-          JwePanel(
-            title: "TOTAL BALANCE",
-            accentColor: JweTheme.accentCyan,
-            child: Column(
-              children: [
-                Text(
-                  "₹${balance.toStringAsFixed(2)}",
-                  style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 40, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.only(bottom: 80),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+
+        // ── Balance hero ────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: HudPanel(
+            clip: HudClip.both,
+            accent: JweTheme.accentAmber,
+            allBrackets: true,
+            padding: EdgeInsets.zero,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: JweTheme.lineAmber, width: 1)),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatCol("INCOME (30D)", income30d, JweTheme.accentCyan),
-                    Container(width: 1, height: 30, color: JweTheme.border),
-                    _buildStatCol("EXPENSE (30D)", expense30d, JweTheme.accentRed),
-                  ],
-                )
-              ],
+                child: Row(children: [
+                  Text('// LIQUID BALANCE',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.8,
+                      )),
+                  const Spacer(),
+                  HudDot(tone: HudTone.amber),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(
+                      '$_currency${_compactMoney(balance)}',
+                      style: GoogleFonts.saira(
+                        color: JweTheme.accentAmber,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (!hasAccounts)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          income30d > expense30d
+                              ? '+${(((income30d - expense30d) / math.max(1.0, income30d)) * 100).round()}%'
+                              : '−${(((expense30d - income30d) / math.max(1.0, expense30d)) * 100).round()}%',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: income30d > expense30d ? JweTheme.accentTeal : JweTheme.accentRed,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: HudStat(
+                      label: 'Today',
+                      value: '$_currency${_compactMoney(todaySpend)}',
+                      tone: HudTone.cyan,
+                      size: 18,
+                    )),
+                    Expanded(child: HudStat(
+                      label: 'MTD',
+                      value: '$_currency${_compactMoney(monthSpend)}',
+                      tone: HudTone.amber,
+                      size: 18,
+                    )),
+                    Expanded(child: HudStat(
+                      label: 'AVG/30D',
+                      value: '$_currency${_compactMoney(avg30d * 30)}',
+                      tone: HudTone.cyan,
+                      size: 18,
+                    )),
+                  ]),
+                  const SizedBox(height: 14),
+                  Text('BUDGET TRAJECTORY',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.6,
+                      )),
+                  const SizedBox(height: 6),
+                  HudProgressBar(
+                    value: monthPct.clamp(0, 100).toDouble(),
+                    tone: monthPct > 80 ? HudTone.red : HudTone.amber,
+                    segments: 28,
+                    height: 5,
+                    showLabel: true,
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+
+        // ── Action buttons ───────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(children: [
+            Expanded(
+              child: _LedgerActionBtn(
+                label: 'INCOME',
+                icon: MdiIcons.plus,
+                accent: JweTheme.accentTeal,
+                onTap: () => _showAddTransactionDialog(context, true),
+              ),
             ),
-          ),
-
-          const SizedBox(height: 12),
-          
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text("INCOME"),
-                  style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
-                  onPressed: () => _showAddTransactionDialog(context, true),
-                ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _LedgerActionBtn(
+                label: 'EXPENSE',
+                icon: MdiIcons.minus,
+                accent: JweTheme.accentRed,
+                onTap: () => _showAddTransactionDialog(context, false),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.remove),
-                  label: const Text("EXPENSE"),
-                  style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
-                  onPressed: () => _showAddTransactionDialog(context, false),
+            ),
+            const SizedBox(width: 8),
+            _ResetBtn(onTap: () => _confirmReset(context)),
+          ]),
+        ),
+
+        // ── Accounts ────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+          child: HudSectionHead(
+            label: 'ACCOUNTS',
+            code: hasAccounts ? '${provider.accounts.length} LINKED' : 'NONE',
+            accent: HudTone.cyan,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Column(children: [
+            ...provider.accounts.map((acc) {
+              final color = Color(int.parse('0xFF${acc.colorHex}'));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: HudPanel(
+                  clip: HudClip.br,
+                  accent: color,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                      ),
+                      child: Icon(FinanceHelpers.getIconData(acc.iconName), color: color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(acc.name.toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                            )),
+                        Text(acc.type.toUpperCase(),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.2,
+                            )),
+                      ]),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$_currency${_compactMoney(acc.balance)}',
+                          style: GoogleFonts.saira(
+                            color: color, fontSize: 18, fontWeight: FontWeight.w700,
+                          )),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        GestureDetector(
+                          onTap: () => _showChangeBalanceDialog(context, acc),
+                          child: Text('BALANCE',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentAmber, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showAddAccountDialog(context, existing: acc),
+                          child: Text('EDIT',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => provider.financeActions.deleteAccount(acc.id),
+                          child: Text('DEL',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentRed, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                      ]),
+                    ]),
+                  ]),
                 ),
+              );
+            }),
+            GestureDetector(
+              onTap: () => _showAddAccountDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: JweTheme.lineSoft),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.add, color: JweTheme.accentCyan, size: 14),
+                  const SizedBox(width: 6),
+                  Text('ADD ACCOUNT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.4,
+                      )),
+                ]),
               ),
-            ],
+            ),
+          ]),
+        ),
+
+        // ── 30-day expenditure ──────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+          child: HudPanel(
+            clip: HudClip.br,
+            accent: JweTheme.accentAmber,
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('// 30-DAY EXPENDITURE',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.8,
+                    )),
+                const Spacer(),
+                Text('μ $_currency${_compactMoney(avg30d)}/d',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w500, letterSpacing: 1.0,
+                    )),
+              ]),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 70,
+                child: _ExpenditureBars(daily: dailyExp),
+              ),
+            ]),
           ),
+        ),
 
-          const SizedBox(height: 24),
-
-          // Charts
-          FinanceCharts(
-            transactions: provider.transactions,
-            categories: provider.categories,
-            selectedDate: _selectedDate,
-            onDateChanged: (d) => setState(() => _selectedDate = d),
+        // ── Category breakdown ──────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+          child: const HudSectionHead(label: 'CATEGORY BREAKDOWN', code: 'MTD'),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: HudPanel(
+            clip: HudClip.br,
+            accent: JweTheme.accentAmber,
+            padding: const EdgeInsets.all(12),
+            child: cats.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text('NO EXPENSES THIS MONTH',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4,
+                        )),
+                  )
+                : Column(children: List.generate(cats.length, (i) {
+                    final r = cats[i];
+                    final color = Color(int.parse('0xFF${r.cat.colorHex}'));
+                    final tone = _toneFor(color);
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: i < cats.length - 1 ? 12 : 0),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(
+                            child: Text(r.cat.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12, color: JweTheme.textWhite, fontWeight: FontWeight.w500,
+                                )),
+                          ),
+                          Text('$_currency${_compactMoney(r.amount)} · ${r.pct.round()}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11, color: color, fontWeight: FontWeight.w600, letterSpacing: 0.6,
+                              )),
+                        ]),
+                        const SizedBox(height: 4),
+                        HudBar(value: r.pct.clamp(0, 100), max: 40, tone: tone, height: 3),
+                      ]),
+                    );
+                  })),
           ),
+        ),
 
-          const SizedBox(height: 32),
-          const Text("TRANSACTION HISTORY", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-          const SizedBox(height: 12),
-
-          if (provider.transactions.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No transactions recorded.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic))))
-          else
-            ...provider.transactions.map((tx) {
-              final cat = provider.categories.firstWhere((c) => c.id == tx.categoryId, orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome));
-              final color = Color(int.parse("0xFF${cat.colorHex}"));
+        // ── Transaction ledger ─────────────────────
+        const HudSectionHead(label: 'TRANSACTION LEDGER', code: 'LIVE'),
+        if (provider.transactions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: HudPanel(
+              clip: HudClip.br,
+              accent: JweTheme.accentAmber,
+              brackets: false,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: Text('NO TRANSACTIONS RECORDED',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4,
+                    )),
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(children: provider.transactions.take(40).map((tx) {
+              final cat = provider.categories.firstWhere(
+                (c) => c.id == tx.categoryId,
+                orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome),
+              );
+              final color = Color(int.parse('0xFF${cat.colorHex}'));
               return Dismissible(
                 key: ValueKey(tx.id),
                 direction: DismissDirection.endToStart,
@@ -129,53 +532,167 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                   child: const Icon(Icons.delete, color: Colors.white),
                 ),
                 onDismissed: (_) => provider.financeActions.deleteTransaction(tx.id),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: JweTheme.panel,
-                    border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, width: 3)),
-                  ),
-                  child: Row(
-                    children: [
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    decoration: BoxDecoration(
+                      color: JweTheme.panel,
+                      border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed, width: 2)),
+                    ),
+                    child: Row(children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                        child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(cat.name.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
-                            if (tx.note.isNotEmpty) Text(tx.note, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
-                            Text(DateFormat('MMM dd, HH:mm').format(tx.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10)),
-                          ],
+                        width: 30, height: 30,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.10),
+                          border: Border.all(color: color.withValues(alpha: 0.40), width: 1),
                         ),
+                        child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                          Text(cat.name.toUpperCase(),
+                              style: GoogleFonts.saira(
+                                color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                              )),
+                          if (tx.note.isNotEmpty)
+                            Text(tx.note,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: JweTheme.textMuted, fontSize: 11,
+                                )),
+                          Text(DateFormat('dd MMM · HH:mm').format(tx.timestamp).toUpperCase(),
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0, fontWeight: FontWeight.w500,
+                              )),
+                        ]),
                       ),
                       Text(
-                        "${tx.isIncome ? '+' : '-'}₹${tx.amount.toStringAsFixed(2)}",
-                        style: TextStyle(color: tx.isIncome ? JweTheme.accentCyan : JweTheme.accentRed, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 16),
+                        '${tx.isIncome ? '+' : '−'}$_currency${_compactMoney(tx.amount)}',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
                       ),
-                    ],
+                    ]),
                   ),
                 ),
               );
-            }),
-            const SizedBox(height: 80),
-        ],
-      ),
+            }).toList()),
+          ),
+      ]),
     );
   }
 
-  Widget _buildStatCol(String label, double value, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text("₹${value.toStringAsFixed(0)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 18)),
-      ],
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _compactMoney(double v) {
+    if (v >= 100000) return v.toStringAsFixed(0);
+    if (v >= 1000) return v.toStringAsFixed(0);
+    return v.toStringAsFixed(2);
+  }
+
+  static HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed) return HudTone.red;
+    return HudTone.amber;
+  }
+}
+
+class _CatRow {
+  final FinanceCategory cat;
+  final double amount;
+  final double pct;
+  _CatRow(this.cat, this.amount, this.pct);
+}
+
+class _ExpenditureBars extends StatelessWidget {
+  final List<double> daily;
+  const _ExpenditureBars({required this.daily});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxV = daily.reduce(math.max);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(daily.length, (i) {
+        final isLast = i == daily.length - 1;
+        final v = daily[i];
+        final pct = maxV > 0 ? v / maxV : 0;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: i == daily.length - 1 ? 0 : 2),
+            child: FractionallySizedBox(
+              heightFactor: math.max(0.03, pct.toDouble()),
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isLast ? JweTheme.accentAmber : JweTheme.accentAmber.withValues(alpha: 0.40),
+                  boxShadow: isLast ? [BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.5), blurRadius: 5)] : null,
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _LedgerActionBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _LedgerActionBtn({required this.label, required this.icon, required this.accent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ClipPath(
+        clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            border: Border.all(color: accent.withValues(alpha: 0.45)),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 14, color: accent),
+            const SizedBox(width: 6),
+            Text(label,
+                style: GoogleFonts.saira(
+                  color: accent, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ResetBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: JweTheme.accentRed.withValues(alpha: 0.45)),
+        ),
+        child: Icon(MdiIcons.refresh, size: 16, color: JweTheme.accentRed),
+      ),
     );
   }
 }

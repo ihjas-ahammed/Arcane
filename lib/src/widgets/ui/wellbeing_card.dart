@@ -1,99 +1,97 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/theme/wellbeing_theme.dart';
-import 'package:arcane/src/widgets/ui/spidey_progress_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
+/// Operator HUD trait tile — telemetry row with segmented bar.
 class WellbeingCard extends StatelessWidget {
   final Skill skill;
   final VoidCallback onTap;
 
-  const WellbeingCard({
-    super.key,
-    required this.skill,
-    required this.onTap,
-  });
+  const WellbeingCard({super.key, required this.skill, required this.onTap});
+
+  HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed) return HudTone.red;
+    return HudTone.amber;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final double progress = skill.maxXp > 0 ? skill.currentXp / skill.maxXp : 0.0;
-    final int level = skill.level;
-    final Color color = WellbeingTheme.getColor(skill.name);
-    final IconData icon = WellbeingTheme.getIcon(skill.name);
+    final progress = skill.maxXp > 0 ? skill.currentXp / skill.maxXp : 0.0;
+    final level = skill.level;
+    final color = WellbeingTheme.getColor(skill.name);
+    final icon = WellbeingTheme.getIcon(skill.name);
+    final tone = _toneFor(color);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: PersonInfoTheme.bgPanel,
-          border: Border(left: BorderSide(color: color, width: 3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(4),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        child: HudPanel(
+          clip: HudClip.br,
+          accent: color,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  border: Border.all(color: color.withValues(alpha: 0.40), width: 1),
+                ),
+                child: Icon(icon, color: color, size: 16),
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        skill.name.toUpperCase(),
-                        style: GoogleFonts.rajdhani(
-                          color: PersonInfoTheme.textWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                      Text(
-                        "LVL $level",
-                        style: GoogleFonts.rajdhani(
-                          color: color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  skill.name.toUpperCase(),
+                  style: GoogleFonts.saira(
+                    color: JweTheme.textWhite,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    letterSpacing: 0.6,
                   ),
-                  const SizedBox(height: 8),
-                  SpideyProgressBar(progress: progress, color: color),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      "${skill.currentXp} / ${skill.maxXp} XP",
-                      style: GoogleFonts.rajdhani(
-                        color: PersonInfoTheme.textGrey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+              Text(
+                'LVL $level',
+                style: GoogleFonts.jetBrainsMono(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            HudProgressBar(value: progress * 100, tone: tone, segments: 18, height: 4),
+            const SizedBox(height: 4),
+            Row(children: [
+              Text(
+                '${skill.currentXp.toString().padLeft(4)} / ${skill.maxXp} XP',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${(progress * 100).round()}%',
+                style: GoogleFonts.jetBrainsMono(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ]),
+          ]),
         ),
       ),
     );

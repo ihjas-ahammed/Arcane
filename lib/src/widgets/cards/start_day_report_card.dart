@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/startup_wellbeing_metrics.dart';
-import 'package:arcane/src/screens/nora_ai_screen.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -14,8 +15,8 @@ class StartDayReportCard extends StatefulWidget {
   final bool isRegenerating;
 
   const StartDayReportCard({
-    super.key, 
-    required this.report, 
+    super.key,
+    required this.report,
     this.onRegenerate,
     this.isRegenerating = false,
   });
@@ -31,15 +32,15 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
     final provider = Provider.of<AppProvider>(context, listen: false);
     final forecast = widget.report['forecast'] as String? ?? "System Started.";
     final directives = (widget.report['directives'] as List?)?.join(', ') ?? "";
-    
+
     final customContext = """
     STARTUP CONTEXT:
     Forecast: $forecast
     Directives: $directives
-    
+
     The user has just initiated the system. Act as a supportive tactical commander or friend to prepare them for the day.
     """;
-    
+
     provider.createNoraSession(
       title: "STARTUP LINK",
       tone: "Tactician",
@@ -47,121 +48,201 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
       endDate: DateTime.now(),
       customContext: customContext,
     );
-    
+
     Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final forecast = widget.report['forecast'] as String? ?? widget.report['briefing'] as String? ?? "Systems nominal. Ready for input.";
-    final directives = (widget.report['directives'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final forecast = widget.report['forecast'] as String? ??
+        widget.report['briefing'] as String? ??
+        "Systems nominal. Ready for input.";
+    final directives = (widget.report['directives'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
     final metrics = widget.report['metrics'] as List<dynamic>?;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: JweTheme.panel,
-        border: Border.all(color: JweTheme.accentCyan.withOpacity(0.3)),
-      ),
+    return HudPanel(
+      clip: HudClip.both,
+      accent: JweTheme.accentCyan,
+      allBrackets: true,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // HEADER (Expandable Toggle)
+          // ── Header ──────────────────────────────────────
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
               decoration: BoxDecoration(
-                color: JweTheme.accentCyan.withOpacity(0.1),
-                border: Border(bottom: BorderSide(color: JweTheme.accentCyan.withOpacity(0.3))),
+                border: Border(
+                    bottom: BorderSide(
+                        color: JweTheme.accentCyan.withValues(alpha: 0.22))),
               ),
-              child: Row(
-                children: [
-                   Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "SYSTEM STARTUP OVERVIEW",
-                      style: GoogleFonts.rajdhani(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: JweTheme.accentCyan,
-                        letterSpacing: 1.5,
-                      ),
+              child: Row(children: [
+                Container(width: 4, height: 14, color: JweTheme.accentCyan),
+                const SizedBox(width: 10),
+                Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 13),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'SYSTEM STARTUP OVERVIEW',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentCyan,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
                     ),
                   ),
-                  if (widget.onRegenerate != null && _isExpanded)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: InkWell(
-                        onTap: widget.isRegenerating ? null : widget.onRegenerate,
-                        child: widget.isRegenerating 
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.accentCyan))
-                          :  Icon(MdiIcons.refresh, size: 16, color: JweTheme.textMuted),
-                      ),
+                ),
+                if (widget.onRegenerate != null && _isExpanded)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      onTap: widget.isRegenerating ? null : widget.onRegenerate,
+                      child: widget.isRegenerating
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.4,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                      JweTheme.accentCyan)),
+                            )
+                          : Icon(MdiIcons.refresh,
+                              size: 15, color: JweTheme.textMuted),
                     ),
-                  Icon(_isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown, color: JweTheme.textMuted, size: 20),
-                ],
-              ),
+                  ),
+                HudDot(tone: HudTone.cyan, size: 5),
+                const SizedBox(width: 8),
+                Icon(
+                  _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                  color: JweTheme.textMuted,
+                  size: 18,
+                ),
+              ]),
             ),
           ),
 
-          // BODY
+          // ── Collapsed preview ────────────────────────────
+          if (!_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Text(
+                forecast,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMid,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+
+          // ── Expanded body ────────────────────────────────
           if (_isExpanded)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Forecast Text
-                  const Text("AI FORECAST", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  const SizedBox(height: 6),
+                  // Forecast
+                  Text('AI FORECAST',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.8,
+                      )),
+                  const SizedBox(height: 8),
                   Text(
                     forecast,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                       color: JweTheme.textWhite,
-                      height: 1.4,
-                      fontSize: 12,
-                      fontFamily: "RobotoMono"
+                      fontSize: 13,
+                      height: 1.5,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
 
+                  // Directives
                   if (directives.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Text("DIRECTIVES", style: TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 18),
+                    Row(children: [
+                      Container(width: 3, height: 10, color: JweTheme.accentAmber),
+                      const SizedBox(width: 8),
+                      Text('DIRECTIVES',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentAmber,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.8,
+                          )),
+                    ]),
+                    const SizedBox(height: 10),
                     ...directives.map((d) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("> ", style: TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 12)),
-                          Expanded(child: Text(d, style: const TextStyle(color: JweTheme.textWhite, fontSize: 12, height: 1.3))),
-                        ],
-                      ),
-                    )),
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('> ',
+                                  style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.accentCyan,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12)),
+                              Expanded(
+                                child: Text(d,
+                                    style: GoogleFonts.saira(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 13,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w500,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        )),
                   ],
 
-                  const SizedBox(height: 16),
-
-                  // METRICS
-                  if (metrics != null)
+                  // Metrics
+                  if (metrics != null) ...[
+                    const SizedBox(height: 18),
                     StartupWellbeingMetrics(metrics: metrics),
+                  ],
 
-                  const SizedBox(height: 20),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon:  Icon(MdiIcons.brain, size: 14),
-                      label: Text("INITIATE NORA LINK", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: JweTheme.accentCyan,
-                        side: const BorderSide(color: JweTheme.accentCyan),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: const BeveledRectangleBorder(),
+                  const SizedBox(height: 18),
+
+                  // NORA LINK button
+                  InkWell(
+                    onTap: () => _startWithNora(context),
+                    child: ClipPath(
+                      clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          color: JweTheme.accentCyan.withValues(alpha: 0.10),
+                          border: Border.all(
+                              color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(MdiIcons.brain,
+                                size: 14, color: JweTheme.accentCyan),
+                            const SizedBox(width: 8),
+                            Text('INITIATE NORA LINK',
+                                style: GoogleFonts.saira(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.6,
+                                )),
+                          ],
+                        ),
                       ),
-                      onPressed: () => _startWithNora(context),
                     ),
                   ),
                 ],
@@ -169,6 +250,6 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
             ),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn().slideY(begin: 0.06, end: 0);
   }
 }

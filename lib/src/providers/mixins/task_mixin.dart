@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/utils/constants.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 
 /// Manages Tasks, Projects, and History Logic
 mixin TaskMixin on ChangeNotifier {

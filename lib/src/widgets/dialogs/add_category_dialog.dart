@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 
 class AddCategoryDialog extends StatefulWidget {

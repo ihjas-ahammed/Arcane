@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 
 const String _userCollection = 'users'; 
@@ -27,14 +26,35 @@ class StorageService {
     if (userId.isEmpty) return null;
 
     try {
-      final snap = await _rtdb.ref('users/$userId/data').get();
+      final baseRef = _rtdb.ref('users/$userId/data');
       
-      if (snap.exists && snap.value != null) {
-        return _parseRtdbData(snap.value as Map<dynamic, dynamic>);
+      // Fetch each chunk separately to prevent OutOfMemoryError when parsing massive snapshot
+      final settingsSnap = await baseRef.child(_docSettings).get();
+      final tasksSnap = await baseRef.child(_docTasks).get();
+      final financeSnap = await baseRef.child(_docFinance).get();
+      final healthSnap = await baseRef.child(_docHealth).get();
+      
+      // Limit history to the last 365 days to prevent excessive memory usage
+      // (saveHistory uses .update(), so older days are not overwritten/lost)
+      final historySnap = await baseRef.child('history').orderByKey().limitToLast(365).get();
+      final reflectionsSnap = await baseRef.child('reflections').get();
+      
+      Map<dynamic, dynamic> rawData = {};
+      
+      if (settingsSnap.exists) rawData[_docSettings] = settingsSnap.value;
+      if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
+      if (financeSnap.exists) rawData[_docFinance] = financeSnap.value;
+      if (healthSnap.exists) rawData[_docHealth] = healthSnap.value;
+      if (historySnap.exists) rawData['history'] = historySnap.value;
+      if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
+      
+      if (rawData.isNotEmpty) {
+        return _parseRtdbData(rawData);
       } else {
         return null;
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.getUserData] $e\n$stack');
       return null;
     }
   }
@@ -45,7 +65,8 @@ class StorageService {
     try {
       final snap = await _rtdb.ref('users/$userId/lastModified').get();
       return (snap.value as num?)?.toInt() ?? 0;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.getLastModified] $e\n$stack');
       return 0;
     }
   }
@@ -106,7 +127,8 @@ class StorageService {
     try {
       await _rtdbRef(userId, chunk).set(jsonEncode(data));
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService._saveChunkToRTDB:$chunk] $e\n$stack');
       return false;
     }
   }
@@ -121,7 +143,8 @@ class StorageService {
       });
       await _rtdb.ref('users/$userId/data/history').update(updates);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveHistory] $e\n$stack');
       return false;
     }
   }
@@ -134,9 +157,10 @@ class StorageService {
       for (var log in logs) {
         updates[log['id']] = jsonEncode(log);
       }
-      await _rtdb.ref('users/$userId/data/reflections').set(updates); 
+      await _rtdb.ref('users/$userId/data/reflections').set(updates);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveReflections] $e\n$stack');
       return false;
     }
   }
@@ -150,9 +174,10 @@ class StorageService {
       batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc(_gameStateDocId));
       batch.delete(_firestore.collection(_userCollection).doc(userId).collection(_userSubcollectionDocId).doc('base_state'));
       await batch.commit();
-      
+
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.deleteUserData] $e\n$stack');
       return false;
     }
   }
@@ -172,7 +197,8 @@ class StorageService {
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveDailyData] $e\n$stack');
       return false;
     }
   }
@@ -195,7 +221,8 @@ class StorageService {
         result[doc.id] = doc.data();
       }
       return result;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.fetchRecentDailyData] $e\n$stack');
       return {};
     }
   }
@@ -213,7 +240,8 @@ class StorageService {
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveWeeklyReport] $e\n$stack');
       return false;
     }
   }
@@ -227,14 +255,15 @@ class StorageService {
           .collection('weekly')
           .orderBy('updatedAt', descending: true)
           .get();
-          
+
       return snap.docs.map((doc) {
         return {
           'id': doc.id,
           ...doc.data(),
         };
       }).toList();
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[StorageService.fetchWeeklyReports] $e\n$stack');
       return[];
     }
   }

@@ -1,9 +1,9 @@
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/models/task_models.dart';
-import 'package:arcane/src/utils/helpers.dart';
-import 'package:arcane/src/utils/time_validation_helper.dart';
-import 'package:arcane/src/utils/task_calculations.dart';
-import 'package:arcane/src/utils/id_generator.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/utils/helpers.dart';
+import 'package:missions/src/utils/time_validation_helper.dart';
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/id_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
@@ -103,6 +103,118 @@ class TaskActions {
       final newPlan = List<String>.from(currentPlan)..remove(compoundId);
       updateDayPlan(today, newPlan);
     }
+  }
+
+  Map<String, int> getDayPlanEstimates(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return {};
+    final raw = dayData['dailyPlanEstimates'];
+    if (raw is! Map) return {};
+    final out = <String, int>{};
+    raw.forEach((k, v) {
+      if (k is String && v is num) out[k] = v.toInt();
+    });
+    return out;
+  }
+
+  void setDayPlanEstimate(String dateStr, String compoundId, int minutes) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    final current = Map<String, dynamic>.from(
+      (newHistory[dateStr]['dailyPlanEstimates'] as Map?) ?? {},
+    );
+    if (minutes <= 0) {
+      current.remove(compoundId);
+    } else {
+      current[compoundId] = minutes;
+    }
+    newHistory[dateStr]['dailyPlanEstimates'] = current;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// True if there are remaining (uncompleted, still-valid) items in [fromDate]'s plan.
+  bool hasUnfinishedPlan(String fromDate) {
+    final plan = getDayPlan(fromDate);
+    if (plan.isEmpty) return false;
+    for (final id in plan) {
+      if (_isPlanItemActionable(id)) return true;
+    }
+    return false;
+  }
+
+  bool _isPlanItemActionable(String compoundId) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return false;
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+    if (task == null) return false;
+    final sub = task.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+    if (sub == null) return false;
+    if (parts.length == 3) {
+      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      return cp != null && !cp.completed;
+    }
+    return !sub.completed;
+  }
+
+  /// Moves all actionable unfinished items from [fromDate] into [toDate]'s plan
+  /// (appended, de-duplicated, preserving order). Estimates ride along.
+  /// Marks [toDate] as carryover-handled so the banner doesn't reappear.
+  void carryOverUnfinished(String fromDate, String toDate) {
+    final src = getDayPlan(fromDate);
+    final actionable = src.where(_isPlanItemActionable).toList();
+    final dst = getDayPlan(toDate);
+    final merged = [...dst];
+    for (final id in actionable) {
+      if (!merged.contains(id)) merged.add(id);
+    }
+
+    final srcEstimates = getDayPlanEstimates(fromDate);
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(toDate)) {
+      newHistory[toDate] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[toDate]['dailyPlan'] = merged;
+    final mergedEstimates = Map<String, dynamic>.from(
+      (newHistory[toDate]['dailyPlanEstimates'] as Map?) ?? {},
+    );
+    for (final id in actionable) {
+      if (srcEstimates.containsKey(id) && !mergedEstimates.containsKey(id)) {
+        mergedEstimates[id] = srcEstimates[id];
+      }
+    }
+    newHistory[toDate]['dailyPlanEstimates'] = mergedEstimates;
+    newHistory[toDate]['carryoverHandled'] = true;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// Marks [dateStr] as carryover-handled without moving anything.
+  void dismissCarryover(String dateStr) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[dateStr]['carryoverHandled'] = true;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  bool wasCarryoverHandled(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return false;
+    return dayData['carryoverHandled'] == true;
   }
 
   // --- SubSubTask Actions ---
@@ -212,18 +324,12 @@ class TaskActions {
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, true);
-    }
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': false, 'completionTimestamp': null};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subSubtaskId, false);
-    }
   }
 
   void moveCheckpointRelative(String mainTaskId, String subTaskId, String draggedId, String targetId, String position) {
@@ -384,6 +490,7 @@ class TaskActions {
     if (updates.containsKey('name')) subtaskToUpdate.name = updates['name'] as String;
     if (updates.containsKey('description')) subtaskToUpdate.description = updates['description'] as String;
     if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
+    if (updates.containsKey('progressMode')) subtaskToUpdate.progressMode = updates['progressMode'] as String;
     if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
     if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
@@ -458,10 +565,6 @@ class TaskActions {
 
     _provider.setProviderState(mainTasks: newMainTasks);
 
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, true);
-    }
-
     logToDailySummary('subtaskCompleted', {
       'parentTaskId': mainTask.id,
       'name': subTask.name,
@@ -488,10 +591,6 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-
-    if (!fromSync) {
-      _provider.projectActions.syncProjectStepFromTaskCompletion(subtaskId, false);
-    }
   }
 
   // FIX: Perform soft deletion to preserve session logs for schedule history
@@ -608,8 +707,10 @@ class TaskActions {
     }).toList();
     
     _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
-    return true; 
+    // Defer recalibration — currentTimeSpent is already correct above;
+    // history rebuild runs after UI paints to avoid blocking the frame
+    Future.microtask(() => recalibrateTimeLogs(silent: true));
+    return true;
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
@@ -755,6 +856,46 @@ class TaskActions {
     );
     
     if (!silent) _provider.setLoadingTask(null);
+  }
+
+  void saveProgressDataPoint(String mainTaskId, String subTaskId, double progress, int spentSeconds) {
+    final point = ProgressDataPoint(
+      timestamp: DateTime.now(),
+      progress: progress.clamp(0.0, 1.0),
+      spentSeconds: spentSeconds,
+    );
+
+    final newMainTasks = _provider.mainTasks.map((t) {
+      if (t.id == mainTaskId) {
+        return t.copyWith(subTasks: t.subTasks.map((s) {
+          if (s.id == subTaskId) {
+            final updated = [...s.progressDataPoints, point]
+              ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
+            return s.copyWith(progressDataPoints: updated);
+          }
+          return s;
+        }).toList());
+      }
+      return t;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void deleteProgressDataPoint(String mainTaskId, String subTaskId, int index) {
+    final newMainTasks = _provider.mainTasks.map((t) {
+      if (t.id == mainTaskId) {
+        return t.copyWith(subTasks: t.subTasks.map((s) {
+          if (s.id == subTaskId) {
+            final updated = List<ProgressDataPoint>.from(s.progressDataPoints);
+            if (index >= 0 && index < updated.length) updated.removeAt(index);
+            return s.copyWith(progressDataPoints: updated);
+          }
+          return s;
+        }).toList());
+      }
+      return t;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
   }
 
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) {

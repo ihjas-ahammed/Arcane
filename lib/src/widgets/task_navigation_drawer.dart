@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/ui/jwe_drawer_protocol_item.dart';
-import 'package:arcane/src/widgets/ui/jwe_compact_task_card.dart';
-import 'package:arcane/src/widgets/dialogs/jwe_task_options_dialog.dart';
-import 'package:arcane/src/widgets/dialogs/add_edit_protocol_dialog.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/jwe_drawer_protocol_item.dart';
+import 'package:missions/src/widgets/ui/jwe_compact_task_card.dart';
+import 'package:missions/src/widgets/dialogs/jwe_task_options_dialog.dart';
+import 'package:missions/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -65,22 +65,38 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
         children: [
           // Header Section
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 18),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: JweTheme.border, width: 2)),
-              color: JweTheme.panel,
+              border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
+              color: JweTheme.bgCanvas,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Container(width: 4, height: 14, color: JweTheme.accentAmber),
+                    const SizedBox(width: 10),
+                    Text(
+                      'AGENT REGISTRY',
+                      style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 10, letterSpacing: 1.8, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'A-NN',
+                      style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  "PROTOCOLS", 
-                  style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2.0)
+                  'PROTOCOLS',
+                  style: GoogleFonts.saira(color: JweTheme.textWhite, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 1.6),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  "SELECT MISSION PROFILE", 
-                  style: TextStyle(color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                Text(
+                  'SELECT OPERATIONAL VECTOR',
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.6, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -113,12 +129,23 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                 ],
                 
                 if (inactiveTasks.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                    child: Text(
-                      "INACTIVE ARCHIVE", 
-                      style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 2.0, fontSize: 10)
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6.0),
+                    child: Row(
+                      children: [
+                        Container(width: 4, height: 10, color: JweTheme.textMuted),
+                        const SizedBox(width: 8),
+                        Text(
+                          'INACTIVE ARCHIVE',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 10,
+                            letterSpacing: 1.6,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   ...inactiveTasks.map((task) {
@@ -148,17 +175,31 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
           ),
 
           Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: OutlinedButton.icon(
-              icon:  Icon(MdiIcons.plus, size: 18),
-              label: Text("NEW AGENT", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: JweTheme.accentCyan,
-                side: const BorderSide(color: JweTheme.accentCyan, width: 1.5),
-                shape: const BeveledRectangleBorder(),
-                padding: const EdgeInsets.symmetric(vertical: 16)
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: InkWell(
+              onTap: () => _showAddTaskDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: JweTheme.lineAmber, width: 1, style: BorderStyle.solid),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(MdiIcons.plus, size: 16, color: JweTheme.accentAmber),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+ DEPLOY AGENT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentAmber,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: () => _showAddTaskDialog(context),
             ),
           )
         ],

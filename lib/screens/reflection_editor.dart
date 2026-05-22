@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:arcane/theme/valorant_theme.dart';
-import 'package:arcane/widgets/valorant_container.dart';
-import 'package:arcane/widgets/valorant_button.dart';
+import 'package:missions/theme/valorant_theme.dart';
+import 'package:missions/widgets/valorant_container.dart';
+import 'package:missions/widgets/valorant_button.dart';
 
 class ReflectionEditor extends StatefulWidget {
   const ReflectionEditor({super.key});

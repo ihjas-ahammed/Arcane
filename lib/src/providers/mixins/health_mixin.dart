@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/health_models.dart';
-import 'package:arcane/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/models/health_models.dart';
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:uuid/uuid.dart';
 
 mixin HealthMixin on ChangeNotifier {
@@ -99,6 +99,19 @@ mixin HealthMixin on ChangeNotifier {
   void updateWater(String dateStr, int glasses) {
     final hLog = getDailyHealthLog(dateStr);
     hLog.waterGlasses = glasses;
+    sync.markDirty('health');
+  }
+
+  void addEnergyLog(String dateStr, EnergyLog log) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.energyLogs.add(log);
+    hLog.energyLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    sync.markDirty('health');
+  }
+
+  void deleteEnergyLog(String dateStr, String logId) {
+    final hLog = getDailyHealthLog(dateStr);
+    hLog.energyLogs.removeWhere((e) => e.id == logId);
     sync.markDirty('health');
   }
 }

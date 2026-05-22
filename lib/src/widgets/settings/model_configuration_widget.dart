@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class ModelConfigurationWidget extends StatefulWidget {

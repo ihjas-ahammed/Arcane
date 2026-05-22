@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/theme/person_info_theme.dart';
-import 'package:arcane/src/widgets/ui/wellbeing_card.dart';
-import 'package:arcane/src/widgets/dialogs/wellbeing_detail_dialog.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/widgets/ui/wellbeing_card.dart';
+import 'package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -104,7 +104,7 @@ class WellbeingDrawer extends StatelessWidget {
             child: ElevatedButton.icon(
               icon: appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..."
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                : Icon(MdiIcons.syncIcon, size: 18, color: Colors.black),
+                : Icon(MdiIcons.sync, size: 18, color: Colors.black),
               label: Text(
                 appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
                 style: GoogleFonts.rajdhani(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
 
 class WellbeingTrendChart extends StatelessWidget {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:arcane/theme/valorant_theme.dart';
+import 'package:missions/theme/valorant_theme.dart';
 
 /// A container with the signature "cut corner" aesthetic of Valorant.
 class ValorantContainer extends StatelessWidget {

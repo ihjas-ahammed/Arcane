@@ -1,14 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/models/timeline_models.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/widgets/schedule/timeline_entry_card.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/models/timeline_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/schedule/timeline_entry_card.dart';
 
 class ScheduleTimeline extends StatefulWidget {
   final List<TimelineEntry> entries;
   final VoidCallback onAddSession;
   final Function(TimelineEntry) onEditEntry;
   final double initialScrollOffset;
+  final bool scrollToNow;
+  final ValueListenable<int>? scrollToNowTick;
 
   const ScheduleTimeline({
     super.key,
@@ -16,6 +20,8 @@ class ScheduleTimeline extends StatefulWidget {
     required this.onAddSession,
     required this.onEditEntry,
     this.initialScrollOffset = 0,
+    this.scrollToNow = false,
+    this.scrollToNowTick,
   });
 
   @override
@@ -30,31 +36,61 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   void initState() {
     super.initState();
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    widget.scrollToNowTick?.addListener(_handleScrollToNowTick);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.entries.isNotEmpty) {
-        double earliestHour = 24;
+      double targetHour;
+      if (widget.scrollToNow) {
+        final now = DateTime.now();
+        targetHour = now.hour + (now.minute / 60.0);
+      } else if (widget.entries.isNotEmpty) {
+        targetHour = 24;
         for (var e in widget.entries) {
           final h = e.startTime.hour + (e.startTime.minute / 60.0);
-          if (h < earliestHour) earliestHour = h;
-        }
-        final offset = (earliestHour - 1).clamp(0, 24) * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
+          if (h < targetHour) targetHour = h;
         }
       } else {
-        final offset = 8 * _basePixelsPerHour;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(offset);
-        }
+        targetHour = 8;
+      }
+      // Keep target near the top of the viewport, with ~1.5h of lookback for context.
+      final offset = (targetHour - 1.5).clamp(0, 24) * _basePixelsPerHour;
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        _scrollController.jumpTo(offset.clamp(0.0, maxScroll));
       }
     });
   }
 
   @override
+  void didUpdateWidget(ScheduleTimeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToNowTick != widget.scrollToNowTick) {
+      oldWidget.scrollToNowTick?.removeListener(_handleScrollToNowTick);
+      widget.scrollToNowTick?.addListener(_handleScrollToNowTick);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.scrollToNowTick?.removeListener(_handleScrollToNowTick);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleScrollToNowTick() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final now = DateTime.now();
+      final targetHour = now.hour + (now.minute / 60.0);
+      final offset = (targetHour - 1.5).clamp(0, 24) * _basePixelsPerHour;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      _scrollController.animateTo(
+        offset.clamp(0.0, maxScroll),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
@@ -113,7 +149,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
     return LayoutBuilder(builder: (context, constraints) {
       return Container(
-        color: AppTheme.fhBgDeepDark,
+        color: JweTheme.bgCanvas,
         child: SingleChildScrollView(
           controller: _scrollController,
           child: GestureDetector(
@@ -126,8 +162,15 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               color: Colors.transparent,
               child: Stack(
                 children: [
+                  // Hairline gutter divider
+                  const Positioned(
+                    top: 0, bottom: 0, left: 55,
+                    width: 1,
+                    child: ColoredBox(color: JweTheme.lineSoft),
+                  ),
                   // Grid
                   ...List.generate(hoursCount, (index) {
+                    final isMajor = index % 3 == 0;
                     return Positioned(
                       top: index * pixelsPerHour,
                       left: 0,
@@ -136,17 +179,23 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         height: pixelsPerHour,
                         decoration: BoxDecoration(
                           border: Border(
-                              top: BorderSide(
-                                  color: AppTheme.fhBorderColor.withOpacity(0.2),
-                                  width: 1)),
+                            top: BorderSide(
+                              color: isMajor ? JweTheme.lineAmber : JweTheme.lineSoft,
+                              width: isMajor ? 1 : 0.5,
+                            ),
+                          ),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.only(left: 8, top: 4),
-                          child: Text("${index.toString().padLeft(2, '0')}:00",
-                              style: TextStyle(
-                                  color: AppTheme.fhTextSecondary.withOpacity(0.5),
-                                  fontSize: 10,
-                                  fontFamily: 'RobotoMono')),
+                          padding: const EdgeInsets.only(left: 6, top: 4),
+                          child: Text(
+                            '${index.toString().padLeft(2, '0')}:00',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isMajor ? JweTheme.accentAmber : JweTheme.textMuted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
                         ),
                       ),
                     );
@@ -195,26 +244,58 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final top = currentHour * pixelsPerHour;
 
     return Positioned(
-      top: top,
+      top: top - 6,
       left: 0,
       right: 0,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 55,
             padding: const EdgeInsets.only(right: 4),
             alignment: Alignment.centerRight,
-            child: Text(
-              DateFormat('HH:mm').format(now),
-              style: const TextStyle(
-                  color: AppTheme.fhAccentRed,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                  fontFamily: 'RobotoMono'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'NOW',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+                Text(
+                  DateFormat('HH:mm').format(now),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Expanded(
-              child: Divider(color: AppTheme.fhAccentRed, thickness: 1)),
+          Container(
+            width: 6, height: 6,
+            decoration: BoxDecoration(
+              color: JweTheme.accentAmber,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.7), blurRadius: 6)],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                color: JweTheme.accentAmber,
+                boxShadow: [BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.6), blurRadius: 6)],
+              ),
+            ),
+          ),
         ],
       ),
     );

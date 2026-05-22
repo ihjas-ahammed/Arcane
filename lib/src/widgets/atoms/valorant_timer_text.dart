@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/theme/app_theme.dart';
-import 'package:arcane/src/utils/helpers.dart' as helper;
+import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/utils/helpers.dart' as helper;
 
 class ValorantTimerText extends StatefulWidget {
   final bool isRunning;

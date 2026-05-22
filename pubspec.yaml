@@ -1,4 +1,4 @@
-name: arcane
+name: missions
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none'
 
@@ -45,6 +45,7 @@ dependencies:
   image_picker: ^1.2.1
   mime: ^2.0.0
   shared_preferences: ^2.5.4
+  flutter_local_notifications: ^17.2.4
 
 dev_dependencies:
   flutter_test:
@@ -87,3 +88,7 @@ flutter:
         - asset: assets/fonts/OpenSans-Regular.ttf
         - asset: assets/fonts/OpenSans-SemiBold.ttf
           weight: 600
+
+dependency_overrides:
+  material_design_icons_flutter:
+    path: ./packages/material_design_icons_flutter

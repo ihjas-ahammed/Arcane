@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:intl/intl.dart';
 
 class HealthCombinedChart extends StatelessWidget {
@@ -37,9 +37,9 @@ class HealthCombinedChart extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children:[
-            _LegendItem("SLEEP (HRS)", JweTheme.accentCyan),
+            _LegendItem("SLEEP (HRS)", SpideyTheme.spideyCyan),
             const SizedBox(width: 12),
-            _LegendItem("WORK (HRS)", JweTheme.accentAmber),
+            _LegendItem("WORK (HRS)", SpideyTheme.spideyRed),
           ],
         ),
         const SizedBox(height: 12),
@@ -49,7 +49,7 @@ class HealthCombinedChart extends StatelessWidget {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (val) => const FlLine(color: JweTheme.border, strokeWidth: 1),
+                getDrawingHorizontalLine: (val) => const FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
               ),
               titlesData: FlTitlesData(
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -64,7 +64,7 @@ class HealthCombinedChart extends StatelessWidget {
                       final date = now.subtract(Duration(days: 6 - value.toInt()));
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                       );
                     }
                   )
@@ -73,11 +73,11 @@ class HealthCombinedChart extends StatelessWidget {
               borderData: FlBorderData(show: false),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (group) => JweTheme.panel,
+                  getTooltipColor: (group) => SpideyTheme.bgPanel,
                   getTooltipItems: (touchedSpots) {
                     return touchedSpots.map((spot) {
-                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: JweTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.bold));
-                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: JweTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.bold));
+                      if (spot.barIndex == 0) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Sleep", const TextStyle(color: SpideyTheme.spideyCyan, fontSize: 12, fontWeight: FontWeight.bold));
+                      if (spot.barIndex == 1) return LineTooltipItem("${spot.y.toStringAsFixed(1)} h Work", const TextStyle(color: SpideyTheme.spideyRed, fontSize: 12, fontWeight: FontWeight.bold));
                       return null;
                     }).whereType<LineTooltipItem>().toList();
                   }
@@ -85,10 +85,10 @@ class HealthCombinedChart extends StatelessWidget {
               ),
               lineBarsData:[
                 LineChartBarData(
-                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+                  spots: sleepSpots, color: SpideyTheme.spideyCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: SpideyTheme.spideyCyan.withOpacity(0.1))
                 ),
                 LineChartBarData(
-                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withOpacity(0.1))
+                  spots: workSpots, color: SpideyTheme.spideyRed, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: SpideyTheme.spideyRed.withOpacity(0.1))
                 ),
               ]
             )

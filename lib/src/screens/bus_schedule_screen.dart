@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:arcane/src/widgets/bus/bus_schedule_grid.dart';
+import 'package:provider/provider.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/widgets/bus/bus_schedule_grid.dart';
 
 class BusScheduleScreen extends StatefulWidget {
   const BusScheduleScreen({super.key});
@@ -83,16 +85,11 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
   Future<void> _loadSchedules() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedStr = prefs.getString('custom_bus_schedules');
-      if (savedStr != null) {
-        final decoded = jsonDecode(savedStr) as Map<String, dynamic>;
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      if (provider.settings.customBusSchedules != null) {
         Map<String, Map<String, List<String>>> loaded = {};
-        decoded.forEach((k1, v1) {
-          Map<String, List<String>> innerMap = {};
-          (v1 as Map<String, dynamic>).forEach((k2, v2) {
-             innerMap[k2] = (v2 as List<dynamic>).map((e) => e.toString()).toList();
-          });
+        provider.settings.customBusSchedules!.forEach((k1, v1) {
+          Map<String, List<String>> innerMap = Map<String, List<String>>.from(v1);
           loaded[k1] = innerMap;
           if (!_locations.contains(k1)) _locations.add(k1);
         });
@@ -108,8 +105,11 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
   Future<void> _saveSchedules() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('custom_bus_schedules', jsonEncode(_schedules));
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final newSettings = AppSettings.fromJson(provider.settings.toJson());
+      newSettings.customBusSchedules = _schedules;
+      provider.setSettings(newSettings);
+      
       _calculateDerivedRoutes();
       setState(() {});
     } catch (e) {

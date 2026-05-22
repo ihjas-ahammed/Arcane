@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:arcane/src/models/app_state_models.dart';
-import 'package:arcane/src/services/storage_service.dart';
-import 'package:arcane/src/services/local_storage_service.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/services/storage_service.dart';
+import 'package:missions/src/services/local_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 mixin SyncMixin on ChangeNotifier {
@@ -14,9 +14,11 @@ mixin SyncMixin on ChangeNotifier {
   
   bool _isSyncing = false;
   bool get isSyncing => _isSyncing;
-  
+
   bool _isManuallyLoading = false;
   bool get isManuallyLoading => _isManuallyLoading;
+
+  Timer? _saveDebounce;
   
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
@@ -37,6 +39,7 @@ mixin SyncMixin on ChangeNotifier {
 
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     super.dispose();
   }
 
@@ -44,8 +47,13 @@ mixin SyncMixin on ChangeNotifier {
     settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _saveLocalSnapshot(); 
+    _scheduleSave();
     notifyListeners();
+  }
+
+  void _scheduleSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 600), _saveLocalSnapshot);
   }
 
   void scheduleRealtimeSync() {
@@ -136,7 +144,8 @@ mixin SyncMixin on ChangeNotifier {
       final financeData = {
         'transactions': appData['transactions'],
         'categories': appData['categories'],
-        'savingsGoals': appData['savingsGoals']
+        'savingsGoals': appData['savingsGoals'],
+        'accounts': appData['accounts'],
       };
       
       final healthData = {

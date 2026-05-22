@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/widgets/dialogs/add_savings_log_dialog.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/dialogs/add_savings_log_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -76,14 +76,14 @@ class SavingsDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("ACCUMULATED FUNDS", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.currentAmount.toStringAsFixed(2)}", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontSize: 32, fontWeight: FontWeight.bold)),
+                    Text("â‚¹${goal.currentAmount.toStringAsFixed(2)}", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontSize: 32, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text("TARGET", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text("₹${goal.targetAmount.toStringAsFixed(0)}", style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text("â‚¹${goal.targetAmount.toStringAsFixed(0)}", style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 24, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ],
@@ -151,7 +151,7 @@ class SavingsDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("₹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                          Text("â‚¹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
                           Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
                         ],
                       ),
