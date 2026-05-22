@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/linked_task_indicator.dart';
 import 'package:missions/src/widgets/ui/rhombus_checkbox.dart';
-import 'package:missions/src/widgets/ui/jwe_progress_bar.dart';
 import 'package:missions/src/widgets/ui/step_bars_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -75,6 +76,13 @@ class _CheckpointItemState extends State<CheckpointItem> {
       _localCompleted = !_localCompleted;
     });
     widget.onToggle();
+  }
+
+  HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed) return HudTone.red;
+    return HudTone.amber;
   }
 
   @override
@@ -228,12 +236,35 @@ class _CheckpointItemState extends State<CheckpointItem> {
                 ],
               ),
               
-              // Quick-toggle bars for nested substeps — when the caller wires
-              // [onToggleSubstep], let users power through them without
-              // opening the detail view. Falls back to a plain progress bar
-              // (read-only) when no callback is wired so older call-sites
-              // keep their visual.
+              // Progress bar + telemetry — matches the submission card's
+              // HudBar layout. StepBarsRow is added below it when the caller
+              // wires [onToggleSubstep], for quick-toggle of nested steps.
               if (widget.hasCheckableSubsteps && !_localCompleted) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: HudBar(
+                          value: widget.progress * 100,
+                          tone: _toneFor(color),
+                          height: 4,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${(widget.progress * 100).round()}%',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10,
+                          color: JweTheme.textMuted,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (widget.substeps != null &&
                     widget.substeps!.isNotEmpty &&
                     widget.onToggleSubstep != null)
@@ -241,15 +272,6 @@ class _CheckpointItemState extends State<CheckpointItem> {
                     steps: widget.substeps!,
                     accent: color,
                     onToggle: widget.onToggleSubstep!,
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: JweProgressBar(
-                      progress: widget.progress,
-                      color: color,
-                      label: "NESTED [ ${(widget.progress * 100).toInt()}% ]"
-                    ),
                   ),
               ],
             ],

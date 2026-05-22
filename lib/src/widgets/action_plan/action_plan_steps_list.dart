@@ -33,7 +33,6 @@ class ActionPlanStepsList extends StatefulWidget {
 
 class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   final TextEditingController _stepController = TextEditingController();
-  String _newStepType = 'check';
   bool _aiMode = false;
   bool _aiLoading = false;
 
@@ -64,7 +63,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             'name': name,
             'isCountable': false,
             'targetCount': 0,
-            'type': _newStepType,
+            'type': 'check',
           });
         }
         _stepController.clear();
@@ -86,7 +85,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
         'name': name,
         'isCountable': false,
         'targetCount': 0,
-        'type': _newStepType,
+        'type': 'check',
       });
     }
     _stepController.clear();
@@ -213,22 +212,6 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children:[
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(border: Border.all(color: AppTheme.fhBorderColor)),
-                child: PopupMenuButton<String>(
-                  icon: Icon(_newStepType == 'info' ? MdiIcons.informationOutline : MdiIcons.checkboxMarkedOutline, color: AppTheme.fhTextSecondary, size: 16),
-                  tooltip: "Change Type",
-                  onSelected: (val) => setState(() => _newStepType = val),
-                  color: AppTheme.fhBgDark,
-                  itemBuilder: (context) =>[
-                    const PopupMenuItem(value: 'check', child: Text("Checkable Step", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                    const PopupMenuItem(value: 'info', child: Text("Info Note", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   controller: _stepController,

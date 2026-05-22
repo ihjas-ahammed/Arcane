@@ -51,7 +51,6 @@ class _InsightWatcherState extends State<InsightWatcher> {
       await showDialog(
         context: context,
         barrierDismissible: true,
-        barrierColor: Colors.transparent,
         builder: (_) => XpGainDialog(
           xpGained: event.xpGained,
           insightText: event.feedback,
