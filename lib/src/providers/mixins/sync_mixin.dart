@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/local_storage_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/services/app_user.dart';
 
 mixin SyncMixin on ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -25,7 +25,7 @@ mixin SyncMixin on ChangeNotifier {
 
   bool get hasUnsavedChanges => _hasUnsavedChanges;
 
-  User? get currentUser;
+  AppUser? get currentUser;
   AppSettings get settings;
   Map<String, dynamic> getFullAppState(); 
   void loadStateFromMap(Map<String, dynamic> data);

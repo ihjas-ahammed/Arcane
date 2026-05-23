@@ -5,7 +5,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
 import 'package:missions/src/widgets/settings/api_key_manager.dart';
@@ -91,7 +91,7 @@ class _SettingsViewState extends State<SettingsView> {
       });
     } catch (e) {
       if (!mounted) return;
-      if (e is FirebaseAuthException) {
+      if (e is AuthFailure) {
         setState(() =>
             _passwordChangeError = e.message ?? "Failed to change password.");
       } else {

@@ -5,7 +5,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/services/app_user.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       setState(() {
-        if (e is FirebaseAuthException) {
+        if (e is AuthFailure) {
           _error = e.message ?? "Authentication failed.";
         } else {
           _error = "Connection error. Retrying...";

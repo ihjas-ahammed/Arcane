@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/firebase_service.dart' as fb_service;
 import 'package:missions/src/services/local_storage_service.dart';
@@ -20,7 +19,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/services/app_user.dart';
 
 // Import Mixins
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
@@ -125,7 +124,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
 
-  Future<void> _onAuthStateChanged(User? user) async {
+  Future<void> _onAuthStateChanged(AppUser? user) async {
     if (user != null) {
       if (currentUser == null || currentUser!.uid != user.uid) {
         setCurrentUser(user);
@@ -308,18 +307,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> signupUser(String email, String password) async {
     final user = await fb_service.signUpWithEmail(email, password);
     if (user != null) {
-      await user.updateDisplayName("OPERATIVE");
-      await user.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+      await fb_service.updateDisplayName("OPERATIVE");
+      setCurrentUser(fb_service.currentUser);
     }
   }
-  
+
   Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
   Future<void> updateUserDisplayName(String name) async {
     if (currentUser != null) {
-      await currentUser!.updateDisplayName(name);
-      await currentUser!.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+      await fb_service.updateDisplayName(name);
+      setCurrentUser(fb_service.currentUser);
     }
   }
 
