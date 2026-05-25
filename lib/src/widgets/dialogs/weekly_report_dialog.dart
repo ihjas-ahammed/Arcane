@@ -7,6 +7,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/ability_improvement_card.dart';
+import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
 class WeeklyReportDialog extends StatefulWidget {
@@ -45,6 +46,9 @@ class _WeeklyReportDialogState extends State<WeeklyReportDialog>
     final abilities = widget.reportData['improved_abilities'] as List<dynamic>? ?? [];
     final timeInsight = widget.reportData['time_insight'] as String? ?? '';
     final gratefulPeople = widget.reportData['grateful_people'] as List<dynamic>? ?? [];
+    final gratitudeHighlights = widget.reportData['gratitude_highlights'] as List<dynamic>? ?? [];
+    final agentProgress = widget.reportData['agent_progress'] as List<dynamic>? ?? [];
+    final financeSummary = widget.reportData['finance_summary'] as String? ?? '';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -205,6 +209,126 @@ class _WeeklyReportDialogState extends State<WeeklyReportDialog>
                                                     color: JweTheme.textMid,
                                                     fontSize: 12,
                                                     fontStyle: FontStyle.italic,
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    if (gratitudeHighlights.isNotEmpty)
+                                      _Section(
+                                        title: 'GRATITUDE HIGHLIGHTS',
+                                        icon: MdiIcons.heartOutline,
+                                        accent: JweTheme.accentTeal,
+                                        delay: 820,
+                                        child: Column(
+                                          children: List.generate(
+                                              gratitudeHighlights.length.clamp(0, 5), (i) {
+                                            final item = gratitudeHighlights[i] as Map<String, dynamic>;
+                                            final text = item['text'] as String? ?? '';
+                                            final iconType = item['icon_type'] as String? ?? 'general';
+                                            if (text.isEmpty) return const SizedBox.shrink();
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 6),
+                                              child: GratitudeIntelCard(
+                                                text: text,
+                                                iconType: iconType,
+                                                index: i + 1,
+                                              ).animate(delay: (860 + i * 60).ms).fadeIn(duration: 340.ms),
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                    if (agentProgress.isNotEmpty)
+                                      _Section(
+                                        title: 'AGENT PROGRESS',
+                                        icon: MdiIcons.chartLine,
+                                        accent: JweTheme.accentCyan,
+                                        delay: 920,
+                                        child: Column(
+                                          children: List.generate(agentProgress.length, (i) {
+                                            final a = agentProgress[i] as Map<String, dynamic>;
+                                            final task = a['task'] as String? ?? '';
+                                            final insight = a['insight'] as String? ?? '';
+                                            final trend = a['trend'] as String? ?? 'stable';
+                                            final trendColor = trend == 'up'
+                                                ? JweTheme.accentTeal
+                                                : trend == 'down'
+                                                    ? JweTheme.accentRed
+                                                    : JweTheme.accentAmber;
+                                            final trendIcon = trend == 'up'
+                                                ? MdiIcons.trendingUp
+                                                : trend == 'down'
+                                                    ? MdiIcons.trendingDown
+                                                    : MdiIcons.trendingNeutral;
+                                            return Container(
+                                              margin: const EdgeInsets.only(bottom: 8),
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                color: JweTheme.bgBase.withValues(alpha: 0.6),
+                                                border: const Border(
+                                                  left: BorderSide(color: JweTheme.accentCyan, width: 2),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Icon(trendIcon, size: 13, color: trendColor),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(task.toUpperCase(),
+                                                            style: GoogleFonts.saira(
+                                                              color: JweTheme.accentCyan,
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              letterSpacing: 0.6,
+                                                            )),
+                                                        const SizedBox(height: 3),
+                                                        Text(insight,
+                                                            style: const TextStyle(
+                                                              color: JweTheme.textMid,
+                                                              fontSize: 11,
+                                                              height: 1.4,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ).animate(delay: (960 + i * 70).ms).fadeIn();
+                                          }),
+                                        ),
+                                      ),
+                                    if (financeSummary.isNotEmpty)
+                                      _Section(
+                                        title: 'FINANCE DEBRIEF',
+                                        icon: MdiIcons.currencyInr,
+                                        accent: JweTheme.accentAmber,
+                                        delay: 1020,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: JweTheme.amberSoft,
+                                            border: const Border(
+                                              left: BorderSide(color: JweTheme.accentAmber, width: 2),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(MdiIcons.walletOutline, size: 13, color: JweTheme.accentAmber),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  financeSummary,
+                                                  style: const TextStyle(
+                                                    color: JweTheme.textWhite,
+                                                    fontSize: 12,
                                                     height: 1.5,
                                                   ),
                                                 ),

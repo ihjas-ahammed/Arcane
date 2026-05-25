@@ -138,17 +138,53 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  String _buildFinanceWeekContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    double weekIncome = 0, weekExpense = 0;
+    for (final t in provider.transactions) {
+      if (t.timestamp.isAfter(weekAgo)) {
+        if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+      }
+    }
+    final balance = provider.financeActions.currentBalance;
+    return 'Week Income: ₹${weekIncome.toStringAsFixed(0)}, Expense: ₹${weekExpense.toStringAsFixed(0)}, Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}, Balance: ₹${balance.toStringAsFixed(0)}';
+  }
+
+  String _buildAgentProgressContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final buf = StringBuffer();
+    for (final task in provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
+      int weekSec = 0;
+      int completedSubs = 0;
+      final activeSubs = task.subTasks.where((s) => !s.isDeleted && s.isActive).toList();
+      for (final sub in activeSubs) {
+        if (sub.completed) completedSubs++;
+        for (final sess in sub.sessions) {
+          if (sess.startTime.isAfter(weekAgo)) weekSec += sess.durationSeconds;
+        }
+      }
+      buf.writeln('${task.name}: ${(weekSec / 3600).toStringAsFixed(1)}h this week, $completedSubs/${activeSubs.length} subtasks done');
+    }
+    return buf.toString();
+  }
+
   Future<void> _generateWeeklyReport(AppProvider provider) async {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
       final data = provider.getLast7DaysData();
       final wellbeingDiff = provider.getWeeklyWellbeingComparison();
       final aiService = provider.aiService;
-      
+      final financeContext = _buildFinanceWeekContext(provider);
+      final agentContext = _buildAgentProgressContext(provider);
+
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
         timeStatsText: data['times'] as String,
         wellbeingStatsText: wellbeingDiff,
+        financeText: financeContext,
+        agentProgressText: agentContext,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,

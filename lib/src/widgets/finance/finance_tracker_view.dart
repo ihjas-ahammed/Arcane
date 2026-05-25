@@ -181,8 +181,16 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
     }
 
     final avg30d = expense30d / 30.0;
-    final monthBudget = avg30d * 30;
-    final monthPct = monthBudget > 0 ? (monthSpend / monthBudget) * 100 : 0.0;
+
+    // Projected income for the month
+    var monthIncome = 0.0;
+    for (var t in provider.transactions) {
+      if (t.isIncome && !t.timestamp.isBefore(monthStart)) monthIncome += t.amount;
+    }
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final daysElapsed = now.day.clamp(1, daysInMonth);
+    final dailyIncomeRate = monthIncome / daysElapsed;
+    final projectedMonthIncome = dailyIncomeRate * daysInMonth;
 
     final catTotals = <String, double>{};
     for (var t in provider.transactions) {
@@ -279,23 +287,26 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                     )),
                   ]),
                   const SizedBox(height: 14),
-                  Text('BUDGET TRAJECTORY',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.6,
-                      )),
-                  const SizedBox(height: 6),
-                  HudProgressBar(
-                    value: monthPct.clamp(0, 100).toDouble(),
-                    tone: monthPct > 80 ? HudTone.red : HudTone.amber,
-                    segments: 28,
-                    height: 5,
-                    showLabel: true,
-                  ),
+                  _IncomeExpenseBar(income: income30d, expense: expense30d),
                 ]),
               ),
             ]),
           ),
         ),
+
+        // ── Projected income card ───────────────────
+        if (monthIncome > 0 || projectedMonthIncome > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: _ProjectedIncomeCard(
+              monthIncome: monthIncome,
+              projectedIncome: projectedMonthIncome,
+              monthExpense: monthSpend,
+              daysElapsed: daysElapsed,
+              daysInMonth: daysInMonth,
+              currency: _currency,
+            ),
+          ),
 
         // ── Action buttons ───────────────────────────
         Padding(
@@ -693,6 +704,187 @@ class _ResetBtn extends StatelessWidget {
         ),
         child: Icon(MdiIcons.refresh, size: 16, color: JweTheme.accentRed),
       ),
+    );
+  }
+}
+
+/// Income vs Expense dual bar replacing the old budget progress bar.
+class _IncomeExpenseBar extends StatelessWidget {
+  final double income;
+  final double expense;
+
+  const _IncomeExpenseBar({required this.income, required this.expense});
+
+  static String _fmt(double v) {
+    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = income + expense;
+    final incFrac = total > 0 ? (income / total).clamp(0.0, 1.0) : 0.5;
+    final expFrac = 1.0 - incFrac;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('INCOME VS EXPENSE · 30D',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.6,
+            )),
+        const SizedBox(height: 6),
+        LayoutBuilder(builder: (ctx, constraints) {
+          final w = constraints.maxWidth;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    height: 5,
+                    width: w * incFrac,
+                    color: JweTheme.accentTeal,
+                  ),
+                  Container(
+                    height: 5,
+                    width: w * expFrac,
+                    color: JweTheme.accentRed.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(children: [
+                Container(width: 8, height: 8, color: JweTheme.accentTeal),
+                const SizedBox(width: 4),
+                Text('IN ₹${_fmt(income)}',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentTeal, fontSize: 10, fontWeight: FontWeight.w600,
+                    )),
+                const SizedBox(width: 14),
+                Container(width: 8, height: 8, color: JweTheme.accentRed),
+                const SizedBox(width: 4),
+                Text('OUT ₹${_fmt(expense)}',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentRed, fontSize: 10, fontWeight: FontWeight.w600,
+                    )),
+                const Spacer(),
+                Text(
+                  income > expense ? '+₹${_fmt(income - expense)}' : '-₹${_fmt(expense - income)}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: income >= expense ? JweTheme.accentTeal : JweTheme.accentRed,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ]),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// Projected income for the current month.
+class _ProjectedIncomeCard extends StatelessWidget {
+  final double monthIncome;
+  final double projectedIncome;
+  final double monthExpense;
+  final int daysElapsed;
+  final int daysInMonth;
+  final String currency;
+
+  const _ProjectedIncomeCard({
+    required this.monthIncome,
+    required this.projectedIncome,
+    required this.monthExpense,
+    required this.daysElapsed,
+    required this.daysInMonth,
+    required this.currency,
+  });
+
+  static String _fmt(double v) {
+    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = daysElapsed / daysInMonth;
+    final surplus = projectedIncome - monthExpense * (daysInMonth / daysElapsed.clamp(1, daysInMonth));
+    final isPositive = surplus >= 0;
+
+    return HudPanel(
+      clip: HudClip.br,
+      accent: JweTheme.accentTeal,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(children: [
+        Icon(MdiIcons.trendingUp, size: 22, color: JweTheme.accentTeal),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('PROJECTED INCOME',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.accentTeal, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+                )),
+            const SizedBox(height: 2),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(
+                '$currency${_fmt(projectedIncome)}',
+                style: GoogleFonts.saira(
+                  color: JweTheme.textWhite, fontSize: 22, fontWeight: FontWeight.w700, height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  'this month',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted, fontSize: 9, letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Row(children: [
+              Text('Actual so far: $currency${_fmt(monthIncome)} · Day $daysElapsed/$daysInMonth',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted, fontSize: 9, letterSpacing: 0.6,
+                  )),
+            ]),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            '${(pct * 100).round()}%',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentTeal, fontSize: 14, fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text('month',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8,
+              )),
+          const SizedBox(height: 4),
+          Text(
+            isPositive ? '+${_fmt(surplus.abs())}' : '-${_fmt(surplus.abs())}',
+            style: GoogleFonts.jetBrainsMono(
+              color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text('net est.',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted, fontSize: 8,
+              )),
+        ]),
+      ]),
     );
   }
 }

@@ -390,36 +390,49 @@ class AIService {
   }) async {
     final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
     final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
-    
+
     final prompt = """
     Analyze this reflection log.
     Situation: $trigger
     Feeling: $emotion
     Reason: $reason
     Action Planned: $action
-    
+
     Recent Context (Last 7 Days):
     ${recentContext ?? 'No recent context available.'}
-    
+
     1. Provide constructive feedback. ($instruction)
-    2. Adopt an optimistic perspective (e.g., finding the silver lining or growth opportunity in bad situations). Focus on present actionability. Use recent context to understand patterns, but keep your feedback focused on THIS specific log.
-    3. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
+    2. Focus on present actionability. Use recent context to understand patterns but keep feedback focused on THIS specific log.
+    3. Score XP for each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
+       - Positivity (0.0–1.0): Score ONLY if log shows moments of joy, gratitude, humor, awe, love, or contentment. No evidence = 0.0. Explicit positive emotion = 0.8–1.0.
+       - Resilience (0.0–1.0): Score ONLY if log shows bouncing back from setback, tolerating distress, reframing a negative event, or regulating strong emotions. Mere acknowledgment of difficulty = 0.0.
+       - Satisfaction (0.0–1.0): Score ONLY if log shows subjective sense of overall life going well or a meaningful accomplishment. Mundane tasks = 0.0.
+       - Vitality (0.0–1.0): Score ONLY if log references physical energy, exercise, sleep quality, or bodily health positively.
+       - Env. Mastery (0.0–1.0): Score ONLY if log shows user successfully shaped their environment: organized something, solved a logistical problem, or created a productive space.
+       - Relationships (0.0–1.0): Score ONLY if log shows feeling loved, supported, or valued by a specific person — or a meaningful positive interaction.
+       - Self-Acceptance (0.0–1.0): Score ONLY if log shows self-compassion, honest self-recognition without harsh judgment, or accepting a limitation gracefully.
+       - Mastery (0.0–1.0): Score ONLY if log shows completing a challenging task, learning a hard concept, or demonstrating a skill under difficulty.
+       - Autonomy (0.0–1.0): Score ONLY if log shows user making a self-determined choice, resisting social pressure, or acting according to their own values.
+       - Growth (0.0–1.0): Score ONLY if log shows intentional development: learning something new, seeking feedback, or practicing a skill deliberately.
+       - Engagement (0.0–1.0): Score ONLY if log shows flow state, absorption in a task, or genuine enthusiasm for an activity.
+       - Meaning (0.0–1.0): Score ONLY if log shows connection to purpose, contribution to something larger, or acting in alignment with deep values.
+    Use 0.0 when the evidence is absent or ambiguous. Partial evidence = 0.1–0.4. Clear evidence = 0.5–0.7. Exceptionally strong evidence = 0.8–1.0.
 
     Output JSON: {
-      "feedback": "string", 
+      "feedback": "string",
       "xp_allocation": {
-        "Positivity": int,
-        "Resilience": int,
-        "Satisfaction": int,
-        "Vitality": int,
-        "Env. Mastery": int,
-        "Relationships": int,
-        "Self-Acceptance": int,
-        "Mastery": int,
-        "Autonomy": int,
-        "Growth": int,
-        "Engagement": int,
-        "Meaning": int
+        "Positivity": float,
+        "Resilience": float,
+        "Satisfaction": float,
+        "Vitality": float,
+        "Env. Mastery": float,
+        "Relationships": float,
+        "Self-Acceptance": float,
+        "Mastery": float,
+        "Autonomy": float,
+        "Growth": float,
+        "Engagement": float,
+        "Meaning": float
       }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -443,34 +456,45 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Analyze the following array of reflection logs. 
-    For each log, evaluate the user's progress across these 12 Sources of Well-Being:
-    1. Positivity 2. Resilience 3. Satisfaction 4. Vitality 5. Env. Mastery 6. Relationships 
-    7. Self-Acceptance 8. Mastery 9. Autonomy 10. Growth 11. Engagement 12. Meaning
+    Analyze the following array of reflection logs.
+    For each log, score the user's well-being evidence across 12 areas as a float 0.0 to 1.0.
 
-    Award XP (0 to 50) for each category based on evidence in the specific log. If no evidence, award 0.
+    Scoring rules (apply PER LOG — do NOT average across logs):
+    - Positivity: joy, gratitude, humor, awe, love, contentment. 0.0 if absent.
+    - Resilience: bouncing back, tolerating distress, reframing, emotion regulation. 0.0 if mere acknowledgment of difficulty.
+    - Satisfaction: subjective sense of overall life going well or meaningful accomplishment. 0.0 for routine tasks.
+    - Vitality: physical energy, exercise, good sleep, bodily health referenced positively.
+    - Env. Mastery: successfully shaped environment, solved logistics, created productive space.
+    - Relationships: feeling loved/supported/valued by a specific person; meaningful positive interaction.
+    - Self-Acceptance: self-compassion, honest self-recognition without harsh judgment.
+    - Mastery: completed a challenging task, learned hard concept, demonstrated skill under difficulty.
+    - Autonomy: self-determined choice, resisting pressure, acting by own values.
+    - Growth: deliberate learning, seeking feedback, practicing a skill intentionally.
+    - Engagement: flow state, absorption, genuine enthusiasm for an activity.
+    - Meaning: connection to purpose, contribution to something larger, acting by deep values.
+    Absent or ambiguous evidence = 0.0. Partial = 0.1–0.4. Clear = 0.5–0.7. Exceptionally strong = 0.8–1.0.
 
     Logs to evaluate:
     ${jsonEncode(logsPayload)}
 
-    Output EXACTLY valid JSON matching this structure:
+    Output EXACTLY valid JSON:
     {
       "updates":[
         {
           "log_id": "id_string_from_input",
           "xp_allocation": {
-            "Positivity": int,
-            "Resilience": int,
-            "Satisfaction": int,
-            "Vitality": int,
-            "Env. Mastery": int,
-            "Relationships": int,
-            "Self-Acceptance": int,
-            "Mastery": int,
-            "Autonomy": int,
-            "Growth": int,
-            "Engagement": int,
-            "Meaning": int
+            "Positivity": float,
+            "Resilience": float,
+            "Satisfaction": float,
+            "Vitality": float,
+            "Env. Mastery": float,
+            "Relationships": float,
+            "Self-Acceptance": float,
+            "Mastery": float,
+            "Autonomy": float,
+            "Growth": float,
+            "Engagement": float,
+            "Meaning": float
           }
         }
       ]
@@ -521,15 +545,15 @@ class AIService {
     1. "summary" (max 120 words): An honest read of today. Use 1-2 granular emotion words drawn from the logs. If a cognitive distortion is visible, name it in the user's own situation and offer a balanced reframe (balanced is not the same as positive). If the day was hard, say so plainly. Close with one observation about what was in vs not in their control today.
     2. "improvements": 1-3 specific capabilities the user is building or could build (e.g. "tolerating uncertainty without seeking reassurance", not vague traits like "patience"). Each "insight" must be specific enough to act on tomorrow.
     3. "grateful_people": specific people mentioned (use names). "reason" must reference a concrete thing they did or said.
-    4. "grateful_assets": specific resources, skills, objects, or routines the user actually relied on today. "why" = strategic value; "what" = concrete yield.
+    4. "grateful_today": exactly 10 specific things to be grateful for today. Draw from the logs — people, moments, resources, abilities, circumstances. Each must be concrete and specific (not "health" but "the energy to finish the task despite fatigue"). Each has an "icon_type" (choose one: people, nature, health, learning, work, home, food, social, growth, mind, moment, general).
 
     Output JSON: {
       "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
-      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string", "what": "string"} ]
+      "grateful_today": [ {"text": "string", "icon_type": "string"} ]
     }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
+    ENSURE VALID JSON. NO TRAILING COMMAS. grateful_today must have exactly 10 items.
     """;
     
     return await makeAICall(
@@ -550,23 +574,39 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? financeText,
+    String? agentProgressText,
   }) async {
     final prompt = """
+    Generate a comprehensive 7-Day Review Report grounded in evidence-based psychology.
+
+    Reflection Logs: $logsText
+    Time Data: $timeStatsText
+    Wellbeing Progress: $wellbeingStatsText
+    ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
+    ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
+
     Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
-    2. Compare the user's wellbeing progress to last week. Highlight areas of major growth or decline.
-    3. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
-    4. Output JSON: 
-    { 
-      "summary": "string", 
+    1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
+    2. "wellbeing_analysis": Compare wellbeing to previous week. Name specific areas of growth or decline with evidence from logs.
+    3. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
+    4. "time_insight": One sharp observation about how the user invested time this week.
+    5. "grateful_people": People mentioned the user should appreciate. Use real names. Concrete reasons.
+    6. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic). Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+    7. "agent_progress": For each task/agent in the agent data, give a brief insight on trajectory, momentum, and what to focus on next week. If no agent data, skip.
+    8. "finance_summary": If finance data provided, give a 1-2 sentence honest assessment of the week's financial behavior and what it suggests. Otherwise omit.
+
+    Output JSON:
+    {
+      "summary": "string",
       "wellbeing_analysis": "string",
-      "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
+      "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
       "time_insight": "string",
-      "grateful_people": [ {"name": "string", "reason": "string"} ]
-    } 
-    Logs: $logsText. 
-    Time: $timeStatsText. 
-    Wellbeing Progress: $wellbeingStatsText.
+      "grateful_people": [{"name": "string", "reason": "string"}],
+      "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
+      "agent_progress": [{"task": "string", "insight": "string", "trend": "up|down|stable"}],
+      "finance_summary": "string"
+    }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);

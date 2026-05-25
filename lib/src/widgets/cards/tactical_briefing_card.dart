@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,22 +18,15 @@ class TacticalBriefingCard extends StatelessWidget {
     this.isSaved = false,
   });
 
-  IconData _iconForAssetType(String type) {
-    switch (type.toLowerCase()) {
-      case 'skill':    return MdiIcons.lightningBolt;
-      case 'person':   return MdiIcons.accountHeart;
-      case 'object':   return MdiIcons.cubeOutline;
-      case 'resource': return MdiIcons.bookOpenVariant;
-      default:         return MdiIcons.starFourPoints;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final summary      = briefingData['summary']        as String?       ?? "No intel available.";
+    final summary      = briefingData['summary']        as String?        ?? "No intel available.";
     final improvements = briefingData['improvements']   as List<dynamic>? ?? [];
     final gratefulPeople  = briefingData['grateful_people']  as List<dynamic>? ?? [];
-    final gratefulAssets  = briefingData['grateful_assets']  as List<dynamic>? ?? [];
+    // Support both new 'grateful_today' and legacy 'grateful_assets' fallback
+    final gratefulToday = (briefingData['grateful_today'] as List<dynamic>?)
+        ?? (briefingData['grateful_assets'] as List<dynamic>?)
+        ?? [];
 
     return HudPanel(
       clip: HudClip.both,
@@ -203,75 +197,31 @@ class TacticalBriefingCard extends StatelessWidget {
                   }),
                 ],
 
-                // Assets
-                if (gratefulAssets.isNotEmpty) ...[
+                // Gratitude Intel (replaces assets)
+                if (gratefulToday.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   HudSectionHead(
-                    label: 'ASSETS IDENTIFIED',
-                    accent: HudTone.red,
+                    label: 'GRATITUDE INTEL',
+                    accent: HudTone.teal,
                     padding: EdgeInsets.zero,
                   ),
-                  const SizedBox(height: 10),
-                  ...gratefulAssets.map((asset) {
-                    final a = asset as Map<String, dynamic>;
-                    final type = a['type']?.toString() ?? 'resource';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: JweTheme.bgBase,
-                        border: Border(
-                            left: BorderSide(
-                                color: JweTheme.accentRed, width: 3)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(_iconForAssetType(type),
-                              size: 15, color: JweTheme.accentRed),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  a['name']?.toUpperCase() ?? 'UNKNOWN',
-                                  style: GoogleFonts.chakraPetch(
-                                      fontWeight: FontWeight.bold,
-                                      color: JweTheme.accentRed,
-                                      fontSize: 12),
-                                ),
-                                if ((a['why'] ?? '').toString().isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text('WHY: ${a['why']}',
-                                      style: GoogleFonts.inter(
-                                          color: JweTheme.textMid,
-                                          fontSize: 11,
-                                          height: 1.4)),
-                                ],
-                                if ((a['what'] ?? '').toString().isNotEmpty) ...[
-                                  const SizedBox(height: 2),
-                                  Text('WHAT: ${a['what']}',
-                                      style: GoogleFonts.inter(
-                                          color: JweTheme.textMid,
-                                          fontSize: 11,
-                                          height: 1.4)),
-                                ],
-                                if ((a['reason'] ?? '').toString().isNotEmpty &&
-                                    (a['why'] ?? '').toString().isEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(a['reason'] ?? '',
-                                      style: GoogleFonts.inter(
-                                          color: JweTheme.textMid,
-                                          fontSize: 12,
-                                          height: 1.4)),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ).animate().slideX(begin: 0.08, end: 0).fadeIn();
+                  const SizedBox(height: 8),
+                  ...List.generate(gratefulToday.length.clamp(0, 10), (i) {
+                    final item = gratefulToday[i] as Map<String, dynamic>;
+                    // Support both new format {text, icon_type} and legacy {name/why/what/reason}
+                    final text = (item['text'] as String?)?.isNotEmpty == true
+                        ? item['text'] as String
+                        : (item['name'] ?? item['why'] ?? item['reason'] ?? '').toString();
+                    final iconType = item['icon_type'] as String? ?? 'general';
+                    if (text.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: GratitudeIntelCard(
+                        text: text,
+                        iconType: iconType,
+                        index: i + 1,
+                      ).animate(delay: (40 * i).ms).fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
+                    );
                   }),
                 ],
               ],

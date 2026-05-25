@@ -13,7 +13,7 @@ class ReportActions {
   Future<List<Map<String, dynamic>>> generateStartDayReport() async {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    
+
     final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
     final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
 
@@ -28,10 +28,30 @@ class ReportActions {
       }
     }
 
+    // Snapshot current task progress before generating report
+    final taskSnapshot = <String, dynamic>{};
+    for (var task in _provider.mainTasks) {
+      if (task.isDeleted || !task.isActive) continue;
+      final subtaskData = <String, dynamic>{};
+      for (var sub in task.subTasks) {
+        if (sub.isDeleted || !sub.isActive) continue;
+        subtaskData[sub.id] = {
+          'name': sub.name,
+          'progress': sub.calculateProgress(),
+          'time_spent': sub.currentTimeSpent,
+          'completed': sub.completed,
+        };
+      }
+      taskSnapshot[task.id] = {
+        'name': task.name,
+        'color_hex': task.colorHex,
+        'subtasks': subtaskData,
+      };
+    }
+
     _provider.setLoadingTask("Generating Startup Report...");
-    
+
     try {
-      // Calculate well-being metrics for Yesterday vs Today
       final startOfToday = DateTime(now.year, now.month, now.day);
       final startOfYesterday = startOfToday.subtract(const Duration(days: 1));
       final startOfTodayMinus7 = startOfToday.subtract(const Duration(days: 7));
@@ -53,33 +73,28 @@ class ReportActions {
       for (var skill in _provider.getBaseWellbeingSkills()) {
         final t = todayMetricsMap[skill.name] ?? 0;
         final y = yesterdayMetricsMap[skill.name] ?? 0;
-        metrics.add({
-          'name': skill.name,
-          'today': t,
-          'yesterday': y,
-          'delta': t - y,
-        });
+        metrics.add({'name': skill.name, 'today': t, 'yesterday': y, 'delta': t - y});
       }
 
       final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
-        modelCandidates: _provider.settings.heavyModels, 
+        modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ReportAI] $msg"),
       );
 
-      // Merge AI result and calculated metrics
       final result = Map<String, dynamic>.from(aiResult);
       result['metrics'] = metrics;
+      result['task_snapshot'] = taskSnapshot;
+      result['snapshot_time'] = now.toIso8601String();
 
       final today = getTodayDateString();
       _provider.saveStartDayReport(today, result);
 
       return [];
-
     } catch (e) {
       debugPrint("Error generating start day report: $e");
       rethrow;

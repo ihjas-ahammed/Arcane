@@ -804,11 +804,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         onLog: (msg) => debugPrint(msg),
       );
       
+      final sortedForHours = List<ReflectionLog>.from(reflectionLogs)
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
       final newLogs = List<ReflectionLog>.from(reflectionLogs);
       bool logsChanged = false;
       for (var update in updates) {
         final logId = update['log_id'];
-        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final rawScores = <String, double>{};
+        (update['xp_allocation'] as Map? ?? {}).forEach(
+            (k, v) => rawScores[k.toString()] = (v as num).toDouble());
+        final logEntry = sortedForHours.firstWhere(
+            (l) => l.id == logId,
+            orElse: () => newLogs.first);
+        final xpMap = _convertXpScoresToActual(rawScores, logEntry.timestamp);
         final idx = newLogs.indexWhere((l) => l.id == logId);
         if (idx != -1) {
           newLogs[idx] = ReflectionLog(
@@ -819,7 +828,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
             reason: newLogs[idx].reason,
             action: newLogs[idx].action,
             aiFeedback: newLogs[idx].aiFeedback,
-            xpGained: xpMap, 
+            xpGained: xpMap,
           );
           logsChanged = true;
         }
@@ -832,6 +841,44 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     } finally {
       setLoadingTask(null);
     }
+  }
+
+  /// Converts AI-scored XP (0.0–1.0 per skill) into actual integer XP.
+  /// Formula: actual = round(score * lifetimeAvg * hoursPassed).
+  /// lifetimeAvg = historical avg XP per scored reflection for that skill (default 20).
+  /// hoursPassed = hours since previous reflection (clamped 0.5–48, default 8).
+  Map<String, int> _convertXpScoresToActual(
+    Map<String, double> scores,
+    DateTime logTimestamp,
+  ) {
+    final prevLogs = reflectionLogs
+        .where((l) => l.timestamp.isBefore(logTimestamp) && l.xpGained.isNotEmpty)
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    final hoursPassed = prevLogs.isEmpty
+        ? 8.0
+        : (logTimestamp.difference(prevLogs.first.timestamp).inMinutes / 60.0)
+            .clamp(0.5, 48.0);
+
+    final result = <String, int>{};
+    for (final entry in scores.entries) {
+      final skillName = entry.key;
+      final score = entry.value.clamp(0.0, 1.0);
+      if (score <= 0.0) {
+        result[skillName] = 0;
+        continue;
+      }
+      final logsWithXp =
+          reflectionLogs.where((l) => (l.xpGained[skillName] ?? 0) > 0).toList();
+      final lifetimeAvg = logsWithXp.isEmpty
+          ? 20.0
+          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[skillName] ?? 0)) /
+              logsWithXp.length;
+      final rawXp = (score * lifetimeAvg * hoursPassed).round();
+      result[skillName] = rawXp.clamp(1, 9999);
+    }
+    return result;
   }
 
   /// Synchronously persists a stub reflection log, then runs AI analysis in
@@ -888,7 +935,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         recentContext: recentContext,
         systemInstruction: settings.customReflectionPrompt,
       );
-      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      // Convert 0-1 AI scores to actual XP using lifetime avg * hours elapsed
+      final rawScores = <String, double>{};
+      (eval['xp_allocation'] as Map? ?? {}).forEach(
+          (k, v) => rawScores[k.toString()] = (v as num).toDouble());
+      final xpGained = _convertXpScoresToActual(rawScores, DateTime.now());
       final feedback = (eval['feedback'] as String?) ?? '';
       updateReflectionLog(logId, aiFeedback: feedback, xpGained: xpGained);
 

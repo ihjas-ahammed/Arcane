@@ -1,445 +1,4006 @@
+=== PROJECT SNAPSHOT (Changed & New Files) ===
 
+--- lib/src/services/ai_service.dart ---
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:missions/src/config/api_keys.dart';
+import 'package:flutter/foundation.dart';
+import 'package:missions/src/utils/json_utils.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 
---- START OF FILE lib/src/screens/reflections_archive_screen.dart ---
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:arcane/src/providers/app_provider.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/widgets/ui/reflection_log_card.dart';
-import 'package:arcane/src/widgets/screens/reflection_editor_screen.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+class AIService {
+  
+  Future<T> _executeWithModelAndKeyRotation<T>({
+    required List<String> modelCandidates,
+    required Future<T> Function(String apiKey, String modelName) requestFn,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final List<String> apiKeysToTry = <String>{
+      ...geminiApiKeys,
+      if (customApiKeys != null) ...customApiKeys
+    }.where((k) => !k.contains('YOUR_GEMINI_API_KEY')).toList();
+
+    if (apiKeysToTry.isEmpty) {
+      onLog("No valid Gemini API keys found. Returning fallback data.");
+      throw Exception("OFFLINE_MOCK_DATA");
+    }
+
+    for (final model in modelCandidates) {
+      for (int i = 0; i < apiKeysToTry.length; i++) {
+        int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
+        String effectiveKey = apiKeysToTry[effectiveIndex];
+
+        try {
+          if (kDebugMode) {
+            onLog("Trying Model: $model with Key Index: $effectiveIndex");
+          }
+          final result = await requestFn(effectiveKey, model);
+          onNewApiKeyIndex(effectiveIndex);
+          return result;
+        } catch (e) {
+          if (e is FormatException && e.message.contains("JSON Decode Failed")) {
+             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
+             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+          }
+          onLog(
+              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+        }
+      }
+    }
+    throw Exception("All models and API keys failed. Please check your connection or settings.");
+  }
+
+  Future<Map<String, dynamic>> makeAICall({
+    String? prompt, 
+    List<genai.Part>? parts, 
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          
+          final contentParts = parts ?? [genai.TextPart(prompt!)];
+          final response = await model.generateContent([genai.Content.multi(contentParts)]);
+
+          String? rawResponseText = response.text;
+          if (rawResponseText == null || rawResponseText.trim().isEmpty) {
+            throw Exception("AI response was empty.");
+          }
+          
+          return JsonUtils.tryDecode(rawResponseText);
+        },
+      );
+    } catch (e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) {
+        if (prompt != null && prompt.contains("System Start-Up Sequence")) {
+          return { "forecast": "API KEY MISSING. Offline fallback mode active.", "directives": ["Add your Gemini API Key in Settings."] };
+        }
+        return {};
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<String>> queryNeuralArchive({
+    required String query,
+    required String logsContext,
+    required int maxMessages,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    $logsContext
+    
+    USER: "$query"
+
+    RULES:
+    1. Answer based on the provided context if applicable.
+    2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
+    3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
+    4. STRICT LIMIT: Generate a MAXIMUM of $maxMessages messages in this sequence. Do not exceed this.
+    5. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
+    Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
+    """;
+
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          final raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          
+          final decoded = JsonUtils.tryDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+          return ["system error: could not parse response sequence."];
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return ["offline mock response: connect api key."];
+      rethrow;
+    }
+  }
+
+  Future<List<String>> autoAssignAssetsToTask({
+    required String taskContext,
+    required String assetsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following Task context and select the most appropriate IDs from the provided Asset List that are required or helpful to complete this task.
+    
+    TASK CONTEXT:
+    $taskContext
+    
+    ASSET LIST (Format: ID | Name | Type | Why | What):
+    $assetsList
+    
+    Task:
+    Match the task requirements with the asset list. Select the IDs of the assets that fit.
+    
+    Output JSON ONLY with an array of IDs:
+    {
+      "asset_ids": ["id_1", "id_2"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['asset_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
+  Future<Map<String, dynamic>> generateActionPlanSteps({
+    required String taskName,
+    required String why,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Create a tactical action plan (How) and expected outcome (What) for the following objective:
+    
+    OBJECTIVE: $taskName
+    STRATEGIC INTENT (WHY): $why
+    USER SPECIFIC REQUEST: $userPrompt
+    
+    Task:
+    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
+    2. Define the expected result/reward ("What") upon completion.
+    
+    Output JSON ONLY:
+    {
+      "steps":[
+        {"name": "Step description"}
+      ],
+      "what": "Description of the result or reward"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<String>> generateStepsFromDescription({
+    required String taskName,
+    required String description,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate concrete, actionable sub-step names for a parent task based on a short user description.
+
+    PARENT TASK: $taskName
+    USER DESCRIPTION: $description
+
+    Rules:
+    1. Return between 1 and 12 step names. Honor any count implied by the user.
+    2. Each name must be short (under 60 chars), imperative, and self-contained.
+    3. Do NOT prefix with numbering ("1.", "Step 1:"). The name itself only.
+    4. Preserve any explicit numbering the user asked for (e.g. "Round 1", "Round 2").
+
+    Output JSON ONLY:
+    {"steps": ["First step", "Second step"]}
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return ((result['steps'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> generateSchedulePrediction({
+    required String sessionHistory, 
+    required String currentTime,
+    required String availableTasksContext, 
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    
+    HISTORY:
+    $sessionHistory
+    
+    AVAILABLE TASKS (Map prediction to these if possible):
+    $availableTasksContext
+    
+    INSTRUCTIONS:
+    1. Analyze patterns (time of day, duration, sequence).
+    2. Suggest 1-10 likely sessions for the remainder of the day.
+    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
+    4. CONFIDENTIALITY: Do not use specific names of real people.
+    
+    CRITICAL OUTPUT FORMATTING:
+    - Return ONLY valid JSON.
+    - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
+    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    
+    OUTPUT JSON ARRAY STRUCTURE:[
+      {
+        "taskName": "Exact Name from Available Tasks or New Name",
+        "subTaskName": "Specific Activity",
+        "startOffsetMinutes": int (minutes from Now to start),
+        "durationMinutes": int
+      }
+    ]
+    """;
+
+    try {
+      final result = await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final response = await model.generateContent([genai.Content.text(prompt)]);
+          String? raw = response.text;
+          if (raw == null) throw Exception("Empty AI response");
+          return JsonUtils.tryDecode(raw);
+        },
+      );
+
+      if (result is List) {
+        return result.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return[];
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) return [];
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateSubstepsForStep({
+    required String parentStepTitle,
+    required String parentStepDescription,
+    required List<String> existingSubsteps,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate substeps JSON for Task '$parentStepTitle'. Existing: $existingSubsteps. Request: $userPrompt. Output: {steps: [{title, description}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['steps'] as List?)?.map((s) => s as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> generateAISubquests({
+    required List<String> modelCandidates,
+    required String mainTaskName,
+    required String mainTaskDescription,
+    String? mainTaskTheme,
+    required String generationMode,
+    required String userInput,
+    required int numSubquests,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate $numSubquests subquests for '$mainTaskName'. JSON: {newSubquests: [{name, isCountable, targetCount, subSubTasksData: []}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['newSubquests'] as List?)?.map((sq) => sq as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> generateCheckpointsForSubtask({
+    required String subtaskName,
+    required String parentTaskName,
+    required List<String> existingCheckpoints,
+    required String userPrompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = "Generate checkpoints JSON for subtask '$subtaskName'. Request: $userPrompt. Output: {checkpoints: [{name}]}. CONFIDENTIALITY: Do not include specific names of real people. ENSURE VALID JSON. NO TRAILING COMMAS.";
+    final result = await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> evaluateReflection({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    required List<String> modelCandidates,
+    String? recentContext,
+    List<String>? customApiKeys,
+    String? systemInstruction,
+  }) async {
+    final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
+    final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
+
+    final prompt = """
+    Analyze this reflection log.
+    Situation: $trigger
+    Feeling: $emotion
+    Reason: $reason
+    Action Planned: $action
+
+    Recent Context (Last 7 Days):
+    ${recentContext ?? 'No recent context available.'}
+
+    1. Provide constructive feedback. ($instruction)
+    2. Focus on present actionability. Use recent context to understand patterns but keep feedback focused on THIS specific log.
+    3. Score XP for each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
+       - Positivity (0.0–1.0): Score ONLY if log shows moments of joy, gratitude, humor, awe, love, or contentment. No evidence = 0.0. Explicit positive emotion = 0.8–1.0.
+       - Resilience (0.0–1.0): Score ONLY if log shows bouncing back from setback, tolerating distress, reframing a negative event, or regulating strong emotions. Mere acknowledgment of difficulty = 0.0.
+       - Satisfaction (0.0–1.0): Score ONLY if log shows subjective sense of overall life going well or a meaningful accomplishment. Mundane tasks = 0.0.
+       - Vitality (0.0–1.0): Score ONLY if log references physical energy, exercise, sleep quality, or bodily health positively.
+       - Env. Mastery (0.0–1.0): Score ONLY if log shows user successfully shaped their environment: organized something, solved a logistical problem, or created a productive space.
+       - Relationships (0.0–1.0): Score ONLY if log shows feeling loved, supported, or valued by a specific person — or a meaningful positive interaction.
+       - Self-Acceptance (0.0–1.0): Score ONLY if log shows self-compassion, honest self-recognition without harsh judgment, or accepting a limitation gracefully.
+       - Mastery (0.0–1.0): Score ONLY if log shows completing a challenging task, learning a hard concept, or demonstrating a skill under difficulty.
+       - Autonomy (0.0–1.0): Score ONLY if log shows user making a self-determined choice, resisting social pressure, or acting according to their own values.
+       - Growth (0.0–1.0): Score ONLY if log shows intentional development: learning something new, seeking feedback, or practicing a skill deliberately.
+       - Engagement (0.0–1.0): Score ONLY if log shows flow state, absorption in a task, or genuine enthusiasm for an activity.
+       - Meaning (0.0–1.0): Score ONLY if log shows connection to purpose, contribution to something larger, or acting in alignment with deep values.
+    Use 0.0 when the evidence is absent or ambiguous. Partial evidence = 0.1–0.4. Clear evidence = 0.5–0.7. Exceptionally strong evidence = 0.8–1.0.
+
+    Output JSON: {
+      "feedback": "string",
+      "xp_allocation": {
+        "Positivity": float,
+        "Resilience": float,
+        "Satisfaction": float,
+        "Vitality": float,
+        "Env. Mastery": float,
+        "Relationships": float,
+        "Self-Acceptance": float,
+        "Mastery": float,
+        "Autonomy": float,
+        "Growth": float,
+        "Engagement": float,
+        "Meaning": float
+      }
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: 0,
+        onNewApiKeyIndex: (_) {},
+        onLog: (_) {});
+  }
+
+  Future<List<Map<String, dynamic>>> evaluateBatchReflections({
+    required List<Map<String, dynamic>> logsPayload,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following array of reflection logs.
+    For each log, score the user's well-being evidence across 12 areas as a float 0.0 to 1.0.
+
+    Scoring rules (apply PER LOG — do NOT average across logs):
+    - Positivity: joy, gratitude, humor, awe, love, contentment. 0.0 if absent.
+    - Resilience: bouncing back, tolerating distress, reframing, emotion regulation. 0.0 if mere acknowledgment of difficulty.
+    - Satisfaction: subjective sense of overall life going well or meaningful accomplishment. 0.0 for routine tasks.
+    - Vitality: physical energy, exercise, good sleep, bodily health referenced positively.
+    - Env. Mastery: successfully shaped environment, solved logistics, created productive space.
+    - Relationships: feeling loved/supported/valued by a specific person; meaningful positive interaction.
+    - Self-Acceptance: self-compassion, honest self-recognition without harsh judgment.
+    - Mastery: completed a challenging task, learned hard concept, demonstrated skill under difficulty.
+    - Autonomy: self-determined choice, resisting pressure, acting by own values.
+    - Growth: deliberate learning, seeking feedback, practicing a skill intentionally.
+    - Engagement: flow state, absorption, genuine enthusiasm for an activity.
+    - Meaning: connection to purpose, contribution to something larger, acting by deep values.
+    Absent or ambiguous evidence = 0.0. Partial = 0.1–0.4. Clear = 0.5–0.7. Exceptionally strong = 0.8–1.0.
+
+    Logs to evaluate:
+    ${jsonEncode(logsPayload)}
+
+    Output EXACTLY valid JSON:
+    {
+      "updates":[
+        {
+          "log_id": "id_string_from_input",
+          "xp_allocation": {
+            "Positivity": float,
+            "Resilience": float,
+            "Satisfaction": float,
+            "Vitality": float,
+            "Env. Mastery": float,
+            "Relationships": float,
+            "Self-Acceptance": float,
+            "Mastery": float,
+            "Autonomy": float,
+            "Growth": float,
+            "Engagement": float,
+            "Meaning": float
+          }
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+        
+    return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> generateDailySummary({
+    required List<Map<String, String>> reflections,
+    required List<String> previousBriefings,
+    required String fullContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+    String? customInstruction,
+  }) async {
+    final prompt = """
+    Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
+
+    Current Logs: ${jsonEncode(reflections)}
+    Reflection History (Context): $fullContext
+    Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+
+    Apply the following frameworks - do NOT name them in your output, just use them:
+    - Cognitive Behavioral Therapy (Beck; Burns, "Feeling Good"): when reflections show distorted thinking, name the distortion in the user's situation (all-or-nothing, mind-reading, catastrophizing, "should" statements, emotional reasoning, personalization, mental filter, overgeneralization). Offer a balanced thought - not a positive one.
+    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett, "How Emotions Are Made"): name specific emotions ("resentful", "deflated", "anxious about X"), not generic "bad" or "stressed".
+    - Self-compassion (Kristin Neff, "Self-Compassion"): when self-criticism appears, apply common humanity without dismissing the issue.
+    - Deliberate practice (Ericsson, "Peak"): treat improvements as concrete capabilities the user is building, specific enough to act on.
+    - Stoic dichotomy of control (Epictetus; Pigliucci, "How to Be a Stoic"): when the user is upset about external events, distinguish what was vs was not in their control.
+    - Gratitude with specificity (Emmons and McCullough): name specific people and concrete reasons; avoid generic thankfulness.
+
+    Tone: An honest, psychologically literate friend. Not a therapist, not a cheerleader. NEVER force a silver lining onto a hard event. Acknowledge difficulty in plain language. Insight is more useful than comfort. The user is a capable adult, not a patient.
+    ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
+    Task:
+    1. "summary" (max 120 words): An honest read of today. Use 1-2 granular emotion words drawn from the logs. If a cognitive distortion is visible, name it in the user's own situation and offer a balanced reframe (balanced is not the same as positive). If the day was hard, say so plainly. Close with one observation about what was in vs not in their control today.
+    2. "improvements": 1-3 specific capabilities the user is building or could build (e.g. "tolerating uncertainty without seeking reassurance", not vague traits like "patience"). Each "insight" must be specific enough to act on tomorrow.
+    3. "grateful_people": specific people mentioned (use names). "reason" must reference a concrete thing they did or said.
+    4. "grateful_today": exactly 10 specific things to be grateful for today. Draw from the logs — people, moments, resources, abilities, circumstances. Each must be concrete and specific (not "health" but "the energy to finish the task despite fatigue"). Each has an "icon_type" (choose one: people, nature, health, learning, work, home, food, social, growth, mind, moment, general).
+
+    Output JSON: {
+      "summary": "string (max 120 words)",
+      "improvements": [ {"ability": "string", "insight": "string"} ],
+      "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
+      "grateful_today": [ {"text": "string", "icon_type": "string"} ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS. grateful_today must have exactly 10 items.
+    """;
+    
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateWeeklyReport({
+    required String logsText,
+    required String timeStatsText,
+    required String wellbeingStatsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+    String? financeText,
+    String? agentProgressText,
+  }) async {
+    final prompt = """
+    Generate a comprehensive 7-Day Review Report grounded in evidence-based psychology.
+
+    Reflection Logs: $logsText
+    Time Data: $timeStatsText
+    Wellbeing Progress: $wellbeingStatsText
+    ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
+    ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
+
+    Task:
+    1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
+    2. "wellbeing_analysis": Compare wellbeing to previous week. Name specific areas of growth or decline with evidence from logs.
+    3. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
+    4. "time_insight": One sharp observation about how the user invested time this week.
+    5. "grateful_people": People mentioned the user should appreciate. Use real names. Concrete reasons.
+    6. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic). Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+    7. "agent_progress": For each task/agent in the agent data, give a brief insight on trajectory, momentum, and what to focus on next week. If no agent data, skip.
+    8. "finance_summary": If finance data provided, give a 1-2 sentence honest assessment of the week's financial behavior and what it suggests. Otherwise omit.
+
+    Output JSON:
+    {
+      "summary": "string",
+      "wellbeing_analysis": "string",
+      "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
+      "time_insight": "string",
+      "grateful_people": [{"name": "string", "reason": "string"}],
+      "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
+      "agent_progress": [{"task": "string", "insight": "string", "trend": "up|down|stable"}],
+      "finance_summary": "string"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+  }
+
+  Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
+    final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
+    
+    if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
+      throw Exception("No valid API Key found to fetch models.");
+    }
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['models'] != null && data['models'] is List) {
+        final models = (data['models'] as List).map((m) {
+          final methods = List<String>.from(m['supportedGenerationMethods'] ??[]);
+          if (methods.contains('generateContent')) {
+            return (m['name'] as String).replaceFirst('models/', '');
+          }
+          return null;
+        }).whereType<String>().toList();
+        return models;
+      }
+      return[];
+    } else {
+      throw Exception("Failed to fetch models: ${response.statusCode} ${response.body}");
+    }
+  }
+
+  Future<Map<String, dynamic>> generateStartDayReport({
+    required String reflectionsList,
+    required String sessionsList,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
+
+    Context:
+    Reflections (Last 7 days): $reflectionsList
+    Sessions (Last 7 days): $sessionsList
+
+    Apply the following frameworks - do NOT name them in your output, just use them:
+    - Behavioral activation (Martell; Burns, "Feeling Good"): action precedes motivation. When momentum is low, prescribe a small concrete behavior, not a feeling-shift.
+    - Implementation intentions (Gollwitzer): the format "When [specific cue or time], I will [specific observable action]" raises follow-through dramatically. Use it for every directive.
+    - Mental contrasting / WOOP (Gabriele Oettingen, "Rethinking Positive Thinking"): pair the desired outcome with the most likely obstacle, then plan around it. Positive fantasy alone reduces follow-through.
+    - Identity-based habits (James Clear, "Atomic Habits"): frame at least one action as a vote for the kind of person the user is becoming.
+    - Self-Determination Theory (Deci and Ryan; Pink, "Drive"): when relevant, connect a task to autonomy, competence, or relatedness rather than external pressure.
+    - Anti-perfectionism (Stoeber; Burns): include at least one minimum-viable version of a goal so a bad day still produces a win.
+
+    Tone: Warm, honest, specific. NEVER force optimism or "find the good" in recent bad events - acknowledge difficulty plainly, then pivot to one concrete next action. The user is a capable adult, not a patient.
+
+    Task:
+    1. "forecast" (60-100 words): Read the user's recent momentum honestly. Name one obstacle visible in the data (mental contrasting). If the last few days have been hard, say so directly, then prescribe one small behavioral start that breaks inertia today. Do not reframe a bad week as good; pivot to action.
+    2. "directives" (exactly 3): each must be a specific implementation intention in the form "When [specific cue or time], I will [specific observable action]." Avoid vague verbs like "focus", "be productive", "stay positive". At least one directive should be a minimum-viable version (anti-perfectionism) so the bar is reachable even on a bad day. At least one directive should connect to the user's identity or values when context allows.
+
+    Output JSON ONLY:
+    {
+      "forecast": "string",
+      "directives": ["string", "string", "string"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Create a list of upto 50 people
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people":[
+        {
+          "name": "string",
+          "relation": "string"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
+    Create a comprehensive list based purely on the logs.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "assets":[
+        {
+          "name": "string",
+          "type": "skill|person|object|resource",
+          "why": "string (Strategic value or why it is important)",
+          "what": "string (Expected yield or what it does)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['assets'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<List<Map<String, dynamic>>> extractFoodInfo({
+    required String prompt,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final aiPrompt = """
+    Analyze the following food description and estimate the nutritional value per serving.
+    If multiple distinct items are mentioned, separate them.
+    
+    Description: $prompt
+    
+    Output JSON ONLY:
+    {
+      "items":[
+        {
+          "name": "string (Capitalized)",
+          "calories": int,
+          "protein": double (grams),
+          "carbs": double (grams),
+          "fat": double (grams)
+        }
+      ]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    final result = await makeAICall(
+        prompt: aiPrompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
+  }
+
+  Future<Map<String, dynamic>> getMealInsights({
+    required String mealName,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Provide a detailed but concise nutritional breakdown and health benefits of the meal: '$mealName'.
+    
+    Output JSON ONLY:
+    {
+      "description": "Short description of the meal and its general profile",
+      "benefits": ["Benefit 1", "Benefit 2"],
+      "warnings": ["Warning 1 (e.g. high sodium, allergens)"]
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generatePersonDetails({
+    required String personName,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
+    Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
+    
+    Logs:
+    $logsText
+    
+    Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
+    {
+      "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
+      "level": int (1-100 based on relationship depth),
+      "xp": int (total arbitrary xp based on significance, e.g. 2650),
+      "role": "Their inferred role (e.g. Student, Colleague)",
+      "status": "Current relationship status (e.g. Calibration Phase, Active)",
+      "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",
+      "interaction_history":[
+        {"highlight": "Event Name/Theme:", "text": "Description of the event or pattern."}
+      ],
+      "communication_tips":[
+        {"highlight": "Tip Name:", "text": "Description of the tip."}
+      ]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> runQuickTherapy({
+    required String reason,
+    required String feeling,
+    required String action,
+    required String logsText,
+    required String peopleContext,
+    required bool requestComms,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final commsDirective = requestComms 
+        ? "2. Review the 'Known People' list and suggest ONE person the user should talk to about this. If no one fits, return null. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation."
+        : "2. Do NOT suggest any person to contact, and return null for suggested_person and an empty list for conversation_map.";
+
+    final prompt = """
+    User needs immediate psychological assistance.
+    Current Situation / Reason: $reason
+    Current Feeling: $feeling
+    Planned Action: $action
+    
+    Past Context (Reflections): $logsText
+    Known People: $peopleContext
+    
+    Task:
+    1. Provide a concise, empathetic, and tactical action plan for right now.
+    $commsDirective
+    
+    Output JSON ONLY:
+    {
+      "action_plan": "string",
+      "suggested_person": "string or null",
+      "conversation_map": ["step 1", "step 2"]
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> simulateEvent({
+    required String situation,
+    required String logsText,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    The user wants to simulate a future situation based on their past behavioral and psychological patterns.
+    
+    Proposed Situation: $situation
+    
+    Past Context (Reflections): $logsText
+    
+    Task:
+    Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
+    
+    Output JSON ONLY:
+    {
+      "simulation": "string"
+    }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+}
+--- lib/src/providers/app_provider.dart (XP conversion section) ---
+      }
+      
+      if (logsChanged) {
+        setReflectionLogs(newLogs);
+      }
+      
+    } finally {
+      setLoadingTask(null);
+    }
+  }
+
+  /// Converts AI-scored XP (0.0–1.0 per skill) into actual integer XP.
+  /// Formula: actual = round(score * lifetimeAvg * hoursPassed).
+  /// lifetimeAvg = historical avg XP per scored reflection for that skill (default 20).
+  /// hoursPassed = hours since previous reflection (clamped 0.5–48, default 8).
+  Map<String, int> _convertXpScoresToActual(
+    Map<String, double> scores,
+    DateTime logTimestamp,
+  ) {
+    final prevLogs = reflectionLogs
+        .where((l) => l.timestamp.isBefore(logTimestamp) && l.xpGained.isNotEmpty)
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    final hoursPassed = prevLogs.isEmpty
+        ? 8.0
+        : (logTimestamp.difference(prevLogs.first.timestamp).inMinutes / 60.0)
+            .clamp(0.5, 48.0);
+
+    final result = <String, int>{};
+    for (final entry in scores.entries) {
+      final skillName = entry.key;
+      final score = entry.value.clamp(0.0, 1.0);
+      if (score <= 0.0) {
+        result[skillName] = 0;
+        continue;
+      }
+      final logsWithXp =
+          reflectionLogs.where((l) => (l.xpGained[skillName] ?? 0) > 0).toList();
+      final lifetimeAvg = logsWithXp.isEmpty
+          ? 20.0
+          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[skillName] ?? 0)) /
+              logsWithXp.length;
+      final rawXp = (score * lifetimeAvg * hoursPassed).round();
+      result[skillName] = rawXp.clamp(1, 9999);
+    }
+    return result;
+  }
+
+  /// Synchronously persists a stub reflection log, then runs AI analysis in
+  /// the background. When the analysis completes, [insightReady] is fired and
+  /// a system notification is posted via [NotificationService].
+  ///
+  /// Returns the new log's id so callers can correlate completion if needed.
+  String startReflectionAnalysis({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    DateTime? timestamp,
+  }) {
+    final logId = const Uuid().v4();
+    final log = ReflectionLog(
+      id: logId,
+      timestamp: timestamp ?? DateTime.now(),
+      trigger: trigger,
+
+--- lib/src/providers/actions/report_actions.dart ---
+import 'package:flutter/foundation.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/utils/helpers.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-class ReflectionsArchiveScreen extends StatefulWidget {
-  const ReflectionsArchiveScreen({super.key});
+class ReportActions {
+  final AppProvider _provider;
+  final AIService _aiService;
+
+  ReportActions(this._provider) : _aiService = _provider.aiService;
+
+  Future<List<Map<String, dynamic>>> generateStartDayReport() async {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    final recentLogs = _provider.reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final reflectionsStr = recentLogs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+
+    final sessionsStrBuffer = StringBuffer();
+    for (var task in _provider.mainTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.startTime.isAfter(sevenDaysAgo)) {
+            sessionsStrBuffer.writeln("[${DateFormat('MM-dd').format(session.startTime)}] ${task.name} - ${sub.name}: ${session.durationMinutes}m");
+          }
+        }
+      }
+    }
+
+    // Snapshot current task progress before generating report
+    final taskSnapshot = <String, dynamic>{};
+    for (var task in _provider.mainTasks) {
+      if (task.isDeleted || !task.isActive) continue;
+      final subtaskData = <String, dynamic>{};
+      for (var sub in task.subTasks) {
+        if (sub.isDeleted || !sub.isActive) continue;
+        subtaskData[sub.id] = {
+          'name': sub.name,
+          'progress': sub.calculateProgress(),
+          'time_spent': sub.currentTimeSpent,
+          'completed': sub.completed,
+        };
+      }
+      taskSnapshot[task.id] = {
+        'name': task.name,
+        'color_hex': task.colorHex,
+        'subtasks': subtaskData,
+      };
+    }
+
+    _provider.setLoadingTask("Generating Startup Report...");
+
+    try {
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      final startOfYesterday = startOfToday.subtract(const Duration(days: 1));
+      final startOfTodayMinus7 = startOfToday.subtract(const Duration(days: 7));
+      final startOfYesterdayMinus7 = startOfYesterday.subtract(const Duration(days: 7));
+
+      Map<String, int> todayMetricsMap = {};
+      Map<String, int> yesterdayMetricsMap = {};
+
+      for (var log in _provider.reflectionLogs) {
+        if (log.timestamp.isAfter(startOfTodayMinus7) && log.timestamp.isBefore(startOfToday)) {
+          log.xpGained.forEach((k, v) => todayMetricsMap[k] = (todayMetricsMap[k] ?? 0) + v);
+        }
+        if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
+          log.xpGained.forEach((k, v) => yesterdayMetricsMap[k] = (yesterdayMetricsMap[k] ?? 0) + v);
+        }
+      }
+
+      List<Map<String, dynamic>> metrics = [];
+      for (var skill in _provider.getBaseWellbeingSkills()) {
+        final t = todayMetricsMap[skill.name] ?? 0;
+        final y = yesterdayMetricsMap[skill.name] ?? 0;
+        metrics.add({'name': skill.name, 'today': t, 'yesterday': y, 'delta': t - y});
+      }
+
+      final aiResult = await _aiService.generateStartDayReport(
+        reflectionsList: reflectionsStr,
+        sessionsList: sessionsStrBuffer.toString(),
+        modelCandidates: _provider.settings.heavyModels,
+        currentApiKeyIndex: _provider.apiKeyIndex,
+        customApiKeys: _provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint("[ReportAI] $msg"),
+      );
+
+      final result = Map<String, dynamic>.from(aiResult);
+      result['metrics'] = metrics;
+      result['task_snapshot'] = taskSnapshot;
+      result['snapshot_time'] = now.toIso8601String();
+
+      final today = getTodayDateString();
+      _provider.saveStartDayReport(today, result);
+
+      return [];
+    } catch (e) {
+      debugPrint("Error generating start day report: $e");
+      rethrow;
+    } finally {
+      _provider.setLoadingTask(null);
+    }
+  }
+}
+--- lib/src/widgets/ui/task_progress_snapshot_view.dart (NEW) ---
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+
+class TaskProgressSnapshotView extends StatelessWidget {
+  final Map<String, dynamic> taskSnapshot;
+  final List<MainTask> liveTasks;
+
+  const TaskProgressSnapshotView({
+    super.key,
+    required this.taskSnapshot,
+    required this.liveTasks,
+  });
 
   @override
-  State<ReflectionsArchiveScreen> createState() => _ReflectionsArchiveScreenState();
-}
+  Widget build(BuildContext context) {
+    if (taskSnapshot.isEmpty) return const SizedBox.shrink();
 
-class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
-  DateTime? _filterDate;
-  bool _isSelectionMode = false;
-  final Set<String> _selectedLogIds = {};
+    // Build delta rows sorted by task order in liveTasks
+    final rows = <_TaskDeltaRow>[];
+    for (final task in liveTasks) {
+      if (task.isDeleted || !task.isActive) continue;
+      final snap = taskSnapshot[task.id] as Map<String, dynamic>?;
+      if (snap == null) continue;
+      final snapSubs = snap['subtasks'] as Map<String, dynamic>? ?? {};
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _filterDate ?? DateTime.now(),
-      firstDate: DateTime(2023),
-      lastDate: DateTime.now(),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: JweTheme.accentCyan,
-            onPrimary: Colors.black,
-            surface: JweTheme.panel,
+      double snapProgress = 0.0;
+      double liveProgress = 0.0;
+      int snapTime = 0;
+      int liveTime = 0;
+      int subCount = 0;
+      int completedCount = 0;
+
+      for (final sub in task.subTasks) {
+        if (sub.isDeleted || !sub.isActive) continue;
+        subCount++;
+        if (sub.completed) completedCount++;
+        liveProgress += sub.calculateProgress();
+        liveTime += sub.currentTimeSpent;
+        final snapSub = snapSubs[sub.id] as Map<String, dynamic>?;
+        if (snapSub != null) {
+          snapProgress += (snapSub['progress'] as num? ?? 0.0).toDouble();
+          snapTime += (snapSub['time_spent'] as int? ?? 0);
+        }
+      }
+
+      if (subCount > 0) {
+        snapProgress /= subCount;
+        liveProgress /= subCount;
+      }
+
+      final delta = (liveProgress - snapProgress).clamp(-1.0, 1.0);
+      final timeDeltaSec = liveTime - snapTime;
+      final color = Color(int.parse('0xFF${task.colorHex}'));
+
+      rows.add(_TaskDeltaRow(
+        name: task.name,
+        color: color,
+        liveProgress: liveProgress,
+        delta: delta,
+        timeDeltaSec: timeDeltaSec,
+        completedCount: completedCount,
+        subCount: subCount,
+      ));
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Container(width: 3, height: 10, color: JweTheme.accentCyan),
+          const SizedBox(width: 8),
+          Icon(MdiIcons.progressCheck, size: 11, color: JweTheme.accentCyan),
+          const SizedBox(width: 5),
+          Text(
+            'TASK PROGRESS SINCE STARTUP',
+            style: GoogleFonts.jetBrainsMono(
+              color: JweTheme.accentCyan,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: JweTheme.bgBase,
+            border: Border.all(color: JweTheme.border),
+          ),
+          child: Column(
+            children: List.generate(rows.length, (i) {
+              final r = rows[i];
+              return _ProgressRow(
+                row: r,
+                showDivider: i < rows.length - 1,
+              );
+            }),
           ),
         ),
-        child: child!,
+      ],
+    );
+  }
+}
+
+class _TaskDeltaRow {
+  final String name;
+  final Color color;
+  final double liveProgress;
+  final double delta;
+  final int timeDeltaSec;
+  final int completedCount;
+  final int subCount;
+
+  _TaskDeltaRow({
+    required this.name,
+    required this.color,
+    required this.liveProgress,
+    required this.delta,
+    required this.timeDeltaSec,
+    required this.completedCount,
+    required this.subCount,
+  });
+}
+
+class _ProgressRow extends StatelessWidget {
+  final _TaskDeltaRow row;
+  final bool showDivider;
+
+  const _ProgressRow({required this.row, required this.showDivider});
+
+  @override
+  Widget build(BuildContext context) {
+    final deltaColor = row.delta > 0
+        ? JweTheme.accentTeal
+        : row.delta < 0
+            ? JweTheme.accentRed
+            : JweTheme.textMuted;
+    final deltaStr = row.delta > 0
+        ? '+${(row.delta * 100).round()}%'
+        : row.delta < 0
+            ? '${(row.delta * 100).round()}%'
+            : '–';
+    final timeMin = (row.timeDeltaSec / 60).round();
+    final timeStr = timeMin > 0 ? '+${timeMin}m' : timeMin < 0 ? '${timeMin}m' : '';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        border: showDivider
+            ? const Border(bottom: BorderSide(color: JweTheme.lineSoft))
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(width: 3, height: 10, color: row.color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                row.name.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.saira(
+                  color: JweTheme.textWhite,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            if (deltaStr != '–')
+              Text(deltaStr,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: deltaColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  )),
+            if (timeStr.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Text(timeStr,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted,
+                    fontSize: 9,
+                  )),
+            ],
+          ]),
+          const SizedBox(height: 5),
+          HudProgressBar(
+            value: (row.liveProgress * 100).clamp(0, 100),
+            tone: row.liveProgress >= 1.0
+                ? HudTone.teal
+                : row.delta > 0
+                    ? HudTone.cyan
+                    : HudTone.amber,
+            segments: 24,
+            height: 4,
+            showLabel: false,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${row.completedCount}/${row.subCount} subtasks · ${(row.liveProgress * 100).round()}%',
+            style: GoogleFonts.jetBrainsMono(
+              color: JweTheme.textMuted,
+              fontSize: 9,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
-    if (picked != null) {
-      setState(() => _filterDate = picked);
+  }
+}
+
+--- lib/src/widgets/ui/gratitude_intel_card.dart (NEW) ---
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+
+class GratitudeIntelCard extends StatelessWidget {
+  final String text;
+  final String iconType;
+  final int index;
+
+  const GratitudeIntelCard({
+    super.key,
+    required this.text,
+    required this.iconType,
+    required this.index,
+  });
+
+  static IconData _iconFor(String type) {
+    switch (type.toLowerCase()) {
+      case 'people':   return MdiIcons.accountGroup;
+      case 'nature':   return MdiIcons.leaf;
+      case 'health':   return MdiIcons.heartPulse;
+      case 'learning': return MdiIcons.bookOpenVariant;
+      case 'work':     return MdiIcons.briefcaseOutline;
+      case 'home':     return MdiIcons.homeOutline;
+      case 'food':     return MdiIcons.foodApple;
+      case 'social':   return MdiIcons.messageTextOutline;
+      case 'growth':   return MdiIcons.trendingUp;
+      case 'mind':     return MdiIcons.brain;
+      case 'moment':   return MdiIcons.clockOutline;
+      default:         return MdiIcons.starFourPoints;
     }
   }
 
-  void _openEditor(BuildContext context, ReflectionLog? log) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ReflectionEditorScreen(
-          initialLog: log,
-          dateStr: DateFormat('yyyy-MM-dd').format(log?.timestamp ?? DateTime.now()),
+  @override
+  Widget build(BuildContext context) {
+    final icon = _iconFor(iconType);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: JweTheme.accentTeal.withValues(alpha: 0.04),
+        border: Border(
+          left: BorderSide(color: JweTheme.accentTeal.withValues(alpha: 0.6), width: 2),
         ),
       ),
-    );
-  }
-
-  void _handleTap(BuildContext context, ReflectionLog log) {
-    if (_isSelectionMode) {
-      setState(() {
-        if (_selectedLogIds.contains(log.id)) {
-          _selectedLogIds.remove(log.id);
-          if (_selectedLogIds.isEmpty) {
-            _isSelectionMode = false;
-          }
-        } else {
-          _selectedLogIds.add(log.id);
-        }
-      });
-    } else {
-      _openEditor(context, log);
-    }
-  }
-
-  void _handleLongPress(ReflectionLog log) {
-    if (!_isSelectionMode) {
-      setState(() {
-        _isSelectionMode = true;
-        _selectedLogIds.add(log.id);
-      });
-    }
-  }
-
-  void _copySelectedLogs(List<ReflectionLog> allLogs) {
-    final selectedLogs = allLogs.where((l) => _selectedLogIds.contains(l.id)).toList();
-    selectedLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    final buffer = StringBuffer();
-    for (var log in selectedLogs) {
-      buffer.writeln("[${DateFormat('MMM dd, yyyy - HH:mm').format(log.timestamp)}]");
-      buffer.writeln("What (Trigger): ${log.trigger}");
-      buffer.writeln("How (Emotion): ${log.emotion}");
-      buffer.writeln("Why (Reason): ${log.reason}");
-      if (log.action.isNotEmpty) {
-        buffer.writeln("Action: ${log.action}");
-      }
-      buffer.writeln("---");
-    }
-
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("${selectedLogs.length} logs copied to clipboard.", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: JweTheme.accentCyan,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: JweTheme.accentTeal.withValues(alpha: 0.10),
+              border: Border.all(
+                  color: JweTheme.accentTeal.withValues(alpha: 0.30)),
+            ),
+            child: Icon(icon, size: 13, color: JweTheme.accentTeal),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${index.toString().padLeft(2, '0')}.',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentTeal.withValues(alpha: 0.6),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                Text(
+                  text,
+                  style: GoogleFonts.inter(
+                    color: JweTheme.textWhite,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+}
 
-    setState(() {
-      _isSelectionMode = false;
-      _selectedLogIds.clear();
-    });
+--- lib/src/widgets/cards/tactical_briefing_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class TacticalBriefingCard extends StatelessWidget {
+  final Map<String, dynamic> briefingData;
+  final VoidCallback? onSave;
+  final bool isSaved;
+
+  const TacticalBriefingCard({
+    super.key,
+    required this.briefingData,
+    this.onSave,
+    this.isSaved = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final summary      = briefingData['summary']        as String?        ?? "No intel available.";
+    final improvements = briefingData['improvements']   as List<dynamic>? ?? [];
+    final gratefulPeople  = briefingData['grateful_people']  as List<dynamic>? ?? [];
+    // Support both new 'grateful_today' and legacy 'grateful_assets' fallback
+    final gratefulToday = (briefingData['grateful_today'] as List<dynamic>?)
+        ?? (briefingData['grateful_assets'] as List<dynamic>?)
+        ?? [];
+
+    return HudPanel(
+      clip: HudClip.both,
+      accent: JweTheme.accentAmber,
+      allBrackets: true,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Panel header ─────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+            decoration: BoxDecoration(
+              border: Border(
+                  bottom: BorderSide(
+                      color: JweTheme.accentAmber.withValues(alpha: 0.22))),
+            ),
+            child: Row(children: [
+              Container(width: 4, height: 14, color: JweTheme.accentAmber),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('TACTICAL BRIEFING',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentAmber,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
+                    )),
+              ),
+              if (!isSaved && onSave != null)
+                InkWell(
+                  onTap: onSave,
+                  child: ClipPath(
+                    clipper: HudCutClipper(clip: HudClip.br, cut: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentCyan.withValues(alpha: 0.10),
+                        border: Border.all(
+                            color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                      ),
+                      child: Text('SAVE TO LOG',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                          )),
+                    ),
+                  ),
+                )
+              else if (isSaved)
+                Icon(MdiIcons.checkBold, color: JweTheme.accentCyan, size: 16),
+              const SizedBox(width: 6),
+              HudDot(tone: HudTone.amber, size: 5),
+            ]),
+          ),
+
+          // ── Content ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Intel summary
+                HudSectionHead(
+                  label: 'INTEL SUMMARY',
+                  accent: HudTone.amber,
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  summary,
+                  style: GoogleFonts.inter(
+                    color: JweTheme.textWhite,
+                    fontSize: 13,
+                    height: 1.55,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ).animate().fadeIn(duration: 500.ms),
+
+                // Ability improvements
+                if (improvements.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'ABILITY IMPROVEMENTS',
+                    accent: HudTone.amber,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 10),
+                  ...improvements.map((imp) {
+                    final m = imp as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(MdiIcons.arrowUpBold,
+                              size: 13, color: JweTheme.accentCyan),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(children: [
+                                TextSpan(
+                                  text: '${m['ability']}: ',
+                                  style: GoogleFonts.saira(
+                                    fontWeight: FontWeight.w700,
+                                    color: JweTheme.textWhite,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: m['insight'] ?? '',
+                                  style: GoogleFonts.saira(
+                                    color: JweTheme.textMid,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+
+                // Allies
+                if (gratefulPeople.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'ALLIES DETECTED',
+                    accent: HudTone.cyan,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 10),
+                  ...gratefulPeople.map((person) {
+                    final p = person as Map<String, dynamic>;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: JweTheme.bgBase,
+                        border: Border(
+                            left: BorderSide(
+                                color: JweTheme.accentCyan, width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p['name']?.toUpperCase() ?? 'UNKNOWN',
+                            style: GoogleFonts.chakraPetch(
+                                fontWeight: FontWeight.bold,
+                                color: JweTheme.accentCyan,
+                                fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(p['reason'] ?? '',
+                              style: GoogleFonts.inter(
+                                  color: JweTheme.textMid,
+                                  fontSize: 12,
+                                  height: 1.4)),
+                        ],
+                      ),
+                    ).animate().slideX(begin: 0.08, end: 0).fadeIn();
+                  }),
+                ],
+
+                // Gratitude Intel (replaces assets)
+                if (gratefulToday.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'GRATITUDE INTEL',
+                    accent: HudTone.teal,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  ...List.generate(gratefulToday.length.clamp(0, 10), (i) {
+                    final item = gratefulToday[i] as Map<String, dynamic>;
+                    // Support both new format {text, icon_type} and legacy {name/why/what/reason}
+                    final text = (item['text'] as String?)?.isNotEmpty == true
+                        ? item['text'] as String
+                        : (item['name'] ?? item['why'] ?? item['reason'] ?? '').toString();
+                    final iconType = item['icon_type'] as String? ?? 'general';
+                    if (text.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: GratitudeIntelCard(
+                        text: text,
+                        iconType: iconType,
+                        index: i + 1,
+                      ).animate(delay: (40 * i).ms).fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+--- lib/src/widgets/cards/start_day_report_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class StartDayReportCard extends StatefulWidget {
+  final Map<String, dynamic> report;
+  final VoidCallback? onRegenerate;
+  final bool isRegenerating;
+
+  const StartDayReportCard({
+    super.key,
+    required this.report,
+    this.onRegenerate,
+    this.isRegenerating = false,
+  });
+
+  @override
+  State<StartDayReportCard> createState() => _StartDayReportCardState();
+}
+
+class _StartDayReportCardState extends State<StartDayReportCard> {
+  bool _isExpanded = false;
+
+  void _startWithNora(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final forecast = widget.report['forecast'] as String? ?? "System Started.";
+    final directives = (widget.report['directives'] as List?)?.join(', ') ?? "";
+
+    final customContext = """
+    STARTUP CONTEXT:
+    Forecast: $forecast
+    Directives: $directives
+
+    The user has just initiated the system. Act as a supportive tactical commander or friend to prepare them for the day.
+    """;
+
+    provider.createNoraSession(
+      title: "STARTUP LINK",
+      tone: "Tactician",
+      startDate: DateTime.now().subtract(const Duration(days: 7)),
+      endDate: DateTime.now(),
+      customContext: customContext,
+    );
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    
-    List<ReflectionLog> logs = provider.reflectionLogs;
-    if (_filterDate != null) {
-      logs = logs.where((l) => 
-        l.timestamp.year == _filterDate!.year && 
-        l.timestamp.month == _filterDate!.month && 
-        l.timestamp.day == _filterDate!.day
-      ).toList();
-    }
-    
-    logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final forecast = widget.report['forecast'] as String? ??
+        widget.report['briefing'] as String? ??
+        "Systems nominal. Ready for input.";
+    final directives = (widget.report['directives'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    final metrics = widget.report['metrics'] as List<dynamic>?;
+    final taskSnapshot = widget.report['task_snapshot'] as Map<String, dynamic>?;
 
-    return Scaffold(
-      backgroundColor: JweTheme.bgBase,
-      appBar: AppBar(
-        title: _isSelectionMode 
-          ? Text("${_selectedLogIds.length} SELECTED", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0))
-          : Text("ARCHIVES", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
-        centerTitle: true,
-        backgroundColor: JweTheme.panel,
-        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
-        leading: _isSelectionMode 
-          ? IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => setState(() {
-                _isSelectionMode = false;
-                _selectedLogIds.clear();
-              }),
-            )
-          : IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-        actions: _isSelectionMode 
-          ?[
-              IconButton(
-                icon: const Icon(Icons.copy, color: JweTheme.accentCyan),
-                tooltip: "Copy Selected",
-                onPressed: () => _copySelectedLogs(logs),
+    return HudPanel(
+      clip: HudClip.both,
+      accent: JweTheme.accentCyan,
+      allBrackets: true,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Header ──────────────────────────────────────
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+              decoration: BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: JweTheme.accentCyan.withValues(alpha: 0.22))),
               ),
-              IconButton(
-                icon: const Icon(Icons.select_all, color: JweTheme.textMuted),
-                tooltip: "Select All",
-                onPressed: () {
-                  setState(() {
-                    _selectedLogIds.addAll(logs.map((l) => l.id));
-                  });
-                },
-              )
-            ]
-          :[
-              IconButton(
-                icon: Icon(MdiIcons.download, color: JweTheme.textMuted),
-                tooltip: "Import Data",
-                onPressed: () async {
-                  try {
-                    await provider.importReflections();
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Import successful.", style: TextStyle(color: Colors.black)), backgroundColor: JweTheme.accentCyan));
-                  } catch(e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e", style: const TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
-                  }
-                },
-              ),
-              IconButton(
-                icon: Icon(MdiIcons.upload, color: JweTheme.textMuted),
-                tooltip: "Export Data",
-                onPressed: () async {
-                   try {
-                    await provider.exportReflections();
-                  } catch(e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e", style: const TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
-                  }
-                },
-              ),
-            ],
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            children:[
-              // Filter Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: JweTheme.panel,
-                  border: Border(bottom: BorderSide(color: JweTheme.border))
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children:[
-                        Icon(MdiIcons.filterVariant, color: JweTheme.textMuted, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          _filterDate != null ? DateFormat('MMM dd, yyyy').format(_filterDate!) : "ALL RECORDS",
-                          style: const TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 12),
-                        ),
-                      ],
+              child: Row(children: [
+                Container(width: 4, height: 14, color: JweTheme.accentCyan),
+                const SizedBox(width: 10),
+                Icon(MdiIcons.power, color: JweTheme.accentCyan, size: 13),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'SYSTEM STARTUP OVERVIEW',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentCyan,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
                     ),
-                    Row(
-                      children:[
-                        if (_filterDate != null)
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: JweTheme.accentRed),
-                            onPressed: () => setState(() => _filterDate = null),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.all(8),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.calendar_today, size: 18, color: JweTheme.accentCyan),
-                          onPressed: _pickDate,
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(8),
-                        ),
-                      ],
-                    )
-                  ],
+                  ),
+                ),
+                if (widget.onRegenerate != null && _isExpanded)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      onTap: widget.isRegenerating ? null : widget.onRegenerate,
+                      child: widget.isRegenerating
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.4,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                      JweTheme.accentCyan)),
+                            )
+                          : Icon(MdiIcons.refresh,
+                              size: 15, color: JweTheme.textMuted),
+                    ),
+                  ),
+                HudDot(tone: HudTone.cyan, size: 5),
+                const SizedBox(width: 8),
+                Icon(
+                  _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                  color: JweTheme.textMuted,
+                  size: 18,
+                ),
+              ]),
+            ),
+          ),
+
+          // ── Collapsed preview ────────────────────────────
+          if (!_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Text(
+                forecast,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMid,
+                  fontSize: 12,
+                  height: 1.4,
                 ),
               ),
-              
-              Expanded(
-                child: logs.isEmpty
-                    ? Center(
+            ),
+
+          // ── Expanded body ────────────────────────────────
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Forecast
+                  Text('AI FORECAST',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.8,
+                      )),
+                  const SizedBox(height: 8),
+                  Text(
+                    forecast,
+                    style: GoogleFonts.inter(
+                      color: JweTheme.textWhite,
+                      fontSize: 13,
+                      height: 1.5,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+
+                  // Directives
+                  if (directives.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Row(children: [
+                      Container(width: 3, height: 10, color: JweTheme.accentAmber),
+                      const SizedBox(width: 8),
+                      Text('DIRECTIVES',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentAmber,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.8,
+                          )),
+                    ]),
+                    const SizedBox(height: 10),
+                    ...directives.map((d) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('> ',
+                                  style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.accentCyan,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12)),
+                              Expanded(
+                                child: Text(d,
+                                    style: GoogleFonts.saira(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 13,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w500,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        )),
+                  ],
+
+                  // Metrics
+                  if (metrics != null) ...[
+                    const SizedBox(height: 18),
+                    StartupWellbeingMetrics(metrics: metrics),
+                  ],
+
+                  // Task progress delta
+                  if (taskSnapshot != null && taskSnapshot.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    TaskProgressSnapshotView(
+                      taskSnapshot: taskSnapshot,
+                      liveTasks: provider.mainTasks,
+                    ),
+                  ],
+
+                  const SizedBox(height: 18),
+
+                  // NORA LINK button
+                  InkWell(
+                    onTap: () => _startWithNora(context),
+                    child: ClipPath(
+                      clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          color: JweTheme.accentCyan.withValues(alpha: 0.10),
+                          border: Border.all(
+                              color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(MdiIcons.brain,
+                                size: 14, color: JweTheme.accentCyan),
+                            const SizedBox(width: 8),
+                            Text('INITIATE NORA LINK',
+                                style: GoogleFonts.saira(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.6,
+                                )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.06, end: 0);
+  }
+}
+
+--- lib/src/widgets/dialogs/weekly_report_dialog.dart ---
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/ability_improvement_card.dart';
+import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+
+class WeeklyReportDialog extends StatefulWidget {
+  final Map<String, dynamic> reportData;
+  final VoidCallback? onSave;
+
+  const WeeklyReportDialog({super.key, required this.reportData, this.onSave});
+
+  @override
+  State<WeeklyReportDialog> createState() => _WeeklyReportDialogState();
+}
+
+class _WeeklyReportDialogState extends State<WeeklyReportDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entry;
+
+  @override
+  void initState() {
+    super.initState();
+    _entry = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _entry.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = widget.reportData['summary'] as String? ?? 'No summary available.';
+    final wellbeingAnalysis = widget.reportData['wellbeing_analysis'] as String? ?? '';
+    final abilities = widget.reportData['improved_abilities'] as List<dynamic>? ?? [];
+    final timeInsight = widget.reportData['time_insight'] as String? ?? '';
+    final gratefulPeople = widget.reportData['grateful_people'] as List<dynamic>? ?? [];
+    final gratitudeHighlights = widget.reportData['gratitude_highlights'] as List<dynamic>? ?? [];
+    final agentProgress = widget.reportData['agent_progress'] as List<dynamic>? ?? [];
+    final financeSummary = widget.reportData['finance_summary'] as String? ?? '';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _entry,
+              builder: (_, __) => BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: 16 * _entry.value,
+                  sigmaY: 16 * _entry.value,
+                ),
+                child: Container(color: JweTheme.bgDeep.withOpacity(0.55 * _entry.value)),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460, maxHeight: 720),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+                  child: ScaleTransition(
+                    scale: CurvedAnimation(parent: _entry, curve: Curves.easeOutBack),
+                    child: FadeTransition(
+                      opacity: _entry,
+                      child: HudPanel(
+                        clip: HudClip.both,
+                        accent: JweTheme.accentAmber,
+                        allBrackets: true,
+                        background: JweTheme.panel,
+                        padding: EdgeInsets.zero,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
-                          children:[
-                            Icon(MdiIcons.folderOpenOutline, size: 48, color: JweTheme.textMuted.withOpacity(0.5)),
-                            const SizedBox(height: 16),
-                            const Text("NO RECORDS FOUND.", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                          ],
-                        )
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: logs.length,
-                        itemBuilder: (context, index) {
-                          final log = logs[index];
-                          final isSelected = _selectedLogIds.contains(log.id);
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: GestureDetector(
-                              onTap: () => _handleTap(context, log),
-                              onLongPress: () => _handleLongPress(log),
-                              child: ReflectionLogCard(
-                                log: log,
-                                isSelected: isSelected,
+                          children: [
+                            _Header(),
+                            Flexible(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _Section(
+                                      title: 'TACTICAL SUMMARY',
+                                      icon: MdiIcons.textShort,
+                                      accent: JweTheme.accentCyan,
+                                      delay: 200,
+                                      child: _TextBlock(
+                                        text: summary,
+                                        accent: JweTheme.accentCyan,
+                                      ),
+                                    ),
+                                    if (wellbeingAnalysis.isNotEmpty)
+                                      _Section(
+                                        title: 'WELL-BEING TRAJECTORY',
+                                        icon: MdiIcons.heartPulse,
+                                        accent: const Color(0xFFB07BFF),
+                                        delay: 320,
+                                        child: _TextBlock(
+                                          text: wellbeingAnalysis,
+                                          accent: const Color(0xFFB07BFF),
+                                        ),
+                                      ),
+                                    if (abilities.isNotEmpty)
+                                      _Section(
+                                        title: 'KEY IMPROVEMENTS',
+                                        icon: MdiIcons.arrowUpBoldCircleOutline,
+                                        accent: JweTheme.accentAmber,
+                                        delay: 440,
+                                        child: Column(
+                                          children: List.generate(abilities.length, (i) {
+                                            final map = abilities[i] as Map<String, dynamic>;
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 10.0),
+                                              child: AbilityImprovementCard(
+                                                name: map['name'] ?? 'Skill',
+                                                reason: map['reason'] ?? '',
+                                                score: map['score'] as int? ?? 1,
+                                              )
+                                                  .animate(delay: (480 + i * 90).ms)
+                                                  .fadeIn(duration: 380.ms)
+                                                  .slideX(begin: 0.08, end: 0),
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                    if (gratefulPeople.isNotEmpty)
+                                      _Section(
+                                        title: 'ALLIES ACKNOWLEDGED',
+                                        icon: MdiIcons.handHeart,
+                                        accent: JweTheme.accentAmber,
+                                        delay: 580,
+                                        child: Column(
+                                          children: List.generate(gratefulPeople.length, (i) {
+                                            final pMap = gratefulPeople[i] as Map<String, dynamic>;
+                                            return Container(
+                                              margin: const EdgeInsets.only(bottom: 8),
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: JweTheme.bgBase.withOpacity(0.6),
+                                                border: const Border(
+                                                  left: BorderSide(color: JweTheme.accentAmber, width: 2),
+                                                ),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    pMap['name'] ?? 'Unknown',
+                                                    style: GoogleFonts.saira(
+                                                      color: JweTheme.accentAmber,
+                                                      fontWeight: FontWeight.w700,
+                                                      letterSpacing: 0.8,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    pMap['reason'] ?? '',
+                                                    style: const TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.4),
+                                                  ),
+                                                ],
+                                              ),
+                                            ).animate(delay: (620 + i * 70).ms).fadeIn();
+                                          }),
+                                        ),
+                                      ),
+                                    if (timeInsight.isNotEmpty)
+                                      _Section(
+                                        title: 'TEMPORAL INSIGHT',
+                                        icon: MdiIcons.clockTimeFourOutline,
+                                        accent: const Color(0xFFB07BFF),
+                                        delay: 720,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0x1AB07BFF),
+                                            border: Border.all(color: const Color(0x66B07BFF)),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(MdiIcons.informationOutline, size: 16, color: const Color(0xFFB07BFF)),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  timeInsight,
+                                                  style: const TextStyle(
+                                                    color: JweTheme.textMid,
+                                                    fontSize: 12,
+                                                    fontStyle: FontStyle.italic,
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    if (gratitudeHighlights.isNotEmpty)
+                                      _Section(
+                                        title: 'GRATITUDE HIGHLIGHTS',
+                                        icon: MdiIcons.heartOutline,
+                                        accent: JweTheme.accentTeal,
+                                        delay: 820,
+                                        child: Column(
+                                          children: List.generate(
+                                              gratitudeHighlights.length.clamp(0, 5), (i) {
+                                            final item = gratitudeHighlights[i] as Map<String, dynamic>;
+                                            final text = item['text'] as String? ?? '';
+                                            final iconType = item['icon_type'] as String? ?? 'general';
+                                            if (text.isEmpty) return const SizedBox.shrink();
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 6),
+                                              child: GratitudeIntelCard(
+                                                text: text,
+                                                iconType: iconType,
+                                                index: i + 1,
+                                              ).animate(delay: (860 + i * 60).ms).fadeIn(duration: 340.ms),
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                    if (agentProgress.isNotEmpty)
+                                      _Section(
+                                        title: 'AGENT PROGRESS',
+                                        icon: MdiIcons.chartLine,
+                                        accent: JweTheme.accentCyan,
+                                        delay: 920,
+                                        child: Column(
+                                          children: List.generate(agentProgress.length, (i) {
+                                            final a = agentProgress[i] as Map<String, dynamic>;
+                                            final task = a['task'] as String? ?? '';
+                                            final insight = a['insight'] as String? ?? '';
+                                            final trend = a['trend'] as String? ?? 'stable';
+                                            final trendColor = trend == 'up'
+                                                ? JweTheme.accentTeal
+                                                : trend == 'down'
+                                                    ? JweTheme.accentRed
+                                                    : JweTheme.accentAmber;
+                                            final trendIcon = trend == 'up'
+                                                ? MdiIcons.trendingUp
+                                                : trend == 'down'
+                                                    ? MdiIcons.trendingDown
+                                                    : MdiIcons.trendingNeutral;
+                                            return Container(
+                                              margin: const EdgeInsets.only(bottom: 8),
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                color: JweTheme.bgBase.withValues(alpha: 0.6),
+                                                border: const Border(
+                                                  left: BorderSide(color: JweTheme.accentCyan, width: 2),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Icon(trendIcon, size: 13, color: trendColor),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(task.toUpperCase(),
+                                                            style: GoogleFonts.saira(
+                                                              color: JweTheme.accentCyan,
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              letterSpacing: 0.6,
+                                                            )),
+                                                        const SizedBox(height: 3),
+                                                        Text(insight,
+                                                            style: const TextStyle(
+                                                              color: JweTheme.textMid,
+                                                              fontSize: 11,
+                                                              height: 1.4,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ).animate(delay: (960 + i * 70).ms).fadeIn();
+                                          }),
+                                        ),
+                                      ),
+                                    if (financeSummary.isNotEmpty)
+                                      _Section(
+                                        title: 'FINANCE DEBRIEF',
+                                        icon: MdiIcons.currencyInr,
+                                        accent: JweTheme.accentAmber,
+                                        delay: 1020,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: JweTheme.amberSoft,
+                                            border: const Border(
+                                              left: BorderSide(color: JweTheme.accentAmber, width: 2),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(MdiIcons.walletOutline, size: 13, color: JweTheme.accentAmber),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  financeSummary,
+                                                  style: const TextStyle(
+                                                    color: JweTheme.textWhite,
+                                                    fontSize: 12,
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                ),
                               ),
                             ),
-                          );
-                        },
+                            _Footer(onSave: widget.onSave, onClose: () => Navigator.of(context).maybePop()),
+                          ],
+                        ),
                       ),
-              )
-            ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
---- END OF FILE lib/src/screens/reflections_archive_screen.dart ---
 
---- START OF FILE lib/src/widgets/ui/reflection_log_card.dart ---
-import 'package:flutter/material.dart';
-import 'package:arcane/src/models/skill_models.dart';
-import 'package:arcane/src/theme/jwe_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+class _Header extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 16, 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: JweTheme.lineSoft)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x33FFB547), Colors.transparent],
+        ),
+      ),
+      child: Row(
+        children: [
+          const HudReticle(size: 28, color: JweTheme.accentAmber)
+              .animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.6, 0.6)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '// 7-DAY REVIEW',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
+                  ),
+                ).animate().fadeIn(delay: 80.ms),
+                const SizedBox(height: 3),
+                Text(
+                  'WEEKLY DEBRIEF',
+                  style: GoogleFonts.saira(
+                    color: JweTheme.textWhite,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                    height: 1,
+                    shadows: [
+                      Shadow(color: JweTheme.accentAmber.withOpacity(0.4), blurRadius: 14),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.08, end: 0),
+              ],
+            ),
+          ),
+          const HudDot(tone: HudTone.amber, size: 8),
+        ],
+      ),
+    );
+  }
+}
 
-class ReflectionLogCard extends StatelessWidget {
-  final ReflectionLog log;
-  final bool isSelected;
+class _Section extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color accent;
+  final int delay;
+  final Widget child;
 
-  const ReflectionLogCard({
-    super.key, 
-    required this.log,
-    this.isSelected = false,
+  const _Section({
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.delay,
+    required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    final totalXp = log.xpGained.values.fold(0, (sum, xp) => sum + xp);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isSelected ? JweTheme.accentCyan.withOpacity(0.1) : JweTheme.panel,
-        border: Border.all(
-          color: isSelected ? JweTheme.accentCyan : JweTheme.border, 
-          width: isSelected ? 2.0 : 1.0
-        ),
-      ),
-      child: Stack(
-        children:[
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children:[
-                    Expanded(
-                      child: Text(
-                        log.trigger.isNotEmpty ? log.trigger.toUpperCase() : "REFLECTION LOG",
-                        style: GoogleFonts.chakraPetch(
-                          color: isSelected ? JweTheme.accentCyan : JweTheme.textWhite, 
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 16
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (totalXp > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: JweTheme.accentAmber.withOpacity(0.1),
-                          border: Border.all(color: JweTheme.accentAmber.withOpacity(0.5))
-                        ),
-                        child: Text(
-                          "+$totalXp XP", 
-                          style: const TextStyle(
-                            color: JweTheme.accentAmber, 
-                            fontSize: 10, 
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'RobotoMono'
-                          )
-                        ),
-                      )
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  DateFormat('MMM dd, yyyy - HH:mm').format(log.timestamp),
-                  style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono'),
-                ),
-                const SizedBox(height: 12),
-                if (log.emotion.isNotEmpty)
-                   _buildRow("HOW", log.emotion),
-                if (log.reason.isNotEmpty)
-                   _buildRow("WHY", log.reason),
-                if (log.action.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    "ACTION: ${log.action}",
-                    style: const TextStyle(
-                      color: JweTheme.textWhite, 
-                      fontSize: 12, 
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (log.aiFeedback.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
-                      border: const Border(left: BorderSide(color: JweTheme.accentCyan, width: 2))
-                    ),
-                    child: Text(
-                      log.aiFeedback,
-                      style: const TextStyle(
-                        color: JweTheme.textMuted, 
-                        fontSize: 11, 
-                        fontStyle: FontStyle.italic,
-                        height: 1.4
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                ]
-              ],
-            ),
-          ),
-          if (isSelected)
-            const Positioned(
-              right: 16,
-              bottom: 16,
-              child: Icon(Icons.check_circle, color: JweTheme.accentCyan, size: 24),
-            )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children:[
-          SizedBox(
-            width: 40,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: JweTheme.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 3, height: 11, color: accent),
+              const SizedBox(width: 8),
+              Icon(icon, size: 12, color: accent),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: GoogleFonts.jetBrainsMono(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: JweTheme.textWhite,
-                fontSize: 12,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+              const SizedBox(width: 8),
+              Expanded(child: Container(height: 1, color: accent.withOpacity(0.25))),
+            ],
+          ).animate(delay: delay.ms).fadeIn(duration: 360.ms),
+          const SizedBox(height: 10),
+          child.animate(delay: (delay + 60).ms).fadeIn(duration: 420.ms),
         ],
       ),
     );
   }
 }
---- END OF FILE lib/src/widgets/ui/reflection_log_card.dart ---
+
+class _TextBlock extends StatelessWidget {
+  final String text;
+  final Color accent;
+  const _TextBlock({required this.text, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.6),
+        border: Border(left: BorderSide(color: accent, width: 3)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: JweTheme.textWhite,
+          fontSize: 13,
+          height: 1.55,
+        ),
+      ),
+    );
+  }
+}
+
+class _Footer extends StatelessWidget {
+  final VoidCallback? onSave;
+  final VoidCallback onClose;
+  const _Footer({required this.onSave, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: JweTheme.lineSoft)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: onClose,
+              child: ClipPath(
+                clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    border: Border.all(color: JweTheme.border),
+                  ),
+                  child: Text(
+                    'ACKNOWLEDGE',
+                    style: GoogleFonts.saira(
+                      color: JweTheme.textMid,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (onSave != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: InkWell(
+                onTap: onSave,
+                child: ClipPath(
+                  clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: JweTheme.amberSoft,
+                      border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(MdiIcons.archiveArrowDownOutline, size: 14, color: JweTheme.accentAmber),
+                        const SizedBox(width: 8),
+                        Text(
+                          'ARCHIVE',
+                          style: GoogleFonts.saira(
+                            color: JweTheme.accentAmber,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ).animate(delay: 900.ms).fadeIn(),
+    );
+  }
+}
+
+--- lib/src/widgets/views/daily_summary_view.dart ---
+import 'package:flutter/material.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/widgets/charts/wellbeing_pie_chart.dart';
+import 'package:missions/src/widgets/charts/time_pie_chart.dart';
+import 'package:missions/src/widgets/charts/weekly_line_charts.dart';
+import 'package:missions/src/widgets/ui/chart_carousel.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/chart_data_helper.dart'; 
+import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
+import 'package:missions/src/widgets/dialogs/weekly_report_dialog.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/screens/reflections_archive_screen.dart';
+import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
+import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
+import 'package:missions/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
+import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
+import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
+import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class DailySummaryView extends StatefulWidget {
+  const DailySummaryView({super.key});
+
+  @override
+  State<DailySummaryView> createState() => _DailySummaryViewState();
+}
+
+class _DailySummaryViewState extends State<DailySummaryView> {
+  String? _selectedDate;
+  String? _selectedTaskFilter;
+  String? _selectedVirtueFilter;
+  bool _isGeneratingSummary = false;
+  bool _isGeneratingWeeklyReport = false;
+  bool _isGeneratingStartDay = false;
+  
+  Map<String, dynamic>? _tempGeneratedBriefing;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_selectedDate == null) {
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      _selectedDate = today;
+    }
+  }
+
+  Future<void> _checkPinAndNavigate(BuildContext context, Widget screen) async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    
+    if (provider.settings.journalPin == null || provider.settings.journalPin!.isEmpty) {
+      final newPin = await PinDialog.show(context: context, isSetupMode: true);
+      if (newPin != null && newPin is String) {
+        provider.setJournalPin(newPin);
+        if (mounted) {
+           Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        }
+      }
+    } else {
+      final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
+      if (success == true && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+      }
+    }
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final Set<String> validDates = {};
+    validDates.addAll(appProvider.completedByDay.keys);
+    
+    for (var log in appProvider.reflectionLogs) {
+      validDates.add(DateFormat('yyyy-MM-dd').format(log.timestamp));
+    }
+    
+    final today = DateTime.now();
+    validDates.add(DateFormat('yyyy-MM-dd').format(today));
+    validDates.add(DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
+
+    final initialDate = _selectedDate != null ? DateTime.tryParse(_selectedDate!) ?? DateTime.now() : DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      selectableDayPredicate: (DateTime date) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        return validDates.contains(dateStr);
+      },
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: JweTheme.accentCyan,
+              onPrimary: Colors.black,
+              surface: JweTheme.panel,
+              onSurface: JweTheme.textWhite,
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: JweTheme.bgBase),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+        _tempGeneratedBriefing = null; 
+      });
+    }
+  }
+
+  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
+    if (_selectedDate == null) return;
+    
+    setState(() => _isGeneratingSummary = true);
+    
+    try {
+      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
+      
+      setState(() {
+        _tempGeneratedBriefing = briefingData;
+      });
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingSummary = false);
+    }
+  }
+
+  String _buildFinanceWeekContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    double weekIncome = 0, weekExpense = 0;
+    for (final t in provider.transactions) {
+      if (t.timestamp.isAfter(weekAgo)) {
+        if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+      }
+    }
+    final balance = provider.financeActions.currentBalance;
+    return 'Week Income: ₹${weekIncome.toStringAsFixed(0)}, Expense: ₹${weekExpense.toStringAsFixed(0)}, Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}, Balance: ₹${balance.toStringAsFixed(0)}';
+  }
+
+  String _buildAgentProgressContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final buf = StringBuffer();
+    for (final task in provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
+      int weekSec = 0;
+      int completedSubs = 0;
+      final activeSubs = task.subTasks.where((s) => !s.isDeleted && s.isActive).toList();
+      for (final sub in activeSubs) {
+        if (sub.completed) completedSubs++;
+        for (final sess in sub.sessions) {
+          if (sess.startTime.isAfter(weekAgo)) weekSec += sess.durationSeconds;
+        }
+      }
+      buf.writeln('${task.name}: ${(weekSec / 3600).toStringAsFixed(1)}h this week, $completedSubs/${activeSubs.length} subtasks done');
+    }
+    return buf.toString();
+  }
+
+  Future<void> _generateWeeklyReport(AppProvider provider) async {
+    setState(() => _isGeneratingWeeklyReport = true);
+    try {
+      final data = provider.getLast7DaysData();
+      final wellbeingDiff = provider.getWeeklyWellbeingComparison();
+      final aiService = provider.aiService;
+      final financeContext = _buildFinanceWeekContext(provider);
+      final agentContext = _buildAgentProgressContext(provider);
+
+      final result = await aiService.generateWeeklyReport(
+        logsText: data['logs'] as String,
+        timeStatsText: data['times'] as String,
+        wellbeingStatsText: wellbeingDiff,
+        financeText: financeContext,
+        agentProgressText: agentContext,
+        modelCandidates: provider.settings.liteModels,
+        currentApiKeyIndex: provider.apiKeyIndex,
+        customApiKeys: provider.settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+        onLog: (msg) => debugPrint(msg),
+      );
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => WeeklyReportDialog(
+            reportData: result,
+            onSave: () async {
+              final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+              await provider.saveWeeklyReport(dateStr, result);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Report Saved to Archive!")));
+                Navigator.pop(ctx);
+              }
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingWeeklyReport = false);
+    }
+  }
+
+  Future<void> _generateStartDayReport(AppProvider provider) async {
+    setState(() => _isGeneratingStartDay = true);
+    try {
+      await provider.reportActions.generateStartDayReport();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isGeneratingStartDay = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    
+    final chartData = ChartDataHelper.prepareWeeklyData(
+      appProvider, 
+      _selectedDate, 
+      _selectedTaskFilter, 
+      _selectedVirtueFilter
+    );
+
+    final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
+    final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
+    
+    final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
+    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    final List<ReflectionLog> reflectionsForDate = _selectedDate != null
+        ? appProvider.reflectionLogs.where((l) {
+            final d = DateTime.parse(_selectedDate!);
+            return l.timestamp.year == d.year &&
+                l.timestamp.month == d.month &&
+                l.timestamp.day == d.day;
+          }).toList()
+        :[];
+
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(0, 14, 0, 80),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Hero header ────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: HudPanel(
+                clip: HudClip.both,
+                accent: JweTheme.accentCyan,
+                allBrackets: true,
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                child: Row(children: [
+                  const HudReticle(size: 22, color: JweTheme.accentCyan),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text('// INTEL DATABANK',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.8,
+                          )),
+                      const SizedBox(height: 3),
+                      Text('DATABANKS',
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 1.0, height: 1,
+                          )),
+                    ]),
+                  ),
+                  _IconBtn(
+                    icon: MdiIcons.archiveSearchOutline,
+                    accent: JweTheme.accentCyan,
+                    tooltip: 'ARCHIVE',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedReportsScreen())),
+                  ),
+                  const SizedBox(width: 6),
+                  _IconBtn(
+                    icon: _isGeneratingWeeklyReport ? null : MdiIcons.fileChartOutline,
+                    accent: JweTheme.accentAmber,
+                    tooltip: 'WEEKLY REPORT',
+                    loading: _isGeneratingWeeklyReport,
+                    onTap: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                  ),
+                ]),
+              ),
+            ),
+
+            // ── 7-DAY PERFORMANCE carousel ─────────────
+            const HudSectionHead(
+              label: 'TELEMETRY',
+              code: '7-DAY',
+              accent: HudTone.amber,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: ChartCarousel(
+                height: 280,
+                pages: [
+                  ChartCarouselData(
+                    title: '7-DAY PERFORMANCE',
+                    tone: HudTone.amber,
+                    chart: WeeklyActivityLineChart(
+                      weeklyData: chartData['activityData'],
+                      dominantColors: chartData['activityColors'],
+                      isVirtue: false,
+                    ),
+                  ),
+                  ChartCarouselData(
+                    title: 'WELL-BEING GROWTH',
+                    tone: HudTone.cyan,
+                    chart: WeeklyVirtueLineChart(
+                      weeklyXp: chartData['virtueData'],
+                      dominantVirtueColors: chartData['virtueColors'],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Pie panels ─────────────────────────────
+            const HudSectionHead(
+              label: 'DISTRIBUTION',
+              code: 'TODAY',
+              accent: HudTone.cyan,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: HudPanel(
+                    clip: HudClip.br,
+                    accent: JweTheme.accentCyan,
+                    padding: EdgeInsets.zero,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      _PanelHeader(label: 'MISSION FOCUS', color: JweTheme.accentCyan),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: SizedBox(
+                          height: 150,
+                          child: TimePieChart(
+                            taskData: chartData['dailyTaskTimeData'],
+                            taskColors: chartData['taskColors'],
+                            selectedTask: _selectedTaskFilter,
+                            onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: HudPanel(
+                    clip: HudClip.br,
+                    accent: JweTheme.accentAmber,
+                    padding: EdgeInsets.zero,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      _PanelHeader(label: 'WELL-BEING', color: JweTheme.accentAmber),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: SizedBox(
+                          height: 150,
+                          child: WellbeingPieChart(
+                            logs: reflectionsForDate,
+                            selectedVirtue: _selectedVirtueFilter,
+                            onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+
+            // ── Inspect date ───────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: JweDateSelector(
+                dateStr: _selectedDate ?? 'TODAY',
+                onTap: () => _pickDate(context),
+              ),
+            ),
+
+            // ── Reflection protocol ────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: JweReflectionProgress(
+                logs: reflectionsForDate,
+                dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+              ),
+            ),
+
+            // ── Startup report ─────────────────────────
+            if (startDayReport != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: StartDayReportCard(
+                  report: startDayReport,
+                  isRegenerating: _isGeneratingStartDay,
+                  onRegenerate: () => _generateStartDayReport(appProvider),
+                ),
+              )
+            else if (isToday)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: _HudActionBar(
+                  label: 'SYSTEM STARTUP REPORT',
+                  icon: MdiIcons.power,
+                  accent: JweTheme.accentCyan,
+                  loading: _isGeneratingStartDay,
+                  onTap: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+                ),
+              ),
+
+            // ── Tactical briefing ──────────────────────
+            const HudSectionHead(label: 'TACTICAL BRIEFING', code: 'AI', accent: HudTone.amber),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: displayBriefing != null
+                  ? TacticalBriefingCard(
+                      briefingData: displayBriefing,
+                      isSaved: savedBriefing != null,
+                      onSave: savedBriefing == null
+                          ? () {
+                              appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                              setState(() {});
+                            }
+                          : null,
+                    )
+                  : HudPanel(
+                      clip: HudClip.br,
+                      accent: JweTheme.accentAmber,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Text('NO BRIEFING INTEL AVAILABLE',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w600,
+                            )),
+                        const SizedBox(height: 14),
+                        _HudActionBar(
+                          label: _isGeneratingSummary ? 'ANALYZING…' : '+ GENERATE BRIEFING',
+                          icon: MdiIcons.brain,
+                          accent: JweTheme.accentAmber,
+                          loading: _isGeneratingSummary,
+                          onTap: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                        ),
+                      ]),
+                    ),
+            ),
+
+            // ── Classified access ──────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: JweQuickAccessGrid(
+                onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
+                onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+                onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData? icon;
+  final Color accent;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool loading;
+  const _IconBtn({this.icon, required this.accent, required this.tooltip, this.onTap, this.loading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null && !loading;
+    Widget child = Container(
+      width: 34, height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: disabled ? JweTheme.lineSoft : accent.withValues(alpha: 0.40),
+          width: 1,
+        ),
+      ),
+      child: loading
+          ? SizedBox(
+              width: 12, height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.4, valueColor: AlwaysStoppedAnimation<Color>(accent)),
+            )
+          : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : accent),
+    );
+    if (onTap != null) child = InkWell(onTap: onTap, child: child);
+    return Tooltip(message: tooltip, child: child);
+  }
+}
+
+class _PanelHeader extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _PanelHeader({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.20))),
+      ),
+      child: Row(children: [
+        Container(width: 3, height: 10, color: color),
+        const SizedBox(width: 8),
+        Text(label,
+            style: GoogleFonts.jetBrainsMono(
+              color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+            )),
+      ]),
+    );
+  }
+}
+
+class _HudActionBar extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final bool loading;
+  final VoidCallback? onTap;
+
+  const _HudActionBar({
+    required this.label,
+    required this.icon,
+    required this.accent,
+    this.loading = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null && !loading;
+    return InkWell(
+      onTap: onTap,
+      child: ClipPath(
+        clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            border: Border.all(color: accent.withValues(alpha: 0.45)),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            if (loading)
+              SizedBox(
+                width: 14, height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6, valueColor: AlwaysStoppedAnimation<Color>(accent)),
+              )
+            else
+              Icon(icon, size: 14, color: disabled ? JweTheme.textMuted : accent),
+            const SizedBox(width: 8),
+            Text(label,
+                style: GoogleFonts.saira(
+                  color: disabled ? JweTheme.textMuted : accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+--- lib/src/widgets/finance/finance_tracker_view.dart ---
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/finance_helpers.dart';
+import 'package:missions/src/widgets/dialogs/add_edit_account_dialog.dart';
+import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:provider/provider.dart';
+
+class FinanceTrackerView extends StatefulWidget {
+  const FinanceTrackerView({super.key});
+
+  @override
+  State<FinanceTrackerView> createState() => _FinanceTrackerViewState();
+}
+
+class _FinanceTrackerViewState extends State<FinanceTrackerView> {
+  static const String _currency = '₹';
+
+  void _showAddTransactionDialog(BuildContext context, bool isIncome) {
+    showDialog(context: context, builder: (_) => AddTransactionDialog(isIncome: isIncome));
+  }
+
+  void _showAddAccountDialog(BuildContext context, {FinanceAccount? existing}) {
+    showDialog(
+      context: context,
+      builder: (_) => AddEditAccountDialog(existing: existing),
+    );
+  }
+
+  void _showChangeBalanceDialog(BuildContext context, FinanceAccount account) {
+    final ctrl = TextEditingController(text: account.balance.toStringAsFixed(2));
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentAmber),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text(
+            'CHANGE BALANCE',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentAmber,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              fontSize: 13,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(account.name.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 22),
+                decoration: const InputDecoration(
+                  prefixText: '₹ ',
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: JweTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentAmber,
+                foregroundColor: Colors.black,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                final val = double.tryParse(ctrl.text);
+                if (val != null) {
+                  provider.financeActions.changeAccountBalance(account.id, val);
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('CONFIRM', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmReset(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: JweTheme.accentRed),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text('RESET LEDGER',
+              style: GoogleFonts.saira(
+                  color: JweTheme.accentRed,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                  fontSize: 13)),
+          content: Text(
+            'This will permanently delete all transaction records. Account balances are not affected.',
+            style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentRed,
+                foregroundColor: Colors.white,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                provider.financeActions.resetTransactions();
+                Navigator.pop(ctx);
+              },
+              child: const Text('RESET', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+    final balance = provider.financeActions.currentBalance;
+    final hasAccounts = provider.accounts.isNotEmpty;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final monthStart = DateTime(now.year, now.month, 1);
+    final thirtyAgo = today.subtract(const Duration(days: 29));
+
+    var todaySpend = 0.0;
+    var monthSpend = 0.0;
+    var income30d = 0.0;
+    var expense30d = 0.0;
+
+    final dailyExp = List<double>.filled(30, 0);
+
+    for (var t in provider.transactions) {
+      final ts = t.timestamp;
+      if (!t.isIncome) {
+        if (_sameDay(ts, today)) todaySpend += t.amount;
+        if (!ts.isBefore(monthStart)) monthSpend += t.amount;
+        if (!ts.isBefore(thirtyAgo)) {
+          expense30d += t.amount;
+          final dayIdx = today.difference(DateTime(ts.year, ts.month, ts.day)).inDays;
+          final i = 29 - dayIdx;
+          if (i >= 0 && i < 30) dailyExp[i] += t.amount;
+        }
+      } else {
+        if (!ts.isBefore(thirtyAgo)) income30d += t.amount;
+      }
+    }
+
+    final avg30d = expense30d / 30.0;
+
+    // Projected income for the month
+    var monthIncome = 0.0;
+    for (var t in provider.transactions) {
+      if (t.isIncome && !t.timestamp.isBefore(monthStart)) monthIncome += t.amount;
+    }
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final daysElapsed = now.day.clamp(1, daysInMonth);
+    final dailyIncomeRate = monthIncome / daysElapsed;
+    final projectedMonthIncome = dailyIncomeRate * daysInMonth;
+
+    final catTotals = <String, double>{};
+    for (var t in provider.transactions) {
+      if (t.isIncome) continue;
+      if (t.timestamp.isBefore(monthStart)) continue;
+      catTotals[t.categoryId] = (catTotals[t.categoryId] ?? 0) + t.amount;
+    }
+    final cats = provider.categories
+        .where((c) => !c.isIncomeCategory && (catTotals[c.id] ?? 0) > 0)
+        .map((c) {
+          final amt = catTotals[c.id] ?? 0;
+          final pct = monthSpend > 0 ? (amt / monthSpend) * 100 : 0;
+          return _CatRow(c, amt, pct.toDouble());
+        })
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 80),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+
+        // ── Balance hero ────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: HudPanel(
+            clip: HudClip.both,
+            accent: JweTheme.accentAmber,
+            allBrackets: true,
+            padding: EdgeInsets.zero,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: JweTheme.lineAmber, width: 1)),
+                ),
+                child: Row(children: [
+                  Text('// LIQUID BALANCE',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.8,
+                      )),
+                  const Spacer(),
+                  HudDot(tone: HudTone.amber),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(
+                      '$_currency${_compactMoney(balance)}',
+                      style: GoogleFonts.saira(
+                        color: JweTheme.accentAmber,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (!hasAccounts)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          income30d > expense30d
+                              ? '+${(((income30d - expense30d) / math.max(1.0, income30d)) * 100).round()}%'
+                              : '−${(((expense30d - income30d) / math.max(1.0, expense30d)) * 100).round()}%',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: income30d > expense30d ? JweTheme.accentTeal : JweTheme.accentRed,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: HudStat(
+                      label: 'Today',
+                      value: '$_currency${_compactMoney(todaySpend)}',
+                      tone: HudTone.cyan,
+                      size: 18,
+                    )),
+                    Expanded(child: HudStat(
+                      label: 'MTD',
+                      value: '$_currency${_compactMoney(monthSpend)}',
+                      tone: HudTone.amber,
+                      size: 18,
+                    )),
+                    Expanded(child: HudStat(
+                      label: 'AVG/30D',
+                      value: '$_currency${_compactMoney(avg30d * 30)}',
+                      tone: HudTone.cyan,
+                      size: 18,
+                    )),
+                  ]),
+                  const SizedBox(height: 14),
+                  _IncomeExpenseBar(income: income30d, expense: expense30d),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+
+        // ── Projected income card ───────────────────
+        if (monthIncome > 0 || projectedMonthIncome > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: _ProjectedIncomeCard(
+              monthIncome: monthIncome,
+              projectedIncome: projectedMonthIncome,
+              monthExpense: monthSpend,
+              daysElapsed: daysElapsed,
+              daysInMonth: daysInMonth,
+              currency: _currency,
+            ),
+          ),
+
+        // ── Action buttons ───────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(children: [
+            Expanded(
+              child: _LedgerActionBtn(
+                label: 'INCOME',
+                icon: MdiIcons.plus,
+                accent: JweTheme.accentTeal,
+                onTap: () => _showAddTransactionDialog(context, true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _LedgerActionBtn(
+                label: 'EXPENSE',
+                icon: MdiIcons.minus,
+                accent: JweTheme.accentRed,
+                onTap: () => _showAddTransactionDialog(context, false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _ResetBtn(onTap: () => _confirmReset(context)),
+          ]),
+        ),
+
+        // ── Accounts ────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+          child: HudSectionHead(
+            label: 'ACCOUNTS',
+            code: hasAccounts ? '${provider.accounts.length} LINKED' : 'NONE',
+            accent: HudTone.cyan,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Column(children: [
+            ...provider.accounts.map((acc) {
+              final color = Color(int.parse('0xFF${acc.colorHex}'));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: HudPanel(
+                  clip: HudClip.br,
+                  accent: color,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                      ),
+                      child: Icon(FinanceHelpers.getIconData(acc.iconName), color: color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(acc.name.toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                            )),
+                        Text(acc.type.toUpperCase(),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.2,
+                            )),
+                      ]),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$_currency${_compactMoney(acc.balance)}',
+                          style: GoogleFonts.saira(
+                            color: color, fontSize: 18, fontWeight: FontWeight.w700,
+                          )),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        GestureDetector(
+                          onTap: () => _showChangeBalanceDialog(context, acc),
+                          child: Text('BALANCE',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentAmber, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showAddAccountDialog(context, existing: acc),
+                          child: Text('EDIT',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => provider.financeActions.deleteAccount(acc.id),
+                          child: Text('DEL',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentRed, fontSize: 9, letterSpacing: 1.0,
+                              )),
+                        ),
+                      ]),
+                    ]),
+                  ]),
+                ),
+              );
+            }),
+            GestureDetector(
+              onTap: () => _showAddAccountDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: JweTheme.lineSoft),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.add, color: JweTheme.accentCyan, size: 14),
+                  const SizedBox(width: 6),
+                  Text('ADD ACCOUNT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.4,
+                      )),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+
+        // ── 30-day expenditure ──────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+          child: HudPanel(
+            clip: HudClip.br,
+            accent: JweTheme.accentAmber,
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('// 30-DAY EXPENDITURE',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.8,
+                    )),
+                const Spacer(),
+                Text('μ $_currency${_compactMoney(avg30d)}/d',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w500, letterSpacing: 1.0,
+                    )),
+              ]),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 70,
+                child: _ExpenditureBars(daily: dailyExp),
+              ),
+            ]),
+          ),
+        ),
+
+        // ── Category breakdown ──────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+          child: const HudSectionHead(label: 'CATEGORY BREAKDOWN', code: 'MTD'),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: HudPanel(
+            clip: HudClip.br,
+            accent: JweTheme.accentAmber,
+            padding: const EdgeInsets.all(12),
+            child: cats.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text('NO EXPENSES THIS MONTH',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4,
+                        )),
+                  )
+                : Column(children: List.generate(cats.length, (i) {
+                    final r = cats[i];
+                    final color = Color(int.parse('0xFF${r.cat.colorHex}'));
+                    final tone = _toneFor(color);
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: i < cats.length - 1 ? 12 : 0),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(
+                            child: Text(r.cat.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12, color: JweTheme.textWhite, fontWeight: FontWeight.w500,
+                                )),
+                          ),
+                          Text('$_currency${_compactMoney(r.amount)} · ${r.pct.round()}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11, color: color, fontWeight: FontWeight.w600, letterSpacing: 0.6,
+                              )),
+                        ]),
+                        const SizedBox(height: 4),
+                        HudBar(value: r.pct.clamp(0, 100), max: 40, tone: tone, height: 3),
+                      ]),
+                    );
+                  })),
+          ),
+        ),
+
+        // ── Transaction ledger ─────────────────────
+        const HudSectionHead(label: 'TRANSACTION LEDGER', code: 'LIVE'),
+        if (provider.transactions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: HudPanel(
+              clip: HudClip.br,
+              accent: JweTheme.accentAmber,
+              brackets: false,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: Text('NO TRANSACTIONS RECORDED',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4,
+                    )),
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(children: provider.transactions.take(40).map((tx) {
+              final cat = provider.categories.firstWhere(
+                (c) => c.id == tx.categoryId,
+                orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome),
+              );
+              final color = Color(int.parse('0xFF${cat.colorHex}'));
+              return Dismissible(
+                key: ValueKey(tx.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: JweTheme.accentRed,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (_) => provider.financeActions.deleteTransaction(tx.id),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    decoration: BoxDecoration(
+                      color: JweTheme.panel,
+                      border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed, width: 2)),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 30, height: 30,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.10),
+                          border: Border.all(color: color.withValues(alpha: 0.40), width: 1),
+                        ),
+                        child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                          Text(cat.name.toUpperCase(),
+                              style: GoogleFonts.saira(
+                                color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                              )),
+                          if (tx.note.isNotEmpty)
+                            Text(tx.note,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: JweTheme.textMuted, fontSize: 11,
+                                )),
+                          Text(DateFormat('dd MMM · HH:mm').format(tx.timestamp).toUpperCase(),
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0, fontWeight: FontWeight.w500,
+                              )),
+                        ]),
+                      ),
+                      Text(
+                        '${tx.isIncome ? '+' : '−'}$_currency${_compactMoney(tx.amount)}',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              );
+            }).toList()),
+          ),
+      ]),
+    );
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _compactMoney(double v) {
+    if (v >= 100000) return v.toStringAsFixed(0);
+    if (v >= 1000) return v.toStringAsFixed(0);
+    return v.toStringAsFixed(2);
+  }
+
+  static HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed) return HudTone.red;
+    return HudTone.amber;
+  }
+}
+
+class _CatRow {
+  final FinanceCategory cat;
+  final double amount;
+  final double pct;
+  _CatRow(this.cat, this.amount, this.pct);
+}
+
+class _ExpenditureBars extends StatelessWidget {
+  final List<double> daily;
+  const _ExpenditureBars({required this.daily});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxV = daily.reduce(math.max);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(daily.length, (i) {
+        final isLast = i == daily.length - 1;
+        final v = daily[i];
+        final pct = maxV > 0 ? v / maxV : 0;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: i == daily.length - 1 ? 0 : 2),
+            child: FractionallySizedBox(
+              heightFactor: math.max(0.03, pct.toDouble()),
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isLast ? JweTheme.accentAmber : JweTheme.accentAmber.withValues(alpha: 0.40),
+                  boxShadow: isLast ? [BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.5), blurRadius: 5)] : null,
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _LedgerActionBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _LedgerActionBtn({required this.label, required this.icon, required this.accent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ClipPath(
+        clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            border: Border.all(color: accent.withValues(alpha: 0.45)),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 14, color: accent),
+            const SizedBox(width: 6),
+            Text(label,
+                style: GoogleFonts.saira(
+                  color: accent, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ResetBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: JweTheme.accentRed.withValues(alpha: 0.45)),
+        ),
+        child: Icon(MdiIcons.refresh, size: 16, color: JweTheme.accentRed),
+      ),
+    );
+  }
+}
+
+/// Income vs Expense dual bar replacing the old budget progress bar.
+class _IncomeExpenseBar extends StatelessWidget {
+  final double income;
+  final double expense;
+
+  const _IncomeExpenseBar({required this.income, required this.expense});
+
+  static String _fmt(double v) {
+    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = income + expense;
+    final incFrac = total > 0 ? (income / total).clamp(0.0, 1.0) : 0.5;
+    final expFrac = 1.0 - incFrac;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('INCOME VS EXPENSE · 30D',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.w600, letterSpacing: 1.6,
+            )),
+        const SizedBox(height: 6),
+        LayoutBuilder(builder: (ctx, constraints) {
+          final w = constraints.maxWidth;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    height: 5,
+                    width: w * incFrac,
+                    color: JweTheme.accentTeal,
+                  ),
+                  Container(
+                    height: 5,
+                    width: w * expFrac,
+                    color: JweTheme.accentRed.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(children: [
+                Container(width: 8, height: 8, color: JweTheme.accentTeal),
+                const SizedBox(width: 4),
+                Text('IN ₹${_fmt(income)}',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentTeal, fontSize: 10, fontWeight: FontWeight.w600,
+                    )),
+                const SizedBox(width: 14),
+                Container(width: 8, height: 8, color: JweTheme.accentRed),
+                const SizedBox(width: 4),
+                Text('OUT ₹${_fmt(expense)}',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentRed, fontSize: 10, fontWeight: FontWeight.w600,
+                    )),
+                const Spacer(),
+                Text(
+                  income > expense ? '+₹${_fmt(income - expense)}' : '-₹${_fmt(expense - income)}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: income >= expense ? JweTheme.accentTeal : JweTheme.accentRed,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ]),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// Projected income for the current month.
+class _ProjectedIncomeCard extends StatelessWidget {
+  final double monthIncome;
+  final double projectedIncome;
+  final double monthExpense;
+  final int daysElapsed;
+  final int daysInMonth;
+  final String currency;
+
+  const _ProjectedIncomeCard({
+    required this.monthIncome,
+    required this.projectedIncome,
+    required this.monthExpense,
+    required this.daysElapsed,
+    required this.daysInMonth,
+    required this.currency,
+  });
+
+  static String _fmt(double v) {
+    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = daysElapsed / daysInMonth;
+    final surplus = projectedIncome - monthExpense * (daysInMonth / daysElapsed.clamp(1, daysInMonth));
+    final isPositive = surplus >= 0;
+
+    return HudPanel(
+      clip: HudClip.br,
+      accent: JweTheme.accentTeal,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(children: [
+        Icon(MdiIcons.trendingUp, size: 22, color: JweTheme.accentTeal),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('PROJECTED INCOME',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.accentTeal, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+                )),
+            const SizedBox(height: 2),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(
+                '$currency${_fmt(projectedIncome)}',
+                style: GoogleFonts.saira(
+                  color: JweTheme.textWhite, fontSize: 22, fontWeight: FontWeight.w700, height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  'this month',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted, fontSize: 9, letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Row(children: [
+              Text('Actual so far: $currency${_fmt(monthIncome)} · Day $daysElapsed/$daysInMonth',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted, fontSize: 9, letterSpacing: 0.6,
+                  )),
+            ]),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            '${(pct * 100).round()}%',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentTeal, fontSize: 14, fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text('month',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8,
+              )),
+          const SizedBox(height: 4),
+          Text(
+            isPositive ? '+${_fmt(surplus.abs())}' : '-${_fmt(surplus.abs())}',
+            style: GoogleFonts.jetBrainsMono(
+              color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text('net est.',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted, fontSize: 8,
+              )),
+        ]),
+      ]),
+    );
+  }
+}
+=== END SNAPSHOT ===
