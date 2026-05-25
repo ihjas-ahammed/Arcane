@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/header_widget.dart';
@@ -11,8 +12,8 @@ import 'package:missions/src/widgets/views/task_details_view.dart';
 import 'package:missions/src/widgets/views/health_dashboard_view.dart';
 import 'package:missions/src/widgets/views/schedule_view.dart';
 import 'package:missions/src/screens/logbook_screen.dart';
-import 'package:missions/src/screens/more_screen.dart'; 
-import 'package:missions/src/screens/finance/finance_dashboard_screen.dart'; 
+import 'package:missions/src/screens/more_screen.dart';
+import 'package:missions/src/screens/finance/finance_dashboard_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
@@ -93,6 +94,78 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  static final _desktopNavItems = <_DesktopNavItem>[
+    _DesktopNavItem(label: 'MISSIONS', icon: MdiIcons.targetAccount),
+    _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
+    _DesktopNavItem(label: 'BIO', icon: MdiIcons.heartPulse),
+    _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),
+    _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
+  ];
+
+  Widget _buildDesktopNavRail(Color activeColor) {
+    return Container(
+      width: 72,
+      decoration: const BoxDecoration(
+        color: Color(0xFF08101C),
+        border: Border(right: BorderSide(color: JweTheme.lineSoft, width: 1)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          ...List.generate(_desktopNavItems.length, (i) {
+            final item = _desktopNavItems[i];
+            final on = i == _selectedIndex;
+            final color = on ? JweTheme.accentAmber : JweTheme.textMuted;
+            return InkWell(
+              onTap: () => _onItemTapped(i),
+              splashColor: JweTheme.amberSoft,
+              highlightColor: Colors.transparent,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  if (on)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 2,
+                        color: JweTheme.accentAmber,
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(item.icon, size: 22, color: color),
+                          const SizedBox(height: 5),
+                          Text(
+                            item.label,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 8,
+                              height: 1.0,
+                              color: color,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -142,7 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
         endDrawer: const WellbeingDrawer(),
         body: Row(
           children: [
-            if (isLargeScreen)
+            if (isLargeScreen) ...[
+              _buildDesktopNavRail(currentTaskColor),
               Container(
                 width: 280,
                 decoration: BoxDecoration(
@@ -152,8 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: JweTheme.border,
                           width: 1)),
                 ),
-                child: const TaskNavigationDrawer(),
+                child: const TaskNavigationDrawer(isEmbedded: true),
               ),
+            ],
             Expanded(
               child: IndexedStack(
                 index: _selectedIndex,
@@ -162,12 +237,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: JweBottomNavBar(
-          selectedIndex: _selectedIndex,
-          activeColor: currentTaskColor,
-          onItemTapped: _onItemTapped,
-        ),
+        bottomNavigationBar: isLargeScreen
+            ? null
+            : JweBottomNavBar(
+                selectedIndex: _selectedIndex,
+                activeColor: currentTaskColor,
+                onItemTapped: _onItemTapped,
+              ),
       ),
     );
   }
+}
+
+class _DesktopNavItem {
+  final String label;
+  final IconData icon;
+  const _DesktopNavItem({required this.label, required this.icon});
 }

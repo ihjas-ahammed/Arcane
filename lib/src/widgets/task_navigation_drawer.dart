@@ -12,7 +12,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class TaskNavigationDrawer extends StatefulWidget {
-  const TaskNavigationDrawer({super.key});
+  final bool isEmbedded;
+  const TaskNavigationDrawer({super.key, this.isEmbedded = false});
 
   @override
   State<TaskNavigationDrawer> createState() => _TaskNavigationDrawerState();
@@ -65,7 +66,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
         children: [
           // Header Section
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 18),
+            padding: EdgeInsets.fromLTRB(20, widget.isEmbedded ? 20 : MediaQuery.of(context).padding.top + 16, 20, 18),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
               color: JweTheme.bgCanvas,

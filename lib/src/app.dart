@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:missions/src/screens/home_screen.dart';
 import 'package:missions/src/screens/login_screen.dart';
@@ -32,7 +33,11 @@ class _MyAppState extends State<MyApp> {
       title: 'Missions',
       navigatorKey: WidgetActionRouter.instance.navigatorKey,
       builder: (context, child) {
-        // Enforce maximum width for proper viewing on desktop/web (ideal screen 720x1520 constraint)
+        final isDesktop = defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows;
+        if (isDesktop) return child!;
+        // On mobile/web constrain to phone-sized column
         return Container(
           color: Colors.black,
           child: Center(
