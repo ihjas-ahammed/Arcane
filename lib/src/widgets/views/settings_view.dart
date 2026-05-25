@@ -1,6 +1,7 @@
 // lib/src/widgets/views/settings_view.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -421,7 +422,10 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // 7. DIAGNOSTICS & ONBOARDING
+          // 7. NOTIFICATIONS
+          _buildNotificationsSection(appProvider, theme),
+
+          // 8. DIAGNOSTICS & ONBOARDING
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.tools,
               title: 'System Diagnostics',
@@ -473,7 +477,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // 8. CREDENTIALS
+          // 9. CREDENTIALS
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
@@ -553,7 +557,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ]),
 
-          // 9. DATA RESET
+          // 10. DATA RESET
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
@@ -613,6 +617,113 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  Widget _buildNotificationsSection(AppProvider appProvider, ThemeData theme) {
+    final s = appProvider.settings;
+    final accent = appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+    String fmtTime(int h, int m) {
+      final dt = DateTime(2000, 1, 1, h, m);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    Future<void> pickTime(
+        BuildContext ctx, int curH, int curM, void Function(int, int) onPick) async {
+      final picked = await showTimePicker(
+        context: ctx,
+        initialTime: TimeOfDay(hour: curH, minute: curM),
+      );
+      if (picked != null) onPick(picked.hour, picked.minute);
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(MdiIcons.bellOutline, color: accent, size: 22),
+              const SizedBox(width: 10),
+              Text('Notifications',
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ]),
+            Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+
+            // --- Reflection reminder ---
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Daily Reflection Reminder',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.reflectionReminderEnabled
+                        ? 'Fires every day at ${fmtTime(s.reflectionReminderHour, s.reflectionReminderMinute)}'
+                        : 'Disabled',
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12),
+                  ),
+                ]),
+              ),
+              Switch.adaptive(
+                value: s.reflectionReminderEnabled,
+                activeTrackColor: accent,
+                onChanged: (v) {
+                  appProvider.setSettings(s
+                    ..reflectionReminderEnabled = v);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+            ]),
+            if (s.reflectionReminderEnabled) ...[
+              const SizedBox(height: 8),
+              Builder(builder: (ctx) => OutlinedButton.icon(
+                icon: Icon(MdiIcons.clockOutline, size: 16),
+                label: Text('Change Time — ${fmtTime(s.reflectionReminderHour, s.reflectionReminderMinute)}'),
+                onPressed: () => pickTime(
+                  ctx,
+                  s.reflectionReminderHour,
+                  s.reflectionReminderMinute,
+                  (h, m) {
+                    appProvider.setSettings(s
+                      ..reflectionReminderHour = h
+                      ..reflectionReminderMinute = m);
+                    appProvider.rescheduleReminders();
+                  },
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              )),
+            ],
+
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppTheme.fhBorderColor),
+            const SizedBox(height: 16),
+
+            // --- Submission reminder note ---
+            Row(children: [
+              Icon(MdiIcons.bellCheckOutline,
+                  color: AppTheme.fhTextSecondary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Set per-submission reminders by tapping the bell icon on any submission detail screen.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
+                ),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
       {required IconData icon,
       required String title,
@@ -639,7 +750,7 @@ class _SettingsViewState extends State<SettingsView> {
             Divider(
                 height: 24,
                 thickness: 0.5,
-                color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
             ...children,
           ],
         ),

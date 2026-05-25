@@ -90,6 +90,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
 
+    // Route notification taps: 'stop_timer:{id}' pauses the timer
+    NotificationService.instance.setOnTap((payload) {
+      if (payload != null && payload.startsWith('stop_timer:')) {
+        final subtaskId = payload.substring('stop_timer:'.length);
+        _timerActions.pauseTimer(subtaskId);
+      }
+    });
+
     _initialize();
     WidgetsBinding.instance.addObserver(this);
   }
@@ -115,12 +123,49 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     await fetchDailyReportsFromCloud();
   }
 
+  // --- Notification Reminders ---
+
+  void rescheduleReminders() {
+    final s = settings;
+    if (s.reflectionReminderEnabled) {
+      NotificationService.instance.scheduleDailyReminder(
+        id: NotificationService.reflectionReminderId,
+        title: '◈ REFLECT',
+        body: 'Time for your daily reflection. How did today go?',
+        hour: s.reflectionReminderHour,
+        minute: s.reflectionReminderMinute,
+      );
+    } else {
+      NotificationService.instance.cancelDailyReminder(
+          NotificationService.reflectionReminderId);
+    }
+  }
+
+  Future<void> setSubtaskReminder(
+      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
+    final notifId = NotificationService.subtaskReminderId(subtaskId);
+    if (reminderTime == null) {
+      await NotificationService.instance.cancelOneTimeReminder(notifId);
+      return;
+    }
+
+    final task = mainTasks.firstWhere((t) => t.id == mainTaskId);
+    final sub = task.subTasks.firstWhere((s) => s.id == subtaskId);
+
+    await NotificationService.instance.scheduleOneTimeReminder(
+      id: notifId,
+      title: '⏰ ${sub.name}',
+      body: 'Reminder for: ${task.name} › ${sub.name}',
+      scheduledTime: reminderTime,
+    );
+  }
+
   // --- Initialization ---
 
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
-    
+
     fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
 
@@ -150,6 +195,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       try {
         await fetchDailyReportsFromCloud();
       } catch (_) {}
+
+      rescheduleReminders();
 
     } else {
       setCurrentUser(null);

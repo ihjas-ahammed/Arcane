@@ -38,6 +38,7 @@ class SubmissionDetailScreen extends StatefulWidget {
 
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   DateTime _selectedDate = DateTime.now();
+  DateTime? _reminderTime;
 
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
@@ -118,6 +119,83 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         }
       }
     }
+  }
+
+  bool _hasReminder(SubTask sub) => _reminderTime != null && _reminderTime!.isAfter(DateTime.now());
+
+  Future<void> _showReminderPicker(
+      BuildContext context, AppProvider provider, SubTask sub) async {
+    // If a reminder already exists, offer to cancel it
+    if (_hasReminder(sub)) {
+      final cancel = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: JweTheme.panel,
+          title: const Text('Reminder Set', style: TextStyle(color: JweTheme.textWhite)),
+          content: Text(
+            'Reminder at ${DateFormat('MMM d · HH:mm').format(_reminderTime!)}.\nCancel it?',
+            style: const TextStyle(color: JweTheme.textMid),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('KEEP')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('CANCEL REMINDER',
+                    style: TextStyle(color: JweTheme.accentRed))),
+          ],
+        ),
+      );
+      if (cancel == true) {
+        await provider.setSubtaskReminder(widget.parentTask.id, sub.id, null);
+        if (mounted) setState(() => _reminderTime = null);
+      }
+      return;
+    }
+
+    // Pick date then time
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: JweTheme.accentAmber,
+            surface: JweTheme.panel,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (date == null) return;
+    if (!mounted) return;
+
+    final time = await showTimePicker(
+      context: context, // ignore: use_build_context_synchronously
+      initialTime: TimeOfDay.fromDateTime(now),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: JweTheme.accentAmber,
+            surface: JweTheme.panel,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+    if (!mounted) return;
+
+    final scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    await provider.setSubtaskReminder(widget.parentTask.id, sub.id, scheduled);
+    if (!mounted) return;
+    setState(() => _reminderTime = scheduled);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar( // ignore: use_build_context_synchronously
+      content: Text('Reminder set for ${DateFormat('MMM d · HH:mm').format(scheduled)}'),
+      backgroundColor: JweTheme.accentAmber.withValues(alpha: 0.9),
+    ));
   }
 
   List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
@@ -294,6 +372,17 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ],
                       ),
                     ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => _showReminderPicker(context, provider, liveSubTask),
+                    child: Icon(
+                      MdiIcons.bellOutline,
+                      color: _hasReminder(liveSubTask)
+                          ? JweTheme.accentAmber
+                          : JweTheme.textMid,
+                      size: 20,
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () => _handleEditSubtask(context, provider, liveSubTask),

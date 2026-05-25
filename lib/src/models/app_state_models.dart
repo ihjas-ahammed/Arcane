@@ -66,6 +66,14 @@ class AppSettings {
   // Onboarding
   bool hasCompletedTour;
 
+  // Notification reminders
+  bool reflectionReminderEnabled;
+  int reflectionReminderHour;
+  int reflectionReminderMinute;
+  bool submissionReminderEnabled;
+  int submissionReminderHour;
+  int submissionReminderMinute;
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -97,6 +105,12 @@ class AppSettings {
     this.somedayList = const [],
     this.hasCompletedTour = false,
     this.customBusSchedules,
+    this.reflectionReminderEnabled = false,
+    this.reflectionReminderHour = 20,
+    this.reflectionReminderMinute = 0,
+    this.submissionReminderEnabled = false,
+    this.submissionReminderHour = 9,
+    this.submissionReminderMinute = 0,
   }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -145,7 +159,13 @@ class AppSettings {
               ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
       hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
-      customBusSchedules: json['customBusSchedules'] != null 
+      reflectionReminderEnabled: json['reflectionReminderEnabled'] as bool? ?? false,
+      reflectionReminderHour: json['reflectionReminderHour'] as int? ?? 20,
+      reflectionReminderMinute: json['reflectionReminderMinute'] as int? ?? 0,
+      submissionReminderEnabled: json['submissionReminderEnabled'] as bool? ?? false,
+      submissionReminderHour: json['submissionReminderHour'] as int? ?? 9,
+      submissionReminderMinute: json['submissionReminderMinute'] as int? ?? 0,
+      customBusSchedules: json['customBusSchedules'] != null
           ? (json['customBusSchedules'] as Map<String, dynamic>).map(
               (k, v) => MapEntry(k, (v as Map<String, dynamic>).map(
                 (k2, v2) => MapEntry(k2, (v2 as List<dynamic>).map((e) => e.toString()).toList())
@@ -178,6 +198,12 @@ class AppSettings {
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
       'somedayList': somedayList.map((e) => e.toJson()).toList(),
       'hasCompletedTour': hasCompletedTour,
+      'reflectionReminderEnabled': reflectionReminderEnabled,
+      'reflectionReminderHour': reflectionReminderHour,
+      'reflectionReminderMinute': reflectionReminderMinute,
+      'submissionReminderEnabled': submissionReminderEnabled,
+      'submissionReminderHour': submissionReminderHour,
+      'submissionReminderMinute': submissionReminderMinute,
       'customBusSchedules': customBusSchedules,
     };
   }

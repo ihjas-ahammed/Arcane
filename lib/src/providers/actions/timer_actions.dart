@@ -1,5 +1,6 @@
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:collection/collection.dart';
 
@@ -53,6 +54,16 @@ class TimerActions {
     
     _provider.setProviderState(activeTimers: updatedActiveTimers);
 
+    // Show persistent timer notification
+    final subTaskName = type == 'subtask'
+        ? (mainTask.subTasks.firstWhereOrNull((s) => s.id == id)?.name ?? id)
+        : id;
+    NotificationService.instance.showTimerNotification(
+      taskName: subTaskName,
+      startTime: updatedActiveTimers[id]!.startTime,
+      subtaskId: id,
+    );
+
     if (_provider.settings.autoSaveEnabled) {
       _provider.manuallySaveToCloud();
     }
@@ -77,6 +88,9 @@ class TimerActions {
         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
       }
 
+      // Cancel timer notification
+      NotificationService.instance.cancelTimerNotification();
+
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
         _commitSessionAndPause(id, timer);
@@ -98,6 +112,9 @@ class TimerActions {
       if (timer.type == 'subtask') {
         _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
       }
+
+      // Cancel timer notification
+      NotificationService.instance.cancelTimerNotification();
 
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
