@@ -89,7 +89,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

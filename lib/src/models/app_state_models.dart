@@ -2,6 +2,47 @@
 import 'package:missions/src/models/habit_models.dart';
 import 'package:uuid/uuid.dart';
 
+class ReflectionDraft {
+  final String trigger;
+  final String emotion;
+  final String reason;
+  final String action;
+  final double energyLevel;
+  final DateTime savedAt;
+
+  const ReflectionDraft({
+    required this.trigger,
+    required this.emotion,
+    required this.reason,
+    required this.action,
+    required this.energyLevel,
+    required this.savedAt,
+  });
+
+  bool get isEmpty =>
+      trigger.isEmpty && emotion.isEmpty && reason.isEmpty && action.isEmpty;
+
+  factory ReflectionDraft.fromJson(Map<String, dynamic> json) => ReflectionDraft(
+        trigger: json['trigger'] as String? ?? '',
+        emotion: json['emotion'] as String? ?? '',
+        reason: json['reason'] as String? ?? '',
+        action: json['action'] as String? ?? '',
+        energyLevel: (json['energyLevel'] as num? ?? 5).toDouble(),
+        savedAt: json['savedAt'] != null
+            ? DateTime.parse(json['savedAt'] as String)
+            : DateTime.now(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'trigger': trigger,
+        'emotion': emotion,
+        'reason': reason,
+        'action': action,
+        'energyLevel': energyLevel,
+        'savedAt': savedAt.toIso8601String(),
+      };
+}
+
 class SomedayItem {
   String id;
   String title;
@@ -66,6 +107,9 @@ class AppSettings {
   // Onboarding
   bool hasCompletedTour;
 
+  // Reflection draft (autosaved when user navigates away mid-entry)
+  ReflectionDraft? reflectionDraft;
+
   // Notification reminders
   bool reflectionReminderEnabled;
   int reflectionReminderHour;
@@ -105,6 +149,7 @@ class AppSettings {
     this.somedayList = const [],
     this.hasCompletedTour = false,
     this.customBusSchedules,
+    this.reflectionDraft,
     this.reflectionReminderEnabled = false,
     this.reflectionReminderHour = 20,
     this.reflectionReminderMinute = 0,
@@ -159,6 +204,9 @@ class AppSettings {
               ?.map((e) => SomedayItem.fromJson(e as Map<String, dynamic>))
               .toList() ?? [],
       hasCompletedTour: json['hasCompletedTour'] as bool? ?? false,
+      reflectionDraft: json['reflectionDraft'] != null
+          ? ReflectionDraft.fromJson(json['reflectionDraft'] as Map<String, dynamic>)
+          : null,
       reflectionReminderEnabled: json['reflectionReminderEnabled'] as bool? ?? false,
       reflectionReminderHour: json['reflectionReminderHour'] as int? ?? 20,
       reflectionReminderMinute: json['reflectionReminderMinute'] as int? ?? 0,
@@ -198,6 +246,7 @@ class AppSettings {
       'habitRules': habitRules.map((e) => e.toJson()).toList(),
       'somedayList': somedayList.map((e) => e.toJson()).toList(),
       'hasCompletedTour': hasCompletedTour,
+      'reflectionDraft': reflectionDraft?.toJson(),
       'reflectionReminderEnabled': reflectionReminderEnabled,
       'reflectionReminderHour': reflectionReminderHour,
       'reflectionReminderMinute': reflectionReminderMinute,

@@ -141,6 +141,30 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
+  void saveReflectionDraft({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    required double energyLevel,
+  }) {
+    final draft = ReflectionDraft(
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      energyLevel: energyLevel,
+      savedAt: DateTime.now(),
+    );
+    if (draft.isEmpty) return;
+    setSettings(settings..reflectionDraft = draft);
+  }
+
+  void clearReflectionDraft() {
+    if (settings.reflectionDraft == null) return;
+    setSettings(settings..reflectionDraft = null);
+  }
+
   Future<void> setSubtaskReminder(
       String mainTaskId, String subtaskId, DateTime? reminderTime) async {
     final notifId = NotificationService.subtaskReminderId(subtaskId);

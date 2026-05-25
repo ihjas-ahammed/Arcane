@@ -3,10 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/dialogs/last_insight_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:provider/provider.dart';
 
 /// Operator HUD reflection-protocol completion strip.
 class JweReflectionProgress extends StatelessWidget {
@@ -113,35 +115,49 @@ class JweReflectionProgress extends StatelessWidget {
               ]),
               const SizedBox(height: 10),
             ],
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ReflectionEditorScreen(dateStr: dateStr)),
-                );
-              },
-              child: ClipPath(
-                clipper: HudCutClipper(clip: HudClip.br, cut: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: JweTheme.amberSoft,
-                    border: Border.all(color: JweTheme.lineAmber, width: 1),
+            Consumer<AppProvider>(builder: (ctx, appProvider, _) {
+              final hasDraft = appProvider.settings.reflectionDraft != null;
+              final label = hasDraft ? 'VIEW DRAFT' : '+ LOG INSIGHT';
+              final icon = hasDraft
+                  ? MdiIcons.notebookCheck
+                  : MdiIcons.notebookEditOutline;
+              final color = hasDraft ? JweTheme.accentCyan : JweTheme.accentAmber;
+              final bgColor = hasDraft ? JweTheme.cyanSoft : JweTheme.amberSoft;
+              final borderColor = hasDraft
+                  ? JweTheme.accentCyan.withValues(alpha: 0.3)
+                  : JweTheme.lineAmber;
+
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => ReflectionEditorScreen(dateStr: dateStr)),
+                  );
+                },
+                child: ClipPath(
+                  clipper: HudCutClipper(clip: HudClip.br, cut: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      border: Border.all(color: borderColor, width: 1),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(icon, size: 14, color: color),
+                      const SizedBox(width: 8),
+                      Text(label,
+                          style: GoogleFonts.saira(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.6,
+                          )),
+                    ]),
                   ),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(MdiIcons.notebookEditOutline, size: 14, color: JweTheme.accentAmber),
-                    const SizedBox(width: 8),
-                    Text('+ LOG INSIGHT',
-                        style: GoogleFonts.saira(
-                          color: JweTheme.accentAmber,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.6,
-                        )),
-                  ]),
                 ),
-              ),
-            ),
+              );
+            }),
           ]),
         ),
       ]),

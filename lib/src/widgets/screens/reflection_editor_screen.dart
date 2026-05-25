@@ -9,6 +9,7 @@ import 'package:missions/src/widgets/common/growing_text_field.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/models/app_state_models.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -35,14 +36,26 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   @override
   void initState() {
     super.initState();
-    _triggerController = TextEditingController(text: widget.initialLog?.trigger ?? '');
-    _emotionController = TextEditingController(text: widget.initialLog?.emotion ?? '');
-    _reasonController = TextEditingController(text: widget.initialLog?.reason ?? '');
-    _actionController = TextEditingController(text: widget.initialLog?.action ?? '');
 
+    // If editing an existing log, always populate from the log
     if (widget.initialLog != null) {
+      _triggerController = TextEditingController(text: widget.initialLog!.trigger);
+      _emotionController = TextEditingController(text: widget.initialLog!.emotion);
+      _reasonController = TextEditingController(text: widget.initialLog!.reason);
+      _actionController = TextEditingController(text: widget.initialLog!.action);
       _selectedDateTime = widget.initialLog!.timestamp;
-    } else if (widget.dateStr.isNotEmpty) {
+      return;
+    }
+
+    // New log: try to restore from draft
+    final draft = _getDraft();
+    _triggerController = TextEditingController(text: draft?.trigger ?? '');
+    _emotionController = TextEditingController(text: draft?.emotion ?? '');
+    _reasonController = TextEditingController(text: draft?.reason ?? '');
+    _actionController = TextEditingController(text: draft?.action ?? '');
+    if (draft != null) _energyLevel = draft.energyLevel;
+
+    if (widget.dateStr.isNotEmpty) {
       final parsed = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
       final now = DateTime.now();
       if (parsed.year == now.year && parsed.month == now.month && parsed.day == now.day) {
@@ -52,6 +65,37 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       }
     } else {
       _selectedDateTime = DateTime.now();
+    }
+  }
+
+  ReflectionDraft? _getDraft() {
+    // Must be called after initState (use addPostFrameCallback if needed)
+    // Safe here because initState fires after the element tree is built for
+    // stateful widgets pushed via Navigator.
+    try {
+      return Provider.of<AppProvider>(context, listen: false).settings.reflectionDraft;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _hasContent =>
+      _triggerController.text.trim().isNotEmpty ||
+      _emotionController.text.trim().isNotEmpty ||
+      _reasonController.text.trim().isNotEmpty ||
+      _actionController.text.trim().isNotEmpty;
+
+  void _saveDraft() {
+    if (widget.initialLog != null) return; // never draft when editing
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    if (_hasContent) {
+      provider.saveReflectionDraft(
+        trigger: _triggerController.text.trim(),
+        emotion: _emotionController.text.trim(),
+        reason: _reasonController.text.trim(),
+        action: _actionController.text.trim(),
+        energyLevel: _energyLevel,
+      );
     }
   }
 
@@ -150,6 +194,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         action: _actionController.text.trim(),
         timestamp: _selectedDateTime,
       );
+      appProvider.clearReflectionDraft();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log saved locally.")));
       return;
@@ -164,6 +209,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       action: _actionController.text.trim(),
       timestamp: _selectedDateTime,
     );
+
+    appProvider.clearReflectionDraft();
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -209,7 +256,14 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _saveDraft();
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: SpideyTheme.backdropGradient),
         child: SafeArea(
@@ -226,7 +280,10 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     Container(width: 4, height: 24, color: SpideyTheme.spideyRed),
                     const SizedBox(width: 12),
                     IconButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        _saveDraft();
+                        Navigator.pop(context);
+                      },
                       icon: const Icon(Icons.arrow_back, color: SpideyTheme.textWhite),
                     ),
                     Expanded(
@@ -323,7 +380,10 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                             child: _SpideyActionButton(
                               label: "ABORT",
                               primary: false,
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () {
+                                _saveDraft();
+                                Navigator.pop(context);
+                              },
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -365,7 +425,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
           ),
         ),
       ),
-    );
+    ), // Scaffold
+    ); // PopScope
   }
 
   Widget _buildSectionHeader(String title) {
