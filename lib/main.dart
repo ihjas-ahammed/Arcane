@@ -9,7 +9,9 @@ import 'package:missions/src/app.dart';
 import 'package:missions/firebase_options.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/services/notification_service.dart';
+import 'package:missions/src/services/widget_action_router.dart';
 import 'package:provider/provider.dart';
 
 Future<void> _initFirebase() async {
@@ -51,6 +53,13 @@ void main() async {
     await NotificationService.instance.init();
   } catch (e) {
     debugPrint("Notification init error: $e");
+  }
+
+  try {
+    HomeWidgetService.instance.onAction = WidgetActionRouter.instance.handle;
+    await HomeWidgetService.instance.init();
+  } catch (e) {
+    debugPrint("HomeWidget init error: $e");
   }
 
   runApp(

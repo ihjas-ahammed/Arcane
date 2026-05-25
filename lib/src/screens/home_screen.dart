@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/header_widget.dart';
 import 'package:missions/src/widgets/task_navigation_drawer.dart';
 import 'package:missions/src/widgets/drawers/wellbeing_drawer.dart';
@@ -49,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scheduleOpenTick.dispose();
+    WidgetActionRouter.instance.tabRequest.removeListener(_onTabRequest);
     super.dispose();
   }
 
@@ -64,7 +66,24 @@ class _HomeScreenState extends State<HomeScreen> {
         final firstValid = _appProvider.mainTasks.firstWhereOrNull((t) => !t.isDeleted);
         if (firstValid != null) _appProvider.setSelectedTaskId(firstValid.id);
       }
+      // Honor any tab change requested before this screen mounted (cold start
+      // from a home-screen widget tap).
+      _onTabRequest();
     });
+    WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
+  }
+
+  void _onTabRequest() {
+    final req = WidgetActionRouter.instance.tabRequest.value;
+    if (req == null) return;
+    if (req < 0 || req > 4) return;
+    if (mounted) {
+      setState(() => _selectedIndex = req);
+      if (req == 1) {
+        _scheduleOpenTick.value++;
+      }
+    }
+    WidgetActionRouter.instance.tabRequest.value = null;
   }
 
   void _navigateToSettings() {

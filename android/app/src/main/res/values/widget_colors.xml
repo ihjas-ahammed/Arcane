@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg_deep">#FF04060E</color>
+    <color name="widget_bg_panel">#FF0D1426</color>
+    <color name="widget_bg_elev">#FF142039</color>
+    <color name="widget_accent_amber">#FFFFB547</color>
+    <color name="widget_accent_cyan">#FF5FE1D8</color>
+    <color name="widget_accent_teal">#FF4AF3C2</color>
+    <color name="widget_accent_red">#FFFF5470</color>
+    <color name="widget_text_white">#FFEAECF3</color>
+    <color name="widget_text_mid">#FFA8B3C7</color>
+    <color name="widget_text_muted">#FF5E6C87</color>
+    <color name="widget_border">#FF1B2A38</color>
+    <color name="widget_amber_glow">#8CFFB547</color>
+    <color name="widget_amber_soft">#24FFB547</color>
+    <color name="widget_cyan_soft">#1A5FE1D8</color>
+</resources>
