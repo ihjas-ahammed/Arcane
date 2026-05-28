@@ -578,7 +578,7 @@ class AIService {
     String? agentProgressText,
   }) async {
     final prompt = """
-    Generate a comprehensive 7-Day Review Report grounded in evidence-based psychology.
+    Generate a comprehensive 7-Day Review Report grounded in "Getting Things Done" (GTD) and "Atomic Habits" principles, along with evidence-based psychology.
 
     Reflection Logs: $logsText
     Time Data: $timeStatsText
@@ -589,23 +589,25 @@ class AIService {
     Task:
     1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
     2. "wellbeing_analysis": Compare wellbeing to previous week. Name specific areas of growth or decline with evidence from logs.
-    3. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
-    4. "time_insight": One sharp observation about how the user invested time this week.
-    5. "grateful_people": People mentioned the user should appreciate. Use real names. Concrete reasons.
-    6. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic). Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
-    7. "agent_progress": For each task/agent in the agent data, give a brief insight on trajectory, momentum, and what to focus on next week. If no agent data, skip.
-    8. "finance_summary": If finance data provided, give a 1-2 sentence honest assessment of the week's financial behavior and what it suggests. Otherwise omit.
+    3. "gtd_get_current": (GTD principle) Analyze the Agent Progress (Tasks) or logs. Identify 2-4 active or stalled projects/tasks and recommend ONE highly specific, immediate "Next Action" for each to prevent stalling.
+    4. "gtd_get_creative": (GTD principle) Based on the user's logs, suggest 1-2 new ideas, experiments, or "Someday/Maybe" items they might want to explore.
+    5. "atomic_friction": (Atomic Habits principle) Identify 1-2 areas where the user struggled or faced friction this week. Suggest ONE small, actionable environmental design or habit adjustment to make it easier next week.
+    6. "identity_votes": (Atomic Habits principle) Highlight 1-2 ways the user's actions this week successfully "voted" for the type of person they want to become (their desired identity).
+    7. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
+    8. "grateful_people": People mentioned the user should appreciate. Use real names. Concrete reasons.
+    9. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic). Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
 
     Output JSON:
     {
       "summary": "string",
       "wellbeing_analysis": "string",
+      "gtd_get_current": [{"task": "string", "next_action": "string"}],
+      "gtd_get_creative": [{"idea": "string", "reason": "string"}],
+      "atomic_friction": [{"struggle": "string", "adjustment": "string"}],
+      "identity_votes": [{"action": "string", "identity": "string"}],
       "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
-      "time_insight": "string",
       "grateful_people": [{"name": "string", "reason": "string"}],
-      "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
-      "agent_progress": [{"task": "string", "insight": "string", "trend": "up|down|stable"}],
-      "finance_summary": "string"
+      "gratitude_highlights": [{"text": "string", "icon_type": "string"}]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;

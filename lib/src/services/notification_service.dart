@@ -170,6 +170,9 @@ class NotificationService {
     if (kIsWeb) return _ensureWebPermission();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
+    try {
+      await android?.requestExactAlarmsPermission();
+    } catch (_) {}
     final ok = await android?.requestNotificationsPermission();
     return ok ?? true;
   }
@@ -297,6 +300,7 @@ class NotificationService {
           'stop_timer',
           'STOP',
           cancelNotification: true,
+          showsUserInterface: true,
         ),
       ],
     );

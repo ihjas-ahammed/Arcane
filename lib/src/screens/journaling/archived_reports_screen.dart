@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/widgets/dialogs/weekly_report_dialog.dart';
+import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -86,11 +86,12 @@ class ArchivedReportsScreen extends StatelessWidget {
                   subtitle: Text(displayDate, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
                   trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
                   onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => WeeklyReportDialog(
-                        reportData: reportData,
-                        // No onSave callback needed here, it's just for viewing
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => WeeklyReviewScreen(
+                          reportData: reportData,
+                        ),
                       ),
                     );
                   },

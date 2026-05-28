@@ -43,9 +43,11 @@ class TimerActions {
 
     Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
 
+    // Give a 1-second offset to the new task's start time to guarantee it doesn't overlap
+    // with the exact millisecond the previous task was stopped.
     final existingTimer = updatedActiveTimers[id];
     updatedActiveTimers[id] = ActiveTimerInfo(
-      startTime: DateTime.now(),
+      startTime: DateTime.now().add(const Duration(seconds: 1)),
       accumulatedDisplayTime: existingTimer?.accumulatedDisplayTime ?? 0,
       isRunning: true,
       type: type,
@@ -73,7 +75,8 @@ class TimerActions {
     final timer = _provider.activeTimers[id];
     if (timer != null && timer.isRunning) {
       // Optimistic: flip to paused immediately so UI responds without waiting for I/O
-      final double elapsed = (DateTime.now().difference(timer.startTime).inMilliseconds) / 1000.0;
+      final pauseTime = DateTime.now();
+      final double elapsed = (pauseTime.difference(timer.startTime).inMilliseconds) / 1000.0;
       final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers[id] = ActiveTimerInfo(
         startTime: timer.startTime,
@@ -93,7 +96,7 @@ class TimerActions {
 
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
-        _commitSessionAndPause(id, timer);
+        _commitSessionAndPause(id, timer, pauseTime);
         if (_provider.settings.autoSaveEnabled) {
           _provider.manuallySaveToCloud();
         }
@@ -104,6 +107,7 @@ class TimerActions {
   void logTimerAndReset(String id) {
     final timer = _provider.activeTimers[id];
     if (timer != null) {
+      final pauseTime = DateTime.now();
       // Optimistic: remove timer immediately so UI responds without waiting for I/O
       final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers.remove(id);
@@ -119,7 +123,7 @@ class TimerActions {
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
         if (timer.isRunning) {
-          _commitSessionAndPause(id, timer);
+          _commitSessionAndPause(id, timer, pauseTime);
         }
         if (_provider.settings.autoSaveEnabled) {
           _provider.manuallySaveToCloud();
@@ -128,8 +132,7 @@ class TimerActions {
     }
   }
 
-  void _commitSessionAndPause(String id, ActiveTimerInfo timer) {
-    final now = DateTime.now();
+  void _commitSessionAndPause(String id, ActiveTimerInfo timer, DateTime now) {
     DateTime start = timer.startTime;
 
     if (now.difference(start).inHours >= 12) {

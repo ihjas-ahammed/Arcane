@@ -1,15 +1,15 @@
 package me.ihjas.missions.widgets
 
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.widget.RemoteViews
 import me.ihjas.missions.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import es.antonborri.home_widget.HomeWidgetProvider
 
-class FinanceWidget : AppWidgetProvider() {
+class FinanceWidget : HomeWidgetProvider() {
 
     override fun onUpdate(
         context: Context,

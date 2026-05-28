@@ -5,9 +5,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.SystemClock
 import android.widget.RemoteViews
+import es.antonborri.home_widget.HomeWidgetProvider
 import me.ihjas.missions.R
 
-class RunningTaskWidget : AppWidgetProvider() {
+class RunningTaskWidget : HomeWidgetProvider() {
 
     override fun onUpdate(
         context: Context,

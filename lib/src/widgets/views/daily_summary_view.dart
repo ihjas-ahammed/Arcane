@@ -9,8 +9,8 @@ import 'package:missions/src/widgets/ui/chart_carousel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
-import 'package:missions/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
@@ -194,18 +194,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       );
 
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => WeeklyReportDialog(
-            reportData: result,
-            onSave: () async {
-              final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-              await provider.saveWeeklyReport(dateStr, result);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Report Saved to Archive!")));
-                Navigator.pop(ctx);
-              }
-            },
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => WeeklyReviewScreen(
+              reportData: result,
+              onArchive: () async {
+                final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                await provider.saveWeeklyReport(dateStr, result);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Review Saved to Archive!")));
+                }
+              },
+            ),
           ),
         );
       }

@@ -1,15 +1,15 @@
 package me.ihjas.missions.widgets
 
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.widget.RemoteViews
+import es.antonborri.home_widget.HomeWidgetProvider
 import me.ihjas.missions.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class JournalWidget : AppWidgetProvider() {
+class JournalWidget : HomeWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
