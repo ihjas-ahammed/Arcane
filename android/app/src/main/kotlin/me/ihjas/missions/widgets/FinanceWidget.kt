@@ -2,6 +2,7 @@ package me.ihjas.missions.widgets
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.widget.RemoteViews
 import me.ihjas.missions.R
 import java.text.SimpleDateFormat
@@ -15,6 +16,7 @@ class FinanceWidget : HomeWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
             render(context, appWidgetManager, id)

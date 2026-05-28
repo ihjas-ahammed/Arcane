@@ -1,8 +1,8 @@
 package me.ihjas.missions.widgets
 
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.SystemClock
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -14,6 +14,7 @@ class RunningTaskWidget : HomeWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
             render(context, appWidgetManager, id)
