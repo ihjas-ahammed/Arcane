@@ -19,52 +19,55 @@ class TaskProgressSnapshotView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (taskSnapshot.isEmpty) return const SizedBox.shrink();
 
-    // Build delta rows sorted by task order in liveTasks
-    final rows = <_TaskDeltaRow>[];
+    // Build delta rows sorted by subtask
+    final rows = <_SubTaskDeltaRow>[];
     for (final task in liveTasks) {
       if (task.isDeleted || !task.isActive) continue;
       final snap = taskSnapshot[task.id] as Map<String, dynamic>?;
       if (snap == null) continue;
       final snapSubs = snap['subtasks'] as Map<String, dynamic>? ?? {};
 
-      double snapProgress = 0.0;
-      double liveProgress = 0.0;
-      int snapTime = 0;
-      int liveTime = 0;
-      int subCount = 0;
-      int completedCount = 0;
-
       for (final sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
-        subCount++;
-        if (sub.completed) completedCount++;
-        liveProgress += sub.calculateProgress();
-        liveTime += sub.currentTimeSpent;
+        if (sub.completed && !sub.isRecurring) continue; // Neglect archived subtasks
+
+        double snapProgress = 0.0;
+        int snapTime = 0;
         final snapSub = snapSubs[sub.id] as Map<String, dynamic>?;
         if (snapSub != null) {
-          snapProgress += (snapSub['progress'] as num? ?? 0.0).toDouble();
-          snapTime += (snapSub['time_spent'] as int? ?? 0);
+          snapProgress = (snapSub['progress'] as num? ?? 0.0).toDouble();
+          snapTime = (snapSub['time_spent'] as int? ?? 0);
         }
+
+        double liveProgress = sub.calculateProgress();
+        int liveTime = sub.currentTimeSpent;
+
+        final checkables = sub.subSubTasks.where((sst) => sst.type != 'info').toList();
+        int subCount = checkables.length;
+        int completedCount = checkables.where((sst) => sst.completed).length;
+
+        if (subCount == 0) {
+          subCount = 1;
+          completedCount = sub.completed ? 1 : 0;
+        }
+
+        final delta = (liveProgress - snapProgress).clamp(-1.0, 1.0);
+        final timeDeltaSec = liveTime - snapTime;
+        final color = Color(int.parse('0xFF${task.colorHex}'));
+
+        if (delta == 0.0) continue; // Hide subtasks with 0% delta
+
+        rows.add(_SubTaskDeltaRow(
+          name: sub.name,
+          parentTaskName: task.name,
+          color: color,
+          liveProgress: liveProgress,
+          delta: delta,
+          timeDeltaSec: timeDeltaSec,
+          completedCount: completedCount,
+          subCount: subCount,
+        ));
       }
-
-      if (subCount > 0) {
-        snapProgress /= subCount;
-        liveProgress /= subCount;
-      }
-
-      final delta = (liveProgress - snapProgress).clamp(-1.0, 1.0);
-      final timeDeltaSec = liveTime - snapTime;
-      final color = Color(int.parse('0xFF${task.colorHex}'));
-
-      rows.add(_TaskDeltaRow(
-        name: task.name,
-        color: color,
-        liveProgress: liveProgress,
-        delta: delta,
-        timeDeltaSec: timeDeltaSec,
-        completedCount: completedCount,
-        subCount: subCount,
-      ));
     }
 
     if (rows.isEmpty) return const SizedBox.shrink();
@@ -108,8 +111,9 @@ class TaskProgressSnapshotView extends StatelessWidget {
   }
 }
 
-class _TaskDeltaRow {
+class _SubTaskDeltaRow {
   final String name;
+  final String parentTaskName;
   final Color color;
   final double liveProgress;
   final double delta;
@@ -117,8 +121,9 @@ class _TaskDeltaRow {
   final int completedCount;
   final int subCount;
 
-  _TaskDeltaRow({
+  _SubTaskDeltaRow({
     required this.name,
+    required this.parentTaskName,
     required this.color,
     required this.liveProgress,
     required this.delta,
@@ -129,7 +134,7 @@ class _TaskDeltaRow {
 }
 
 class _ProgressRow extends StatelessWidget {
-  final _TaskDeltaRow row;
+  final _SubTaskDeltaRow row;
   final bool showDivider;
 
   const _ProgressRow({required this.row, required this.showDivider});
@@ -204,7 +209,7 @@ class _ProgressRow extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '${row.completedCount}/${row.subCount} subtasks · ${(row.liveProgress * 100).round()}%',
+            '${row.completedCount}/${row.subCount} steps · ${(row.liveProgress * 100).round()}%',
             style: GoogleFonts.jetBrainsMono(
               color: JweTheme.textMuted,
               fontSize: 9,

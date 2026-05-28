@@ -216,14 +216,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     StartupWellbeingMetrics(metrics: metrics),
                   ],
 
-                  // Task progress delta
-                  if (taskSnapshot != null && taskSnapshot.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    TaskProgressSnapshotView(
-                      taskSnapshot: taskSnapshot,
-                      liveTasks: provider.mainTasks,
-                    ),
-                  ],
+
 
                   const SizedBox(height: 18),
 

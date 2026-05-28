@@ -35,6 +35,7 @@ class ReportActions {
       final subtaskData = <String, dynamic>{};
       for (var sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
+        if (sub.completed && !sub.isRecurring) continue;
         subtaskData[sub.id] = {
           'name': sub.name,
           'progress': sub.calculateProgress(),

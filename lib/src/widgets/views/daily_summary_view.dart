@@ -15,6 +15,7 @@ import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
 import 'package:missions/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
@@ -466,6 +467,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       ]),
                     ),
             ),
+
+            if (startDayReport != null && startDayReport['task_snapshot'] != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: TaskProgressSnapshotView(
+                  taskSnapshot: startDayReport['task_snapshot'],
+                  liveTasks: appProvider.mainTasks,
+                ),
+              ),
 
             // ── Classified access ──────────────────────
             Padding(
