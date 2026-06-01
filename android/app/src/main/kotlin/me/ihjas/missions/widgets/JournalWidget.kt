@@ -19,18 +19,17 @@ class JournalWidget : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
-            render(context, appWidgetManager, id)
+            render(context, appWidgetManager, id, widgetData)
         }
     }
 
-    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int) {
-        val prefs = WidgetCommon.prefs(context)
+    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_journal)
 
-        val count = prefs.getInt("arcane.journal.count", 0)
+        val count = WidgetCommon.getSafeInt(prefs, "arcane.journal.count", 0)
         val latestTrigger = prefs.getString("arcane.journal.latestTrigger", "") ?: ""
         val latestEmotion = prefs.getString("arcane.journal.latestEmotion", "") ?: ""
-        val latestTsMs = prefs.getLong("arcane.journal.latestTsMs", 0L)
+        val latestTsMs = WidgetCommon.getSafeLong(prefs, "arcane.journal.latestTsMs", 0L)
 
         views.setTextViewText(
             R.id.widget_journal_count,

@@ -17,22 +17,21 @@ class RunningTaskWidget : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
-            render(context, appWidgetManager, id)
+            render(context, appWidgetManager, id, widgetData)
         }
     }
 
-    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int) {
-        val prefs = WidgetCommon.prefs(context)
+    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_running_task)
 
-        val hasTask = prefs.getBoolean("arcane.task.hasTask", false)
+        val hasTask = WidgetCommon.getSafeBoolean(prefs, "arcane.task.hasTask", false)
         val title = prefs.getString("arcane.task.title", "NO PLAN SET") ?: "NO PLAN SET"
         val subtitle = prefs.getString("arcane.task.subtitle", "QUEUE STANDBY") ?: "QUEUE STANDBY"
-        val isRunning = prefs.getBoolean("arcane.task.isRunning", false)
-        val isCheckpoint = prefs.getBoolean("arcane.task.isCheckpoint", false)
-        val accumulatedSec = prefs.getLong("arcane.task.accumulatedSec", 0L)
-        val sessionStartMs = prefs.getLong("arcane.task.sessionStartMs", 0L)
-        val updatedAtMs = prefs.getLong("arcane.task.updatedAtMs", 0L)
+        val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+        val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
+        val accumulatedSec = WidgetCommon.getSafeLong(prefs, "arcane.task.accumulatedSec", 0L)
+        val sessionStartMs = WidgetCommon.getSafeLong(prefs, "arcane.task.sessionStartMs", 0L)
+        val updatedAtMs = WidgetCommon.getSafeLong(prefs, "arcane.task.updatedAtMs", 0L)
 
         views.setTextViewText(R.id.widget_task_title, title.uppercase())
         views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())

@@ -20,6 +20,49 @@ object WidgetCommon {
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    fun getSafeLong(prefs: SharedPreferences, key: String, defaultVal: Long): Long {
+        val value = prefs.all[key] ?: return defaultVal
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull() ?: defaultVal
+            else -> defaultVal
+        }
+    }
+
+    fun getSafeInt(prefs: SharedPreferences, key: String, defaultVal: Int): Int {
+        val value = prefs.all[key] ?: return defaultVal
+        return when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull() ?: defaultVal
+            else -> defaultVal
+        }
+    }
+
+    fun getSafeDouble(prefs: SharedPreferences, key: String, defaultVal: Double): Double {
+        val value = prefs.all[key] ?: return defaultVal
+        return when (value) {
+            is Double -> value
+            is Float -> value.toDouble()
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull() ?: defaultVal
+            else -> defaultVal
+        }
+    }
+
+    fun getSafeBoolean(prefs: SharedPreferences, key: String, defaultVal: Boolean): Boolean {
+        val value = prefs.all[key] ?: return defaultVal
+        return when (value) {
+            is Boolean -> value
+            is String -> value.toBoolean()
+            is Number -> value.toInt() != 0
+            else -> defaultVal
+        }
+    }
+
     /**
      * Build a PendingIntent that launches MainActivity with an arcane://widget
      * deep-link URI. Flutter side observes these via HomeWidget.widgetClicked

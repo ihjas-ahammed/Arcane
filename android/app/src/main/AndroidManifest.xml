@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.ihjas.missions">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -41,11 +42,11 @@
 
         <!-- Home-screen widget receivers -->
         <receiver
-            android:name=".widgets.RunningTaskWidget"
+            android:name="me.ihjas.missions.widgets.RunningTaskWidget"
+            android:label="Arcane — Active Mission"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-                <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -53,11 +54,11 @@
         </receiver>
 
         <receiver
-            android:name=".widgets.FinanceWidget"
+            android:name="me.ihjas.missions.widgets.FinanceWidget"
+            android:label="Arcane — Finance"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-                <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -65,11 +66,11 @@
         </receiver>
 
         <receiver
-            android:name=".widgets.JournalWidget"
+            android:name="me.ihjas.missions.widgets.JournalWidget"
+            android:label="Arcane — Journal"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-                <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

@@ -19,19 +19,18 @@ class FinanceWidget : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
-            render(context, appWidgetManager, id)
+            render(context, appWidgetManager, id, widgetData)
         }
     }
 
-    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int) {
-        val prefs = WidgetCommon.prefs(context)
+    private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_finance)
 
-        val balance = prefs.getString("arcane.fin.balance", "0")?.toDoubleOrNull() ?: 0.0
-        val today = prefs.getString("arcane.fin.today", "0")?.toDoubleOrNull() ?: 0.0
-        val mtd = prefs.getString("arcane.fin.mtd", "0")?.toDoubleOrNull() ?: 0.0
-        val budgetPct = prefs.getInt("arcane.fin.budgetPct", 0)
-        val updatedAtMs = prefs.getLong("arcane.fin.updatedAtMs", 0L)
+        val balance = WidgetCommon.getSafeDouble(prefs, "arcane.fin.balance", 0.0)
+        val today = WidgetCommon.getSafeDouble(prefs, "arcane.fin.today", 0.0)
+        val mtd = WidgetCommon.getSafeDouble(prefs, "arcane.fin.mtd", 0.0)
+        val budgetPct = WidgetCommon.getSafeInt(prefs, "arcane.fin.budgetPct", 0)
+        val updatedAtMs = WidgetCommon.getSafeLong(prefs, "arcane.fin.updatedAtMs", 0L)
 
         views.setTextViewText(R.id.widget_finance_balance, WidgetCommon.fmtMoney(balance))
         views.setTextViewText(R.id.widget_finance_today, WidgetCommon.fmtMoney(today))
