@@ -278,11 +278,12 @@ class _FlutterFireStorageService implements StorageService {
           .collection(_userCollection)
           .doc(userId)
           .collection('daily')
-          .orderBy(FieldPath.documentId, descending: true)
-          .limit(days)
           .get();
 
-      for (var doc in snap.docs) {
+      final docs = snap.docs.toList()
+        ..sort((a, b) => b.id.compareTo(a.id));
+
+      for (var doc in docs.take(days)) {
         result[doc.id] = doc.data();
       }
       return result;

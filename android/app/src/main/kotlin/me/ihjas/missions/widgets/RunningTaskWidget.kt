@@ -3,6 +3,7 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -24,45 +25,51 @@ class RunningTaskWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_running_task)
 
+        // Load background image
+        val imagePath = prefs.getString("arcane.task.image", null)
+        if (imagePath != null) {
+            val bitmap = BitmapFactory.decodeFile(imagePath)
+            if (bitmap != null) {
+                views.setImageViewBitmap(R.id.widget_image, bitmap)
+                views.setViewVisibility(R.id.widget_image, android.view.View.VISIBLE)
+            } else {
+                views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
+            }
+        } else {
+            views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
+        }
+
         val hasTask = WidgetCommon.getSafeBoolean(prefs, "arcane.task.hasTask", false)
-        val title = prefs.getString("arcane.task.title", "NO PLAN SET") ?: "NO PLAN SET"
-        val subtitle = prefs.getString("arcane.task.subtitle", "QUEUE STANDBY") ?: "QUEUE STANDBY"
         val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
-        val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
         val accumulatedSec = WidgetCommon.getSafeLong(prefs, "arcane.task.accumulatedSec", 0L)
         val sessionStartMs = WidgetCommon.getSafeLong(prefs, "arcane.task.sessionStartMs", 0L)
-        val updatedAtMs = WidgetCommon.getSafeLong(prefs, "arcane.task.updatedAtMs", 0L)
 
-        views.setTextViewText(R.id.widget_task_title, title.uppercase())
-        views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())
+        val title = prefs.getString("arcane.task.title", "") ?: ""
+        val subtitle = prefs.getString("arcane.task.subtitle", "") ?: ""
+        val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
 
-        val statusLabel = when {
-            !hasTask -> "QUEUE EMPTY"
-            isCheckpoint && isRunning -> "CHECKPOINT · ENGAGED"
-            isCheckpoint -> "CHECKPOINT · STANDBY"
-            isRunning -> "ACTIVE · ENGAGED"
-            else -> "ACTIVE · STANDBY"
+        val statusLabel = if (!hasTask) {
+            "QUEUE EMPTY"
+        } else if (isCheckpoint) {
+            if (isRunning) "CHECKPOINT · ENGAGED" else "CHECKPOINT · STANDBY"
+        } else {
+            if (isRunning) "ACTIVE · ENGAGED" else "ACTIVE · STANDBY"
         }
+
         views.setTextViewText(R.id.widget_status_label, statusLabel)
 
-        if (updatedAtMs > 0) {
-            val ageSec = (System.currentTimeMillis() - updatedAtMs) / 1000
-            views.setTextViewText(
-                R.id.widget_status_clock,
-                if (ageSec < 60) "LIVE" else "${ageSec / 60}m AGO",
-            )
+        if (hasTask) {
+            views.setTextViewText(R.id.widget_task_title, title.uppercase())
+            views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())
         } else {
-            views.setTextViewText(R.id.widget_status_clock, "")
+            views.setTextViewText(R.id.widget_task_title, "NO PLAN SET")
+            views.setTextViewText(R.id.widget_task_subtitle, "QUEUE STANDBY")
         }
 
-        // Time display: when running, use Chronometer (ticks natively in the
-        // RemoteViews context). Otherwise show static accumulated total.
+        // Time display: when running, use Chronometer. Otherwise show static accumulated total.
         if (isRunning && sessionStartMs > 0L) {
             views.setViewVisibility(R.id.widget_task_today, android.view.View.GONE)
             views.setViewVisibility(R.id.widget_task_chronometer, android.view.View.VISIBLE)
-            // Chronometer base is on the elapsedRealtime clock. Convert wall
-            // session start to that timeline; account for time already on the
-            // pre-session accumulated total.
             val elapsedSinceSession = System.currentTimeMillis() - sessionStartMs
             val base = SystemClock.elapsedRealtime() - elapsedSinceSession - (accumulatedSec * 1000L)
             views.setChronometer(R.id.widget_task_chronometer, base, null, true)
@@ -74,13 +81,6 @@ class RunningTaskWidget : HomeWidgetProvider() {
 
         // Buttons
         if (hasTask) {
-            views.setTextViewText(R.id.widget_btn_engage, if (isRunning) "HALT SESSION" else "ENGAGE")
-            views.setInt(
-                R.id.widget_btn_engage,
-                "setBackgroundResource",
-                if (isRunning) R.drawable.widget_btn_primary_red else R.drawable.widget_btn_primary_amber,
-            )
-            views.setTextViewText(R.id.widget_btn_finish, "FINISH")
             views.setOnClickPendingIntent(
                 R.id.widget_btn_engage,
                 WidgetCommon.launchIntent(context, "task_toggle"),
@@ -90,13 +90,6 @@ class RunningTaskWidget : HomeWidgetProvider() {
                 WidgetCommon.launchIntent(context, "task_finish"),
             )
         } else {
-            views.setTextViewText(R.id.widget_btn_engage, "OPEN PLAN")
-            views.setInt(
-                R.id.widget_btn_engage,
-                "setBackgroundResource",
-                R.drawable.widget_btn_primary_amber,
-            )
-            views.setTextViewText(R.id.widget_btn_finish, "REFRESH")
             views.setOnClickPendingIntent(
                 R.id.widget_btn_engage,
                 WidgetCommon.launchIntent(context, "task_open_plan"),

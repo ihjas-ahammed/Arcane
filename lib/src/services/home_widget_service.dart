@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' show Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:missions/src/widgets/homescreen_widgets.dart';
 
 /// Bridge between the Flutter app and the Android home-screen widgets.
 ///
@@ -78,6 +80,23 @@ class HomeWidgetService {
     DateTime? sessionStart,
   }) async {
     if (!_supported) return;
+    try {
+      await HomeWidget.renderFlutterWidget(
+        RunningTaskHomeWidget(
+          hasTask: hasTask,
+          title: title,
+          subtitle: subtitle,
+          isRunning: isRunning,
+          isCheckpoint: isCheckpoint,
+          accumulatedSeconds: accumulatedSeconds,
+        ),
+        key: 'arcane.task.image',
+        logicalSize: const Size(400, 200),
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] renderTask error: $e');
+    }
+
     await _setAll({
       'arcane.task.hasTask': hasTask,
       'arcane.task.title': title,
@@ -98,6 +117,21 @@ class HomeWidgetService {
     required int budgetPct,
   }) async {
     if (!_supported) return;
+    try {
+      await HomeWidget.renderFlutterWidget(
+        FinanceHomeWidget(
+          balance: balance,
+          todaySpend: todaySpend,
+          monthSpend: monthSpend,
+          budgetPct: budgetPct,
+        ),
+        key: 'arcane.fin.image',
+        logicalSize: const Size(400, 200),
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] renderFinance error: $e');
+    }
+
     await _setAll({
       // SharedPreferences on Android can't store doubles via the plugin's
       // typed setters — write as strings, parse on the Kotlin side.
@@ -112,16 +146,37 @@ class HomeWidgetService {
 
   Future<void> publishJournal({
     required int count,
-    required String latestTrigger,
-    required String latestEmotion,
-    DateTime? latestTimestamp,
+    required bool wake,
+    required bool morn,
+    required bool aft,
+    required bool eve,
+    required bool night,
   }) async {
     if (!_supported) return;
+    try {
+      await HomeWidget.renderFlutterWidget(
+        JournalHomeWidget(
+          count: count,
+          wake: wake,
+          morn: morn,
+          aft: aft,
+          eve: eve,
+          night: night,
+        ),
+        key: 'arcane.journal.image',
+        logicalSize: const Size(400, 200),
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] renderJournal error: $e');
+    }
+
     await _setAll({
       'arcane.journal.count': count,
-      'arcane.journal.latestTrigger': latestTrigger,
-      'arcane.journal.latestEmotion': latestEmotion,
-      'arcane.journal.latestTsMs': latestTimestamp?.millisecondsSinceEpoch ?? 0,
+      'arcane.journal.wake': wake,
+      'arcane.journal.morn': morn,
+      'arcane.journal.aft': aft,
+      'arcane.journal.eve': eve,
+      'arcane.journal.night': night,
     });
     await _refresh(_providerJournal);
   }
@@ -140,7 +195,8 @@ class HomeWidgetService {
     try {
       await HomeWidget.updateWidget(
         name: providerName,
-        androidName: providerName,
+        androidName: providerName.split('.').last,
+        qualifiedAndroidName: providerName,
       );
     } catch (e) {
       debugPrint('[HomeWidget] update $providerName: $e');

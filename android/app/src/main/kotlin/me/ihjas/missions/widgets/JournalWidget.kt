@@ -3,12 +3,10 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import me.ihjas.missions.R
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class JournalWidget : HomeWidgetProvider() {
 
@@ -26,32 +24,18 @@ class JournalWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_journal)
 
-        val count = WidgetCommon.getSafeInt(prefs, "arcane.journal.count", 0)
-        val latestTrigger = prefs.getString("arcane.journal.latestTrigger", "") ?: ""
-        val latestEmotion = prefs.getString("arcane.journal.latestEmotion", "") ?: ""
-        val latestTsMs = WidgetCommon.getSafeLong(prefs, "arcane.journal.latestTsMs", 0L)
-
-        views.setTextViewText(
-            R.id.widget_journal_count,
-            "$count ${if (count == 1) "ENTRY" else "ENTRIES"}",
-        )
-
-        if (latestTrigger.isNotEmpty()) {
-            views.setTextViewText(R.id.widget_journal_trigger, latestTrigger)
-            views.setTextViewText(R.id.widget_journal_emotion, latestEmotion.uppercase())
-            if (latestTsMs > 0) {
-                val ts = SimpleDateFormat("MMM dd · HH:mm", Locale.getDefault()).format(Date(latestTsMs))
-                views.setTextViewText(R.id.widget_journal_ts, ts)
+        // Load background image
+        val imagePath = prefs.getString("arcane.journal.image", null)
+        if (imagePath != null) {
+            val bitmap = BitmapFactory.decodeFile(imagePath)
+            if (bitmap != null) {
+                views.setImageViewBitmap(R.id.widget_image, bitmap)
+                views.setViewVisibility(R.id.widget_image, android.view.View.VISIBLE)
             } else {
-                views.setTextViewText(R.id.widget_journal_ts, "")
+                views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
             }
         } else {
-            views.setTextViewText(
-                R.id.widget_journal_trigger,
-                "No logs yet. Tap + to log your first reflection.",
-            )
-            views.setTextViewText(R.id.widget_journal_emotion, "")
-            views.setTextViewText(R.id.widget_journal_ts, "")
+            views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
         }
 
         views.setOnClickPendingIntent(

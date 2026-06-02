@@ -3,12 +3,10 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.widget.RemoteViews
-import me.ihjas.missions.R
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import es.antonborri.home_widget.HomeWidgetProvider
+import me.ihjas.missions.R
 
 class FinanceWidget : HomeWidgetProvider() {
 
@@ -26,25 +24,18 @@ class FinanceWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_finance)
 
-        val balance = WidgetCommon.getSafeDouble(prefs, "arcane.fin.balance", 0.0)
-        val today = WidgetCommon.getSafeDouble(prefs, "arcane.fin.today", 0.0)
-        val mtd = WidgetCommon.getSafeDouble(prefs, "arcane.fin.mtd", 0.0)
-        val budgetPct = WidgetCommon.getSafeInt(prefs, "arcane.fin.budgetPct", 0)
-        val updatedAtMs = WidgetCommon.getSafeLong(prefs, "arcane.fin.updatedAtMs", 0L)
-
-        views.setTextViewText(R.id.widget_finance_balance, WidgetCommon.fmtMoney(balance))
-        views.setTextViewText(R.id.widget_finance_today, WidgetCommon.fmtMoney(today))
-        views.setTextViewText(R.id.widget_finance_mtd, WidgetCommon.fmtMoney(mtd))
-        views.setTextViewText(R.id.widget_finance_budget_pct, "$budgetPct%")
-
-        val clampedPct = budgetPct.coerceIn(0, 100)
-        views.setProgressBar(R.id.widget_finance_progress, 100, clampedPct, false)
-
-        if (updatedAtMs > 0) {
-            val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(updatedAtMs))
-            views.setTextViewText(R.id.widget_finance_ts, time)
+        // Load background image
+        val imagePath = prefs.getString("arcane.fin.image", null)
+        if (imagePath != null) {
+            val bitmap = BitmapFactory.decodeFile(imagePath)
+            if (bitmap != null) {
+                views.setImageViewBitmap(R.id.widget_image, bitmap)
+                views.setViewVisibility(R.id.widget_image, android.view.View.VISIBLE)
+            } else {
+                views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
+            }
         } else {
-            views.setTextViewText(R.id.widget_finance_ts, "")
+            views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
         }
 
         views.setOnClickPendingIntent(

@@ -208,16 +208,58 @@ class HomeWidgetPublisher {
 
   Future<void> _publishJournal({bool force = false}) async {
     final logs = _provider.reflectionLogs;
-    final sorted = List.of(logs)
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final latest = sorted.isEmpty ? null : sorted.first;
+    final now = DateTime.now();
+    final todayLogs = logs.where((log) {
+      return log.timestamp.year == now.year &&
+          log.timestamp.month == now.month &&
+          log.timestamp.day == now.day;
+    }).toList();
+
+    bool wake = false;
+    bool morn = false;
+    bool aft = false;
+    bool eve = false;
+    bool night = false;
+
+    for (final log in todayLogs) {
+      final h = log.timestamp.hour;
+      if (h >= 0 && h < 8) {
+        wake = true;
+      } else if (h >= 8 && h < 12) {
+        morn = true;
+      } else if (h >= 12 && h < 16) {
+        aft = true;
+      } else if (h >= 16 && h < 19) {
+        eve = true;
+      } else if (h >= 19 && h <= 23) {
+        night = true;
+      }
+    }
+
+    // Auto-fill logic matching klogbook / reflection progress widget
+    if (night) {
+      eve = true;
+      aft = true;
+      morn = true;
+      wake = true;
+    } else if (eve) {
+      aft = true;
+      morn = true;
+      wake = true;
+    } else if (aft) {
+      morn = true;
+      wake = true;
+    } else if (morn) {
+      wake = true;
+    }
 
     final key = [
       logs.length,
-      latest?.id ?? '',
-      latest?.trigger ?? '',
-      latest?.emotion ?? '',
-      latest?.timestamp.millisecondsSinceEpoch ?? 0,
+      wake,
+      morn,
+      aft,
+      eve,
+      night,
     ].join('|');
     if (!force && key == _lastJournalKey) return;
     _lastJournalKey = key;
@@ -225,9 +267,11 @@ class HomeWidgetPublisher {
     try {
       await HomeWidgetService.instance.publishJournal(
         count: logs.length,
-        latestTrigger: latest?.trigger ?? '',
-        latestEmotion: latest?.emotion ?? '',
-        latestTimestamp: latest?.timestamp,
+        wake: wake,
+        morn: morn,
+        aft: aft,
+        eve: eve,
+        night: night,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish journal: $e');
