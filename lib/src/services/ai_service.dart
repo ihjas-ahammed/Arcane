@@ -700,6 +700,7 @@ class AIService {
     final prompt = """
     Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
     For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Also, extract the short sentence or snippet from the logs where the person was mentioned (context).
     Create a list of upto 50 people
     
     Logs:
@@ -710,7 +711,8 @@ class AIService {
       "people":[
         {
           "name": "string",
-          "relation": "string"
+          "relation": "string",
+          "context": "string (the sentence/snippet where they were mentioned)"
         }
       ]
     }
@@ -724,7 +726,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<List<Map<String, dynamic>>> extractAssetsFromReflections({

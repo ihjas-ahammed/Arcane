@@ -151,12 +151,38 @@ class PersonInfo {
   String? details;
   DateTime? lastUpdated;
 
+  // New range & manual entries fields
+  DateTime? scanRangeStart;
+  DateTime? scanRangeEnd;
+  int? manualAge;
+  String? manualGender;
+  String? manualNotes;
+  String? manualNextMeetPlan;
+  List<String>? manualLastContactIntel;
+
+  // Additional Biodata Fields
+  String? manualOccupation;
+  String? manualLocation;
+  String? manualBirthday;
+  String? manualContact;
+
   PersonInfo({
     required this.id,
     required this.name,
     required this.relation,
     this.details,
     this.lastUpdated,
+    this.scanRangeStart,
+    this.scanRangeEnd,
+    this.manualAge,
+    this.manualGender,
+    this.manualNotes,
+    this.manualNextMeetPlan,
+    this.manualLastContactIntel,
+    this.manualOccupation,
+    this.manualLocation,
+    this.manualBirthday,
+    this.manualContact,
   });
 
   factory PersonInfo.fromJson(Map<String, dynamic> json) {
@@ -168,6 +194,23 @@ class PersonInfo {
       lastUpdated: json['lastUpdated'] != null 
           ? DateTime.parse(json['lastUpdated'] as String) 
           : null,
+      scanRangeStart: json['scanRangeStart'] != null
+          ? DateTime.parse(json['scanRangeStart'] as String)
+          : null,
+      scanRangeEnd: json['scanRangeEnd'] != null
+          ? DateTime.parse(json['scanRangeEnd'] as String)
+          : null,
+      manualAge: json['manualAge'] as int?,
+      manualGender: json['manualGender'] as String?,
+      manualNotes: json['manualNotes'] as String?,
+      manualNextMeetPlan: json['manualNextMeetPlan'] as String?,
+      manualLastContactIntel: json['manualLastContactIntel'] != null
+          ? List<String>.from(json['manualLastContactIntel'] as List)
+          : null,
+      manualOccupation: json['manualOccupation'] as String?,
+      manualLocation: json['manualLocation'] as String?,
+      manualBirthday: json['manualBirthday'] as String?,
+      manualContact: json['manualContact'] as String?,
     );
   }
 
@@ -178,6 +221,17 @@ class PersonInfo {
       'relation': relation,
       'details': details,
       'lastUpdated': lastUpdated?.toIso8601String(),
+      'scanRangeStart': scanRangeStart?.toIso8601String(),
+      'scanRangeEnd': scanRangeEnd?.toIso8601String(),
+      'manualAge': manualAge,
+      'manualGender': manualGender,
+      'manualNotes': manualNotes,
+      'manualNextMeetPlan': manualNextMeetPlan,
+      'manualLastContactIntel': manualLastContactIntel,
+      'manualOccupation': manualOccupation,
+      'manualLocation': manualLocation,
+      'manualBirthday': manualBirthday,
+      'manualContact': manualContact,
     };
   }
 }

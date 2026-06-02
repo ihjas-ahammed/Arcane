@@ -652,6 +652,24 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
     updateGratitudeList(currentList);
   }
+
+  // --- People Actions ---
+  void updatePeopleList(List<PersonInfo> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.people = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updatePersonInfo(PersonInfo updatedPerson) {
+    final currentList = List<PersonInfo>.from(chatbotMemory.people);
+    final index = currentList.indexWhere((p) => p.id == updatedPerson.id);
+    if (index != -1) {
+      currentList[index] = updatedPerson;
+    } else {
+      currentList.insert(0, updatedPerson);
+    }
+    updatePeopleList(currentList);
+  }
   
   // --- Someday List Actions ---
   void addSomedayItem(String title) {
