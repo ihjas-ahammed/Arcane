@@ -73,6 +73,134 @@ class SomedayItem {
   }
 }
 
+/// A persisted reminder. Persisting these (rather than only handing them to
+/// the OS scheduler) is what lets the app show a list of "what is scheduled"
+/// and re-arm everything on launch.
+class ScheduledReminder {
+  String id; // stable, deterministic per target (e.g. 'task_<subId>')
+  String title;
+  String body;
+
+  /// 'task' | 'planner' | 'custom'
+  String type;
+
+  /// 'once' | 'daily'
+  String repeat;
+
+  /// For repeat == 'once'.
+  DateTime? time;
+
+  /// For repeat == 'daily'.
+  int hour;
+  int minute;
+
+  bool enabled;
+
+  // Optional linkage back to the thing that owns this reminder.
+  String? mainTaskId;
+  String? subtaskId;
+  String? compoundId; // day-plan compound id ("mainId|subId[|cpId]")
+
+  ScheduledReminder({
+    required this.id,
+    required this.title,
+    this.body = '',
+    this.type = 'custom',
+    this.repeat = 'once',
+    this.time,
+    this.hour = 9,
+    this.minute = 0,
+    this.enabled = true,
+    this.mainTaskId,
+    this.subtaskId,
+    this.compoundId,
+  });
+
+  /// Stable notification id for the OS scheduler, derived from [id] so the
+  /// same logical reminder always cancels/reschedules against the same slot.
+  /// Kept well clear of the fixed ids (1001 insight, 2001 timer, 3001 reflect).
+  int get notificationId => 100000 + (id.hashCode.abs() % 800000);
+
+  /// The next moment this reminder will fire (for sorting / display).
+  DateTime? get nextFire {
+    if (repeat == 'daily') {
+      final now = DateTime.now();
+      var next = DateTime(now.year, now.month, now.day, hour, minute);
+      if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
+      return next;
+    }
+    return time;
+  }
+
+  bool get isActive {
+    if (!enabled) return false;
+    if (repeat == 'daily') return true;
+    return time != null && time!.isAfter(DateTime.now());
+  }
+
+  ScheduledReminder copyWith({
+    String? title,
+    String? body,
+    String? type,
+    String? repeat,
+    DateTime? time,
+    bool clearTime = false,
+    int? hour,
+    int? minute,
+    bool? enabled,
+    String? mainTaskId,
+    String? subtaskId,
+    String? compoundId,
+  }) {
+    return ScheduledReminder(
+      id: id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      type: type ?? this.type,
+      repeat: repeat ?? this.repeat,
+      time: clearTime ? null : (time ?? this.time),
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+      enabled: enabled ?? this.enabled,
+      mainTaskId: mainTaskId ?? this.mainTaskId,
+      subtaskId: subtaskId ?? this.subtaskId,
+      compoundId: compoundId ?? this.compoundId,
+    );
+  }
+
+  factory ScheduledReminder.fromJson(Map<String, dynamic> json) {
+    return ScheduledReminder(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Reminder',
+      body: json['body'] as String? ?? '',
+      type: json['type'] as String? ?? 'custom',
+      repeat: json['repeat'] as String? ?? 'once',
+      time: json['time'] != null ? DateTime.tryParse(json['time'] as String) : null,
+      hour: json['hour'] as int? ?? 9,
+      minute: json['minute'] as int? ?? 0,
+      enabled: json['enabled'] as bool? ?? true,
+      mainTaskId: json['mainTaskId'] as String?,
+      subtaskId: json['subtaskId'] as String?,
+      compoundId: json['compoundId'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'type': type,
+        'repeat': repeat,
+        'time': time?.toIso8601String(),
+        'hour': hour,
+        'minute': minute,
+        'enabled': enabled,
+        'mainTaskId': mainTaskId,
+        'subtaskId': subtaskId,
+        'compoundId': compoundId,
+      };
+}
+
 class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
@@ -118,6 +246,10 @@ class AppSettings {
   int submissionReminderHour;
   int submissionReminderMinute;
 
+  // Persisted user reminders (task / planner / custom) shown in the
+  // Scheduled Reminders screen and re-armed on launch.
+  List<ScheduledReminder> scheduledReminders;
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -156,7 +288,9 @@ class AppSettings {
     this.submissionReminderEnabled = false,
     this.submissionReminderHour = 9,
     this.submissionReminderMinute = 0,
-  }) : lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
+    List<ScheduledReminder>? scheduledReminders,
+  })  : scheduledReminders = scheduledReminders ?? [],
+        lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     List<String> keys = [];
@@ -213,6 +347,10 @@ class AppSettings {
       submissionReminderEnabled: json['submissionReminderEnabled'] as bool? ?? false,
       submissionReminderHour: json['submissionReminderHour'] as int? ?? 9,
       submissionReminderMinute: json['submissionReminderMinute'] as int? ?? 0,
+      scheduledReminders: (json['scheduledReminders'] as List<dynamic>?)
+              ?.map((e) => ScheduledReminder.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       customBusSchedules: json['customBusSchedules'] != null
           ? (json['customBusSchedules'] as Map<String, dynamic>).map(
               (k, v) => MapEntry(k, (v as Map<String, dynamic>).map(
@@ -253,6 +391,7 @@ class AppSettings {
       'submissionReminderEnabled': submissionReminderEnabled,
       'submissionReminderHour': submissionReminderHour,
       'submissionReminderMinute': submissionReminderMinute,
+      'scheduledReminders': scheduledReminders.map((e) => e.toJson()).toList(),
       'customBusSchedules': customBusSchedules,
     };
   }

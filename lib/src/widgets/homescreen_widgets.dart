@@ -15,6 +15,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final bool isRunning;
   final bool isCheckpoint;
   final int accumulatedSeconds;
+  final double progress; // 0..1 — mirrors the missions screen subtask progress
 
   const RunningTaskHomeWidget({
     super.key,
@@ -24,6 +25,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
     required this.isRunning,
     required this.isCheckpoint,
     required this.accumulatedSeconds,
+    this.progress = 0.0,
   });
 
   @override
@@ -118,6 +120,20 @@ class RunningTaskHomeWidget extends StatelessWidget {
               ],
             ),
             const Spacer(),
+            // Progress bar — only meaningful when there is a task with steps.
+            if (hasTask) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 5,
+                  backgroundColor: AppTheme.fhBorderColor,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             // Buttons Row (Visuals matching the clickable transparent areas in XML)
             Row(
               children: [
@@ -143,9 +159,32 @@ class RunningTaskHomeWidget extends StatelessWidget {
                     ),
                   ),
                 ),
+                // CHECK button — only when there's an active task.
+                if (hasTask) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 88,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.fhAccentTeal, width: 1.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "CHECK",
+                      style: TextStyle(
+                        color: AppTheme.fhAccentTeal,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 10),
                 Container(
-                  width: 100,
+                  width: 88,
                   height: 40,
                   decoration: BoxDecoration(
                     border: Border.all(

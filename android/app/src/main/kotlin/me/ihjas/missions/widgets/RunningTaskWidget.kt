@@ -79,17 +79,31 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setTextViewText(R.id.widget_task_today, WidgetCommon.fmtSeconds(accumulatedSec))
         }
 
+        // Reserve space for the rendered progress bar only when a task is shown,
+        // keeping the transparent button overlays aligned with the image.
+        views.setViewVisibility(
+            R.id.widget_progress_spacer,
+            if (hasTask) android.view.View.VISIBLE else android.view.View.GONE,
+        )
+
         // Buttons
         if (hasTask) {
+            views.setViewVisibility(R.id.widget_btn_check, android.view.View.VISIBLE)
             views.setOnClickPendingIntent(
                 R.id.widget_btn_engage,
                 WidgetCommon.launchIntent(context, "task_toggle"),
+            )
+            views.setOnClickPendingIntent(
+                R.id.widget_btn_check,
+                WidgetCommon.launchIntent(context, "task_check_next"),
             )
             views.setOnClickPendingIntent(
                 R.id.widget_btn_finish,
                 WidgetCommon.launchIntent(context, "task_finish"),
             )
         } else {
+            // No active task: hide CHECK so ENGAGE + FINISH line up with the image.
+            views.setViewVisibility(R.id.widget_btn_check, android.view.View.GONE)
             views.setOnClickPendingIntent(
                 R.id.widget_btn_engage,
                 WidgetCommon.launchIntent(context, "task_open_plan"),

@@ -2,6 +2,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/task_calculations.dart';
 import 'package:collection/collection.dart';
 
 class TimerActions {
@@ -57,13 +58,18 @@ class TimerActions {
     _provider.setProviderState(activeTimers: updatedActiveTimers);
 
     // Show persistent timer notification
-    final subTaskName = type == 'subtask'
-        ? (mainTask.subTasks.firstWhereOrNull((s) => s.id == id)?.name ?? id)
-        : id;
+    final subTask = type == 'subtask'
+        ? mainTask.subTasks.firstWhereOrNull((s) => s.id == id)
+        : null;
+    final subTaskName = subTask?.name ?? id;
+    final nextCp = subTask != null ? TaskCalculations.nextCheckpoint(subTask) : null;
     NotificationService.instance.showTimerNotification(
       taskName: subTaskName,
       startTime: updatedActiveTimers[id]!.startTime,
       subtaskId: id,
+      mainTaskId: mainTaskId,
+      progress: subTask?.calculateProgress() ?? 0.0,
+      nextCheckpointName: nextCp?.name,
     );
 
     if (_provider.settings.autoSaveEnabled) {

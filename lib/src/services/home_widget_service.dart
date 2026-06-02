@@ -77,6 +77,7 @@ class HomeWidgetService {
     required bool isRunning,
     required bool isCheckpoint,
     required int accumulatedSeconds,
+    double progress = 0.0,
     DateTime? sessionStart,
   }) async {
     if (!_supported) return;
@@ -89,6 +90,7 @@ class HomeWidgetService {
           isRunning: isRunning,
           isCheckpoint: isCheckpoint,
           accumulatedSeconds: accumulatedSeconds,
+          progress: progress,
         ),
         key: 'arcane.task.image',
         logicalSize: const Size(400, 200),
@@ -104,6 +106,7 @@ class HomeWidgetService {
       'arcane.task.isRunning': isRunning,
       'arcane.task.isCheckpoint': isCheckpoint,
       'arcane.task.accumulatedSec': accumulatedSeconds,
+      'arcane.task.progressPct': (progress.clamp(0.0, 1.0) * 100).round(),
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
       'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
     });

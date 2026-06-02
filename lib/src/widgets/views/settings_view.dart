@@ -1,7 +1,6 @@
 // lib/src/widgets/views/settings_view.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/services/ai_service.dart';
-import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
+import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/api_key_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
 import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
@@ -705,14 +705,29 @@ class _SettingsViewState extends State<SettingsView> {
             const Divider(height: 1, color: AppTheme.fhBorderColor),
             const SizedBox(height: 16),
 
-            // --- Submission reminder note ---
+            // --- Manage all scheduled reminders ---
+            Builder(builder: (ctx) => OutlinedButton.icon(
+              icon: Icon(MdiIcons.bellCogOutline, size: 16),
+              label: const Text('View & Edit Scheduled Reminders'),
+              onPressed: () => Navigator.push(
+                ctx,
+                MaterialPageRoute(
+                    builder: (_) => const ScheduledRemindersScreen()),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: accent,
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                minimumSize: const Size(double.infinity, 44),
+              ),
+            )),
+            const SizedBox(height: 8),
             Row(children: [
               Icon(MdiIcons.bellCheckOutline,
                   color: AppTheme.fhTextSecondary, size: 16),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Set per-submission reminders by tapping the bell icon on any submission detail screen.',
+                  'Set per-submission reminders by tapping the bell icon on any submission detail screen, or per-task times in the Today planner.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
                 ),

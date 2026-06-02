@@ -10,6 +10,8 @@ import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/global_toast.dart';
 
 /// Tab indexes in HomeScreen — kept in sync with `_viewTitles` over there.
 class HomeTab {
@@ -67,6 +69,9 @@ class WidgetActionRouter {
       case 'task_finish':
         _taskFinish(provider);
         _gotoTab(HomeTab.schedule);
+        break;
+      case 'task_check_next':
+        _taskCheckNext(provider);
         break;
       case 'task_open':
       case 'task_open_plan':
@@ -149,6 +154,20 @@ class WidgetActionRouter {
     } else {
       provider.startTimer(s.id, 'subtask', m.id);
     }
+  }
+
+  void _taskCheckNext(AppProvider provider) {
+    final r = _resolveActive(provider);
+    final m = r.mainTask;
+    final s = r.subTask;
+    if (m == null || s == null) return;
+    final cp = TaskCalculations.nextCheckpoint(s);
+    if (cp == null) {
+      showGlobalToast('No checkpoints left to check');
+      return;
+    }
+    provider.taskActions.completeSubSubtask(m.id, s.id, cp.id);
+    showGlobalToast('✓ Checked: ${cp.name}');
   }
 
   void _taskFinish(AppProvider provider) {

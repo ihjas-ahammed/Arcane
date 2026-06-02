@@ -125,6 +125,7 @@ class HomeWidgetPublisher {
     final activeTimer = s == null ? null : _provider.activeTimers[s.id];
     final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s);
     final sessionStart = r.isRunning ? activeTimer?.startTime : null;
+    final progress = s == null ? 0.0 : s.calculateProgress();
 
     final key = [
       s != null,
@@ -133,6 +134,7 @@ class HomeWidgetPublisher {
       r.isRunning,
       cp != null,
       accumulated.toInt(),
+      (progress * 100).round(),
       sessionStart?.millisecondsSinceEpoch ?? 0,
     ].join('|');
     if (!force && key == _lastTaskKey) return;
@@ -146,6 +148,7 @@ class HomeWidgetPublisher {
         isRunning: r.isRunning,
         isCheckpoint: cp != null,
         accumulatedSeconds: accumulated.toInt(),
+        progress: progress,
         sessionStart: sessionStart,
       );
     } catch (e) {

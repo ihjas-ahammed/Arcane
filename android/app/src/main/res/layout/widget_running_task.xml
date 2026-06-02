@@ -133,12 +133,21 @@
             android:layout_weight="1"
             android:text="" />
 
+        <!-- Reserves the height of the rendered progress bar (5dp) + gap (10dp)
+             so the transparent button overlays line up with the image. Toggled
+             with hasTask in RunningTaskWidget.kt. -->
+        <TextView
+            android:id="@+id/widget_progress_spacer"
+            android:layout_width="match_parent"
+            android:layout_height="15dp"
+            android:text="" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <!-- Transparent Click Overlay Button 1 -->
+            <!-- Transparent Click Overlay Button 1 (ENGAGE / HALT / OPEN PLAN) -->
             <TextView
                 android:id="@+id/widget_btn_engage"
                 android:layout_width="0dp"
@@ -149,10 +158,21 @@
                 android:text=""
                 android:textSize="11sp" />
 
-            <!-- Transparent Click Overlay Button 2 -->
+            <!-- Transparent Click Overlay Button: CHECK (lowest checkpoint) -->
+            <TextView
+                android:id="@+id/widget_btn_check"
+                android:layout_width="88dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:background="@android:color/transparent"
+                android:gravity="center"
+                android:text=""
+                android:textSize="11sp" />
+
+            <!-- Transparent Click Overlay Button: FINISH / REFRESH -->
             <TextView
                 android:id="@+id/widget_btn_finish"
-                android:layout_width="100dp"
+                android:layout_width="88dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="10dp"
                 android:background="@android:color/transparent"

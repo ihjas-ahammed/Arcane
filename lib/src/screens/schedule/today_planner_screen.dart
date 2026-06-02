@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
 
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
@@ -166,6 +167,66 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     }
   }
 
+  Future<void> _editReminder(AppProvider provider, String compoundId) async {
+    final existing = provider.plannerReminderTime(compoundId);
+    if (existing != null) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          title: Text('REMINDER',
+              style: GoogleFonts.rajdhani(
+                  color: AppTheme.fhAccentTeal,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold)),
+          content: Text(
+            'Set for ${DateFormat('MMM d · hh:mm a').format(existing)}.',
+            style: const TextStyle(color: AppTheme.fhTextSecondary),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'clear'),
+                child: const Text('CLEAR',
+                    style: TextStyle(color: AppTheme.fhAccentRed))),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'change'),
+                child: const Text('CHANGE',
+                    style: TextStyle(color: AppTheme.fhAccentTeal))),
+          ],
+        ),
+      );
+      if (action == 'clear') {
+        await provider.setPlannerReminder(compoundId, null);
+        return;
+      }
+      if (action != 'change') return;
+    }
+
+    if (!mounted) return;
+    final base = existing ?? DateTime.now().add(const Duration(hours: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
+    if (time == null) return;
+    final when =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    await provider.setPlannerReminder(compoundId, when);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Reminder set for ${DateFormat('MMM d · hh:mm a').format(when)}'),
+      backgroundColor: AppTheme.fhAccentTeal.withValues(alpha: 0.9),
+    ));
+  }
+
   ({String? title, Color? color, bool isRunning}) _resolveActive(AppProvider provider) {
     for (final id in _plan) {
       final parts = id.split('|');
@@ -281,7 +342,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           provider: provider,
           minutes: _estimateFor(id, provider),
           isCustomEstimate: _estimates.containsKey(id),
+          hasReminder: provider.plannerReminderTime(id) != null,
           onEditEstimate: () => _editEstimate(provider, id),
+          onEditReminder: () => _editReminder(provider, id),
           onRemove: () => _removeFromPlan(provider, id),
         );
       },
@@ -523,7 +586,9 @@ class _PlanRow extends StatelessWidget {
   final AppProvider provider;
   final int minutes;
   final bool isCustomEstimate;
+  final bool hasReminder;
   final VoidCallback onEditEstimate;
+  final VoidCallback onEditReminder;
   final VoidCallback onRemove;
 
   const _PlanRow({
@@ -532,7 +597,9 @@ class _PlanRow extends StatelessWidget {
     required this.provider,
     required this.minutes,
     required this.isCustomEstimate,
+    required this.hasReminder,
     required this.onEditEstimate,
+    required this.onEditReminder,
     required this.onRemove,
   });
 
@@ -613,6 +680,16 @@ class _PlanRow extends StatelessWidget {
                       fontSize: 11,
                       fontWeight: FontWeight.bold)),
             ),
+          ),
+          IconButton(
+            icon: Icon(
+              hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+              size: 18,
+              color: hasReminder ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+            ),
+            onPressed: onEditReminder,
+            splashRadius: 18,
+            tooltip: 'Reminder',
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),

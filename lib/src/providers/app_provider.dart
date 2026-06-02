@@ -6,8 +6,10 @@ import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
-import 'package:missions/src/utils/history_helper.dart'; 
+import 'package:missions/src/utils/history_helper.dart';
 import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/skill_models.dart';
@@ -90,11 +92,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
 
-    // Route notification taps: 'stop_timer:{id}' pauses the timer
+    // Route notification taps / action buttons.
+    // Payload for the timer notification is encoded as "<subtaskId>|<mainTaskId>".
     NotificationService.instance.setOnTap((payload) {
-      if (payload != null && payload.startsWith('stop_timer:')) {
-        final subtaskId = payload.substring('stop_timer:'.length);
+      if (payload == null) return;
+      if (payload.startsWith('stop_timer:')) {
+        final subtaskId =
+            payload.substring('stop_timer:'.length).split('|').first;
         _timerActions.pauseTimer(subtaskId);
+      } else if (payload.startsWith('check_next:')) {
+        _handleNotificationCheck(payload.substring('check_next:'.length),
+            undo: false);
+      } else if (payload.startsWith('undo_check:')) {
+        _handleNotificationCheck(payload.substring('undo_check:'.length),
+            undo: true);
       }
     });
 
@@ -125,6 +136,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   // --- Notification Reminders ---
 
+  /// (Re)arms every reminder we know about: the daily reflection reminder
+  /// (driven by settings flags) plus all persisted [ScheduledReminder]s.
+  /// Safe to call repeatedly — each reminder cancels its own slot first.
   void rescheduleReminders() {
     final s = settings;
     if (s.reflectionReminderEnabled) {
@@ -139,6 +153,210 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       NotificationService.instance.cancelDailyReminder(
           NotificationService.reflectionReminderId);
     }
+
+    for (final r in s.scheduledReminders) {
+      _armReminder(r);
+    }
+  }
+
+  /// Schedule or cancel one reminder with the OS, based on its current state.
+  void _armReminder(ScheduledReminder r) {
+    if (!r.enabled) {
+      NotificationService.instance.cancelOneTimeReminder(r.notificationId);
+      return;
+    }
+    if (r.repeat == 'daily') {
+      NotificationService.instance.scheduleDailyReminder(
+        id: r.notificationId,
+        title: r.title,
+        body: r.body,
+        hour: r.hour,
+        minute: r.minute,
+      );
+    } else if (r.time != null) {
+      NotificationService.instance.scheduleOneTimeReminder(
+        id: r.notificationId,
+        title: r.title,
+        body: r.body,
+        scheduledTime: r.time!,
+      );
+    }
+  }
+
+  List<ScheduledReminder> get scheduledReminders =>
+      List.unmodifiable(settings.scheduledReminders);
+
+  /// Insert or replace a reminder (matched by [ScheduledReminder.id]),
+  /// persist it, and (re)arm the OS notification.
+  void upsertReminder(ScheduledReminder reminder) {
+    final list = List<ScheduledReminder>.from(settings.scheduledReminders);
+    final idx = list.indexWhere((e) => e.id == reminder.id);
+    if (idx >= 0) {
+      list[idx] = reminder;
+    } else {
+      list.add(reminder);
+    }
+    setSettings(settings..scheduledReminders = list);
+    _armReminder(reminder);
+    notifyListeners();
+  }
+
+  void deleteReminder(String id) {
+    final list = List<ScheduledReminder>.from(settings.scheduledReminders);
+    final idx = list.indexWhere((e) => e.id == id);
+    if (idx < 0) return;
+    final removed = list.removeAt(idx);
+    setSettings(settings..scheduledReminders = list);
+    NotificationService.instance.cancelOneTimeReminder(removed.notificationId);
+    notifyListeners();
+  }
+
+  void setReminderEnabled(String id, bool enabled) {
+    final r = settings.scheduledReminders.firstWhereOrNull((e) => e.id == id);
+    if (r == null) return;
+    upsertReminder(r.copyWith(enabled: enabled));
+  }
+
+  /// Per-submission reminder. Persists a 'task' reminder so it shows up in the
+  /// Scheduled Reminders screen and is re-armed on launch (passing null clears).
+  Future<void> setSubtaskReminder(
+      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
+    final id = 'task_$subtaskId';
+    if (reminderTime == null) {
+      deleteReminder(id);
+      return;
+    }
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+
+    upsertReminder(ScheduledReminder(
+      id: id,
+      title: '⏰ ${sub.name}',
+      body: 'Reminder for: ${task.name} › ${sub.name}',
+      type: 'task',
+      repeat: 'once',
+      time: reminderTime,
+      mainTaskId: mainTaskId,
+      subtaskId: subtaskId,
+    ));
+  }
+
+  /// The reminder time currently set for a submission/subtask, or null.
+  DateTime? subtaskReminderTime(String subtaskId) {
+    final r = settings.scheduledReminders
+        .firstWhereOrNull((e) => e.id == 'task_$subtaskId');
+    return r?.time;
+  }
+
+  /// The reminder time currently set for a planned day-plan item, or null.
+  DateTime? plannerReminderTime(String compoundId) {
+    final r = settings.scheduledReminders
+        .firstWhereOrNull((e) => e.id == 'plan_$compoundId');
+    return r?.time;
+  }
+
+  /// Set (or clear, when [reminderTime] is null) the reminder for a planner item.
+  Future<void> setPlannerReminder(
+      String compoundId, DateTime? reminderTime) async {
+    final id = 'plan_$compoundId';
+    if (reminderTime == null) {
+      deleteReminder(id);
+      return;
+    }
+    final parts = compoundId.split('|');
+    final task = mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = parts.length > 1
+        ? task?.subTasks.firstWhereOrNull((s) => s.id == parts[1])
+        : null;
+    String label = sub?.name ?? 'Planned task';
+    if (parts.length == 3 && sub != null) {
+      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      if (cp != null) label = cp.name;
+    }
+
+    upsertReminder(ScheduledReminder(
+      id: id,
+      title: '🎯 $label',
+      body: task != null ? 'Planned: ${task.name} › $label' : 'Planned: $label',
+      type: 'planner',
+      repeat: 'once',
+      time: reminderTime,
+      mainTaskId: task?.id,
+      subtaskId: sub?.id,
+      compoundId: compoundId,
+    ));
+  }
+
+  // --- Ongoing-notification checkpoint actions ---
+
+  Timer? _notifUndoTimer;
+
+  /// Handles the CHECK NEXT / UNDO CHECK action buttons on the active-timer
+  /// notification. [raw] is encoded as `subtaskId|mainTaskId`.
+  void _handleNotificationCheck(String raw, {required bool undo}) {
+    final parts = raw.split('|');
+    if (parts.length < 2) return;
+    final subtaskId = parts[0];
+    final mainTaskId = parts[1];
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+
+    _notifUndoTimer?.cancel();
+
+    if (undo) {
+      final lastId = _lastCheckedCheckpointId[subtaskId];
+      if (lastId != null) {
+        _taskActions.uncompleteSubSubtask(mainTaskId, subtaskId, lastId);
+        _lastCheckedCheckpointId.remove(subtaskId);
+        showGlobalToast('↩ Unchecked');
+      }
+      _refreshTimerNotification(mainTaskId, subtaskId);
+      return;
+    }
+
+    final cp = TaskCalculations.nextCheckpoint(sub);
+    if (cp == null) {
+      showGlobalToast('No checkpoints left to check');
+      _refreshTimerNotification(mainTaskId, subtaskId);
+      return;
+    }
+    _taskActions.completeSubSubtask(mainTaskId, subtaskId, cp.id);
+    _lastCheckedCheckpointId[subtaskId] = cp.id;
+    showGlobalToast('✓ Checked: ${cp.name}');
+
+    // Show the just-checked state with an UNDO CHECK button for 2 seconds,
+    // then revert to CHECK NEXT pointing at the new lowest checkpoint.
+    _refreshTimerNotification(mainTaskId, subtaskId,
+        justCheckedName: cp.name, showUndo: true);
+    _notifUndoTimer = Timer(const Duration(seconds: 2), () {
+      _lastCheckedCheckpointId.remove(subtaskId);
+      _refreshTimerNotification(mainTaskId, subtaskId);
+    });
+  }
+
+  final Map<String, String> _lastCheckedCheckpointId = {};
+
+  void _refreshTimerNotification(String mainTaskId, String subtaskId,
+      {String? justCheckedName, bool showUndo = false}) {
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+    final timer = activeTimers[subtaskId];
+    if (timer == null || !timer.isRunning) return;
+
+    final next = TaskCalculations.nextCheckpoint(sub);
+    NotificationService.instance.showTimerNotification(
+      taskName: sub.name,
+      startTime: timer.startTime,
+      subtaskId: subtaskId,
+      mainTaskId: mainTaskId,
+      progress: sub.calculateProgress(),
+      nextCheckpointName: next?.name,
+      showUndo: showUndo,
+      statusBody: justCheckedName != null ? '✓ $justCheckedName' : null,
+    );
   }
 
   void saveReflectionDraft({
@@ -163,25 +381,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   void clearReflectionDraft() {
     if (settings.reflectionDraft == null) return;
     setSettings(settings..reflectionDraft = null);
-  }
-
-  Future<void> setSubtaskReminder(
-      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
-    final notifId = NotificationService.subtaskReminderId(subtaskId);
-    if (reminderTime == null) {
-      await NotificationService.instance.cancelOneTimeReminder(notifId);
-      return;
-    }
-
-    final task = mainTasks.firstWhere((t) => t.id == mainTaskId);
-    final sub = task.subTasks.firstWhere((s) => s.id == subtaskId);
-
-    await NotificationService.instance.scheduleOneTimeReminder(
-      id: notifId,
-      title: '⏰ ${sub.name}',
-      body: 'Reminder for: ${task.name} › ${sub.name}',
-      scheduledTime: reminderTime,
-    );
   }
 
   // --- Initialization ---

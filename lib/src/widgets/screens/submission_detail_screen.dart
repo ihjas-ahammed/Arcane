@@ -39,6 +39,18 @@ class SubmissionDetailScreen extends StatefulWidget {
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime? _reminderTime;
+  bool _reminderLoaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_reminderLoaded) {
+      _reminderLoaded = true;
+      // Reflect the persisted reminder so the bell shows the real state.
+      _reminderTime = Provider.of<AppProvider>(context, listen: false)
+          .subtaskReminderTime(widget.subTask.id);
+    }
+  }
 
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {

@@ -144,10 +144,22 @@ class NotificationService {
   }
 
   void _handleResponse(String? actionId, String? payload) {
-    if (actionId == 'stop_timer' && payload != null) {
-      _onTap?.call('stop_timer:$payload');
-    } else {
-      _onTap?.call(payload);
+    if (payload == null) {
+      _onTap?.call(null);
+      return;
+    }
+    switch (actionId) {
+      case 'stop_timer':
+        _onTap?.call('stop_timer:$payload');
+        break;
+      case 'check_next':
+        _onTap?.call('check_next:$payload');
+        break;
+      case 'undo_check':
+        _onTap?.call('undo_check:$payload');
+        break;
+      default:
+        _onTap?.call(payload);
     }
   }
 
@@ -245,10 +257,21 @@ class NotificationService {
   // Persistent timer notification
   // ---------------------------------------------------------------------------
 
+  /// Show / update the persistent active-timer notification.
+  ///
+  /// [progress] (0–1) renders a native progress bar mirroring the missions
+  /// screen. When [nextCheckpointName] is non-null a "CHECK NEXT" action is
+  /// added; [showUndo] swaps it for a transient "UNDO CHECK" button.
+  /// [statusBody] overrides the body line (e.g. "✓ Checked X").
   Future<void> showTimerNotification({
     required String taskName,
     required DateTime startTime,
     required String subtaskId,
+    String mainTaskId = '',
+    double progress = 0.0,
+    String? nextCheckpointName,
+    bool showUndo = false,
+    String? statusBody,
   }) async {
     if (!_initialized) return;
     _activeTimerSubtaskId = subtaskId;
@@ -258,7 +281,16 @@ class NotificationService {
     if (kIsWeb) return; // No persistent notifications on web
 
     if (_isAndroid) {
-      await _showAndroidTimerNotification(taskName, startTime, subtaskId);
+      await _showAndroidTimerNotification(
+        taskName,
+        startTime,
+        subtaskId,
+        mainTaskId,
+        progress,
+        nextCheckpointName,
+        showUndo,
+        statusBody,
+      );
     } else if (_isLinux) {
       await _showLinuxTimerNotification(taskName, startTime);
       _startLinuxTimerUpdater();
@@ -267,18 +299,55 @@ class NotificationService {
       await _plugin.show(
         _timerNotifId,
         '▶ $taskName',
-        'Timer is running',
+        statusBody ?? 'Timer is running',
         const NotificationDetails(
           iOS: DarwinNotificationDetails(presentAlert: false, presentSound: false, presentBadge: false),
           macOS: DarwinNotificationDetails(presentAlert: false),
         ),
-        payload: subtaskId,
+        payload: '$subtaskId|$mainTaskId',
       );
     }
   }
 
   Future<void> _showAndroidTimerNotification(
-      String taskName, DateTime startTime, String subtaskId) async {
+    String taskName,
+    DateTime startTime,
+    String subtaskId,
+    String mainTaskId,
+    double progress,
+    String? nextCheckpointName,
+    bool showUndo,
+    String? statusBody,
+  ) async {
+    final pct = (progress.clamp(0.0, 1.0) * 100).round();
+    final actions = <AndroidNotificationAction>[];
+    if (showUndo) {
+      actions.add(const AndroidNotificationAction(
+        'undo_check',
+        'UNDO CHECK',
+        showsUserInterface: false,
+        cancelNotification: false,
+      ));
+    } else if (nextCheckpointName != null) {
+      actions.add(const AndroidNotificationAction(
+        'check_next',
+        'CHECK NEXT',
+        showsUserInterface: false,
+        cancelNotification: false,
+      ));
+    }
+    actions.add(const AndroidNotificationAction(
+      'stop_timer',
+      'STOP',
+      cancelNotification: true,
+      showsUserInterface: true,
+    ));
+
+    final body = statusBody ??
+        (nextCheckpointName != null
+            ? 'Next: $nextCheckpointName'
+            : 'Tap STOP to end session');
+
     final details = AndroidNotificationDetails(
       _timerChannelId,
       _timerChannelName,
@@ -289,27 +358,24 @@ class NotificationService {
       autoCancel: false,
       playSound: false,
       enableVibration: false,
+      onlyAlertOnce: true,
       usesChronometer: true,
       chronometerCountDown: false,
       when: startTime.millisecondsSinceEpoch,
       showWhen: true,
+      showProgress: pct > 0,
+      maxProgress: 100,
+      progress: pct,
       icon: '@mipmap/ic_launcher',
       color: const Color(0xFFFFB547),
-      actions: [
-        AndroidNotificationAction(
-          'stop_timer',
-          'STOP',
-          cancelNotification: true,
-          showsUserInterface: true,
-        ),
-      ],
+      actions: actions,
     );
     await _plugin.show(
       _timerNotifId,
       '▶  $taskName',
-      'Tap STOP to end session',
+      body,
       NotificationDetails(android: details),
-      payload: subtaskId,
+      payload: '$subtaskId|$mainTaskId',
     );
   }
 
