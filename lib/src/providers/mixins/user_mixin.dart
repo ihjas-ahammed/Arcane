@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/habit_models.dart';
@@ -111,7 +112,12 @@ mixin UserMixin on ChangeNotifier {
     Map<String, int> rollingXp = {};
     for (var log in _reflectionLogs) {
       if (log.timestamp.isAfter(sevenDaysAgo)) {
-        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            rollingXp[normalized] = (rollingXp[normalized] ?? 0) + v;
+          }
+        });
       }
     }
     

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/firebase_service.dart' as fb_service;
 import 'package:missions/src/services/local_storage_service.dart';
@@ -312,14 +313,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         _lastCheckedCheckpointId.remove(subtaskId);
         showGlobalToast('↩ Unchecked');
       }
-      _refreshTimerNotification(mainTaskId, subtaskId);
+      refreshTimerNotification(mainTaskId, subtaskId);
       return;
     }
 
     final cp = TaskCalculations.nextCheckpoint(sub);
     if (cp == null) {
       showGlobalToast('No checkpoints left to check');
-      _refreshTimerNotification(mainTaskId, subtaskId);
+      refreshTimerNotification(mainTaskId, subtaskId);
       return;
     }
     _taskActions.completeSubSubtask(mainTaskId, subtaskId, cp.id);
@@ -328,17 +329,17 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     // Show the just-checked state with an UNDO CHECK button for 2 seconds,
     // then revert to CHECK NEXT pointing at the new lowest checkpoint.
-    _refreshTimerNotification(mainTaskId, subtaskId,
+    refreshTimerNotification(mainTaskId, subtaskId,
         justCheckedName: cp.name, showUndo: true);
     _notifUndoTimer = Timer(const Duration(seconds: 2), () {
       _lastCheckedCheckpointId.remove(subtaskId);
-      _refreshTimerNotification(mainTaskId, subtaskId);
+      refreshTimerNotification(mainTaskId, subtaskId);
     });
   }
 
   final Map<String, String> _lastCheckedCheckpointId = {};
 
-  void _refreshTimerNotification(String mainTaskId, String subtaskId,
+  void refreshTimerNotification(String mainTaskId, String subtaskId,
       {String? justCheckedName, bool showUndo = false}) {
     final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
@@ -541,6 +542,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     if (doNotify) notifyListeners();
   }
 
+  @override
+  void setMainTasks(List<MainTask> tasks) {
+    super.setMainTasks(tasks);
+    final running = activeTimers.entries.firstWhereOrNull((e) => e.value.isRunning);
+    if (running != null) {
+      refreshTimerNotification(running.value.mainTaskId, running.key);
+    }
+  }
+
   // --- Delegated Actions ---
 
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
@@ -705,9 +715,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(last7)) {
-        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            currentXp[normalized] = (currentXp[normalized] ?? 0) + v;
+          }
+        });
       } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
-        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            prevXp[normalized] = (prevXp[normalized] ?? 0) + v;
+          }
+        });
       }
     }
 
@@ -990,7 +1010,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     int total = 0;
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(sevenDaysAgo)) {
-        total += log.xpGained[skillName] ?? 0;
+        log.xpGained.forEach((k, v) {
+          if (WellbeingTheme.normalizeSkillName(k) == skillName) {
+            total += v;
+          }
+        });
       }
     }
     return total;
@@ -1080,20 +1104,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     final result = <String, int>{};
     for (final entry in scores.entries) {
-      final skillName = entry.key;
+      final normalized = WellbeingTheme.normalizeSkillName(entry.key);
+      if (normalized == null) continue;
+
       final score = entry.value.clamp(0.0, 1.0);
       if (score <= 0.0) {
-        result[skillName] = 0;
+        result[normalized] = 0;
         continue;
       }
       final logsWithXp =
-          reflectionLogs.where((l) => (l.xpGained[skillName] ?? 0) > 0).toList();
+          reflectionLogs.where((l) => (l.xpGained[normalized] ?? 0) > 0).toList();
       final lifetimeAvg = logsWithXp.isEmpty
           ? 20.0
-          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[skillName] ?? 0)) /
+          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[normalized] ?? 0)) /
               logsWithXp.length;
       final rawXp = (score * lifetimeAvg * hoursPassed).round();
-      result[skillName] = rawXp.clamp(1, 9999);
+      // Overwrite/merge if multiple keys end up normalized to the same canonical name
+      result[normalized] = (result[normalized] ?? 0) + rawXp.clamp(1, 9999);
     }
     return result;
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/utils/helpers.dart';
@@ -63,10 +64,20 @@ class ReportActions {
 
       for (var log in _provider.reflectionLogs) {
         if (log.timestamp.isAfter(startOfTodayMinus7) && log.timestamp.isBefore(startOfToday)) {
-          log.xpGained.forEach((k, v) => todayMetricsMap[k] = (todayMetricsMap[k] ?? 0) + v);
+          log.xpGained.forEach((k, v) {
+            final normalized = WellbeingTheme.normalizeSkillName(k);
+            if (normalized != null) {
+              todayMetricsMap[normalized] = (todayMetricsMap[normalized] ?? 0) + v;
+            }
+          });
         }
         if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
-          log.xpGained.forEach((k, v) => yesterdayMetricsMap[k] = (yesterdayMetricsMap[k] ?? 0) + v);
+          log.xpGained.forEach((k, v) {
+            final normalized = WellbeingTheme.normalizeSkillName(k);
+            if (normalized != null) {
+              yesterdayMetricsMap[normalized] = (yesterdayMetricsMap[normalized] ?? 0) + v;
+            }
+          });
         }
       }
 

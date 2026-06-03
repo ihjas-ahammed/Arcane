@@ -2,6 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class WellbeingTheme {
+  static String? normalizeSkillName(String raw) {
+    final clean = raw.trim().toLowerCase();
+    if (clean.contains('positiv')) return 'Positivity';
+    if (clean.contains('resili')) return 'Resilience';
+    if (clean.contains('satisf')) return 'Satisfaction';
+    if (clean.contains('vital')) return 'Vitality';
+    if (clean.contains('env') || clean.contains('environ')) return 'Env. Mastery';
+    if (clean.contains('self-accept') || clean.contains('self accept')) return 'Self-Acceptance';
+    if (clean.contains('relation')) return 'Relationships';
+    if (clean.contains('mastery')) return 'Mastery';
+    if (clean.contains('autonom')) return 'Autonomy';
+    if (clean.contains('growth')) return 'Growth';
+    if (clean.contains('engage')) return 'Engagement';
+    if (clean.contains('mean') || clean.contains('purpose')) return 'Meaning';
+    return null;
+  }
+
   static Color getColor(String trait) {
     switch (trait.toLowerCase()) {
       case 'positivity':

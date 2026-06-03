@@ -1,6 +1,11 @@
 Make the following changes:
 
 
+    - Fix XP counting:
+        it looks like the total xp count wasnt matching the sum of individual xp on reflection insight
+    - Fix check next button:
+        the check next button in ongoing notifiication for running not working at all, also the notification must be kept up to date in realtime
+    
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

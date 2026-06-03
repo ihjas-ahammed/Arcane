@@ -267,7 +267,11 @@ class _SkillChip extends StatelessWidget {
               if (log.timestamp.year == date.year &&
                   log.timestamp.month == date.month &&
                   log.timestamp.day == date.day) {
-                dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+                log.xpGained.forEach((k, v) {
+                  if (WellbeingTheme.normalizeSkillName(k) == skill.name) {
+                    dayXp += v.toDouble();
+                  }
+                });
               }
             }
             weeklyXp[6 - i] = dayXp;

@@ -342,14 +342,14 @@ class NotificationService {
       actions.add(const AndroidNotificationAction(
         'undo_check',
         'UNDO CHECK',
-        showsUserInterface: false,
+        showsUserInterface: true,
         cancelNotification: false,
       ));
     } else if (nextCheckpointName != null) {
       actions.add(const AndroidNotificationAction(
         'check_next',
         'CHECK NEXT',
-        showsUserInterface: false,
+        showsUserInterface: true,
         cancelNotification: false,
       ));
     }
