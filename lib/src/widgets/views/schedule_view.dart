@@ -16,6 +16,7 @@ import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -387,6 +388,36 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
+    // PRIORITY 1.5 — the Phoenix (today's most-important task) claims the hero
+    // ahead of the rest of the queue.
+    final phoenixId =
+        provider.taskActions.getPhoenixId(helper.getTodayDateString());
+    if (nextSubTask == null && phoenixId != null) {
+      final parts = phoenixId.split('|');
+      if (parts.length >= 2) {
+        final mTask = provider.mainTasks
+            .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final sTask = mTask?.subTasks
+            .firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+        if (sTask != null && !sTask.completed) {
+          if (parts.length == 3) {
+            final cp =
+                sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              nextQueueId = phoenixId;
+              nextMainTask = mTask;
+              nextSubTask = sTask;
+              nextCheckpoint = cp;
+            }
+          } else {
+            nextQueueId = phoenixId;
+            nextMainTask = mTask;
+            nextSubTask = sTask;
+          }
+        }
+      }
+    }
+
     // PRIORITY 2 — fall back to the next uncompleted entry in the day plan.
     if (nextSubTask == null) {
       for (String idPair in plan) {
@@ -425,6 +456,13 @@ class _ScheduleViewState extends State<ScheduleView> {
         : 0.0;
     final sessionStart = isRunning ? activeTimer?.startTime : null;
 
+    final isPhoenix = phoenixId != null && nextQueueId == phoenixId;
+    final now = DateTime.now();
+    final dayWindow = resolveDayWindow(provider, now);
+    final plannedMin =
+        provider.taskActions.plannedMinutesForDay(helper.getTodayDateString());
+    final realisticMin = dayWindow.realisticMinutes(now);
+
     return Column(
       children: [
         if (isToday) _CarryoverBanner(provider: provider),
@@ -435,6 +473,9 @@ class _ScheduleViewState extends State<ScheduleView> {
           subTask: nextSubTask,
           checkpoint: nextCheckpoint,
           isRunning: isRunning,
+          isPhoenix: isPhoenix,
+          plannedMinutes: plannedMin,
+          realisticMinutes: realisticMin,
           accumulatedTodaySeconds: accumulatedTodaySeconds,
           sessionStart: sessionStart,
           onOpenPlan: () {

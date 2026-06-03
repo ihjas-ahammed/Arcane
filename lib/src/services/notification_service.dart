@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -101,6 +103,21 @@ class NotificationService {
       },
       onDidReceiveBackgroundNotificationResponse: _backgroundResponseHandler,
     );
+
+    // Action buttons with showsUserInterface:false are delivered to a separate
+    // background isolate that can't reach this singleton. Bridge them back to
+    // the main isolate over a named port so CHECK NEXT / UNDO work while the
+    // app process is alive (foreground or backgrounded).
+    if (!kIsWeb) {
+      IsolateNameServer.removePortNameMapping(_notifActionPortName);
+      final port = ReceivePort();
+      IsolateNameServer.registerPortWithName(port.sendPort, _notifActionPortName);
+      port.listen((message) {
+        if (message is List && message.length == 2) {
+          _handleResponse(message[0] as String?, message[1] as String?);
+        }
+      });
+    }
 
     if (_isAndroid) {
       final android = _plugin.resolvePlatformSpecificImplementation<
@@ -587,9 +604,15 @@ class NotificationService {
   }
 }
 
-// Top-level background handler (Android requires this to be a top-level function)
+// Name of the port the main isolate listens on for forwarded notification
+// action-button taps.
+const String _notifActionPortName = 'arcane_notif_action_port';
+
+// Top-level background handler (Android requires this to be a top-level function).
+// Runs in a detached isolate; forward the tap to the main isolate's port so the
+// live AppProvider can act on it.
 @pragma('vm:entry-point')
 void _backgroundResponseHandler(NotificationResponse resp) {
-  // Background taps can't easily reach the provider, but the app will handle
-  // the payload via onDidReceiveNotificationResponse when it next foregrounds.
+  final send = IsolateNameServer.lookupPortByName(_notifActionPortName);
+  send?.send(<String?>[resp.actionId, resp.payload]);
 }

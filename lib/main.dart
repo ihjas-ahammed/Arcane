@@ -56,7 +56,9 @@ void main() async {
   }
 
   try {
-    HomeWidgetService.instance.onAction = WidgetActionRouter.instance.handle;
+    HomeWidgetService.instance.onAction =
+        (action) => WidgetActionRouter.instance.handle(action);
+    WidgetActionRouter.instance.attachPlatformChannel();
     await HomeWidgetService.instance.init();
   } catch (e) {
     debugPrint("HomeWidget init error: $e");

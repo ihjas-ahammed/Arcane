@@ -16,6 +16,8 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final bool isCheckpoint;
   final int accumulatedSeconds;
   final double progress; // 0..1 — mirrors the missions screen subtask progress
+  final bool isPhoenix; // true when the headlined item is today's Phoenix
+  final String capacity; // e.g. "2h40 / 4h30"; empty hides the readout
 
   const RunningTaskHomeWidget({
     super.key,
@@ -26,17 +28,24 @@ class RunningTaskHomeWidget extends StatelessWidget {
     required this.isCheckpoint,
     required this.accumulatedSeconds,
     this.progress = 0.0,
+    this.isPhoenix = false,
+    this.capacity = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold;
+    // Phoenix anchors an amber identity; a live session still flips to red.
+    final accentColor = isRunning
+        ? AppTheme.fhAccentRed
+        : (isPhoenix && hasTask ? AppTheme.fhAccentOrange : AppTheme.fhAccentGold);
 
     final statusLabel = !hasTask
         ? "QUEUE EMPTY"
-        : (isCheckpoint
-            ? (isRunning ? "CHECKPOINT · ENGAGED" : "CHECKPOINT · STANDBY")
-            : (isRunning ? "ACTIVE · ENGAGED" : "ACTIVE · STANDBY"));
+        : (isPhoenix
+            ? (isRunning ? "PHOENIX · ENGAGED" : "PHOENIX · STANDBY")
+            : (isCheckpoint
+                ? (isRunning ? "CHECKPOINT · ENGAGED" : "CHECKPOINT · STANDBY")
+                : (isRunning ? "ACTIVE · ENGAGED" : "ACTIVE · STANDBY")));
 
     return Material(
       color: Colors.transparent,
@@ -74,6 +83,28 @@ class RunningTaskHomeWidget extends StatelessWidget {
                     letterSpacing: 1.2,
                   ),
                 ),
+                if (isPhoenix && hasTask) ...[
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhAccentOrange.withValues(alpha: 0.14),
+                      border: Border.all(
+                          color: AppTheme.fhAccentOrange.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      "PHOENIX",
+                      style: TextStyle(
+                        color: AppTheme.fhAccentOrange,
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -103,11 +134,11 @@ class RunningTaskHomeWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // Timer Area (we render the label, but leave blank space on the right 
+            // Timer Area (we render the label, but leave blank space on the right
             // where the native ticking Chronometer will overlay)
-            const Row(
+            Row(
               children: [
-                Text(
+                const Text(
                   "TODAY",
                   style: TextStyle(
                     color: AppTheme.fhTextDisabled,
@@ -116,7 +147,17 @@ class RunningTaskHomeWidget extends StatelessWidget {
                     letterSpacing: 1.2,
                   ),
                 ),
-                // Left empty for the native overlay
+                const Spacer(),
+                if (hasTask && capacity.isNotEmpty)
+                  Text(
+                    "CAP $capacity",
+                    style: const TextStyle(
+                      color: AppTheme.fhTextDisabled,
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
               ],
             ),
             const Spacer(),

@@ -79,6 +79,8 @@ class HomeWidgetService {
     required int accumulatedSeconds,
     double progress = 0.0,
     DateTime? sessionStart,
+    bool isPhoenix = false,
+    String capacity = '',
   }) async {
     if (!_supported) return;
     try {
@@ -91,6 +93,8 @@ class HomeWidgetService {
           isCheckpoint: isCheckpoint,
           accumulatedSeconds: accumulatedSeconds,
           progress: progress,
+          isPhoenix: isPhoenix,
+          capacity: capacity,
         ),
         key: 'arcane.task.image',
         logicalSize: const Size(400, 200),
@@ -105,6 +109,8 @@ class HomeWidgetService {
       'arcane.task.subtitle': subtitle,
       'arcane.task.isRunning': isRunning,
       'arcane.task.isCheckpoint': isCheckpoint,
+      'arcane.task.isPhoenix': isPhoenix,
+      'arcane.task.capacity': capacity,
       'arcane.task.accumulatedSec': accumulatedSeconds,
       'arcane.task.progressPct': (progress.clamp(0.0, 1.0) * 100).round(),
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,

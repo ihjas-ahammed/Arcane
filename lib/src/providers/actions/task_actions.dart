@@ -93,7 +93,46 @@ class TaskActions {
       };
     }
     newHistory[dateStr]['dailyPlan'] = plan;
+    // A Phoenix that's no longer in the plan can't remain anointed.
+    final phx = newHistory[dateStr]['phoenixId'];
+    if (phx is String && !plan.contains(phx)) {
+      newHistory[dateStr].remove('phoenixId');
+    }
     _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  // --- Phoenix (daily most-important task) ---
+  String? getPhoenixId(String dateStr) {
+    final id = _provider.completedByDay[dateStr]?['phoenixId'];
+    return id is String && id.isNotEmpty ? id : null;
+  }
+
+  void setPhoenix(String dateStr, String? compoundId) {
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    if (compoundId == null || compoundId.isEmpty) {
+      newHistory[dateStr].remove('phoenixId');
+    } else {
+      newHistory[dateStr]['phoenixId'] = compoundId;
+    }
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// Clears today's Phoenix if its id is [prefix] or a child of it (completing a
+  /// subtask retires the subtask itself and any of its checkpoints).
+  void _clearPhoenixIfPrefix(String prefix) {
+    final today = getTodayDateString();
+    final current = getPhoenixId(today);
+    if (current != null &&
+        (current == prefix || current.startsWith('$prefix|'))) {
+      setPhoenix(today, null);
+    }
   }
 
   void removeFromDayPlan(String compoundId) {
@@ -136,6 +175,30 @@ class TaskActions {
     }
     newHistory[dateStr]['dailyPlanEstimates'] = current;
     _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  /// Estimated minutes for a single plan item: an explicit estimate if set,
+  /// otherwise the subtask's median session time, otherwise a sane default.
+  /// Mirrors the Today Planner's per-row logic so the hero/widget agree.
+  int estimateForPlanItem(String dateStr, String compoundId) {
+    final stored = getDayPlanEstimates(dateStr)[compoundId];
+    if (stored != null) return stored;
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return TaskCalculations.defaultSubtaskMinutes;
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (sub == null) return TaskCalculations.defaultSubtaskMinutes;
+    final median = TaskCalculations.medianSessionMinutes(sub);
+    if (median != null) return median;
+    return parts.length == 3
+        ? TaskCalculations.defaultCheckpointMinutes
+        : TaskCalculations.defaultSubtaskMinutes;
+  }
+
+  /// Total planned minutes for a day across every queued item.
+  int plannedMinutesForDay(String dateStr) {
+    return getDayPlan(dateStr)
+        .fold<int>(0, (sum, id) => sum + estimateForPlanItem(dateStr, id));
   }
 
   /// True if there are remaining (uncompleted, still-valid) items in [fromDate]'s plan.
@@ -193,6 +256,17 @@ class TaskActions {
       }
     }
     newHistory[toDate]['dailyPlanEstimates'] = mergedEstimates;
+
+    // Carry the Phoenix forward if it survived and the new day has none.
+    final srcPhoenix = getPhoenixId(fromDate);
+    final dstHasPhoenix = newHistory[toDate]['phoenixId'] is String;
+    if (srcPhoenix != null &&
+        !dstHasPhoenix &&
+        _isPlanItemActionable(srcPhoenix) &&
+        merged.contains(srcPhoenix)) {
+      newHistory[toDate]['phoenixId'] = srcPhoenix;
+    }
+
     newHistory[toDate]['carryoverHandled'] = true;
     _provider.setProviderState(completedByDay: newHistory);
   }
@@ -324,6 +398,7 @@ class TaskActions {
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
+    _clearPhoenixIfPrefix('$mainTaskId|$parentSubtaskId|$subSubtaskId');
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
@@ -564,6 +639,8 @@ class TaskActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
+
+    _clearPhoenixIfPrefix('$mainTaskId|$subtaskId');
 
     logToDailySummary('subtaskCompleted', {
       'parentTaskId': mainTask.id,

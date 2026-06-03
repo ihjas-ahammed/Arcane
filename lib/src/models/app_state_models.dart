@@ -209,7 +209,8 @@ class AppSettings {
   int wakeupTimeMinute;
   List<String> liteModels;
   List<String> heavyModels;
-  List<String> customApiKeys; 
+  List<String> liveModels;
+  List<String> customApiKeys;
   String? customChatbotPrompt;
   String? customReflectionPrompt;
   String? customBriefingPrompt;
@@ -266,6 +267,9 @@ class AppSettings {
       'gemini-2.0-pro-exp-02-05',
       'gemini-1.5-pro'
     ],
+    this.liveModels = const [
+      'gemini-3.1-flash-live-preview',
+    ],
     this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
@@ -317,6 +321,10 @@ class AppSettings {
               ?.map((e) => e as String)
               .toList() ??
           ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
+      liveModels: (json['liveModels'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['gemini-3.1-flash-live-preview'],
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
@@ -370,6 +378,7 @@ class AppSettings {
       'wakeupTimeMinute': wakeupTimeMinute,
       'liteModels': liteModels,
       'heavyModels': heavyModels,
+      'liveModels': liveModels,
       'customApiKeys': customApiKeys,
       'customChatbotPrompt': customChatbotPrompt,
       'customReflectionPrompt': customReflectionPrompt,

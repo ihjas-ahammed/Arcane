@@ -1,0 +1,85 @@
+<h2>Widget makeover — Phoenix</h2>
+<p class="subtitle">Both surfaces headline the Phoenix when nothing's running. Does this direction look right? Click whichever you prefer for the phoenix treatment, or comment in the terminal.</p>
+
+<style>
+  .stage { display:flex; gap:24px; flex-wrap:wrap; }
+  .lbl { font-size:9px; letter-spacing:1.6px; color:#6b7888; font-weight:700; font-family:'JetBrains Mono',monospace; }
+  /* schedule hero */
+  .hero { width:330px; background:#0d1117; border:1px solid #f5a62355; padding:0; font-family:'JetBrains Mono',monospace; color:#c9d4e0; box-shadow:0 0 24px #f5a62318; }
+  .hero .status { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #f5a62333; }
+  .hero .dot { width:7px;height:7px;border-radius:50%;background:#f5a623;box-shadow:0 0 8px #f5a623; }
+  .hero .st { font-size:10px;color:#f5a623;font-weight:700;letter-spacing:1.6px; }
+  .hero .daybtn { margin-left:auto;font-size:9px;color:#7d8a99;border:1px solid #2b3440;padding:3px 6px;letter-spacing:1.2px; }
+  .hero .body { display:flex; gap:14px; padding:14px; align-items:center; }
+  .ring { width:74px;height:74px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          background:conic-gradient(#f5a623 0% 32%, #1c2530 32% 100%); flex:none; }
+  .ring .inner { width:60px;height:60px;border-radius:50%;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center; }
+  .ring .t { font-size:13px;color:#fff;font-weight:700; }
+  .ring .s { font-size:8px;color:#7d8a99;letter-spacing:1px; }
+  .hero h3 { font-family:'Saira',sans-serif;color:#fff;font-size:18px;margin:0 0 5px;letter-spacing:.3px; }
+  .hero .sub { font-size:10px;color:#7d8a99;letter-spacing:1.3px; }
+  .hero .cap { font-size:9.5px;color:#8b97a6;margin-top:7px; }
+  .hero .cap b { color:#3ddc84; }
+  .hero .actions { display:flex; gap:8px; padding:0 14px 14px; }
+  .hero .btn { flex:1;text-align:center;padding:11px;font-family:'Saira',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.4px; }
+  .hero .btn.primary { background:#f5a623;color:#0d1117; }
+  .hero .btn.ghost { border:1px solid #f5a623;color:#f5a623;flex:0 0 90px; }
+  .phx { font-size:13px; }
+  /* home widget */
+  .home { width:300px; background:linear-gradient(135deg,#13100a,#0d1117); border:1px solid #f5a62366; border-radius:14px; padding:14px; font-family:'JetBrains Mono',monospace; color:#c9d4e0; }
+  .home .badge { display:inline-flex;align-items:center;gap:5px;background:#f5a62322;border:1px solid #f5a62355;color:#f5c878;font-size:9px;font-weight:700;letter-spacing:1.4px;padding:3px 8px;border-radius:20px; }
+  .home h3 { font-family:'Saira',sans-serif;color:#fff;font-size:19px;margin:10px 0 3px; }
+  .home .sub { font-size:10px;color:#8b97a6;letter-spacing:1px; }
+  .home .pbar { height:6px;background:#1c2530;border-radius:3px;margin:11px 0 5px;overflow:hidden; }
+  .home .pbar > div { height:100%;background:#f5a623;width:38%; }
+  .home .meta { display:flex;justify-content:space-between;font-size:9.5px;color:#7d8a99; }
+  .home .ctrls { display:flex;gap:8px;margin-top:12px; }
+  .home .c { flex:1;text-align:center;padding:9px;border-radius:8px;font-size:11px;font-weight:700;font-family:'Saira',sans-serif;letter-spacing:1px; }
+  .home .c.play { background:#f5a623;color:#0d1117; }
+  .home .c.fin { border:1px solid #2b3440;color:#9aa6b4; }
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="hero" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#06090d;padding:18px;">
+      <div class="lbl" style="margin-bottom:10px;">SCHEDULE SCREEN · HERO CARD</div>
+      <div class="hero">
+        <div class="status">
+          <span class="dot"></span>
+          <span class="st">🔥 PHOENIX · STANDBY</span>
+          <span class="daybtn">DAY PLAN</span>
+        </div>
+        <div class="body">
+          <div class="ring"><div class="inner"><div class="t">32:18</div><div class="s">TODAY</div></div></div>
+          <div style="flex:1;min-width:0;">
+            <h3>THESIS DRAFT §3</h3>
+            <div class="sub">SELF · PROJECT</div>
+            <div class="cap">Today's capacity: <b>2h40</b> planned / 4h30 realistic</div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="btn primary">▶ ENGAGE</div>
+          <div class="btn ghost">✓ FINISH</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>Hero card</h3><p>Phoenix headlines with amber accent + 🔥 status line and a capacity readout. Falls back to running session / next item as before.</p></div>
+  </div>
+
+  <div class="card" data-choice="home" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#06090d;padding:18px;">
+      <div class="lbl" style="margin-bottom:10px;">ANDROID HOME-SCREEN WIDGET</div>
+      <div class="home">
+        <span class="badge">🔥 PHOENIX</span>
+        <h3>Thesis draft §3</h3>
+        <div class="sub">SELF · PROJECT</div>
+        <div class="pbar"><div></div></div>
+        <div class="meta"><span>38% · 32m today</span><span>2h40 / 4h30 cap</span></div>
+        <div class="ctrls"><div class="c play">▶ ENGAGE</div><div class="c fin">✓ FINISH</div></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>Home-screen widget</h3><p>Phoenix badge, capacity line, restyled controls. Running task still takes over the headline when a timer is live.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Both shown together — they're a set. Tell me in the terminal: thumbs up, or what to change (accent, glyph, what data to show).</p>

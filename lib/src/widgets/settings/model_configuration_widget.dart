@@ -23,15 +23,15 @@ class ModelConfigurationWidget extends StatefulWidget {
 
 class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
   
-  Widget _buildModelPriorityList(String prefix, List<String> currentList, Function(List<String>) onUpdate) {
-    // Ensure we have 3 slots
+  Widget _buildModelPriorityList(String prefix, List<String> currentList, Function(List<String>) onUpdate, {int slots = 3}) {
+    // Ensure we have `slots` slots
     List<String> list = List.from(currentList);
-    while (list.length < 3) {
+    while (list.length < slots) {
       list.add(widget.availableModels.isNotEmpty ? widget.availableModels.first : 'gemini-2.0-flash');
     }
 
     return Column(
-      children: List.generate(3, (index) {
+      children: List.generate(slots, (index) {
         final label = index == 0 ? "Primary $prefix Model" : "$prefix Fallback $index";
         final currentSelection = list[index];
 
@@ -113,6 +113,17 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                 (newList) {
                   provider.setSettings(provider.settings..heavyModels = newList);
                 }),
+            const SizedBox(height: 16),
+
+            // --- Live Models Section ---
+            Text("Live Models (Realtime - Nora's default)",
+                style: theme.textTheme.titleSmall?.copyWith(color: AppTheme.fhAccentOrange)),
+            const SizedBox(height: 8),
+            _buildModelPriorityList(
+                "Live", provider.settings.liveModels,
+                (newList) {
+                  provider.setSettings(provider.settings..liveModels = newList);
+                }, slots: 2),
             const SizedBox(height: 16),
 
             // Refetch Button

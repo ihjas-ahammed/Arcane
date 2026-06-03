@@ -28,7 +28,8 @@ dependencies:
   provider: ^6.1.2
 
   # AI
-  google_generative_ai: ^0.4.0 
+  google_generative_ai: ^0.4.0
+  web_socket_channel: ^3.0.0
 
   # UI & Utilities
   cupertino_icons: ^1.0.6

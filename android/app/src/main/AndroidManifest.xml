@@ -40,6 +40,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Quick-action receiver: applies ENGAGE/CHECK/FINISH without opening
+             the app when it's alive; falls back to launching when killed. -->
+        <receiver
+            android:name="me.ihjas.missions.widgets.WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="me.ihjas.missions.WIDGET_ACTION"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Home-screen widget receivers -->
         <receiver
             android:name="me.ihjas.missions.widgets.RunningTaskWidget"

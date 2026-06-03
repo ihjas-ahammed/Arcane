@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:missions/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
@@ -8,7 +10,104 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
 class AIService {
-  
+
+  static bool isLiveModel(String modelName) => modelName.toLowerCase().contains('live');
+
+  /// Sends [prompt] over the Gemini Live API (WebSocket, TEXT modality) and
+  /// returns the model's full text response. Uses the bidirectional streaming
+  /// endpoint which has a separate quota and lower latency than the HTTP
+  /// generateContent endpoint. Throws on socket error / empty response so the
+  /// caller's rotation loop can fall back to a non-live model.
+  Future<String> _liveTextCall(String apiKey, String modelName, String prompt) async {
+    final uri = Uri.parse(
+      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey',
+    );
+    final channel = WebSocketChannel.connect(uri);
+    final buffer = StringBuffer();
+    final completer = Completer<String>();
+    bool setupDone = false;
+
+    await channel.ready;
+
+    final sub = channel.stream.listen(
+      (data) {
+        try {
+          // Server frames may arrive as text or binary (UTF-8 JSON).
+          final String raw = data is String ? data : utf8.decode(data as List<int>);
+          final Map<String, dynamic> msg = jsonDecode(raw) as Map<String, dynamic>;
+
+          if (msg.containsKey('setupComplete')) {
+            setupDone = true;
+            channel.sink.add(jsonEncode({
+              'clientContent': {
+                'turns': [
+                  {
+                    'role': 'user',
+                    'parts': [
+                      {'text': prompt}
+                    ]
+                  }
+                ],
+                'turnComplete': true,
+              }
+            }));
+            return;
+          }
+
+          final serverContent = msg['serverContent'] as Map<String, dynamic>?;
+          if (serverContent != null) {
+            final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
+            final parts = modelTurn?['parts'] as List<dynamic>?;
+            if (parts != null) {
+              for (final p in parts) {
+                final t = (p as Map<String, dynamic>)['text'];
+                if (t is String) buffer.write(t);
+              }
+            }
+            final done = serverContent['turnComplete'] == true ||
+                serverContent['generationComplete'] == true;
+            if (done && !completer.isCompleted) {
+              completer.complete(buffer.toString());
+            }
+          }
+        } catch (_) {
+          // Ignore malformed frames; rely on completion / error / timeout.
+        }
+      },
+      onError: (e) {
+        if (!completer.isCompleted) completer.completeError(e as Object);
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete(buffer.toString());
+        }
+      },
+      cancelOnError: true,
+    );
+
+    // Open the session.
+    channel.sink.add(jsonEncode({
+      'setup': {
+        'model': 'models/$modelName',
+        'generationConfig': {
+          'responseModalities': ['TEXT']
+        }
+      }
+    }));
+
+    String result;
+    try {
+      result = await completer.future.timeout(const Duration(seconds: 45));
+    } finally {
+      await sub.cancel();
+      await channel.sink.close();
+    }
+
+    if (!setupDone) throw Exception('Live session setup never completed.');
+    if (result.trim().isEmpty) throw Exception('Live AI response was empty.');
+    return result;
+  }
+
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -125,11 +224,16 @@ class AIService {
         onLog: onLog,
         modelCandidates: modelCandidates,
         requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response = await model.generateContent([genai.Content.text(prompt)]);
-          final raw = response.text;
+          final String? raw;
+          if (isLiveModel(modelName)) {
+            raw = await _liveTextCall(apiKey, modelName, prompt);
+          } else {
+            final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+            final response = await model.generateContent([genai.Content.text(prompt)]);
+            raw = response.text;
+          }
           if (raw == null) throw Exception("Empty AI response");
-          
+
           final decoded = JsonUtils.tryDecode(raw);
           if (decoded is List) {
             return decoded.map((e) => e.toString()).toList();

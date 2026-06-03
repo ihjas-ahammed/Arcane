@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:missions/src/models/skill_models.dart';
@@ -39,14 +40,28 @@ class WidgetActionRouter {
   /// (cold-start case). Flushed once `flushPending` is called.
   String? _pending;
 
-  void handle(String action) {
+  /// Channel the native [WidgetActionReceiver] invokes when the app process is
+  /// already alive, so quick widget actions apply silently instead of
+  /// foregrounding the app. Only fully-killed taps fall back to a launch.
+  static const MethodChannel _platform = MethodChannel('arcane/widget');
+
+  /// Wire up the silent in-process path. Call once during app start.
+  void attachPlatformChannel() {
+    _platform.setMethodCallHandler((call) async {
+      if (call.method == 'widgetAction' && call.arguments is String) {
+        handle(call.arguments as String, silent: true);
+      }
+    });
+  }
+
+  void handle(String action, {bool silent = false}) {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) {
       // App hasn't built MaterialApp yet — stash for later.
       _pending = action;
       return;
     }
-    _dispatch(ctx, action);
+    _dispatch(ctx, action, silent: silent);
   }
 
   /// Call after MaterialApp builds to drain any cold-start action.
@@ -59,16 +74,16 @@ class WidgetActionRouter {
     _dispatch(ctx, p);
   }
 
-  void _dispatch(BuildContext ctx, String action) {
+  void _dispatch(BuildContext ctx, String action, {bool silent = false}) {
     final provider = Provider.of<AppProvider>(ctx, listen: false);
     switch (action) {
       case 'task_toggle':
         _taskToggle(provider);
-        _gotoTab(HomeTab.schedule);
+        if (!silent) _gotoTab(HomeTab.schedule);
         break;
       case 'task_finish':
         _taskFinish(provider);
-        _gotoTab(HomeTab.schedule);
+        if (!silent) _gotoTab(HomeTab.schedule);
         break;
       case 'task_check_next':
         _taskCheckNext(provider);
@@ -199,9 +214,9 @@ class WidgetActionRouter {
     bool isRunning,
     String? queueId,
   }) _resolveActive(AppProvider provider) {
-    final plan = List<String>.from(
-      provider.taskActions.getDayPlan(helper.getTodayDateString()),
-    );
+    final today = helper.getTodayDateString();
+    final plan = List<String>.from(provider.taskActions.getDayPlan(today));
+    final phoenixId = provider.taskActions.getPhoenixId(today);
 
     final runningEntry = provider.activeTimers.entries
         .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
@@ -227,6 +242,27 @@ class WidgetActionRouter {
           }
         }
         return (mainTask: m, subTask: s, checkpoint: cp, isRunning: true, queueId: queueId);
+      }
+    }
+
+    // The Phoenix is what the widget headlines, so quick actions target it.
+    if (phoenixId != null) {
+      final parts = phoenixId.split('|');
+      if (parts.length >= 2) {
+        final m = provider.mainTasks
+            .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final s = m?.subTasks
+            .firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
+        if (m != null && s != null && !s.completed) {
+          if (parts.length == 3) {
+            final cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            if (cp != null && !cp.completed) {
+              return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: phoenixId);
+            }
+          } else {
+            return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: phoenixId);
+          }
+        }
       }
     }
 

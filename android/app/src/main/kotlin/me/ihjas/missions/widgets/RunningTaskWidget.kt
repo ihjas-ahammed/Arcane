@@ -86,20 +86,21 @@ class RunningTaskWidget : HomeWidgetProvider() {
             if (hasTask) android.view.View.VISIBLE else android.view.View.GONE,
         )
 
-        // Buttons
+        // Buttons. Quick actions broadcast (apply silently when the app is alive,
+        // open the app only when it's been killed); OPEN PLAN always launches.
         if (hasTask) {
             views.setViewVisibility(R.id.widget_btn_check, android.view.View.VISIBLE)
             views.setOnClickPendingIntent(
                 R.id.widget_btn_engage,
-                WidgetCommon.launchIntent(context, "task_toggle"),
+                WidgetCommon.actionIntent(context, "task_toggle", 101),
             )
             views.setOnClickPendingIntent(
                 R.id.widget_btn_check,
-                WidgetCommon.launchIntent(context, "task_check_next"),
+                WidgetCommon.actionIntent(context, "task_check_next", 102),
             )
             views.setOnClickPendingIntent(
                 R.id.widget_btn_finish,
-                WidgetCommon.launchIntent(context, "task_finish"),
+                WidgetCommon.actionIntent(context, "task_finish", 103),
             )
         } else {
             // No active task: hide CHECK so ENGAGE + FINISH line up with the image.

@@ -1356,7 +1356,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     Known Assets: $assetsStr
     """;
     
-    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
+    // Nora defaults to the Live API models (fast, separate quota) and falls
+    // back to the HTTP lite models if the live socket fails.
+    final modelCandidates = session.modelOverride != null
+        ? [session.modelOverride!]
+        : [...settings.liveModels, ...settings.liteModels];
     final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
     
     try {

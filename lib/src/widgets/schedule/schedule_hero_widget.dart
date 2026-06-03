@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
-import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/day_budget_helper.dart' show formatMinutes;
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
 /// Operator HUD active-mission card. Live-ticking radial elapsed ring,
@@ -16,6 +16,13 @@ class ScheduleHeroWidget extends StatefulWidget {
   final SubTask? subTask;
   final SubSubTask? checkpoint;
   final bool isRunning;
+
+  /// True when the headlined item is today's Phoenix (most-important task).
+  final bool isPhoenix;
+
+  /// Day-capacity readout: total planned vs realistic (buffer-aware) minutes.
+  final int plannedMinutes;
+  final int realisticMinutes;
 
   /// Static accumulated time today, NOT including the current run.
   /// Hero adds live elapsed-since-[sessionStart] internally each tick.
@@ -36,6 +43,9 @@ class ScheduleHeroWidget extends StatefulWidget {
     this.subTask,
     this.checkpoint,
     required this.isRunning,
+    this.isPhoenix = false,
+    this.plannedMinutes = 0,
+    this.realisticMinutes = 0,
     required this.accumulatedTodaySeconds,
     this.sessionStart,
     required this.onPlayPause,
@@ -106,9 +116,11 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
 
     final accent = isEmpty
         ? JweTheme.textMuted
-        : (isCheckpoint
-            ? JweTheme.accentCyan
-            : (widget.mainTask?.taskColor ?? JweTheme.accentAmber));
+        : (widget.isPhoenix
+            ? JweTheme.accentAmber
+            : (isCheckpoint
+                ? JweTheme.accentCyan
+                : (widget.mainTask?.taskColor ?? JweTheme.accentAmber)));
     final tone = _toneFor(accent);
 
     final title = isEmpty
@@ -134,7 +146,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
     final ringPct = ((ringSec % 3600) / 3600 * 100).clamp(0.0, 100.0);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       child: HudPanel(
         clip: HudClip.both,
         accent: accent,
@@ -143,19 +155,26 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // ── Status bar ───────────────────────────────
           Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+            padding: const EdgeInsets.fromLTRB(14, 7, 12, 7),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: accent.withValues(alpha: 0.25))),
             ),
             child: Row(children: [
-              HudDot(tone: tone),
-              const SizedBox(width: 10),
+              if (widget.isPhoenix && !isEmpty) ...[
+                Icon(MdiIcons.fire, size: 12, color: accent),
+                const SizedBox(width: 6),
+              ] else ...[
+                HudDot(tone: tone),
+                const SizedBox(width: 10),
+              ],
               Text(
                 isEmpty
                     ? 'QUEUE EMPTY'
-                    : (isCheckpoint
-                        ? 'CHECKPOINT · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
-                        : (widget.isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY')),
+                    : (widget.isPhoenix
+                        ? 'PHOENIX · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
+                        : (isCheckpoint
+                            ? 'CHECKPOINT · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
+                            : (widget.isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY'))),
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 10, color: accent, fontWeight: FontWeight.w600, letterSpacing: 1.6,
                 ),
@@ -191,18 +210,18 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
 
           // ── Body ─────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               if (!isEmpty)
                 HudRing(
                   value: ringPct,
-                  size: 78,
-                  stroke: 5,
+                  size: 58,
+                  stroke: 4,
                   tone: tone,
                   label: _ringLabel(ringSec),
                   sub: widget.isRunning ? 'SESSION' : 'TODAY',
                 ),
-              if (!isEmpty) const SizedBox(width: 14),
+              if (!isEmpty) const SizedBox(width: 12),
               Expanded(
                 child: InkWell(
                   onTap: isEmpty ? null : widget.onTitleTap,
@@ -212,13 +231,13 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.saira(
                           color: JweTheme.textWhite,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 1.1,
                           letterSpacing: 0.4,
                         )),
                     if (sub.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(sub,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -229,12 +248,18 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                             letterSpacing: 1.4,
                           )),
                     ],
-                    if (!isEmpty) ...[
-                      const SizedBox(height: 8),
-                      HudDataRow(
-                        label: 'Today',
-                        value: helper.formatTime(displayTotal),
-                        accent: true,
+                    if (!isEmpty && widget.realisticMinutes > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'CAP ${formatMinutes(widget.plannedMinutes)} / ${formatMinutes(widget.realisticMinutes)}',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: widget.plannedMinutes > widget.realisticMinutes
+                              ? JweTheme.accentRed
+                              : JweTheme.textMuted,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                     ],
                   ]),
@@ -246,7 +271,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
           // ── Action row ───────────────────────────────
           if (!isEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(children: [
                 Expanded(
                   child: _HudActionButton(
@@ -297,7 +322,7 @@ class _HudActionButton extends StatelessWidget {
       child: ClipPath(
         clipper: HudCutClipper(clip: HudClip.br, cut: 8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             color: bg,
             border: Border.all(color: accent, width: 1),

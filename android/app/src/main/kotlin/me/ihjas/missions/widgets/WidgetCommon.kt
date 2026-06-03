@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 
 /**
@@ -75,6 +76,24 @@ object WidgetCommon {
             me.ihjas.missions.MainActivity::class.java,
             uri,
         )
+    }
+
+    /**
+     * Build a PendingIntent that broadcasts to WidgetActionReceiver. Used for
+     * quick actions that should apply WITHOUT opening the app when it's alive.
+     * [requestCode] must differ per action so the PendingIntents stay distinct.
+     */
+    fun actionIntent(context: Context, action: String, requestCode: Int): PendingIntent {
+        val uri = Uri.parse("arcane://widget?action=$action")
+        val intent = Intent(context, WidgetActionReceiver::class.java).apply {
+            data = uri
+            this.action = "me.ihjas.missions.WIDGET_ACTION"
+        }
+        var flags = PendingIntent.FLAG_UPDATE_CURRENT
+        if (Build.VERSION.SDK_INT >= 23) {
+            flags = flags or PendingIntent.FLAG_IMMUTABLE
+        }
+        return PendingIntent.getBroadcast(context, requestCode, intent, flags)
     }
 
     fun fmtMoney(amount: Double): String {
