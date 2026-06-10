@@ -42,15 +42,10 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       titleSpacing: 0,
       toolbarHeight: kToolbarHeight,
-      leading: !isLargeScreen
-          ? Builder(builder: (c) => IconButton(
-                icon: Icon(MdiIcons.menu, color: JweTheme.textMid, size: 22),
-                onPressed: () => Scaffold.of(c).openDrawer(),
-              ))
-          : Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Icon(MdiIcons.shieldCrownOutline, color: JweTheme.accentAmber, size: 22),
-            ),
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Icon(MdiIcons.shieldCrownOutline, color: JweTheme.accentAmber, size: 22),
+      ),
       title: Row(children: [
         Container(width: 4, height: 14, color: JweTheme.accentAmber),
         const SizedBox(width: 10),

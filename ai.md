@@ -4,6 +4,10 @@ Make the following changes:
 * Replace home hiro (MISSIONS tab):
     Instead add a selector for each protocols with their progress (ie repace the left navigation items with this and remove left navigation drawer) but use the same advanced design, the target is for being able to see more details of current protocol and quickly switch between protocols
     
+* Move the schedule tab to center of bottom nav and set it as default tab to open on app startup
+
+
+
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution

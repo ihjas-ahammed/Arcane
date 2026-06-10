@@ -918,11 +918,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
           if (st.isRecurring) {
-            bool shouldReset = false;
+            bool shouldReset = true;
             if (st.completed && st.lastCompletedDate != null) {
-              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
-            } else if (st.completed) {
-              shouldReset = true;
+              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) == todayStr) {
+                shouldReset = false;
+              }
             }
             if (shouldReset) {
               changed = true;

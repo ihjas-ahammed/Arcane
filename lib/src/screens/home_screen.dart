@@ -211,24 +211,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _navigateToSettings,
           ),
         ),
-        drawer: isLargeScreen ? null : const TaskNavigationDrawer(),
         endDrawer: const WellbeingDrawer(),
         body: Row(
           children: [
-            if (isLargeScreen) ...[
-              _buildDesktopNavRail(currentTaskColor),
-              Container(
-                width: 280,
-                decoration: BoxDecoration(
-                  color: JweTheme.panel,
-                  border: Border(
-                      right: BorderSide(
-                          color: JweTheme.border,
-                          width: 1)),
-                ),
-                child: const TaskNavigationDrawer(isEmbedded: true),
-              ),
-            ],
+            if (isLargeScreen) _buildDesktopNavRail(currentTaskColor),
             Expanded(
               child: IndexedStack(
                 index: _selectedIndex,
