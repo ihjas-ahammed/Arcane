@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
-import 'package:missions/src/widgets/ui/hud_components.dart';
 
 class TaskProgressSnapshotView extends StatelessWidget {
   final Map<String, dynamic> taskSnapshot;
@@ -29,7 +28,8 @@ class TaskProgressSnapshotView extends StatelessWidget {
 
       for (final sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
-        if (sub.completed && !sub.isRecurring) continue; // Neglect archived subtasks
+        if (sub.isRecurring) continue;
+        if (sub.completed) continue; // Neglect archived subtasks
 
         double snapProgress = 0.0;
         int snapTime = 0;
@@ -147,9 +147,9 @@ class _ProgressRow extends StatelessWidget {
             ? JweTheme.accentRed
             : JweTheme.textMuted;
     final deltaStr = row.delta > 0
-        ? '+${(row.delta * 100).round()}%'
+        ? '▲ +${(row.delta * 100).round()}%'
         : row.delta < 0
-            ? '${(row.delta * 100).round()}%'
+            ? '▼ ${(row.delta * 100).round()}%'
             : '–';
     final timeMin = (row.timeDeltaSec / 60).round();
     final timeStr = timeMin > 0 ? '+${timeMin}m' : timeMin < 0 ? '${timeMin}m' : '';
@@ -196,16 +196,12 @@ class _ProgressRow extends StatelessWidget {
             ],
           ]),
           const SizedBox(height: 5),
-          HudProgressBar(
-            value: (row.liveProgress * 100).clamp(0, 100),
-            tone: row.liveProgress >= 1.0
-                ? HudTone.teal
-                : row.delta > 0
-                    ? HudTone.cyan
-                    : HudTone.amber,
+          TaskDeltaProgressBar(
+            liveProgress: row.liveProgress,
+            delta: row.delta,
+            defaultColor: row.color,
             segments: 24,
             height: 4,
-            showLabel: false,
           ),
           const SizedBox(height: 3),
           Text(
@@ -218,6 +214,131 @@ class _ProgressRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class TaskDeltaProgressBar extends StatelessWidget {
+  final double liveProgress;
+  final double delta;
+  final Color defaultColor;
+  final int segments;
+  final double height;
+
+  const TaskDeltaProgressBar({
+    super.key,
+    required this.liveProgress,
+    required this.delta,
+    required this.defaultColor,
+    this.segments = 24,
+    this.height = 4,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final snapProgress = (liveProgress - delta).clamp(0.0, 1.0);
+
+    final filledLive = (liveProgress * segments).round().clamp(0, segments);
+    var filledSnap = (snapProgress * segments).round().clamp(0, segments);
+
+    if (delta > 0) {
+      if (filledLive == filledSnap && filledLive > 0) {
+        filledSnap = filledLive - 1;
+      }
+    } else if (delta < 0) {
+      if (filledLive == filledSnap && filledLive < segments) {
+        filledSnap = filledLive + 1;
+      }
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: height,
+            child: Row(
+              children: List.generate(segments, (i) {
+                Color segmentColor;
+                bool isFilled = false;
+                bool isIncrease = false;
+                bool isDecrease = false;
+
+                if (delta > 0) {
+                  if (i < filledSnap) {
+                    segmentColor = defaultColor;
+                    isFilled = true;
+                  } else if (i < filledLive) {
+                    segmentColor = JweTheme.accentTeal;
+                    isFilled = true;
+                    isIncrease = true;
+                  } else {
+                    segmentColor = const Color(0x12FFFFFF);
+                  }
+                } else if (delta < 0) {
+                  if (i < filledLive) {
+                    segmentColor = defaultColor;
+                    isFilled = true;
+                  } else if (i < filledSnap) {
+                    segmentColor = JweTheme.accentRed;
+                    isDecrease = true;
+                  } else {
+                    segmentColor = const Color(0x12FFFFFF);
+                  }
+                } else {
+                  if (i < filledLive) {
+                    segmentColor = defaultColor;
+                    isFilled = true;
+                  } else {
+                    segmentColor = const Color(0x12FFFFFF);
+                  }
+                }
+
+                BoxDecoration decoration;
+                if (isFilled) {
+                  decoration = BoxDecoration(
+                    color: segmentColor,
+                    borderRadius: BorderRadius.circular(1.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: segmentColor.withValues(alpha: isIncrease ? 0.5 : 0.35),
+                        blurRadius: isIncrease ? 4.0 : 2.5,
+                        spreadRadius: isIncrease ? 0.5 : 0.0,
+                      )
+                    ],
+                  );
+                } else if (isDecrease) {
+                  // A distinct red color for the unfilled bars representing the decrease
+                  decoration = BoxDecoration(
+                    color: segmentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(1.0),
+                    border: Border.all(
+                      color: segmentColor.withValues(alpha: 0.55),
+                      width: 0.8,
+                    ),
+                  );
+                } else {
+                  // Standard unfilled segment
+                  decoration = BoxDecoration(
+                    color: const Color(0x0EFFFFFF),
+                    borderRadius: BorderRadius.circular(1.0),
+                    border: Border.all(
+                      color: const Color(0x15FFFFFF),
+                      width: 0.6,
+                    ),
+                  );
+                }
+
+                return Expanded(
+                  child: Container(
+                    margin: EdgeInsets.only(right: i == segments - 1 ? 0 : 2),
+                    decoration: decoration,
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

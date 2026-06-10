@@ -1,10 +1,8 @@
 Make the following changes:
 
 
-    - Fix XP counting:
-        it looks like the total xp count wasnt matching the sum of individual xp on reflection insight
-    - Fix check next button:
-        the check next button in ongoing notifiication for running not working at all, also the notification must be kept up to date in realtime
+* Replace home hiro (MISSIONS tab):
+    Instead add a selector for each protocols with their progress (ie repace the left navigation items with this and remove left navigation drawer) but use the same advanced design, the target is for being able to see more details of current protocol and quickly switch between protocols
     
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
