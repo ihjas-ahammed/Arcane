@@ -90,8 +90,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
     required MainTask? selectedTask,
     required List<MainTask> activeTasks,
     required List<MainTask> inactiveTasks,
-    required int yesterdayTime,
-    required List<bool> weeklyCompletion,
   }) {
     final allTasks = [...activeTasks, ...inactiveTasks];
     final showDeployCard = allTasks.length % 2 != 0;
@@ -161,8 +159,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
             child: TaskHeaderCard(
               key: ValueKey(selectedTask.id),
               task: selectedTask,
-              yesterdayTime: yesterdayTime,
-              weeklyCompletion: weeklyCompletion,
             ),
           ),
 
@@ -295,9 +291,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
 
         final MainTask currentTask = task!;
 
-        final weeklyCompletion = appProvider.getCompletionStatusForCurrentWeek(currentTask);
-        final int yesterdayTime = appProvider.getYesterdaysTimeForTask(currentTask.id);
-
         final activeSubtasks = currentTask.subTasks.where((st) => !st.completed && st.isActive && !st.isDeleted).toList();
         final inactiveSubtasks = currentTask.subTasks.where((st) => !st.completed && !st.isActive && !st.isDeleted).toList();
         
@@ -324,8 +317,6 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   selectedTask: currentTask,
                   activeTasks: activeTasks,
                   inactiveTasks: inactiveTasks,
-                  yesterdayTime: yesterdayTime,
-                  weeklyCompletion: weeklyCompletion,
                 ),
 
                 Padding(

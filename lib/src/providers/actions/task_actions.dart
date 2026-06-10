@@ -124,6 +124,18 @@ class TaskActions {
     _provider.setProviderState(completedByDay: newHistory);
   }
 
+  void setAgentPhoenix(String mainTaskId, String? subTaskId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          phoenixSubTaskId: subTaskId,
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
   /// Clears today's Phoenix if its id is [prefix] or a child of it (completing a
   /// subtask retires the subtask itself and any of its checkpoints).
   void _clearPhoenixIfPrefix(String prefix) {
@@ -623,7 +635,9 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
+        final nextPhx = task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
         return task.copyWith(
+          phoenixSubTaskId: nextPhx,
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
               return st.copyWith(
@@ -674,7 +688,9 @@ class TaskActions {
   void deleteSubtask(String mainTaskId, String subtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
+        final nextPhx = task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
         return task.copyWith(
+          phoenixSubTaskId: nextPhx,
           subTasks: task.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: true) : st).toList(),
         );
       }

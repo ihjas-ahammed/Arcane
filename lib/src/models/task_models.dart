@@ -45,6 +45,7 @@ class MainTask {
   bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
+  String? phoenixSubTaskId;
 
   MainTask({
     required this.id,
@@ -58,6 +59,7 @@ class MainTask {
     this.isDeleted = false,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
+    this.phoenixSubTaskId,
   })  : weeklyCompletionStatus = weeklyCompletionStatus ?? {},
         subTasks = subTasks ?? [];
 
@@ -73,6 +75,7 @@ class MainTask {
     bool? isDeleted,
     Map<String, List<bool>>? weeklyCompletionStatus,
     List<SubTask>? subTasks,
+    String? phoenixSubTaskId,
   }) {
     return MainTask(
       id: id ?? this.id,
@@ -87,6 +90,7 @@ class MainTask {
       weeklyCompletionStatus:
           weeklyCompletionStatus ?? this.weeklyCompletionStatus,
       subTasks: subTasks ?? this.subTasks,
+      phoenixSubTaskId: phoenixSubTaskId ?? this.phoenixSubTaskId,
     );
   }
 
@@ -122,6 +126,7 @@ class MainTask {
                   (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
               .toList() ??
           [],
+      phoenixSubTaskId: json['phoenixSubTaskId'] as String?,
     );
   }
 
@@ -138,6 +143,7 @@ class MainTask {
       'isDeleted': isDeleted,
       'weeklyCompletionStatus': weeklyCompletionStatus,
       'subTasks': subTasks.map((st) => st.toJson()).toList(),
+      'phoenixSubTaskId': phoenixSubTaskId,
     };
   }
 
