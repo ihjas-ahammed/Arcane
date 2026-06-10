@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             const SizedBox(height: 28),
                             if (_isLoading)
-                              const Center(
+                              Center(
                                 child: CircularProgressIndicator(
                                   color: JweTheme.accentAmber,
                                   strokeWidth: 2,
@@ -221,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6), width: 1),
               ),
-              child: const Icon(Icons.shield_moon, size: 18, color: JweTheme.accentAmber),
+              child: Icon(Icons.shield_moon, size: 18, color: JweTheme.accentAmber),
             ),
           ],
         ),
@@ -309,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: JweTheme.line),
             ),
-            focusedBorder: const OutlineInputBorder(
+            focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5),
             ),

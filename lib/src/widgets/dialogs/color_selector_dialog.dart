@@ -11,7 +11,7 @@ class ColorSelectorDialog extends StatelessWidget {
     required this.onColorSelected,
   });
 
-  static const List<Color> palette = [
+  static  List<Color> palette = [
     AppTheme.fhAccentTealFixed,
     AppTheme.fhAccentRed,
     AppTheme.fhAccentPurple,

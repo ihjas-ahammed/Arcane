@@ -19,8 +19,8 @@ class JweBottomNavBar extends StatelessWidget {
 
   static const _tabs = <_TabSpec>[
     _TabSpec(label: 'MISSIONS', icon: 'target'),
-    _TabSpec(label: 'SCHEDULE', icon: 'calendar'),
     _TabSpec(label: 'BIO',      icon: 'pulse'),
+    _TabSpec(label: 'SCHEDULE', icon: 'calendar'),
     _TabSpec(label: 'INTEL',    icon: 'note'),
     _TabSpec(label: 'WALLET',   icon: 'wallet'),
   ];
@@ -51,7 +51,7 @@ class JweBottomNavBar extends StatelessWidget {
             Container(
               height: 1,
               margin: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
+              decoration:  BoxDecoration(
                 gradient: LinearGradient(colors: [
                   Colors.transparent,
                   JweTheme.lineAmber,

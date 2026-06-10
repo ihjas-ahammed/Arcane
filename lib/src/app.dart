@@ -7,6 +7,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/home_widget_publisher.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/common/insight_watcher.dart';
 import 'package:provider/provider.dart';
@@ -75,6 +76,15 @@ class _MyAppState extends State<MyApp> {
 
           final Color currentTaskColor =
               appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+          // Sync JweTheme and AppTheme accent colors dynamically
+          JweTheme.accentAmber = currentTaskColor;
+          JweTheme.amberDim = currentTaskColor.withOpacity(0.8);
+          JweTheme.amberSoft = currentTaskColor.withOpacity(0.14);
+          JweTheme.amberGlow = currentTaskColor.withOpacity(0.55);
+          JweTheme.lineAmber = currentTaskColor.withOpacity(0.3);
+          AppTheme.fhAccentGold = currentTaskColor;
+          AppTheme.fhAccentOrange = currentTaskColor;
 
           return Theme(
             data: AppTheme.getThemeData(primaryAccent: currentTaskColor),

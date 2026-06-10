@@ -21,7 +21,7 @@ class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
 
     return AlertDialog(
       backgroundColor: JweTheme.panel,
-      title: const Text("ALLOCATE FUNDS", style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
+      title: Text("ALLOCATE FUNDS", style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

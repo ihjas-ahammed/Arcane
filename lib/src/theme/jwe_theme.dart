@@ -12,10 +12,10 @@ class JweTheme {
   static const Color elev = Color(0xFF142039);
 
   // ── Accents ─────────────────────────────────────────────────
-  static const Color accentAmber = Color(0xFFFFB547); // Primary HUD
-  static const Color amberDim = Color(0xFFC98A35);
-  static const Color amberSoft = Color(0x24FFB547); // ~14% alpha
-  static const Color amberGlow = Color(0x8CFFB547);
+  static Color accentAmber = const Color(0xFF00AEFF); // Primary HUD (Sky Blue)
+  static Color amberDim = const Color(0xFF0082BF);
+  static Color amberSoft = const Color(0x2400AEFF); // ~14% alpha
+  static Color amberGlow = const Color(0x8C00AEFF);
 
   static const Color accentCyan = Color(0xFF5FE1D8); // Secondary HUD
   static const Color cyanDim = Color(0xFF2A8D88);
@@ -33,7 +33,7 @@ class JweTheme {
   // ── Lines ───────────────────────────────────────────────────
   static const Color border = Color(0xFF1B2A38); // legacy panel border
   static const Color line = Color(0x215FE1D8); // cyan hairline ~13%
-  static const Color lineAmber = Color(0x4DFFB547); // amber hairline ~30%
+  static Color lineAmber = const Color(0x4D00AEFF); // sky blue hairline ~30%
   static const Color lineSoft = Color(0x0FFFFFFF); // ~6%
 
   // ── Fonts ───────────────────────────────────────────────────

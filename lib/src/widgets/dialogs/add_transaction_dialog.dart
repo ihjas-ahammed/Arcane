@@ -70,7 +70,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                       value: c.id,
                       child: Text(c.name, style: const TextStyle(color: Colors.white)),
                     )),
-                const DropdownMenuItem(
+                 DropdownMenuItem(
                   value: 'ADD_NEW',
                   child: Text("+ Add New Category", style: TextStyle(color: JweTheme.accentAmber)),
                 ),

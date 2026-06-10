@@ -422,7 +422,7 @@ class TaskHeaderCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         nextCp != null
-                            ? 'CHECK NEXT: ${nextCp.name.toUpperCase()}'
+                            ? '${nextCp.name.toUpperCase()}'
                             : 'COMPLETE PROTOCOL HIGHLIGHT',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

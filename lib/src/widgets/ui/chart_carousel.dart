@@ -108,7 +108,7 @@ class _ChartCarouselState extends State<ChartCarousel> {
         SmoothPageIndicator(
           controller: _controller,
           count: widget.pages.length,
-          effect: const ExpandingDotsEffect(
+          effect:  ExpandingDotsEffect(
             dotHeight: 3,
             dotWidth: 6,
             expansionFactor: 4,

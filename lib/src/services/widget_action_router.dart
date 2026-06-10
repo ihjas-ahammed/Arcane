@@ -17,8 +17,8 @@ import 'package:missions/src/utils/global_toast.dart';
 /// Tab indexes in HomeScreen — kept in sync with `_viewTitles` over there.
 class HomeTab {
   static const missions = 0;
-  static const schedule = 1;
-  static const biometrics = 2;
+  static const biometrics = 1;
+  static const schedule = 2;
   static const analytics = 3;
   static const wallet = 4;
 }

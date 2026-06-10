@@ -826,7 +826,7 @@ class _PhoenixCard extends StatelessWidget {
     final title = isCheckpoint ? cp!.name : sub.name;
     final parent = isCheckpoint ? '${task.name} > ${sub.name}' : task.name;
 
-    const amber = AppTheme.fhAccentOrange;
+    final amber = AppTheme.fhAccentOrange;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),

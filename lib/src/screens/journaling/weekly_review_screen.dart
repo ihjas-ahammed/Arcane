@@ -73,7 +73,7 @@ class WeeklyReviewScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: Row(
                 children: [
-                  const HudReticle(size: 44, color: JweTheme.accentAmber)
+                  HudReticle(size: 44, color: JweTheme.accentAmber)
                       .animate()
                       .fadeIn(duration: 400.ms)
                       .scale(begin: const Offset(0.6, 0.6)),
@@ -564,7 +564,7 @@ class _GratefulPersonCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: JweTheme.bgBase.withOpacity(0.6),
-        border: const Border(
+        border: Border(
           left: BorderSide(color: JweTheme.accentAmber, width: 2),
         ),
       ),

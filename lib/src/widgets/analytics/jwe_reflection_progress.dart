@@ -47,7 +47,7 @@ class JweReflectionProgress extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          decoration: const BoxDecoration(
+          decoration:  BoxDecoration(
             border: Border(bottom: BorderSide(color: JweTheme.lineAmber, width: 1)),
           ),
           child: Row(children: [

@@ -83,14 +83,14 @@ class HudCutClipper extends CustomClipper<Path> {
 // HudBrackets — corner brackets overlay
 // ─────────────────────────────────────────────────────────────
 class HudBrackets extends StatelessWidget {
-  final Color color;
+  final Color? color;
   final double size;
   final double thickness;
   final bool all;
 
   const HudBrackets({
     super.key,
-    this.color = JweTheme.accentAmber,
+    this.color,
     this.size = 10,
     this.thickness = 1,
     this.all = false,
@@ -98,17 +98,18 @@ class HudBrackets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = color ?? JweTheme.accentAmber;
     return IgnorePointer(
       child: Stack(children: [
-        _corner(top: 0, left: 0, top1: true, left1: true),
-        _corner(top: 0, right: 0, top1: true, right1: true, opacity: all ? 1.0 : 0.0),
-        _corner(bottom: 0, left: 0, bottom1: true, left1: true, opacity: all ? 1.0 : 0.0),
-        _corner(bottom: 0, right: 0, bottom1: true, right1: true),
+        _corner(activeColor, top: 0, left: 0, top1: true, left1: true),
+        _corner(activeColor, top: 0, right: 0, top1: true, right1: true, opacity: all ? 1.0 : 0.0),
+        _corner(activeColor, bottom: 0, left: 0, bottom1: true, left1: true, opacity: all ? 1.0 : 0.0),
+        _corner(activeColor, bottom: 0, right: 0, bottom1: true, right1: true),
       ]),
     );
   }
 
-  Widget _corner({double? top, double? bottom, double? left, double? right,
+  Widget _corner(Color activeColor, {double? top, double? bottom, double? left, double? right,
       bool top1 = false, bool bottom1 = false, bool left1 = false, bool right1 = false,
       double opacity = 1.0}) {
     return Positioned(
@@ -118,7 +119,7 @@ class HudBrackets extends StatelessWidget {
         child: SizedBox(
           width: size, height: size,
           child: CustomPaint(painter: _BracketPainter(
-            color: color, thickness: thickness,
+            color: activeColor, thickness: thickness,
             top: top1, bottom: bottom1, left: left1, right: right1,
           )),
         ),
@@ -157,7 +158,7 @@ class _BracketPainter extends CustomPainter {
 class HudPanel extends StatelessWidget {
   final Widget child;
   final HudClip clip;
-  final Color accent;
+  final Color? accent;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? margin;
   final bool brackets;
@@ -171,7 +172,7 @@ class HudPanel extends StatelessWidget {
     super.key,
     required this.child,
     this.clip = HudClip.br,
-    this.accent = JweTheme.accentAmber,
+    this.accent,
     this.padding = const EdgeInsets.all(14),
     this.margin,
     this.brackets = true,
@@ -331,12 +332,20 @@ class HudBar extends StatelessWidget {
   final double max;
   final HudTone tone;
   final double height;
+  final Color? color;
 
-  const HudBar({super.key, required this.value, this.max = 100, this.tone = HudTone.amber, this.height = 4});
+  const HudBar({
+    super.key,
+    required this.value,
+    this.max = 100,
+    this.tone = HudTone.amber,
+    this.height = 4,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = _toneFg(tone);
+    final c = color ?? _toneFg(tone);
     final pct = (value / max).clamp(0.0, 1.0);
     return Container(
       height: height,
@@ -504,12 +513,12 @@ class _RingPainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────
 class HudReticle extends StatelessWidget {
   final double size;
-  final Color color;
-  const HudReticle({super.key, this.size = 20, this.color = JweTheme.accentAmber});
+  final Color? color;
+  const HudReticle({super.key, this.size = 20, this.color});
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: Size(size, size), painter: _ReticlePainter(color: color));
+    return CustomPaint(size: Size(size, size), painter: _ReticlePainter(color: color ?? JweTheme.accentAmber));
   }
 }
 
@@ -636,11 +645,18 @@ class HudSectionHead extends StatelessWidget {
 class HudHexTag extends StatelessWidget {
   final String code;
   final HudTone tone;
-  const HudHexTag({super.key, required this.code, this.tone = HudTone.amber});
+  final Color? color;
+
+  const HudHexTag({
+    super.key,
+    required this.code,
+    this.tone = HudTone.amber,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = _toneFg(tone);
+    final c = color ?? _toneFg(tone);
     return SizedBox(
       width: 28, height: 32,
       child: Stack(alignment: Alignment.center, children: [
@@ -747,15 +763,15 @@ class HudDataRow extends StatelessWidget {
 // HudDottedDivider
 // ─────────────────────────────────────────────────────────────
 class HudDottedDivider extends StatelessWidget {
-  final Color color;
+  final Color? color;
   final double height;
-  const HudDottedDivider({super.key, this.color = JweTheme.lineAmber, this.height = 1});
+  const HudDottedDivider({super.key, this.color, this.height = 1});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
-      child: CustomPaint(painter: _DottedPainter(color: color), size: Size.fromHeight(height)),
+      child: CustomPaint(painter: _DottedPainter(color: color ?? JweTheme.lineAmber), size: Size.fromHeight(height)),
     );
   }
 }

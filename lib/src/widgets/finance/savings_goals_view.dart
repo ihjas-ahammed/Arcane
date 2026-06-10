@@ -26,7 +26,7 @@ class SavingsGoalsView extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.panel, 
               foregroundColor: JweTheme.accentAmber, 
-              shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentAmber))
+              shape: BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentAmber))
             ),
             onPressed: () {
               showDialog(context: context, builder: (ctx) => const AddSavingsGoalDialog());

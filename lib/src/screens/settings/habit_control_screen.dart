@@ -20,7 +20,7 @@ class HabitControlScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text("BEHAVIORAL OVERRIDE", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
+        iconTheme: IconThemeData(color: JweTheme.accentAmber),
       ),
       body: SafeArea(
         child: Center(

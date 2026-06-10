@@ -538,7 +538,7 @@ class _SettingsViewState extends State<SettingsView> {
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     icon: _logoutLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
@@ -551,7 +551,7 @@ class _SettingsViewState extends State<SettingsView> {
                         : () => _handleLogout(appProvider, context),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.fhAccentOrange,
-                        side: const BorderSide(
+                        side: BorderSide(
                             color: AppTheme.fhAccentOrange, width: 1.5),
                         minimumSize: const Size(double.infinity, 44)),
                   ),

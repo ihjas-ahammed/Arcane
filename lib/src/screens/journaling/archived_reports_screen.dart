@@ -16,14 +16,14 @@ class ArchivedReportsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("ARCHIVED REPORTS", style: TextStyle(color: AppTheme.fhAccentGold, letterSpacing: 1.5)),
+        title: Text("ARCHIVED REPORTS", style: TextStyle(color: AppTheme.fhAccentGold, letterSpacing: 1.5)),
         centerTitle: true,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: provider.getArchivedWeeklyReports(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.fhAccentGold));
+            return Center(child: CircularProgressIndicator(color: AppTheme.fhAccentGold));
           }
 
           if (snapshot.hasError) {

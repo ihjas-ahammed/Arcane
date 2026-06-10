@@ -84,7 +84,7 @@ class _Header extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const HudReticle(size: 22, color: JweTheme.accentAmber),
+          HudReticle(size: 22, color: JweTheme.accentAmber),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -342,7 +342,7 @@ class _TransmissionBlock extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
               color: JweTheme.bgBase.withOpacity(0.85),
-              border: const Border(
+              border:  Border(
                 left: BorderSide(color: JweTheme.accentAmber, width: 2),
               ),
             ),

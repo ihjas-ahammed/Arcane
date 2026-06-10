@@ -27,14 +27,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late AppProvider _appProvider;
-  int _selectedIndex = 0;
+  int _selectedIndex = 2; // Default tab is Schedule (index 2)
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ValueNotifier<int> _scheduleOpenTick = ValueNotifier<int>(0);
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
-    'SCHEDULE',
     'BIOMETRICS',
+    'SCHEDULE', // Center!
     'ANALYTICS',
     'WALLET',
   ];
@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    if (index == 1) {
+    if (index == 2) {
       _scheduleOpenTick.value++;
     }
   }
@@ -80,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (req < 0 || req > 4) return;
     if (mounted) {
       setState(() => _selectedIndex = req);
-      if (req == 1) {
+      if (req == 2) {
         _scheduleOpenTick.value++;
       }
     }
@@ -96,8 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static final _desktopNavItems = <_DesktopNavItem>[
     _DesktopNavItem(label: 'MISSIONS', icon: MdiIcons.targetAccount),
-    _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
     _DesktopNavItem(label: 'BIO', icon: MdiIcons.heartPulse),
+    _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock), // Center!
     _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),
     _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
   ];
@@ -174,6 +174,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final appProvider = context.watch<AppProvider>();
     final Color currentTaskColor =
         appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
+
+    // Sync JweTheme and AppTheme accent colors dynamically
+    JweTheme.accentAmber = currentTaskColor;
+    JweTheme.amberDim = currentTaskColor.withOpacity(0.8);
+    JweTheme.amberSoft = currentTaskColor.withOpacity(0.14);
+    JweTheme.amberGlow = currentTaskColor.withOpacity(0.55);
+    JweTheme.lineAmber = currentTaskColor.withOpacity(0.3);
+    AppTheme.fhAccentGold = currentTaskColor;
+    AppTheme.fhAccentOrange = currentTaskColor;
+
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor);
 
@@ -185,7 +195,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const TaskDetailsView(),
         ),
       ),
-      ScheduleView(openTick: _scheduleOpenTick),
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -193,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const HealthDashboardView(),
         ),
       ),
+      ScheduleView(openTick: _scheduleOpenTick), // Center!
       const LogbookScreen(), 
       const FinanceDashboardScreen(),
     ];

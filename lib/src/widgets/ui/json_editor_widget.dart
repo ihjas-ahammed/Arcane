@@ -84,7 +84,7 @@ class JsonEditorWidget extends StatelessWidget {
             ),
             InkWell(
               onTap: () => _editValue(context, data),
-              child: const Icon(Icons.edit, size: 14, color: AppTheme.fhAccentGold),
+              child: Icon(Icons.edit, size: 14, color: AppTheme.fhAccentGold),
             )
           ],
         ),

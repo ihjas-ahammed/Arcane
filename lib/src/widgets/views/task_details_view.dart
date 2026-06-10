@@ -264,7 +264,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                   icon: Icon(MdiIcons.plus, color: JweTheme.accentAmber),
                   label: Text('DEPLOY PROTOCOL', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber)),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: JweTheme.lineAmber),
+                    side: BorderSide(color: JweTheme.lineAmber),
                     shape: const BeveledRectangleBorder(),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   ),

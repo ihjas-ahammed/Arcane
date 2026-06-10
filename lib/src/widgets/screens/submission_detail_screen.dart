@@ -173,7 +173,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       lastDate: now.add(const Duration(days: 365)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:  ColorScheme.dark(
             primary: JweTheme.accentAmber,
             surface: JweTheme.panel,
           ),
@@ -189,7 +189,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       initialTime: TimeOfDay.fromDateTime(now),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:  ColorScheme.dark(
             primary: JweTheme.accentAmber,
             surface: JweTheme.panel,
           ),

@@ -8,23 +8,24 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 class JwePanel extends StatelessWidget {
   final String? title;
   final Widget child;
-  final Color accentColor;
+  final Color? accentColor;
 
   const JwePanel({
     super.key,
     this.title,
     required this.child,
-    this.accentColor = JweTheme.accentAmber,
+    this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final tone = _matchTone(accentColor);
+    final color = accentColor ?? JweTheme.accentAmber;
+    final tone = _matchTone(color);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: HudPanel(
         clip: HudClip.br,
-        accent: accentColor,
+        accent: color,
         padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,16 +34,16 @@ class JwePanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: accentColor.withOpacity(0.20))),
+                  border: Border(bottom: BorderSide(color: color.withOpacity(0.20))),
                 ),
                 child: Row(children: [
-                  Container(width: 4, height: 12, color: accentColor),
+                  Container(width: 4, height: 12, color: color),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title!.toUpperCase(),
                       style: GoogleFonts.jetBrainsMono(
-                        color: accentColor,
+                        color: color,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.8,

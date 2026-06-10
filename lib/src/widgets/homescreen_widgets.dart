@@ -93,7 +93,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                           color: AppTheme.fhAccentOrange.withValues(alpha: 0.5)),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child:  Text(
                       "PHOENIX",
                       style: TextStyle(
                         color: AppTheme.fhAccentOrange,
@@ -312,7 +312,7 @@ class FinanceHomeWidget extends StatelessWidget {
                       color: AppTheme.fhAccentGold,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                     Text(
                       "// WALLET",
                       style: TextStyle(
                         color: AppTheme.fhAccentGold,
@@ -338,7 +338,7 @@ class FinanceHomeWidget extends StatelessWidget {
             // Balance
             Text(
               _fmtMoney(balance),
-              style: const TextStyle(
+              style:  TextStyle(
                 color: AppTheme.fhAccentGold,
                 fontFamily: AppTheme.fontDisplay,
                 fontSize: 32,
@@ -363,7 +363,7 @@ class FinanceHomeWidget extends StatelessWidget {
                 value: clampedPct / 100.0,
                 minHeight: 6,
                 backgroundColor: AppTheme.fhBorderColor,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.fhAccentGold),
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.fhAccentGold),
               ),
             ),
             const SizedBox(height: 12),
@@ -591,7 +591,7 @@ class JournalHomeWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child:  Text(
                     "ARCHIVE",
                     style: TextStyle(
                       color: AppTheme.fhAccentGold,

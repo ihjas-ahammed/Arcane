@@ -45,7 +45,7 @@ class SavingsDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(goal.name.toUpperCase(), style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
+        iconTheme: IconThemeData(color: JweTheme.accentAmber),
         actions: [
           IconButton(
             icon: Icon(MdiIcons.restore, color: JweTheme.textMuted),

@@ -43,7 +43,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         return AlertDialog(
           backgroundColor: JweTheme.panel,
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: JweTheme.accentAmber),
+            side: BorderSide(color: JweTheme.accentAmber),
             borderRadius: BorderRadius.zero,
           ),
           title: Text(
@@ -223,7 +223,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                decoration: const BoxDecoration(
+                decoration:  BoxDecoration(
                   border: Border(bottom: BorderSide(color: JweTheme.lineAmber, width: 1)),
                 ),
                 child: Row(children: [
