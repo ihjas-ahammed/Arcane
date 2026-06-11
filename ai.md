@@ -1,9 +1,7 @@
 Make the following changes:
 
 
-* Replace home hiro (MISSIONS tab):
-    Instead add a selector for each protocols with their progress (ie repace the left navigation items with this and remove left navigation drawer) but use the same advanced design, the target is for being able to see more details of current protocol and quickly switch between protocols
-    
+* 
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
