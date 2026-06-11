@@ -201,9 +201,15 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     $logsContext
+    $systemStyle
     
     USER: "$query"
 
@@ -491,12 +497,19 @@ class AIService {
     String? recentContext,
     List<String>? customApiKeys,
     String? systemInstruction,
+    String? writingStyleMap,
   }) async {
     final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
     final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
 
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
+
     final prompt = """
     Analyze this reflection log.
+    $systemStyle
     Situation: $trigger
     Feeling: $emotion
     Reason: $reason
@@ -627,9 +640,15 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
     String? customInstruction,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
+    $systemStyle
 
     Current Logs: ${jsonEncode(reflections)}
     Reflection History (Context): $fullContext
@@ -680,9 +699,15 @@ class AIService {
     required Function(String) onLog,
     String? financeText,
     String? agentProgressText,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     Generate a comprehensive 7-Day Review Report grounded in "Getting Things Done" (GTD) and "Atomic Habits" principles, along with evidence-based psychology.
+    $systemStyle
 
     Reflection Logs: $logsText
     Time Data: $timeStatsText
@@ -754,9 +779,15 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
+    $systemStyle
 
     Context:
     Reflections (Last 7 days): $reflectionsList
@@ -1053,6 +1084,83 @@ class AIService {
     {
       "simulation": "string"
     }
+    """;
+
+    return await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+  }
+
+  Future<Map<String, dynamic>> generateStoryBriefing({
+    required String todayReflections,
+    required String last7DaysContext,
+    required String last4WeeksWeeklyContext,
+    required String userCharacter,
+    required String storyExamples,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    You are an expert storyteller. Generate a story-mode narrative analysis of the user's daily reflections and recent history context.
+    
+    Here is the writing style and way the characters talk:
+    --- START STORY EXAMPLES ---
+    $storyExamples
+    --- END STORY EXAMPLES ---
+
+    The characters are:
+    - Ayan: Analytical, logical, loves explaining complex things using simple, real-world analogies. Speaks with confidence but humility.
+    - Hiba: Dramatic, expressive, easily overwhelmed by complexity, math, or dry stats. Groans or gasps dramatically, requests "emotional rewards" (like a biscuit), relatable and down-to-earth.
+    - Zara: Practical, structured, slightly philosophical, deadpans or laughs, notices overarching patterns or system designs.
+    - Mira: Soft, intuitive, closely supportive of Ayan, understands things conceptually first, highlights the underlying meaning or human element.
+
+    The user's chosen character representation is: $userCharacter. The other characters will address $userCharacter as the user who lived this day, or reference them accordingly.
+    
+    User Context:
+    Today's Reflections:
+    $todayReflections
+
+    Last 7 Days Reflections:
+    $last7DaysContext
+
+    Last 4 Weeks Weekly Reviews:
+    $last4WeeksWeeklyContext
+
+    Your response MUST be a valid JSON object matching this schema:
+    {
+      "scene": "A brief opening narrative describing the setting and atmosphere (e.g. late evening, rain tapping, warm study room, half-empty tea cups).",
+      "paragraphs": [
+        {
+          "type": "action",
+          "text": "The narrative action sentence or transition."
+        },
+        {
+          "type": "dialogue",
+          "character": "Hiba" | "Mira" | "Zara" | "Ayan",
+          "text": "Character dialogue."
+        }
+      ]
+    }
+
+    Rules:
+    1. First, set the scene under "scene" where the Narrator explains the setting and the characters gathering around.
+    2. At the beginning of the dialogue/action sequence, the characters must first take a look at and discuss the day's reflections, last 7 days context, and the last 4 weeks weekly reviews to set the context (e.g. looking at a notebook, laptop screen, or summarizing the recent patterns/weekly summaries).
+    3. Once they have established this context, they must talk in detail about today's reflections and how they fit into the broader picture.
+    4. Hiba should be dramatic, groaning about any dry or difficult tasks today, asking for biscuits or emotional support.
+    5. Mira should be supportive, sitting close, emotionally intuitive, and highlighting the human element or underlying meaning.
+    6. Zara should be practical, structured, and slightly philosophical, pointing out system/design patterns.
+    7. The character representing the user ($userCharacter) should participate in the conversation in their signature style.
+    8. All characters must speak exactly as in the story examples (short sentences, casual, conversational, warm, using punctuation and structure from all.txt).
+    9. Do not exceed 25 paragraphs in total.
+    
+    OUTPUT ONLY THE JSON OBJECT. NO MARKDOWN FENCES. NO PREAMBLE.
     """;
 
     return await makeAICall(

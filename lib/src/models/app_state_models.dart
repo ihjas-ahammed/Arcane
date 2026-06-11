@@ -251,6 +251,13 @@ class AppSettings {
   // Scheduled Reminders screen and re-armed on launch.
   List<ScheduledReminder> scheduledReminders;
 
+  // Writing style adaptation
+  bool adaptWritingStyle;
+  String? writingStyleMap;
+
+  // Story Mode Character Choice
+  String storyCharacter;
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -293,6 +300,9 @@ class AppSettings {
     this.submissionReminderHour = 9,
     this.submissionReminderMinute = 0,
     List<ScheduledReminder>? scheduledReminders,
+    this.adaptWritingStyle = false,
+    this.writingStyleMap,
+    this.storyCharacter = 'Ayan',
   })  : scheduledReminders = scheduledReminders ?? [],
         lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -366,6 +376,9 @@ class AppSettings {
               ))
             )
           : null,
+      adaptWritingStyle: json['adaptWritingStyle'] as bool? ?? false,
+      writingStyleMap: json['writingStyleMap'] as String?,
+      storyCharacter: json['storyCharacter'] as String? ?? 'Ayan',
     );
   }
   
@@ -402,6 +415,9 @@ class AppSettings {
       'submissionReminderMinute': submissionReminderMinute,
       'scheduledReminders': scheduledReminders.map((e) => e.toJson()).toList(),
       'customBusSchedules': customBusSchedules,
+      'adaptWritingStyle': adaptWritingStyle,
+      'writingStyleMap': writingStyleMap,
+      'storyCharacter': storyCharacter,
     };
   }
 }

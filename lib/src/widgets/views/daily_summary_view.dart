@@ -10,6 +10,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/screens/story_briefing_screen.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
@@ -191,6 +192,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         customApiKeys: provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint(msg),
+        writingStyleMap: provider.settings.adaptWritingStyle ? provider.settings.writingStyleMap : null,
       );
 
       if (mounted) {
@@ -438,15 +440,34 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: displayBriefing != null
-                  ? TacticalBriefingCard(
-                      briefingData: displayBriefing,
-                      isSaved: savedBriefing != null,
-                      onSave: savedBriefing == null
-                          ? () {
-                              appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                              setState(() {});
-                            }
-                          : null,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TacticalBriefingCard(
+                          briefingData: displayBriefing,
+                          isSaved: savedBriefing != null,
+                          onSave: savedBriefing == null
+                              ? () {
+                                  appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                                  setState(() {});
+                                }
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        _HudActionBar(
+                          label: 'LAUNCH STORY MODE ANALYSIS',
+                          icon: MdiIcons.dramaMasks,
+                          accent: JweTheme.accentCyan,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoryBriefingScreen(todayLogs: reflectionsForDate),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     )
                   : HudPanel(
                       clip: HudClip.br,

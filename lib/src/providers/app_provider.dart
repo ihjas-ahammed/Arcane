@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/firebase_service.dart' as fb_service;
@@ -812,7 +813,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
       onLog: (m) => debugPrint(m),
-      customInstruction: settings.customBriefingPrompt
+      customInstruction: settings.customBriefingPrompt,
+      writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
     );
 
     if (result['grateful_assets'] != null) {
@@ -1155,6 +1157,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     // Fire-and-forget; the future is intentionally not awaited.
     // ignore: discarded_futures
     _runReflectionAnalysis(logId, trigger, emotion, reason, action);
+
+    if (settings.adaptWritingStyle) {
+      updateWritingStyleMap();
+    }
     return logId;
   }
 
@@ -1178,6 +1184,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
         systemInstruction: settings.customReflectionPrompt,
+        writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
       );
       // Convert 0-1 AI scores to actual XP using lifetime avg * hours elapsed
       final rawScores = <String, double>{};
@@ -1399,7 +1406,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
         onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
-        onLog: (m) {}
+        onLog: (m) {},
+        writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
       );
       
       final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
@@ -1435,6 +1443,113 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   
   void setJournalPin(String pin) {
     setSettings(settings..journalPin = pin);
+  }
+
+  Future<void> updateWritingStyleMap() async {
+    if (!settings.adaptWritingStyle) {
+      return;
+    }
+    
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs
+        .where((l) => l.timestamp.isAfter(sevenDaysAgo))
+        .toList();
+    
+    if (recentLogs.isEmpty) {
+      setSettings(settings..writingStyleMap = null);
+      notifyListeners();
+      return;
+    }
+    
+    final logsText = recentLogs
+        .map((l) => "Situation/Trigger: ${l.trigger}\nFeeling/Emotion: ${l.emotion}\nReason: ${l.reason}\nAction Planned: ${l.action}")
+        .join("\n\n");
+        
+    final prompt = """
+    You are an expert linguist and writing style analyzer. 
+    Analyze the following journal/reflection entries written by the user over the last 7 days:
+    
+    $logsText
+    
+    Extract and create a detailed profile/map of their writing style. 
+    Focus on:
+    - Tone (e.g., formal, casual, reflective, self-critical, optimistic, stoic, emotional, analytical)
+    - Vocabulary and word choice (common words, slang, specific terminology used)
+    - Sentence structure and length (e.g., short fragments, long compound sentences, run-on sentences, lazy texting)
+    - Format and styling (e.g., use of bullet points, emoji usage, casing preferences, punctuation habits)
+    
+    Output a JSON object with a single key "style_map" containing a concise summary (1-3 paragraphs) describing this writing style so another LLM can replicate it perfectly.
+    
+    JSON Schema:
+    {
+      "style_map": "string description"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    try {
+      final result = await _aiService.makeAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels,
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StyleMap] $m"),
+      );
+      
+      final styleDescription = result['style_map'] as String?;
+      if (styleDescription != null && styleDescription.isNotEmpty) {
+        setSettings(settings..writingStyleMap = styleDescription);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error generating writing style map: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> generateStoryBriefing(List<ReflectionLog> todayLogs) async {
+    final todayReflectionsStr = todayLogs.isEmpty
+        ? "No reflections logged today."
+        : todayLogs.map((l) => "- [${DateFormat('HH:mm').format(l.timestamp)}] Situation: ${l.trigger}\n  Feeling: ${l.emotion}\n  Reason: ${l.reason}\n  Action: ${l.action}").join("\n\n");
+    
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs
+        .where((l) => l.timestamp.isAfter(sevenDaysAgo))
+        .toList();
+    final last7DaysStr = recentLogs.isEmpty
+        ? "No recent reflections."
+        : recentLogs.map((l) => "- [${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+        
+    final archivedWeeklyReports = await getArchivedWeeklyReports();
+    final last4WeeksList = archivedWeeklyReports.reversed.take(4).toList();
+    final last4WeeksStr = last4WeeksList.isEmpty
+        ? "No weekly review summaries available."
+        : last4WeeksList.map((r) {
+            final date = r['date'] as String? ?? 'Unknown Date';
+            final summary = r['summary'] as String? ?? 'No summary';
+            return "- [$date] $summary";
+          }).join("\n");
+
+    String storyExamples = "";
+    try {
+      storyExamples = await rootBundle.loadString('assets/story_examples/all.txt');
+    } catch (e) {
+      debugPrint("Error loading story_examples/all.txt from assets: $e");
+      storyExamples = "Ayan is analytical, Hiba is dramatic, Zara is practical, Mira is soft and supportive.";
+    }
+
+    return await _aiService.generateStoryBriefing(
+      todayReflections: todayReflectionsStr,
+      last7DaysContext: last7DaysStr,
+      last4WeeksWeeklyContext: last4WeeksStr,
+      userCharacter: settings.storyCharacter,
+      storyExamples: storyExamples,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryBriefingAI] $m"),
+    );
   }
 }
 

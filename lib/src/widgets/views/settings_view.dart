@@ -335,6 +335,58 @@ class _SettingsViewState extends State<SettingsView> {
                 const ApiKeyManager(),
 
                 const SizedBox(height: 16),
+                SwitchListTile.adaptive(
+                  title: const Text('Adapt User Writing Style', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Analyze last 7 days of reflections to mirror your writing style in AI responses', style: TextStyle(fontSize: 12)),
+                  value: appProvider.settings.adaptWritingStyle,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) async {
+                    appProvider.setSettings(appProvider.settings..adaptWritingStyle = value);
+                    if (value) {
+                      await appProvider.updateWritingStyleMap();
+                    }
+                  },
+                ),
+                if (appProvider.settings.adaptWritingStyle) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    appProvider.settings.writingStyleMap != null
+                        ? "Writing style map generated (Active)"
+                        : "Generating writing style map...",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appProvider.settings.writingStyleMap != null
+                          ? AppTheme.fhAccentPurple
+                          : AppTheme.fhTextSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Story Mode Character (Default)',
+                    prefixIcon: Icon(MdiIcons.accountOutline, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgMedium,
+                  initialValue: appProvider.settings.storyCharacter,
+                  items: const [
+                    DropdownMenuItem(value: 'Ayan', child: Text('Ayan (Analytical/Storyteller)')),
+                    DropdownMenuItem(value: 'Mira', child: Text('Mira (Soft/Intuitive)')),
+                    DropdownMenuItem(value: 'Hiba', child: Text('Hiba (Dramatic/Expressive)')),
+                    DropdownMenuItem(value: 'Zara', child: Text('Zara (Structured/Practical)')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      appProvider.setSettings(
+                          appProvider.settings..storyCharacter = value);
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 16),
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),

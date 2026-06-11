@@ -96,6 +96,7 @@ class ReportActions {
         customApiKeys: _provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => _provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint("[ReportAI] $msg"),
+        writingStyleMap: _provider.settings.adaptWritingStyle ? _provider.settings.writingStyleMap : null,
       );
 
       final result = Map<String, dynamic>.from(aiResult);
