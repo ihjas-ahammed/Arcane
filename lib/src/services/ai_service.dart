@@ -1095,6 +1095,82 @@ class AIService {
         onLog: onLog);
   }
 
+  /// Generates a raw text response (not JSON) from the AI.
+  Future<String> makeRawTextAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final text = response.text;
+        if (text == null || text.trim().isEmpty) throw Exception("AI response was empty.");
+        return text.trim();
+      },
+    );
+  }
+
+  /// Generates a single story segment (list of paragraph objects) for one character.
+  /// [previousStoryJson] is the JSON string of paragraphs generated so far (for context).
+  /// [targetCharacter] is which character should primarily speak in this segment.
+  Future<List<Map<String, dynamic>>> generateStorySegment({
+    required String systemContext,
+    required String previousStoryJson,
+    required String targetCharacter,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+$systemContext
+
+CONVERSATION SO FAR (what has already been said — DO NOT REPEAT THESE):
+$previousStoryJson
+
+Your task for THIS segment: Write the next part of the conversation where $targetCharacter speaks.
+Rules for this segment:
+- $targetCharacter MUST have at least 2 dialogue lines in this segment.
+- The other characters may react briefly (1-2 lines each at most).
+- Stay in character as described. Reference specific details from today's reflections.
+- Maximum 10 paragraph objects total in this segment.
+- Use mix of 'action' and 'dialogue' types.
+
+OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown fences.
+Example: [{"type":"action","text":"..."},{"type":"dialogue","character":"$targetCharacter","text":"..."}]
+""";
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final raw = response.text;
+        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
+        final decoded = JsonUtils.tryDecode(raw.trim());
+        if (decoded is List) {
+          return decoded.cast<Map<String, dynamic>>();
+        }
+        throw FormatException("Expected JSON array but got: $raw", raw);
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> generateStoryBriefing({
     required String todayReflections,
     required String last7DaysContext,
@@ -1107,68 +1183,142 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-    You are an expert storyteller. Generate a story-mode narrative analysis of the user's daily reflections and recent history context.
-    
-    Here is the writing style and way the characters talk:
-    --- START STORY EXAMPLES ---
-    $storyExamples
-    --- END STORY EXAMPLES ---
+    // This is the base context shared across all segment calls.
+    final systemContext = """
+You are an expert storyteller generating a story-mode analysis of a user's daily reflections.
 
-    The characters are:
-    - Ayan: Analytical, logical, loves explaining complex things using simple, real-world analogies. Speaks with confidence but humility.
-    - Hiba: Dramatic, expressive, easily overwhelmed by complexity, math, or dry stats. Groans or gasps dramatically, requests "emotional rewards" (like a biscuit), relatable and down-to-earth.
-    - Zara: Practical, structured, slightly philosophical, deadpans or laughs, notices overarching patterns or system designs.
-    - Mira: Soft, intuitive, closely supportive of Ayan, understands things conceptually first, highlights the underlying meaning or human element.
+WRITING STYLE REFERENCE (how the characters speak — follow this closely):
+--- START STORY EXAMPLES ---
+$storyExamples
+--- END STORY EXAMPLES ---
 
-    The user's chosen character representation is: $userCharacter. The other characters will address $userCharacter as the user who lived this day, or reference them accordingly.
-    
-    User Context:
-    Today's Reflections:
-    $todayReflections
+CHARACTERS:
+- Ayan: Analytical, logical, explains things with simple real-world analogies. Confident but humble.
+- Hiba: Dramatic, expressive, overwhelmed by dry tasks. Groans, gasps, asks for biscuits. Very relatable.
+- Zara: Practical, structured, slightly philosophical. Spots patterns. Occasional dry wit.
+- Mira: Soft, intuitive, supportive. Highlights human emotion and underlying meaning.
 
-    Last 7 Days Reflections:
-    $last7DaysContext
+The user's character is: $userCharacter. Others address/reference them as the person who lived this day.
 
-    Last 4 Weeks Weekly Reviews:
-    $last4WeeksWeeklyContext
+CONTEXT DATA:
+Today's Reflections:
+$todayReflections
 
-    Your response MUST be a valid JSON object matching this schema:
-    {
-      "scene": "A brief opening narrative describing the setting and atmosphere (e.g. late evening, rain tapping, warm study room, half-empty tea cups).",
-      "paragraphs": [
-        {
-          "type": "action",
-          "text": "The narrative action sentence or transition."
-        },
-        {
-          "type": "dialogue",
-          "character": "Hiba" | "Mira" | "Zara" | "Ayan",
-          "text": "Character dialogue."
-        }
-      ]
-    }
+Last 7 Days:
+$last7DaysContext
 
-    Rules:
-    1. First, set the scene under "scene" where the Narrator explains the setting and the characters gathering around.
-    2. At the beginning of the dialogue/action sequence, the characters must first take a look at and discuss the day's reflections, last 7 days context, and the last 4 weeks weekly reviews to set the context (e.g. looking at a notebook, laptop screen, or summarizing the recent patterns/weekly summaries).
-    3. Once they have established this context, they must talk in detail about today's reflections and how they fit into the broader picture.
-    4. Hiba should be dramatic, groaning about any dry or difficult tasks today, asking for biscuits or emotional support.
-    5. Mira should be supportive, sitting close, emotionally intuitive, and highlighting the human element or underlying meaning.
-    6. Zara should be practical, structured, and slightly philosophical, pointing out system/design patterns.
-    7. The character representing the user ($userCharacter) should participate in the conversation in their signature style.
-    8. All characters must speak exactly as in the story examples (short sentences, casual, conversational, warm, using punctuation and structure from all.txt).
-    9. Do not exceed 25 paragraphs in total.
-    
-    OUTPUT ONLY THE JSON OBJECT. NO MARKDOWN FENCES. NO PREAMBLE.
-    """;
+Last 4 Weeks Weekly Reviews:
+$last4WeeksWeeklyContext
 
-    return await makeAICall(
-        prompt: prompt,
+All characters MUST speak casually, in short sentences, warm and conversational, exactly like the story examples.
+""";
+
+    // Batch 1: Scene + opening + Mira's primary turn
+    final batch1Prompt = """
+$systemContext
+
+Generate the OPENING of the story. This is Batch 1.
+Include:
+1. A 'scene' field: brief atmospheric description (setting, mood, rain/evening/tea etc).
+2. A 'paragraphs' array: the characters gather, look at the day's reflections + 7-day context + weekly reviews together. Mira speaks primarily (2-3 dialogue lines), others react briefly (1 line each).
+3. Keep to max 10 paragraph objects.
+
+OUTPUT ONLY VALID JSON OBJECT — no markdown, no preamble:
+{"scene": "...", "paragraphs": [{"type":"action","text":"..."},{"type":"dialogue","character":"Mira","text":"..."}]}
+""";
+
+    final batch1Result = await makeAICall(
+        prompt: batch1Prompt,
         modelCandidates: modelCandidates,
         customApiKeys: customApiKeys,
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
+
+    final scene = batch1Result['scene'] as String? ?? 'Late evening in the study. The lamp flickers gently.';
+    final paragraphsB1 = (batch1Result['paragraphs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return {
+      'scene': scene,
+      'paragraphs': paragraphsB1,
+      'systemContext': systemContext,
+    };
+  }
+
+  /// Generates the next story segment for a specific character (Hiba or Zara).
+  Future<List<Map<String, dynamic>>> generateStoryCharacterSegment({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String targetCharacter,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prevJson = jsonEncode(previousParagraphs);
+    return await generateStorySegment(
+      systemContext: systemContext,
+      previousStoryJson: prevJson,
+      targetCharacter: targetCharacter,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+  }
+
+  /// Continues the story with user input as their character.
+  Future<List<Map<String, dynamic>>> continueStoryWithUserInput({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String userCharacter,
+    required String userInput,
+    required bool isNarration,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prevJson = jsonEncode(previousParagraphs);
+    final inputType = isNarration ? 'narration/action' : 'dialogue';
+    final prompt = """
+$systemContext
+
+CONVERSATION SO FAR:
+$prevJson
+
+The user (playing as $userCharacter) just ${isNarration ? 'added a narration/action' : 'said'}:
+"$userInput"
+
+Continue the story naturally. The other characters should react to this input.
+Rules:
+- Include the user's input as a ${inputType} paragraph for $userCharacter.
+- Then have 2-4 reactions from the other characters.
+- Stay in character, casual and warm.
+- Max 8 paragraph objects total.
+
+OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown.
+[{"type":"dialogue","character":"$userCharacter","text":"$userInput"}, ...reactions...]
+""";
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final raw = response.text;
+        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
+        final decoded = JsonUtils.tryDecode(raw.trim());
+        if (decoded is List) return decoded.cast<Map<String, dynamic>>();
+        throw FormatException("Expected JSON array", raw);
+      },
+    );
   }
 }

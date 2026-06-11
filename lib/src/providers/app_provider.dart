@@ -1551,6 +1551,128 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       onLog: (m) => debugPrint("[StoryBriefingAI] $m"),
     );
   }
+
+  /// Generates the story progressively in 3 batches. Calls [onProgress] after each batch
+  /// with the accumulated list of paragraphs and a status label.
+  Future<({String scene, List<Map<String, dynamic>> paragraphs, String systemContext})> generateStoryProgressively(
+    List<ReflectionLog> todayLogs, {
+    required Function(String label, List<Map<String, dynamic>> paragraphs) onProgress,
+  }) async {
+    final todayReflectionsStr = todayLogs.isEmpty
+        ? "No reflections logged today."
+        : todayLogs.map((l) => "- [${DateFormat('HH:mm').format(l.timestamp)}] Situation: ${l.trigger}\n  Feeling: ${l.emotion}\n  Reason: ${l.reason}\n  Action: ${l.action}").join("\n\n");
+
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final last7DaysStr = recentLogs.isEmpty
+        ? "No recent reflections."
+        : recentLogs.map((l) => "- [${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+
+    final archivedWeeklyReports = await getArchivedWeeklyReports();
+    final last4WeeksList = archivedWeeklyReports.reversed.take(4).toList();
+    final last4WeeksStr = last4WeeksList.isEmpty
+        ? "No weekly review summaries available."
+        : last4WeeksList.map((r) {
+            final date = r['date'] as String? ?? 'Unknown Date';
+            final summary = r['summary'] as String? ?? 'No summary';
+            return "- [$date] $summary";
+          }).join("\n");
+
+    String storyExamples = "";
+    try {
+      storyExamples = await rootBundle.loadString('assets/story_examples/all.txt');
+    } catch (e) {
+      storyExamples = "Ayan is analytical, Hiba is dramatic, Zara is practical, Mira is soft and supportive.";
+    }
+
+    // Determine the three characters to feature (user char last or interspersed)
+    final userChar = settings.storyCharacter;
+    final others = ['Mira', 'Hiba', 'Zara', 'Ayan'].where((c) => c != userChar).toList();
+    // Batch 1: Mira (or first non-user), Batch 2: Hiba (or second), Batch 3: Zara/user
+    final batch2Char = others.isNotEmpty ? others[0] : 'Mira';
+    final batch3Char = others.length > 1 ? others[1] : 'Zara';
+
+    // Batch 1: Scene + opening + first character
+    onProgress('Gathering the friends...', []);
+    final batch1 = await _aiService.generateStoryBriefing(
+      todayReflections: todayReflectionsStr,
+      last7DaysContext: last7DaysStr,
+      last4WeeksWeeklyContext: last4WeeksStr,
+      userCharacter: userChar,
+      storyExamples: storyExamples,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryBatch1] $m"),
+    );
+
+    final scene = batch1['scene'] as String? ?? 'Late evening in the study room.';
+    final systemContext = batch1['systemContext'] as String? ?? '';
+    final allParagraphs = List<Map<String, dynamic>>.from(
+        (batch1['paragraphs'] as List?)?.cast<Map<String, dynamic>>() ?? []);
+
+    onProgress('$batch2Char is thinking...', List.from(allParagraphs));
+
+    // Batch 2: Second character
+    try {
+      final batch2 = await _aiService.generateStoryCharacterSegment(
+        systemContext: systemContext,
+        previousParagraphs: List.from(allParagraphs),
+        targetCharacter: batch2Char,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StoryBatch2] $m"),
+      );
+      allParagraphs.addAll(batch2);
+    } catch (e) {
+      debugPrint("Batch 2 failed: $e");
+    }
+
+    onProgress('$batch3Char is chiming in...', List.from(allParagraphs));
+
+    // Batch 3: Third character
+    try {
+      final batch3 = await _aiService.generateStoryCharacterSegment(
+        systemContext: systemContext,
+        previousParagraphs: List.from(allParagraphs),
+        targetCharacter: batch3Char,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StoryBatch3] $m"),
+      );
+      allParagraphs.addAll(batch3);
+    } catch (e) {
+      debugPrint("Batch 3 failed: $e");
+    }
+
+    return (scene: scene, paragraphs: allParagraphs, systemContext: systemContext);
+  }
+
+  /// Continue the story with user input.
+  Future<List<Map<String, dynamic>>> continueStory({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String userInput,
+    required bool isNarration,
+  }) async {
+    return await _aiService.continueStoryWithUserInput(
+      systemContext: systemContext,
+      previousParagraphs: previousParagraphs,
+      userCharacter: settings.storyCharacter,
+      userInput: userInput,
+      isNarration: isNarration,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryContinue] $m"),
+    );
+  }
 }
 
 class InsightReadyEvent {
