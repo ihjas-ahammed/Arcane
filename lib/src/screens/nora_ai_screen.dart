@@ -289,7 +289,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     ),
                     child: Center(
                       child: Icon(
-                        _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.heartPulse,
+                        _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.creation,
                         size: 64,
                         color: Colors.white,
                       ),
@@ -469,7 +469,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(MdiIcons.heartPulse, color: AppTheme.fhAccentPurple, size: 32),
+                  Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 32),
                   const SizedBox(height: 8),
                   const Text("NORA LINKS", style: TextStyle(color: Colors.white, fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold)),
                 ],
@@ -521,7 +521,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(MdiIcons.heartPulse, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.2)),
+                    Icon(MdiIcons.creation, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.2)),
                     const SizedBox(height: 16),
                     const Text("NO ACTIVE LINK", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 20)),
                     const SizedBox(height: 24),
@@ -565,7 +565,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                                       color: AppTheme.fhAccentPurple.withOpacity(0.1),
                                       border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
                                     ),
-                                    child: Icon(MdiIcons.heartPulse, size: 48, color: AppTheme.fhAccentPurple),
+                                    child: Icon(MdiIcons.creation, size: 48, color: AppTheme.fhAccentPurple),
                                   ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
                                   const SizedBox(height: 24),
                                   Text(

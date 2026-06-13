@@ -37,7 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
     'BIOMETRICS',
-    'SCHEDULE', // Center!
+    'SCHEDULE',
+    'ADVANCED TOOLS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -80,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onTabRequest() {
     final req = WidgetActionRouter.instance.tabRequest.value;
     if (req == null) return;
-    if (req < 0 || req > 4) return;
+    if (req < 0 || req > 5) return;
     if (mounted) {
       setState(() => _selectedIndex = req);
       if (req == 2) {
@@ -119,7 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static final _desktopNavItems = <_DesktopNavItem>[
     _DesktopNavItem(label: 'MISSIONS', icon: MdiIcons.targetAccount),
     _DesktopNavItem(label: 'BIO', icon: MdiIcons.heartPulse),
-    _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock), // Center!
+    _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
+    _DesktopNavItem(label: 'TOOLS', icon: MdiIcons.hammerWrench),
     _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),
     _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
   ];
@@ -224,8 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const HealthDashboardView(),
         ),
       ),
-      ScheduleView(openTick: _scheduleOpenTick), // Center!
-      const LogbookScreen(), 
+      ScheduleView(openTick: _scheduleOpenTick),
+      const MoreScreen(isEmbed: true),
+      const LogbookScreen(),
       const FinanceDashboardScreen(),
     ];
 
@@ -233,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
       data: dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase),
       child: Scaffold(
         key: _scaffoldKey,
+        extendBody: true,
         backgroundColor: JweTheme.bgBase,
         appBar: HeaderWidget(
           currentViewLabel: _viewTitles[_selectedIndex],
@@ -255,35 +259,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        floatingActionButton: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: HudPanel(
-              width: 56,
-              height: 56,
-              clip: HudClip.none,
-              accent: currentTaskColor,
-              brackets: true,
-              allBrackets: true,
-              background: Colors.white.withOpacity(0.07),
-              padding: EdgeInsets.zero,
-              onTap: () => _checkPinAndNavigate(context, const NoraAiScreen()),
-              child: const Center(
-                child: Icon(
-                  MdiIcons.heartPulse,
-                  size: 24,
-                  color: Colors.white,
+        floatingActionButton: isLargeScreen
+            ? ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: HudPanel(
+                    width: 56,
+                    height: 56,
+                    clip: HudClip.none,
+                    accent: currentTaskColor,
+                    brackets: true,
+                    allBrackets: true,
+                    background: Colors.white.withOpacity(0.07),
+                    padding: EdgeInsets.zero,
+                    onTap: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+                    child: const Center(
+                      child: Icon(
+                        MdiIcons.creation,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ),
+              )
+            : null,
         bottomNavigationBar: isLargeScreen
             ? null
             : JweBottomNavBar(
                 selectedIndex: _selectedIndex,
                 activeColor: currentTaskColor,
                 onItemTapped: _onItemTapped,
+                onNoraTapped: () => _checkPinAndNavigate(context, const NoraAiScreen()),
               ),
       ),
     );

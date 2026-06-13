@@ -955,6 +955,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
                 completed: false,
                 currentCount: 0,
                 subSubTasks: st.subSubTasks.map(_resetCheckpoint).toList(),
+                templateSets: st.templateSets.map((ts) => ts.copyWith(
+                  subSubTasks: ts.subSubTasks.map(_resetCheckpoint).toList(),
+                )).toList(),
                 progressDataPoints: [],
                 updatedAt: DateTime.now(),
               );

@@ -305,16 +305,43 @@ class TaskActions {
 
   // --- SubSubTask Actions ---
 
+  // --- Helper to sync template sets with active checkpoints ---
+  SubTask _syncTemplateSetsWithActiveCheckpoints(SubTask st) {
+    if (!st.isRecurring) return st;
+    final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+    if (currentSets.isEmpty) {
+      currentSets.add(SubTaskTemplateSet(
+        id: 'default',
+        name: 'Default',
+        subSubTasks: List.from(st.subSubTasks),
+      ));
+    }
+    final activeId = st.activeTemplateSetId ?? 'default';
+    final activeIndex = currentSets.indexWhere((ts) => ts.id == activeId);
+    if (activeIndex != -1) {
+      currentSets[activeIndex] = currentSets[activeIndex].copyWith(
+        subSubTasks: List.from(st.subSubTasks),
+      );
+    } else if (activeId == 'default' && currentSets.isNotEmpty) {
+      currentSets[0] = currentSets[0].copyWith(
+        subSubTasks: List.from(st.subSubTasks),
+      );
+    }
+    return st.copyWith(templateSets: currentSets);
+  }
+
+  // --- SubSubTask Actions ---
+
   String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) {
     if (parentCheckpointId != null) {
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskId) {
           return task.copyWith(subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
-              return st.copyWith(
+              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
                 subSubTasks: _recursiveNodeOperation(st.subSubTasks, parentCheckpointId, 'add_child', subSubtaskData),
                 updatedAt: DateTime.now(),
-              );
+              ));
             }
             return st;
           }).toList());
@@ -338,10 +365,10 @@ class TaskActions {
         if (task.id == mainTaskId) {
           return task.copyWith(subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
-              return st.copyWith(
+              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
                 subSubTasks: [...st.subSubTasks, newSubSubtask],
                 updatedAt: DateTime.now(),
-              );
+              ));
             }
             return st;
           }).toList());
@@ -358,10 +385,10 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return st.copyWith(
+            return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'update', updates),
               updatedAt: DateTime.now(),
-            );
+            ));
           }
           return st;
         }).toList());
@@ -376,10 +403,10 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return st.copyWith(
+            return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'delete', null),
               updatedAt: DateTime.now(),
-            );
+            ));
           }
           return st;
         }).toList());
@@ -394,10 +421,10 @@ class TaskActions {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
-            return st.copyWith(
+            return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
               subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'duplicate', null),
               updatedAt: DateTime.now(),
-            );
+            ));
           }
           return st;
         }).toList());
@@ -486,7 +513,7 @@ class TaskActions {
     }
     insertNode(clonedCheckpoints);
 
-    final updatedSubTask = sub.copyWith(subSubTasks: clonedCheckpoints);
+    final updatedSubTask = _syncTemplateSetsWithActiveCheckpoints(sub.copyWith(subSubTasks: clonedCheckpoints));
     final updatedTask = task.copyWith(subTasks: task.subTasks.map((s) => s.id == subTaskId ? updatedSubTask : s).toList());
     final newMainTasks = List<MainTask>.from(_provider.mainTasks);
     newMainTasks[taskIndex] = updatedTask;
@@ -499,7 +526,7 @@ class TaskActions {
         return task.copyWith(subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             if (parentCheckpointId != null) {
-              return st.copyWith(subSubTasks: _reorderNodesSubset(st.subSubTasks, parentCheckpointId, subsetIds));
+              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(subSubTasks: _reorderNodesSubset(st.subSubTasks, parentCheckpointId, subsetIds)));
             } else {
               final subsetItems = subsetIds.map((id) => st.subSubTasks.firstWhere((sst) => sst.id == id)).toList();
               final otherItems = st.subSubTasks.where((sst) => !subsetIds.contains(sst.id)).toList();
@@ -509,11 +536,160 @@ class TaskActions {
               updated.addAll(otherItems.sublist(0, firstIndex));
               updated.addAll(subsetItems);
               updated.addAll(otherItems.sublist(firstIndex));
-              return st.copyWith(subSubTasks: updated);
+              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(subSubTasks: updated));
             }
           }
           return st;
         }).toList());
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  // --- SubTask Template Set Actions ---
+
+  void addTemplateSet(String mainTaskId, String subTaskId, String name) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              if (currentSets.isEmpty) {
+                currentSets.add(SubTaskTemplateSet(
+                  id: 'default',
+                  name: 'Default',
+                  subSubTasks: List.from(st.subSubTasks),
+                ));
+              }
+              final newSetId = IdGenerator.generateCheckpointId();
+              final newSet = SubTaskTemplateSet(
+                id: newSetId,
+                name: name,
+                subSubTasks: [],
+              );
+              currentSets.add(newSet);
+              return st.copyWith(
+                templateSets: currentSets,
+                activeTemplateSetId: newSetId,
+                subSubTasks: [],
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void selectTemplateSet(String mainTaskId, String subTaskId, String setId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              if (currentSets.isEmpty) {
+                currentSets.add(SubTaskTemplateSet(
+                  id: 'default',
+                  name: 'Default',
+                  subSubTasks: List.from(st.subSubTasks),
+                ));
+              }
+              final prevActiveId = st.activeTemplateSetId ?? 'default';
+              final prevIndex = currentSets.indexWhere((ts) => ts.id == prevActiveId);
+              if (prevIndex != -1) {
+                currentSets[prevIndex] = currentSets[prevIndex].copyWith(
+                  subSubTasks: List.from(st.subSubTasks),
+                );
+              } else if (prevActiveId == 'default' && currentSets.isNotEmpty) {
+                currentSets[0] = currentSets[0].copyWith(
+                  subSubTasks: List.from(st.subSubTasks),
+                );
+              }
+
+              final targetSet = currentSets.firstWhereOrNull((ts) => ts.id == setId);
+              if (targetSet == null) return st;
+
+              return st.copyWith(
+                templateSets: currentSets,
+                activeTemplateSetId: setId,
+                subSubTasks: List.from(targetSet.subSubTasks),
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void deleteTemplateSet(String mainTaskId, String subTaskId, String setId) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              if (currentSets.isEmpty) {
+                currentSets.add(SubTaskTemplateSet(
+                  id: 'default',
+                  name: 'Default',
+                  subSubTasks: List.from(st.subSubTasks),
+                ));
+              }
+              if (currentSets.length <= 1) return st;
+              currentSets.removeWhere((ts) => ts.id == setId);
+              String newActiveId = st.activeTemplateSetId ?? 'default';
+              List<SubSubTask> newActiveSubsteps = st.subSubTasks;
+              if (newActiveId == setId) {
+                final fallbackSet = currentSets.first;
+                newActiveId = fallbackSet.id;
+                newActiveSubsteps = List.from(fallbackSet.subSubTasks);
+              }
+              return st.copyWith(
+                templateSets: currentSets,
+                activeTemplateSetId: newActiveId,
+                subSubTasks: newActiveSubsteps,
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
+      }
+      return task;
+    }).toList();
+    _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void renameTemplateSet(String mainTaskId, String subTaskId, String setId, String newName) {
+    final newMainTasks = _provider.mainTasks.map((task) {
+      if (task.id == mainTaskId) {
+        return task.copyWith(
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final currentSets = st.templateSets.map((ts) {
+                if (ts.id == setId) {
+                  return ts.copyWith(name: newName);
+                }
+                return ts;
+              }).toList();
+              return st.copyWith(
+                templateSets: currentSets,
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();

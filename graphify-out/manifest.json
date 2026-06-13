@@ -580,13 +580,13 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/task_models.dart": {
-    "mtime": 1781099291.453157,
-    "ast_hash": "54ac6534fdc2afa47aa83682558c1cb2",
+    "mtime": 1781361224.900222,
+    "ast_hash": "58738384cec889aa1dbf6f97b73d4f5d",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/app_provider.dart": {
-    "mtime": 1781359975.807666,
-    "ast_hash": "ded5a7dc26b660cfbedd95aaa45d2ada",
+    "mtime": 1781361228.3624349,
+    "ast_hash": "681938dc209c38a3e973316bd2362cfb",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/timer_actions.dart": {
@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/task_actions.dart": {
-    "mtime": 1781099325.4732852,
-    "ast_hash": "cc0443284807a8f7b78b48a4eb6a3a26",
+    "mtime": 1781361248.779673,
+    "ast_hash": "00ecc37bce8f010a2c9b6e1844d5f706",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/journaling_actions.dart": {
@@ -670,13 +670,13 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/more_screen.dart": {
-    "mtime": 1779462009.3344223,
-    "ast_hash": "82aa28e1b9d3922d8e1f6f7fbe2afc51",
+    "mtime": 1781361455.3107867,
+    "ast_hash": "ba89b303de283dc09f4bb4cac4f99eb6",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/home_screen.dart": {
-    "mtime": 1781360651.6608956,
-    "ast_hash": "0f2ca13456ff16480e3acad796abc528",
+    "mtime": 1781362576.3207047,
+    "ast_hash": "56a4c6e29d1b8456003d1f8e5bc7467d",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/settings_screen.dart": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/nora_ai_screen.dart": {
-    "mtime": 1781360334.662791,
-    "ast_hash": "d8b9441f2120c565306f7d85927fdb3b",
+    "mtime": 1781362580.1368115,
+    "ast_hash": "dae8510da02b0114b959f46f19f1b394",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/onboarding/app_tour_screen.dart": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/jwe_bottom_nav_bar.dart": {
-    "mtime": 1781101205.3157547,
-    "ast_hash": "8cc741a051bb2164300db7f0231e4110",
+    "mtime": 1781362639.9734733,
+    "ast_hash": "0f65083619d7fe39683b4647e083e079",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/task_generation_row.dart": {
@@ -1070,8 +1070,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/nora_message_bubble.dart": {
-    "mtime": 1781360317.5560434,
-    "ast_hash": "cd93c6986593dcdfb6c9f6a587d09ab7",
+    "mtime": 1781362572.8486078,
+    "ast_hash": "f479062728e722e9b24ff58565e6d7ab",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/rhombus_checkbox.dart": {
@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/screens/submission_detail_screen.dart": {
-    "mtime": 1781101182.1965857,
-    "ast_hash": "8c7deac5aea9abb3b514a3d3b09b7192",
+    "mtime": 1781361263.6085546,
+    "ast_hash": "07ba222cf790490b8163d91c6bfa618d",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/screens/checkpoint_detail_screen.dart": {
@@ -1375,8 +1375,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/task_details_view.dart": {
-    "mtime": 1781101041.5607963,
-    "ast_hash": "fb8812350dd5e78adb7158fbb4f4cc7b",
+    "mtime": 1781362923.5001583,
+    "ast_hash": "d524a2207c50bbb647acb58f910e4cae",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/ai_prompts_view.dart": {
@@ -1745,8 +1745,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/ai.md": {
-    "mtime": 1781360923.0294874,
-    "ast_hash": "6e0d800e0048395ce353fefcb2cb698b",
+    "mtime": 1781360962.7181237,
+    "ast_hash": "65c6d6f6c97e697fde6fc37906653b68",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/future.md": {

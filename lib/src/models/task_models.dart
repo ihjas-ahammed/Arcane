@@ -180,6 +180,50 @@ class ProgressDataPoint {
       };
 }
 
+class SubTaskTemplateSet {
+  String id;
+  String name;
+  List<SubSubTask> subSubTasks;
+
+  SubTaskTemplateSet({
+    required this.id,
+    required this.name,
+    required this.subSubTasks,
+  });
+
+  factory SubTaskTemplateSet.fromJson(Map<String, dynamic> json) {
+    return SubTaskTemplateSet(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      subSubTasks: (json['subSubTasks'] as List<dynamic>?)
+              ?.map((sssJson) =>
+                  SubSubTask.fromJson(sssJson as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
+    };
+  }
+
+  SubTaskTemplateSet copyWith({
+    String? id,
+    String? name,
+    List<SubSubTask>? subSubTasks,
+  }) {
+    return SubTaskTemplateSet(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      subSubTasks: subSubTasks ?? this.subSubTasks,
+    );
+  }
+}
+
 class SubTask {
   String id;
   String name;
@@ -208,6 +252,8 @@ class SubTask {
   DateTime updatedAt;
   bool isActive;
   bool isDeleted;
+  List<SubTaskTemplateSet> templateSets;
+  String? activeTemplateSetId;
 
   SubTask({
     required this.id,
@@ -232,9 +278,12 @@ class SubTask {
     DateTime? updatedAt,
     this.isActive = true,
     this.isDeleted = false,
+    List<SubTaskTemplateSet>? templateSets,
+    this.activeTemplateSetId,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         progressDataPoints = progressDataPoints ?? [],
+        templateSets = templateSets ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -261,6 +310,8 @@ class SubTask {
     DateTime? updatedAt,
     bool? isActive,
     bool? isDeleted,
+    List<SubTaskTemplateSet>? templateSets,
+    String? activeTemplateSetId,
   }) {
     return SubTask(
       id: id ?? this.id,
@@ -285,6 +336,8 @@ class SubTask {
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
       isDeleted: isDeleted ?? this.isDeleted,
+      templateSets: templateSets ?? this.templateSets,
+      activeTemplateSetId: activeTemplateSetId ?? this.activeTemplateSetId,
     );
   }
 
@@ -329,6 +382,12 @@ class SubTask {
               ?.map((p) => ProgressDataPoint.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
+      templateSets: (json['templateSets'] as List<dynamic>?)
+              ?.map((tsJson) =>
+                  SubTaskTemplateSet.fromJson(tsJson as Map<String, dynamic>))
+              .toList() ??
+          [],
+      activeTemplateSetId: json['activeTemplateSetId'] as String?,
     );
   }
 
@@ -356,7 +415,32 @@ class SubTask {
       'subSubTasks': subSubTasks.map((sss) => sss.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'progressDataPoints': progressDataPoints.map((p) => p.toJson()).toList(),
+      'templateSets': templateSets.map((ts) => ts.toJson()).toList(),
+      'activeTemplateSetId': activeTemplateSetId,
     };
+  }
+
+  List<SubTaskTemplateSet> get safeTemplateSets {
+    if (templateSets.isEmpty) {
+      return [
+        SubTaskTemplateSet(
+          id: 'default',
+          name: 'Default',
+          subSubTasks: subSubTasks,
+        )
+      ];
+    }
+    return templateSets;
+  }
+
+  String get safeActiveTemplateSetId {
+    if (activeTemplateSetId == null) {
+      return safeTemplateSets.first.id;
+    }
+    if (!safeTemplateSets.any((ts) => ts.id == activeTemplateSetId)) {
+      return safeTemplateSets.first.id;
+    }
+    return activeTemplateSetId!;
   }
 
   bool get hasCheckableSubsteps => subSubTasks.any((sst) => sst.type != 'info');

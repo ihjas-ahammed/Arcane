@@ -99,7 +99,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
               Container(width: 4, height: 12, color: JweTheme.accentAmber),
@@ -163,7 +163,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           ),
 
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final cellWidth = (constraints.maxWidth - 8) / 2;
@@ -171,6 +171,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
               final childAspectRatio = cellWidth / desiredHeight;
 
               return GridView.builder(
+                padding: EdgeInsets.zero,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -320,7 +321,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
