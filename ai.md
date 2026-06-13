@@ -1,7 +1,6 @@
 Make the following changes:
 
 
-* 
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
